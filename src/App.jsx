@@ -167,4 +167,4 @@ return <>
 </div>
 <div className="bottom-nav" style={{position:"fixed",bottom:0,left:0,right:0,background:"#fff",borderTop:`1.5px solid ${G.border}`,display:"flex",zIndex:400,boxShadow:"0 -2px 12px rgba(0,0,0,.08)"}}>{BOTTOM_NAV.map(n=>{const active=view===n.id;return <button key={n.id+n.icon} onClick={()=>go(n.id)} style={{flex:1,border:"none",background:"transparent",padding:"10px 0 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:2,cursor:"pointer",color:active?G.primary:G.muted,position:"relative"}}>{n.b>0&&<span style={{position:"absolute",top:6,right:"18%",background:G.red,color:"#fff",borderRadius:10,padding:"0 4px",fontSize:8,fontWeight:700}}>{n.b}</span>}<span style={{fontSize:20}}>{n.icon}</span><span style={{fontSize:9,fontWeight:700}}>{NAV.find(x=>x.id===n.id)?.l?.slice(2)||""}</span>{active&&<div style={{position:"absolute",bottom:0,left:"20%",right:"20%",height:3,background:G.primary,borderRadius:"3px 3px 0 0"}}/>}</button>;})}</div>
 </>;
-}
+}l
