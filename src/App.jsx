@@ -3797,11 +3797,13 @@ export default function App(){
   const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
   const [expenses,setExpenses]=useState(EXPENSES0);
   const [sideOpen,setSideOpen]=useState(false);
-  const [loading,setLoading]=useState(true);
   const [saveStatus,setSaveStatus]=useState("idle");
   const saveTimer=useRef(null);
   const initialized=useRef(false);
+  const isSaving=useRef(false);
+  const lastSaved=useRef("");
 
+  // ── CARREGAR do Supabase ──
   useEffect(()=>{
     supabase.load().then(data=>{
       if(data){
@@ -3827,34 +3829,57 @@ export default function App(){
           if(data.prosProcs?.length)setProsProcs(data.prosProcs);
           if(data.implCat?.length)setImplCat(data.implCat);
           if(data.implMov?.length)setImplMov(data.implMov);
-        }catch(err){console.error("Erro ao carregar:",err);}
+          lastSaved.current=JSON.stringify(data);
+        }catch(err){}
       }
-      setLoading(false);
+      setTimeout(()=>{initialized.current=true;},1000);
     });
   },[]);
 
+  // ── SALVAR no Supabase (debounce 2s) ──
   useEffect(()=>{
-    if(loading){initialized.current=false;return;}
-    if(!initialized.current){initialized.current=true;return;}
-    setSaveStatus("saving");
+    if(!initialized.current)return;
     if(saveTimer.current)clearTimeout(saveTimer.current);
+    setSaveStatus("saving");
     saveTimer.current=setTimeout(async()=>{
+      if(isSaving.current)return;
+      isSaving.current=true;
       try{
-        await supabase.save({pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov});
+        const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov};
+        await supabase.save(payload);
+        lastSaved.current=JSON.stringify(payload);
         setSaveStatus("saved");
         setTimeout(()=>setSaveStatus("idle"),2500);
       }catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
+      finally{isSaving.current=false;}
     },2000);
   },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov]);
 
-  if(loading)return(
-    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1B5E4A,#051a10)",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
-      <div style={{fontSize:56}}>{"🦷"}</div>
-      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:"#fff"}}>Carregando dados...</div>
-      <div style={{width:40,height:40,border:"4px solid rgba(255,255,255,.2)",borderTop:"4px solid #fff",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
-      <div style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>Conectando ao Supabase</div>
-    </div>
-  );
+  // ── REALTIME — polling a cada 20s ──
+  useEffect(()=>{
+    const poll=setInterval(async()=>{
+      if(!initialized.current||isSaving.current||document.hidden)return;
+      const data=await supabase.load();
+      if(!data)return;
+      const str=JSON.stringify(data);
+      if(str===lastSaved.current)return; // nada mudou
+      lastSaved.current=str;
+      try{
+        if(data.pats?.length)setPats(data.pats);
+        if(data.appts?.length)setAppts(data.appts);
+        if(data.recs?.length)setRecs(data.recs);
+        if(data.treats?.length)setTreats(data.treats);
+        if(data.pros?.length)setPros(data.pros);
+        if(data.rems?.length)setRems(data.rems);
+        if(data.budgets?.length)setBudgets(data.budgets);
+        if(data.dents?.length)setDents(data.dents);
+        if(data.procs?.length)setProcs(data.procs);
+        if(data.stock?.length)setStock(data.stock);
+        if(data.expenses)setExpenses(data.expenses);
+      }catch(err){}
+    },20000);
+    return()=>clearInterval(poll);
+  },[]);
 
   if(!user)return <Login users={users} onLogin={setUser}/>;
 
