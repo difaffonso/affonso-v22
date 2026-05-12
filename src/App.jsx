@@ -2,30 +2,8 @@ const SUPA_URL = "https://ncfsepyzrqaljswjiuiv.supabase.co";
 const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jZnNlcHl6cnFhbGpzd2ppdWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTg1NzYsImV4cCI6MjA5NDA5NDU3Nn0.j_7sctB2bP0zljxPbh3Q4I_MzEksgL8PO5QNdzbaJDM";
 const supabase={
   async load(){try{const r=await fetch(`${SUPA_URL}/rest/v1/clinic_data?id=eq.main&select=data`,{headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return rows[0].data;return null;}catch(e){return null;}},
-  async save(data){try{await fetch(`${SUPA_URL}/rest/v1/clinic_data?id=eq.main`,{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});}catch(e){}},
-  subscribeChanges(onUpdate){
-    try{
-      const wsUrl=SUPA_URL.replace("https://","wss://").replace("http://","ws://");
-      const ws=new WebSocket(`${wsUrl}/realtime/v1/websocket?apikey=${SUPA_KEY}&vsn=1.0.0`);
-      ws.onopen=()=>{
-        ws.send(JSON.stringify({topic:"realtime:public:clinic_data",event:"phx_join",payload:{},ref:"1"}));
-      };
-      ws.onmessage=(e)=>{
-        try{
-          const msg=JSON.parse(e.data);
-          if(msg.event==="postgres_changes"||msg.event==="INSERT"||msg.event==="UPDATE"){
-            supabase.load().then(data=>{if(data)onUpdate(data);});
-          }
-        }catch(err){}
-      };
-      ws.onerror=()=>{
-        // Fallback: polling a cada 15 segundos
-        setTimeout(()=>supabase.load().then(data=>{if(data)onUpdate(data);}),15000);
-      };
-      return ws;
-    }catch(e){return null;}
-  }
-}; import { useState, useEffect, useRef, useCallback } from "react";
+  async save(data){try{await fetch(`${SUPA_URL}/rest/v1/clinic_data?id=eq.main`,{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});}catch(e){}}
+}; import { useState, useEffect, useRef } from "react";
 
 const G = {
   bg:"#EEF3F0",card:"#FFF",primary:"#1B5E4A",accent:"#E3EFE9",accentDark:"#A8D5C0",
@@ -3819,10 +3797,11 @@ export default function App(){
   const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
   const [expenses,setExpenses]=useState(EXPENSES0);
   const [sideOpen,setSideOpen]=useState(false);
+  const [loading,setLoading]=useState(true);
+  const [saveStatus,setSaveStatus]=useState("idle");
+  const saveTimer=useRef(null);
+  const initialized=useRef(false);
 
-
-
-  // ── CARREGAR do Supabase ──
   useEffect(()=>{
     supabase.load().then(data=>{
       if(data){
@@ -3848,49 +3827,34 @@ export default function App(){
           if(data.prosProcs?.length)setProsProcs(data.prosProcs);
           if(data.implCat?.length)setImplCat(data.implCat);
           if(data.implMov?.length)setImplMov(data.implMov);
-        }catch(err){}
+        }catch(err){console.error("Erro ao carregar:",err);}
       }
-      set_Loading(false);
-      setTimeout(()=>initializedRef.current=true,500);
+      setLoading(false);
     });
   },[]);
 
-  // ── SALVAR no Supabase (debounce 2s) ──
   useEffect(()=>{
-    if(!initializedRef.current)return;
-    if(isSavingRef.current)return;
+    if(loading){initialized.current=false;return;}
+    if(!initialized.current){initialized.current=true;return;}
     setSaveStatus("saving");
-    if(saveTimerRef.current)clearTimeout(saveTimerRef.current);
-    saveTimerRef.current=setTimeout(async()=>{
-      isSavingRef.current=true;
+    if(saveTimer.current)clearTimeout(saveTimer.current);
+    saveTimer.current=setTimeout(async()=>{
       try{
         await supabase.save({pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov});
         setSaveStatus("saved");
         setTimeout(()=>setSaveStatus("idle"),2500);
       }catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
-      finally{isSavingRef.current=false;}
     },2000);
   },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov]);
 
-  // ── REALTIME — polling a cada 30s ──
-  useEffect(()=>{
-    if(_loading)return;
-    const poll=setInterval(async()=>{
-      if(document.hidden||isSavingRef.current)return;
-      const data=await supabase.load();
-      if(data){
-        try{
-          if(data.pats?.length)setPats(p=>JSON.stringify(p)===JSON.stringify(data.pats)?p:data.pats);
-          if(data.appts?.length)setAppts(p=>JSON.stringify(p)===JSON.stringify(data.appts)?p:data.appts);
-          if(data.recs?.length)setRecs(p=>JSON.stringify(p)===JSON.stringify(data.recs)?p:data.recs);
-          if(data.treats?.length)setTreats(p=>JSON.stringify(p)===JSON.stringify(data.treats)?p:data.treats);
-          if(data.pros?.length)setPros(p=>JSON.stringify(p)===JSON.stringify(data.pros)?p:data.pros);
-          if(data.rems?.length)setRems(p=>JSON.stringify(p)===JSON.stringify(data.rems)?p:data.rems);
-        }catch(err){}
-      }
-    },30000);
-    return()=>clearInterval(poll);
-  },[_loading]);
+  if(loading)return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1B5E4A,#051a10)",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+      <div style={{fontSize:56}}>{"🦷"}</div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:"#fff"}}>Carregando dados...</div>
+      <div style={{width:40,height:40,border:"4px solid rgba(255,255,255,.2)",borderTop:"4px solid #fff",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
+      <div style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>Conectando ao Supabase</div>
+    </div>
+  );
 
   if(!user)return <Login users={users} onLogin={setUser}/>;
 
@@ -3927,9 +3891,9 @@ export default function App(){
   return <>
     <style>{CSS+RESPONSIVE_CSS}</style>
 
-    {saveStatus==="saving"&&<div style={{position:"fixed",bottom:80,right:16,background:"#FFF3E0",color:"#E65100",border:"1.5px solid #E65100",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)",display:"flex",alignItems:"center",gap:6}}>⏳ Salvando...</div>}
-    {saveStatus==="saved"&&<div style={{position:"fixed",bottom:80,right:16,background:"#E8F5E9",color:"#2E7D32",border:"1.5px solid #2E7D32",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)",display:"flex",alignItems:"center",gap:6}}>✅ Salvo!</div>}
-    {saveStatus==="error"&&<div style={{position:"fixed",bottom:80,right:16,background:"#FFEBEE",color:"#C62828",border:"1.5px solid #C62828",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)",display:"flex",alignItems:"center",gap:6}}>❌ Erro ao salvar</div>}
+    {saveStatus==="saving"&&<div style={{position:"fixed",bottom:80,right:16,background:"#FFF3E0",color:"#E65100",border:"1.5px solid #E65100",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>⏳ Salvando...</div>}
+    {saveStatus==="saved"&&<div style={{position:"fixed",bottom:80,right:16,background:"#E8F5E9",color:"#2E7D32",border:"1.5px solid #2E7D32",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>✅ Salvo!</div>}
+    {saveStatus==="error"&&<div style={{position:"fixed",bottom:80,right:16,background:"#FFEBEE",color:"#C62828",border:"1.5px solid #C62828",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>❌ Erro ao salvar</div>}
     {/* Overlay for mobile sidebar */}
     {sideOpen&&<div className="sidebar-overlay" onClick={()=>setSideOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:499}}/>}
 
