@@ -3854,18 +3854,20 @@ export default function App(){
         setSaveStatus("saved");
         setTimeout(()=>setSaveStatus("idle"),2500);
       }catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
-      finally{isSaving.current=false;}
+      finally{isSaving.current=false;saveTimer.current=null;}
     },2000);
   },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov]);
 
-  // ── REALTIME — polling a cada 20s ──
+  // ── REALTIME — polling a cada 30s (só atualiza se não estiver salvando) ──
   useEffect(()=>{
     const poll=setInterval(async()=>{
-      if(!initialized.current||isSaving.current||document.hidden)return;
+      // Não atualiza se: ainda não inicializou, está salvando, aba oculta, ou save pendente
+      if(!initialized.current||isSaving.current||document.hidden||saveTimer.current)return;
       const data=await supabase.load();
       if(!data)return;
       const str=JSON.stringify(data);
-      if(str===lastSaved.current)return; // nada mudou
+      if(str===lastSaved.current)return; // nada mudou no Supabase
+      // Só atualiza se o dado do Supabase for diferente do atual
       lastSaved.current=str;
       try{
         if(data.pats?.length)setPats(data.pats);
@@ -3880,7 +3882,7 @@ export default function App(){
         if(data.stock?.length)setStock(data.stock);
         if(data.expenses)setExpenses(data.expenses);
       }catch(err){}
-    },20000);
+    },30000);
     return()=>clearInterval(poll);
   },[]);
 
