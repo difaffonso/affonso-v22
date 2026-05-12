@@ -577,6 +577,7 @@ function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,b
                   <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                     <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
                     <button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>
+                    <button onClick={()=>{if(window.confirm("Excluir plano '"+t.name+"'? Esta ação não pode ser desfeita."))setTreats(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️</button>
                   </div>
                 </div>
                 <div style={{background:G.border,borderRadius:4,height:5,marginBottom:10}}><div style={{background:G.primary,height:5,borderRadius:4,width:`${total?Math.min(100,paid/total*100):0}%`,transition:"width .3s"}}/></div>
@@ -597,14 +598,16 @@ function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,b
                       </div>}
                     </div>
                     <span style={{fontSize:13,fontWeight:700,color:isDone?G.muted:G.primary}}>{cur(it.value)}</span>
+                    {!isDone&&<button onClick={()=>{if(window.confirm("Remover este procedimento do plano?"))setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,items:tr.items.filter((_,idx)=>idx!==i)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}} title="Remover procedimento">✕</button>}
                   </div>;
                 })}
                 <Div lb="Pagamentos Registrados"/>
                 {(t.payments||[]).length===0&&<p style={{fontSize:12,color:G.muted}}>Nenhum pagamento registrado</p>}
-                {(t.payments||[]).map(p=><div key={p.id} style={{display:"flex",gap:8,fontSize:12,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap"}}>
+                {(t.payments||[]).map(p=><div key={p.id} style={{display:"flex",gap:8,fontSize:12,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}>
                   <span style={{color:G.muted,minWidth:72}}>{fmt(p.date)}</span>
                   <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}</span>
                   <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
+                  <button onClick={()=>{if(window.confirm("Excluir este pagamento de "+cur(p.value)+"?"))setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:15,padding:"0 2px"}} title="Excluir pagamento">🗑️</button>
                 </div>)}
                 <Btn ch="+ Registrar Pagamento" sm v="f" style={{marginTop:10}} onClick={()=>{setPayModal(t.id);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",note:""}); }}/>
               </div>;
