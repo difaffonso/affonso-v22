@@ -232,11 +232,10 @@ const SC2=({save,cancel,lbl="Salvar"})=><div style={{display:"flex",gap:9,justif
 const Modal=({open,close,title,ch,wide,xl})=>{
 if(!open)return null;
 return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.45)”,zIndex:1000,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:12}}>
-
-<div style={{background:G.card,borderRadius:18,width:"100%",maxWidth:xl?980:wide?720:520,maxHeight:"94vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`,position:"sticky",top:0,background:G.card,zIndex:1}}>
-<span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{title}</span>
-<button onClick={close} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+<div style={{background:G.card,borderRadius:18,width:“100%”,maxWidth:xl?980:wide?720:520,maxHeight:“94vh”,overflowY:“auto”,boxShadow:“0 16px 48px rgba(0,0,0,.22)”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,padding:“14px 20px”,borderBottom:`1px solid ${G.border}`,position:“sticky”,top:0,background:G.card,zIndex:1}}>
+<span style={{fontFamily:”‘Cormorant Garamond’”,fontSize:20}}>{title}</span>
+<button onClick={close} style={{border:“none”,background:“none”,fontSize:24,cursor:“pointer”,color:G.muted}}>×</button>
 </div>
 <div style={{padding:20}}>{ch}</div>
 </div>
@@ -251,11 +250,10 @@ useEffect(()=>{if(y&&m&&d)set(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`);
 const yrs=[];for(let yr=1930;yr<=new Date().getFullYear();yr++)yrs.push(yr);
 return <div style={{display:“flex”,flexDirection:“column”,gap:4}}>
 {lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”}}>{lb}</label>}
-
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr",gap:5}}>
-<input placeholder="DD" maxLength={2} value={d} onChange={e=>sd(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 6px",fontSize:13,outline:"none",textAlign:"center"}}/>
-<input placeholder="MM" maxLength={2} value={m} onChange={e=>sm(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 6px",fontSize:13,outline:"none",textAlign:"center"}}/>
-<select value={y} onChange={e=>sy(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 5px",fontSize:12,outline:"none",background:"#fff"}}>
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr 2fr”,gap:5}}>
+<input placeholder=“DD” maxLength={2} value={d} onChange={e=>sd(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 6px”,fontSize:13,outline:“none”,textAlign:“center”}}/>
+<input placeholder=“MM” maxLength={2} value={m} onChange={e=>sm(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 6px”,fontSize:13,outline:“none”,textAlign:“center”}}/>
+<select value={y} onChange={e=>sy(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 5px”,fontSize:12,outline:“none”,background:”#fff”}}>
 <option value="">Ano</option>
 {yrs.reverse().map(yr=><option key={yr} value={yr}>{yr}</option>)}
 </select>
@@ -300,29 +298,28 @@ return norm(p.name).indexOf(nq)>=0||
 (p.phone||””).indexOf(q)>=0;
 }).slice(0,12):[];
 return (
-
-<div style={{position:"relative",display:"flex",flexDirection:"column",gap:4}}>
-{lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{lb}</label>}
+<div style={{position:“relative”,display:“flex”,flexDirection:“column”,gap:4}}>
+{lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”}}>{lb}</label>}
 {sel&&!open
-?<div style={{display:"flex",alignItems:"center",gap:8,background:G.accent,borderRadius:8,padding:"8px 11px",border:"1.5px solid "+G.primary}}>
-<span style={{flex:1,fontSize:13,fontWeight:700}}>{sel.name}<span style={{fontWeight:400,color:G.muted}}>{" · "+sel.folder}</span></span>
-<button onClick={function(){set("");setQ("");}} style={{border:"none",background:"none",color:G.muted,cursor:"pointer",fontSize:18,lineHeight:1,padding:0}}>{"×"}</button>
+?<div style={{display:“flex”,alignItems:“center”,gap:8,background:G.accent,borderRadius:8,padding:“8px 11px”,border:“1.5px solid “+G.primary}}>
+<span style={{flex:1,fontSize:13,fontWeight:700}}>{sel.name}<span style={{fontWeight:400,color:G.muted}}>{” · “+sel.folder}</span></span>
+<button onClick={function(){set(””);setQ(””);}} style={{border:“none”,background:“none”,color:G.muted,cursor:“pointer”,fontSize:18,lineHeight:1,padding:0}}>{“×”}</button>
 </div>
 :<div>
 <input value={q} onChange={function(e){setQ(e.target.value);setOpen(true);}} onFocus={function(){setOpen(true);}}
-placeholder={optional?"Opcional — digite para buscar":"Digite nome, ficha ou telefone…"}
-style={{width:"100%",border:"1.5px solid "+(open?G.primary:G.border),borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+placeholder={optional?“Opcional — digite para buscar”:“Digite nome, ficha ou telefone…”}
+style={{width:“100%”,border:“1.5px solid “+(open?G.primary:G.border),borderRadius:8,padding:“8px 11px”,fontSize:14,outline:“none”,boxSizing:“border-box”}}/>
 {open&&res.length>0&&(
-<div style={{position:"absolute",top:"100%",left:0,right:0,background:"#fff",borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,.15)",zIndex:999,maxHeight:260,overflowY:"auto",border:"1px solid "+G.border,marginTop:3}}>
+<div style={{position:“absolute”,top:“100%”,left:0,right:0,background:”#fff”,borderRadius:10,boxShadow:“0 8px 24px rgba(0,0,0,.15)”,zIndex:999,maxHeight:260,overflowY:“auto”,border:“1px solid “+G.border,marginTop:3}}>
 {res.map(function(p){return(
-<div key={p.id} onMouseDown={function(){set(String(p.id));setQ("");setOpen(false);}}
-style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid "+G.border,display:"flex",gap:9,alignItems:"center"}}
+<div key={p.id} onMouseDown={function(){set(String(p.id));setQ(””);setOpen(false);}}
+style={{padding:“10px 14px”,cursor:“pointer”,borderBottom:“1px solid “+G.border,display:“flex”,gap:9,alignItems:“center”}}
 onMouseEnter={function(e){e.currentTarget.style.background=G.accent;}}
-onMouseLeave={function(e){e.currentTarget.style.background="#fff";}}>
-<div style={{width:32,height:32,borderRadius:"50%",background:G.primary,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,flexShrink:0}}>{(p.name||"?")[0]}</div>
+onMouseLeave={function(e){e.currentTarget.style.background=”#fff”;}}>
+<div style={{width:32,height:32,borderRadius:“50%”,background:G.primary,color:”#fff”,display:“flex”,alignItems:“center”,justifyContent:“center”,fontSize:13,fontWeight:700,flexShrink:0}}>{(p.name||”?”)[0]}</div>
 <div>
 <div style={{fontWeight:700,fontSize:13}}>{p.name}</div>
-<div style={{fontSize:11,color:G.muted}}>{p.folder+(p.phone?" · "+p.phone:"")}</div>
+<div style={{fontSize:11,color:G.muted}}>{p.folder+(p.phone?” · “+p.phone:””)}</div>
 </div>
 </div>
 );})}
@@ -330,7 +327,7 @@ onMouseLeave={function(e){e.currentTarget.style.background="#fff";}}>
 )}
 </div>
 }
-{open&&<div style={{position:"fixed",inset:0,zIndex:998}} onClick={function(){setOpen(false);}}/>}
+{open&&<div style={{position:“fixed”,inset:0,zIndex:998}} onClick={function(){setOpen(false);}}/>}
 </div>
 );
 }
@@ -484,20 +481,19 @@ const BSTATUS={pending:“Em espera”,approved:“Aprovado”,rejected:“Recus
 const BCOLOR={pending:G.yellow,approved:G.success,rejected:G.red};
 
 return <>
-
-<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:10}}>
-<div style={{background:G.card,borderRadius:18,width:"100%",maxWidth:820,maxHeight:"95vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.28)"}}>
+<div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.5)”,zIndex:2000,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:10}}>
+<div style={{background:G.card,borderRadius:18,width:“100%”,maxWidth:820,maxHeight:“95vh”,overflowY:“auto”,boxShadow:“0 20px 60px rgba(0,0,0,.28)”}}>
 {/* Header */}
-<div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"18px 22px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div style={{background:G.primary,borderRadius:“18px 18px 0 0”,padding:“18px 22px”,display:“flex”,justifyContent:“space-between”,alignItems:“center”}}>
 <div>
-<div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:"#fff"}}>Prontuário: {pat.name}</div>
-<div style={{fontSize:12,color:"rgba(255,255,255,.7)",marginTop:2}}>{age(pat.dob)} · {pat.phone} · Pasta {pat.folder}</div>
+<div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:22,color:”#fff”}}>Prontuário: {pat.name}</div>
+<div style={{fontSize:12,color:“rgba(255,255,255,.7)”,marginTop:2}}>{age(pat.dob)} · {pat.phone} · Pasta {pat.folder}</div>
 </div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",fontSize:18,cursor:"pointer",padding:"6px 12px",fontWeight:700}}>✕ Fechar</button>
+<button onClick={onClose} style={{border:“none”,background:“rgba(255,255,255,.2)”,borderRadius:8,color:”#fff”,fontSize:18,cursor:“pointer”,padding:“6px 12px”,fontWeight:700}}>✕ Fechar</button>
 </div>
 {/* Tabs */}
-<div style={{display:"flex",gap:6,padding:"14px 22px 0",borderBottom:`2px solid ${G.border}`,background:"#fff",flexWrap:"wrap"}}>
-{TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:tab===k?G.primary:"#f0f4f2",color:tab===k?"#fff":G.muted,borderRadius:"8px 8px 0 0",padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",transition:"all .15s",marginBottom:-2,borderBottom:tab===k?`2px solid ${G.primary}`:"none"}}>{l}</button>)}
+<div style={{display:“flex”,gap:6,padding:“14px 22px 0”,borderBottom:`2px solid ${G.border}`,background:”#fff”,flexWrap:“wrap”}}>
+{TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:“none”,background:tab===k?G.primary:”#f0f4f2”,color:tab===k?”#fff”:G.muted,borderRadius:“8px 8px 0 0”,padding:“9px 16px”,fontSize:12,fontWeight:700,cursor:“pointer”,transition:“all .15s”,marginBottom:-2,borderBottom:tab===k?`2px solid ${G.primary}`:“none”}}>{l}</button>)}
 </div>
 
 ```
@@ -1048,7 +1044,7 @@ const [denF,setDenF]=useState(“all”);
 const [modal,setModal]=useState(false);
 const [viewA,setViewA]=useState(null);const [showCancel,setShowCancel]=useState(null);const [histTab,setHistTab]=useState(“info”);
 const [edit,setEdit]=useState(null);
-const blank={patientId:””,dentistId:user.dentistId||dents[0]?.id||1,date:selDate,time:””,procedure:””,treatment:””,status:“pending”,notes:””,value:””,payment:“Dinheiro”,duration:30,extraSlots:[]};
+const blank={patientId:””,dentistId:user.dentistId||dents[0]?.id||1,date:selDate,time:””,procedure:””,treatment:””,status:“pending”,notes:””,value:””,payment:“Dinheiro”};
 const [f,setF]=useState(blank);
 const upd=k=>v=>setF(p=>({…p,[k]:v}));
 const isDent=user.level===1;
@@ -1071,8 +1067,7 @@ const fd=(y,m)=>new Date(y,m,1).getDay();
 
 const save=()=>{
 if(!f.patientId||!f.time){alert(“Preencha paciente e horário”);return;}
-const dur=Number(f.duration)||30;const extraSlots=[];if(dur>30){let [h,m]=f.time.split(”:”).map(Number);for(let i=30;i<dur;i+=30){m+=30;if(m>=60){m-=60;h++;}extraSlots.push(String(h).padStart(2,“0”)+”:”+String(m).padStart(2,“0”));}}
-const obj={…f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
+const obj={…f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),value:Number(f.value)||0,id:edit?edit.id:nid(appts)};
 setAppts(prev=>edit?prev.map(a=>a.id===edit.id?obj:a):[…prev,obj]);
 const p=pats.find(x=>x.id===Number(f.patientId));
 if(addLog)addLog(“agenda”,(edit?“Editou”:“Criou”)+” consulta de “+(p&&p.name||””)+” — “+fmt(f.date)+” “+f.time,p&&p.name);
@@ -1086,8 +1081,7 @@ if(addLog&&a)addLog(“agenda”,(ST[st]||st)+” consulta de “+(p&&p.name||�
 };
 
 return (
-
-<div style={{display:"flex",flexDirection:"column",gap:10}} className="fi">
+<div style={{display:“flex”,flexDirection:“column”,gap:10}} className=“fi”>
 
 ```
   {showCal&&(
@@ -1170,8 +1164,7 @@ return (
           <span style={{fontSize:11,color:isOff?"#C62828":isAlm?"#E65100":"#6A1B9A",fontWeight:600}}>{isOff?"🚫 Folga":isAlm?"🍽️ Almoço":"⛔ Fechado"}</span>
         </div>
       );
-      const isExtra=appts.some(a2=>a2.date===selDate&&a2.dentistId===d.id&&(a2.extraSlots||[]).includes(slot));if(isExtra&&!a)return(<div key={slot} style={{display:'flex',gap:8,padding:'5px 8px',borderRadius:8,background:'#F3E5F5'}}><span style={{fontSize:11,color:'#6A1B9A',minWidth:38,fontWeight:600}}>{slot}</span><span style={{fontSize:11,color:'#6A1B9A'}}>⏱️</span></div>);
-          if(!a)return(
+      if(!a)return(
         <div key={slot} onClick={function(){if(isDent)return;setEdit(null);setF({...blank,date:selDate,time:slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer"}}>
           <span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
           {isDent
@@ -1356,7 +1349,6 @@ return (
     <div style={{display:"flex",flexDirection:"column",gap:11}}>
       <R2 a={<Sel lb="Dentista" val={String(f.dentistId)} set={upd("dentistId")} opts={dents.map(d=>({v:d.id,l:d.name}))}/>} b={<PatSearch lb="Paciente" val={f.patientId} set={upd("patientId")} pats={pats}/>}/>
       <R2 a={<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>} b={<Sel lb="Horário" val={f.time} set={upd("time")} opts={[{v:"",l:"Selecione..."},...SLOTS]}/>}/>
-      <Sel lb="Duração" val={String(f.duration||30)} set={v=>upd("duration")(Number(v))} opts={[{v:30,l:"30 min"},{v:60,l:"1 hora"},{v:90,l:"1h 30min"},{v:120,l:"2 horas"},{v:180,l:"3 horas"}]}/>
       <R2 a={<Sel lb="Procedimento" val={f.procedure} set={v=>{upd("procedure")(v);const pr=procs.find(p=>p.name===v);if(pr&&!f.value)upd("value")(String(pr.price));}} opts={[{v:"",l:"Selecione..."},...procs.map(p=>({v:p.name,l:p.name}))]}/>} b={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>}/>
       <Inp lb="Descrição do Tratamento" val={f.treatment} set={upd("treatment")} ph="Ex: Restauração dente 36"/>
       <R2 a={<Sel lb="Pagamento" val={f.payment} set={upd("payment")} opts={PAY}/>} b={<Sel lb="Status" val={f.status} set={upd("status")} opts={Object.entries(SL).map(([v,l])=>({v,l}))}/>}/>
@@ -1382,25 +1374,24 @@ const ft=pats.filter(p=>p.name.toLowerCase().includes(srch.toLowerCase())||p.pho
 const savePat=()=>{if(!pf.name)return;const isNew=!ep;const obj={…pf,id:ep?ep.id:nid(pats)};setPats(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[…prev,obj]);if(addLog)addLog(“paciente”,(isNew?“Criou paciente: “:“Editou cadastro de “)+pf.name,pf.name);setPm(false);};
 
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Pacientes</h2>
-<Btn ch="+ Novo Paciente" onClick={()=>{setEp(null);setPf(b0);setPm(true);}}/>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,flexWrap:“wrap”,gap:10}}>
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26}}>Pacientes</h2>
+<Btn ch=”+ Novo Paciente” onClick={()=>{setEp(null);setPf(b0);setPm(true);}}/>
 </div>
 <Inp val={srch} set={setSrch} ph="🔍 Nome, CPF, telefone ou nº pasta"/>
-{ft.map(p=><div key={p.id} style={{background:G.card,borderRadius:13,boxShadow:"0 1px 5px rgba(0,0,0,.07)",padding:"12px 15px",display:"flex",alignItems:"center",gap:11}}>
-<div style={{width:42,height:42,borderRadius:"50%",background:G.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Cormorant Garamond'",fontSize:20,color:G.primary,flexShrink:0,cursor:"pointer"}} onClick={()=>setOpenFolder(p)}>{p.name[0]}</div>
+{ft.map(p=><div key={p.id} style={{background:G.card,borderRadius:13,boxShadow:“0 1px 5px rgba(0,0,0,.07)”,padding:“12px 15px”,display:“flex”,alignItems:“center”,gap:11}}>
+<div style={{width:42,height:42,borderRadius:“50%”,background:G.accent,display:“flex”,alignItems:“center”,justifyContent:“center”,fontFamily:”‘Cormorant Garamond’”,fontSize:20,color:G.primary,flexShrink:0,cursor:“pointer”}} onClick={()=>setOpenFolder(p)}>{p.name[0]}</div>
 <div style={{flex:1,minWidth:0}}>
-<div style={{fontWeight:700,fontSize:13,cursor:"pointer"}} onClick={()=>setOpenFolder(p)}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {age(p.dob)} · Ficha: {p.folder||"—"}</span></div>
-<div style={{color:G.muted,fontSize:12}}>{user.level>=2?p.phone:"••••••••••"}</div>
-{p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
-{p.obs&&<div style={{background:G.red+"20",border:`1px solid ${G.red}`,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.red,marginTop:2,display:"inline-block"}}>⚠ {p.obs.slice(0,45)}</div>}
-{(p.allergy&&p.allergy!=="Nenhuma"&&!p.obs)&&<div style={{background:G.yellow+"20",border:`1px solid ${G.yellow}`,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.yellow,marginTop:2,display:"inline-block"}}>⚠ {p.allergy}</div>}
+<div style={{fontWeight:700,fontSize:13,cursor:“pointer”}} onClick={()=>setOpenFolder(p)}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {age(p.dob)} · Ficha: {p.folder||”—”}</span></div>
+<div style={{color:G.muted,fontSize:12}}>{user.level>=2?p.phone:”••••••••••”}</div>
+{p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600}}>{“⭐ Paciente desde “+fmt(p.since)}</div>}
+{p.obs&&<div style={{background:G.red+“20”,border:`1px solid ${G.red}`,borderRadius:5,padding:“2px 7px”,fontSize:10,fontWeight:700,color:G.red,marginTop:2,display:“inline-block”}}>⚠ {p.obs.slice(0,45)}</div>}
+{(p.allergy&&p.allergy!==“Nenhuma”&&!p.obs)&&<div style={{background:G.yellow+“20”,border:`1px solid ${G.yellow}`,borderRadius:5,padding:“2px 7px”,fontSize:10,fontWeight:700,color:G.yellow,marginTop:2,display:“inline-block”}}>⚠ {p.allergy}</div>}
 </div>
-<div style={{display:"flex",gap:5,flexWrap:"wrap",justifyContent:"flex-end"}}>
-<Btn ch="📋 Prontuário" sm onClick={()=>setOpenFolder(p)}/>
-{user.level>=2&&<Btn ch="✏️" v="g" sm onClick={()=>{setEp(p);setPf({…p});setPm(true);}}/>}
-{p.phone&&user.level>=2&&<Btn ch="📱" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! 😊`)}/>}
+<div style={{display:“flex”,gap:5,flexWrap:“wrap”,justifyContent:“flex-end”}}>
+<Btn ch=“📋 Prontuário” sm onClick={()=>setOpenFolder(p)}/>
+{user.level>=2&&<Btn ch=“✏️” v=“g” sm onClick={()=>{setEp(p);setPf({…p});setPm(true);}}/>}
+{p.phone&&user.level>=2&&<Btn ch=“📱” v=“w” sm onClick={()=>wa(p.phone,`Olá ${p.name}! 😊`)}/>}
 </div>
 </div>)}
 
@@ -1452,128 +1443,127 @@ const save=()=>{if(!f.patientId||!f.labId)return alert(“Informe paciente e lab
 const saveProc=()=>{if(!procForm.name)return;const obj={…procForm,id:editProc?editProc.id:nid(prosProcs)};setProsProcs(prev=>editProc?prev.map(p=>p.id===editProc.id?obj:p):[…prev,obj]);setProcModal(false);};
 
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Próteses</h2>
-<div style={{display:"flex",gap:7}}><Btn ch="⚙️ Procedimentos" v="g" sm onClick={()=>setProcModal(true)}/><Btn ch="+ Nova Prótese" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/></div>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,flexWrap:“wrap”,gap:10}}>
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26}}>Próteses</h2>
+<div style={{display:“flex”,gap:7}}><Btn ch=“⚙️ Procedimentos” v=“g” sm onClick={()=>setProcModal(true)}/><Btn ch=”+ Nova Prótese” onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/></div>
 </div>
-<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-{[{k:"today",l:`Hoje (${todP.length})`,c:G.orange},{k:"waiting",l:"Aguardando",c:G.yellow},{k:"returned",l:"Retornou",c:G.blue},{k:"placed",l:"Instaladas",c:G.success},{k:"all",l:"Todas",c:G.muted}].map(({k,l,c})=><button key={k} onClick={()=>setFilt(k)} style={{border:`2px solid ${filt===k?c:G.border}`,background:filt===k?c:"#fff",color:filt===k?"#fff":G.muted,borderRadius:20,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
+<div style={{display:“flex”,gap:5,flexWrap:“wrap”}}>
+{[{k:“today”,l:`Hoje (${todP.length})`,c:G.orange},{k:“waiting”,l:“Aguardando”,c:G.yellow},{k:“returned”,l:“Retornou”,c:G.blue},{k:“placed”,l:“Instaladas”,c:G.success},{k:“all”,l:“Todas”,c:G.muted}].map(({k,l,c})=><button key={k} onClick={()=>setFilt(k)} style={{border:`2px solid ${filt===k?c:G.border}`,background:filt===k?c:”#fff”,color:filt===k?”#fff”:G.muted,borderRadius:20,padding:“5px 12px”,fontSize:11,fontWeight:700,cursor:“pointer”}}>{l}</button>)}
 </div>
-{filt==="today"&&todP.length===0&&<div style={{background:G.card,borderRadius:12,padding:28,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontSize:28,marginBottom:6}}>✅</div><div style={{fontWeight:700,color:G.success}}>Nenhum trabalho previsto para hoje!</div></div>}
-{filt==="today"&&todP.length>0&&<div style={{background:G.orange+"15",border:`2px solid ${G.orange}`,borderRadius:10,padding:"10px 14px"}}><div style={{fontWeight:700,color:G.orange}}>🔔 {todP.length} trabalho(s) para fechar hoje</div></div>}
-<div style={{display:"flex",flexDirection:"column",gap:9}}>
-{flt.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];const lab=labs.find(x=>x.id===p.labId);const late=p.status==="waiting"&&p.due&&p.due<t;const isT=p.due===t&&p.status==="waiting";
-return <div key={p.id} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:`4px solid ${late?G.red:isT?G.orange:PROS_SC[p.status]}`}}>
-<div style={{display:"flex",gap:11,flexWrap:"wrap"}}>
+{filt===“today”&&todP.length===0&&<div style={{background:G.card,borderRadius:12,padding:28,textAlign:“center”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}><div style={{fontSize:28,marginBottom:6}}>✅</div><div style={{fontWeight:700,color:G.success}}>Nenhum trabalho previsto para hoje!</div></div>}
+{filt===“today”&&todP.length>0&&<div style={{background:G.orange+“15”,border:`2px solid ${G.orange}`,borderRadius:10,padding:“10px 14px”}}><div style={{fontWeight:700,color:G.orange}}>🔔 {todP.length} trabalho(s) para fechar hoje</div></div>}
+<div style={{display:“flex”,flexDirection:“column”,gap:9}}>
+{flt.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];const lab=labs.find(x=>x.id===p.labId);const late=p.status===“waiting”&&p.due&&p.due<t;const isT=p.due===t&&p.status===“waiting”;
+return <div key={p.id} style={{background:G.card,borderRadius:12,padding:“13px 15px”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”,borderLeft:`4px solid ${late?G.red:isT?G.orange:PROS_SC[p.status]}`}}>
+<div style={{display:“flex”,gap:11,flexWrap:“wrap”}}>
 <div style={{flex:1,minWidth:170}}>
-<div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}><span style={{fontWeight:700,fontSize:13}}>{pat?.name}</span><span style={{fontSize:11,color:G.muted}}>P.{pat?.folder}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/>{late&&<Bdg l="⚠ ATRASADO" col={G.red} sm/>}{isT&&!late&&<Bdg l="📅 HOJE" col={G.orange} sm/>}</div>
+<div style={{display:“flex”,gap:6,alignItems:“center”,marginBottom:3,flexWrap:“wrap”}}><span style={{fontWeight:700,fontSize:13}}>{pat?.name}</span><span style={{fontSize:11,color:G.muted}}>P.{pat?.folder}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/>{late&&<Bdg l="⚠ ATRASADO" col={G.red} sm/>}{isT&&!late&&<Bdg l="📅 HOJE" col={G.orange} sm/>}</div>
 <div style={{fontSize:12}}>🦷 <strong>{p.type}</strong> — {p.proc}</div>
-<div style={{fontSize:11,color:G.muted,marginTop:2}}>Dente: {p.tooth||"—"} · 🏥 {lab?.name} · Enviado: {fmt(p.sent)} · Previsão: {fmt(p.due)}{p.returned?` · Retornou: ${fmt(p.returned)}`:""}</div>
+<div style={{fontSize:11,color:G.muted,marginTop:2}}>Dente: {p.tooth||”—”} · 🏥 {lab?.name} · Enviado: {fmt(p.sent)} · Previsão: {fmt(p.due)}{p.returned?` · Retornou: ${fmt(p.returned)}`:””}</div>
 <div style={{fontSize:11,color:den.color}}>👨‍⚕️ {den.name}</div>
 <div style={{fontSize:11,color:G.primary,fontWeight:700}}>💰 Custo Lab: {cur(p.price)}</div>
-{p.notes&&<div style={{fontSize:10,color:G.muted,fontStyle:"italic"}}>{p.notes}</div>}
+{p.notes&&<div style={{fontSize:10,color:G.muted,fontStyle:“italic”}}>{p.notes}</div>}
 </div>
-<div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}>
-{p.status==="waiting"&&<Btn ch="📦 Chegou!" sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{…x,status:"returned",returned:t}:x))}/>}
-{p.status==="returned"&&<Btn ch="✓ Instalada" v="y" sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{…x,status:"placed"}:x))}/>}
-{lab?.phone&&<Btn ch="📱 Lab" v="w" sm onClick={()=>wa(lab.phone,`Olá ${lab.name}! Verificando ${p.type} paciente ${pat?.name}, dente ${p.tooth}. Enviada ${fmt(p.sent)}, previsão ${fmt(p.due)}.`)}/>}
-<Btn ch="Editar" v="g" sm onClick={()=>{setEdit(p);setF({…p,patientId:String(p.patientId),dentistId:String(p.dentistId),labId:String(p.labId),price:String(p.price||"")});setModal(true);}}/>
+<div style={{display:“flex”,flexDirection:“column”,gap:5,alignItems:“flex-end”}}>
+{p.status===“waiting”&&<Btn ch=“📦 Chegou!” sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{…x,status:“returned”,returned:t}:x))}/>}
+{p.status===“returned”&&<Btn ch=“✓ Instalada” v=“y” sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{…x,status:“placed”}:x))}/>}
+{lab?.phone&&<Btn ch=“📱 Lab” v=“w” sm onClick={()=>wa(lab.phone,`Olá ${lab.name}! Verificando ${p.type} paciente ${pat?.name}, dente ${p.tooth}. Enviada ${fmt(p.sent)}, previsão ${fmt(p.due)}.`)}/>}
+<Btn ch=“Editar” v=“g” sm onClick={()=>{setEdit(p);setF({…p,patientId:String(p.patientId),dentistId:String(p.dentistId),labId:String(p.labId),price:String(p.price||””)});setModal(true);}}/>
 </div>
 </div>
 </div>;})}
 </div>
-{modal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:620,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
-<span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{edit?"Editar Prótese":"Nova Prótese"}</span>
-<button onClick={()=>setModal(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+{modal&&<div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.45)”,zIndex:2000,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
+<div style={{background:G.card,borderRadius:16,width:“100%”,maxWidth:620,maxHeight:“92vh”,overflowY:“auto”,boxShadow:“0 16px 48px rgba(0,0,0,.22)”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,padding:“14px 20px”,borderBottom:`1px solid ${G.border}`}}>
+<span style={{fontFamily:”‘Cormorant Garamond’”,fontSize:20}}>{edit?“Editar Prótese”:“Nova Prótese”}</span>
+<button onClick={()=>setModal(false)} style={{border:“none”,background:“none”,fontSize:24,cursor:“pointer”,color:G.muted}}>×</button>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-<PatSearch lb="Paciente" val={f.patientId} set={v=>setF(p=>({…p,patientId:v}))} pats={pats}/>
-<div style={{display:"flex",flexDirection:"column",gap:4}}>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Dentista</label>
-<select value={f.dentistId} onChange={e=>setF(p=>({…p,dentistId:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
+<div style={{padding:20,display:“flex”,flexDirection:“column”,gap:12}}>
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:11}}>
+<PatSearch lb=“Paciente” val={f.patientId} set={v=>setF(p=>({…p,patientId:v}))} pats={pats}/>
+<div style={{display:“flex”,flexDirection:“column”,gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”}}>Dentista</label>
+<select value={f.dentistId} onChange={e=>setF(p=>({…p,dentistId:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 11px”,fontSize:14,outline:“none”,color:G.text,background:”#fff”}}>
 {dents.map(d=><option key={d.id} value={String(d.id)}>{d.name}</option>)}
 </select>
 </div>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-<div style={{display:"flex",flexDirection:"column",gap:4}}>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Laboratório</label>
-<select value={f.labId} onChange={e=>setF(p=>({…p,labId:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:11}}>
+<div style={{display:“flex”,flexDirection:“column”,gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”}}>Laboratório</label>
+<select value={f.labId} onChange={e=>setF(p=>({…p,labId:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 11px”,fontSize:14,outline:“none”,color:G.text,background:”#fff”}}>
 <option value="">Selecione…</option>
 {labs.map(l=><option key={l.id} value={String(l.id)}>{l.name}</option>)}
 </select>
 </div>
-<Inp lb="Dente(s)" val={f.tooth} set={v=>setF(p=>({…p,tooth:v}))} ph="Ex: 16 ou 14-16"/>
+<Inp lb=“Dente(s)” val={f.tooth} set={v=>setF(p=>({…p,tooth:v}))} ph=“Ex: 16 ou 14-16”/>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-<div style={{display:"flex",flexDirection:"column",gap:4}}>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Tipo de Prótese</label>
-<select value={f.type} onChange={e=>setF(p=>({…p,type:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:11}}>
+<div style={{display:“flex”,flexDirection:“column”,gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”}}>Tipo de Prótese</label>
+<select value={f.type} onChange={e=>setF(p=>({…p,type:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 11px”,fontSize:14,outline:“none”,color:G.text,background:”#fff”}}>
 {PROS_T.map(t=><option key={t} value={t}>{t}</option>)}
 </select>
 </div>
-<Inp lb="💰 Custo Lab (R$)" val={f.price} set={v=>setF(p=>({…p,price:v}))} type="number" ph="0,00"/>
+<Inp lb=“💰 Custo Lab (R$)” val={f.price} set={v=>setF(p=>({…p,price:v}))} type=“number” ph=“0,00”/>
 </div>
-<div style={{display:"flex",flexDirection:"column",gap:4}}>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Procedimento a Realizar</label>
-<select value={prosProcs.find(p=>p.name===f.proc)?f.proc:"**custom**"} onChange={e=>{if(e.target.value==="**custom**")setF(p=>({…p,proc:""}));else setF(p=>({…p,proc:e.target.value}));}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
+<div style={{display:“flex”,flexDirection:“column”,gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”}}>Procedimento a Realizar</label>
+<select value={prosProcs.find(p=>p.name===f.proc)?f.proc:”**custom**”} onChange={e=>{if(e.target.value===”**custom**”)setF(p=>({…p,proc:””}));else setF(p=>({…p,proc:e.target.value}));}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 11px”,fontSize:14,outline:“none”,color:G.text,background:”#fff”}}>
 <option value="">Selecione o procedimento…</option>
 {prosProcs.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
 <option value="__custom__">✏️ Escrever manualmente…</option>
 </select>
-{(!f.proc||!prosProcs.find(p=>p.name===f.proc))&&<input value={f.proc} onChange={e=>setF(p=>({…p,proc:e.target.value}))} placeholder="Descreva o procedimento específico…" style={{border:`1.5px solid ${G.primary}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,marginTop:4}}/>}
+{(!f.proc||!prosProcs.find(p=>p.name===f.proc))&&<input value={f.proc} onChange={e=>setF(p=>({…p,proc:e.target.value}))} placeholder=“Descreva o procedimento específico…” style={{border:`1.5px solid ${G.primary}`,borderRadius:8,padding:“8px 11px”,fontSize:14,outline:“none”,color:G.text,marginTop:4}}/>}
 </div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-<Inp lb="Data de Envio" val={f.sent} set={v=>setF(p=>({…p,sent:v}))} type="date"/>
-<Inp lb="Previsão de Retorno" val={f.due} set={v=>setF(p=>({…p,due:v}))} type="date"/>
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:11}}>
+<Inp lb=“Data de Envio” val={f.sent} set={v=>setF(p=>({…p,sent:v}))} type=“date”/>
+<Inp lb=“Previsão de Retorno” val={f.due} set={v=>setF(p=>({…p,due:v}))} type=“date”/>
 </div>
-{edit&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-<Inp lb="Data Retorno Real" val={f.returned} set={v=>setF(p=>({…p,returned:v}))} type="date"/>
-<div style={{display:"flex",flexDirection:"column",gap:4}}>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Status</label>
-<select value={f.status} onChange={e=>setF(p=>({…p,status:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
+{edit&&<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:11}}>
+<Inp lb=“Data Retorno Real” val={f.returned} set={v=>setF(p=>({…p,returned:v}))} type=“date”/>
+<div style={{display:“flex”,flexDirection:“column”,gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”}}>Status</label>
+<select value={f.status} onChange={e=>setF(p=>({…p,status:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 11px”,fontSize:14,outline:“none”,color:G.text,background:”#fff”}}>
 {Object.entries(PROS_SL).map(([v,l])=><option key={v} value={v}>{l}</option>)}
 </select>
 </div>
 </div>}
-<Txt lb="Observações (cor, material)" val={f.notes} set={v=>setF(p=>({…p,notes:v}))} rows={2}/>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:6,paddingTop:12,borderTop:`1px solid ${G.border}`}}>
-<button onClick={()=>setModal(false)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+<Txt lb=“Observações (cor, material)” val={f.notes} set={v=>setF(p=>({…p,notes:v}))} rows={2}/>
+<div style={{display:“flex”,gap:9,justifyContent:“flex-end”,marginTop:6,paddingTop:12,borderTop:`1px solid ${G.border}`}}>
+<button onClick={()=>setModal(false)} style={{border:`1.5px solid ${G.primary}`,background:“transparent”,color:G.primary,borderRadius:8,padding:“8px 16px”,fontSize:14,fontWeight:600,cursor:“pointer”}}>Cancelar</button>
 <button onClick={()=>{
-if(!f.patientId)return alert("Selecione o paciente");
-if(!f.labId)return alert("Selecione o laboratório");
+if(!f.patientId)return alert(“Selecione o paciente”);
+if(!f.labId)return alert(“Selecione o laboratório”);
 const obj={…f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),id:edit?edit.id:nid(pros)};
 setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[…prev,obj]);
 setModal(false);
-}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>💾 Salvar Prótese</button>
+}} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:8,padding:“9px 18px”,fontSize:14,fontWeight:700,cursor:“pointer”}}>💾 Salvar Prótese</button>
 </div>
 </div>
 </div>
 </div>}
-{procModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:440,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
-<span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Procedimentos de Prótese</span>
-<button onClick={()=>setProcModal(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+{procModal&&<div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.45)”,zIndex:2000,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
+<div style={{background:G.card,borderRadius:16,width:“100%”,maxWidth:440,boxShadow:“0 16px 48px rgba(0,0,0,.22)”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,padding:“14px 20px”,borderBottom:`1px solid ${G.border}`}}>
+<span style={{fontFamily:”‘Cormorant Garamond’”,fontSize:20}}>Procedimentos de Prótese</span>
+<button onClick={()=>setProcModal(false)} style={{border:“none”,background:“none”,fontSize:24,cursor:“pointer”,color:G.muted}}>×</button>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
-{prosProcs.map(p=><div key={p.id} style={{display:"flex",gap:9,alignItems:"center",padding:"8px 12px",background:G.bg,borderRadius:9}}>
+<div style={{padding:20,display:“flex”,flexDirection:“column”,gap:10}}>
+{prosProcs.map(p=><div key={p.id} style={{display:“flex”,gap:9,alignItems:“center”,padding:“8px 12px”,background:G.bg,borderRadius:9}}>
 <span style={{flex:1,fontSize:13,fontWeight:600}}>{p.name}</span>
-<button onClick={()=>{if(window.confirm("Remover?"))setProsProcs(prev=>prev.filter(x=>x.id!==p.id));}} style={{border:"none",background:G.red,color:"#fff",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✕</button>
+<button onClick={()=>{if(window.confirm(“Remover?”))setProsProcs(prev=>prev.filter(x=>x.id!==p.id));}} style={{border:“none”,background:G.red,color:”#fff”,borderRadius:6,padding:“4px 10px”,fontSize:11,fontWeight:700,cursor:“pointer”}}>✕</button>
 </div>)}
 <div style={{borderTop:`1px solid ${G.border}`,paddingTop:12,marginTop:4}}>
-<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:8}}>Adicionar Novo</div>
-<div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8}}>
-<input value={procForm.name} onChange={e=>setProcForm({name:e.target.value})} placeholder="Nome do procedimento" style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none"}}/>
-<button onClick={saveProc} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ Add</button>
+<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,marginBottom:8}}>Adicionar Novo</div>
+<div style={{display:“grid”,gridTemplateColumns:“1fr auto”,gap:8}}>
+<input value={procForm.name} onChange={e=>setProcForm({name:e.target.value})} placeholder=“Nome do procedimento” style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 11px”,fontSize:14,outline:“none”}}/>
+<button onClick={saveProc} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:8,padding:“8px 14px”,fontSize:13,fontWeight:700,cursor:“pointer”}}>+ Add</button>
 </div>
 </div>
-<div style={{display:"flex",justifyContent:"flex-end",marginTop:4}}>
-<button onClick={()=>setProcModal(false)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Fechar</button>
+<div style={{display:“flex”,justifyContent:“flex-end”,marginTop:4}}>
+<button onClick={()=>setProcModal(false)} style={{border:`1.5px solid ${G.primary}`,background:“transparent”,color:G.primary,borderRadius:8,padding:“8px 16px”,fontSize:14,fontWeight:600,cursor:“pointer”}}>Fechar</button>
 </div>
 </div>
 </div>
@@ -1636,14 +1626,13 @@ const emptyRows=Math.max(0,12-impl.length);
 
 return <div style={{display:“flex”,flexDirection:“column”,gap:0}} className=“fi”>
 {/* Header */}
-
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Controle de Implantes</h2>
-<div style={{display:"flex",gap:8,alignItems:"center"}}>
-<button onClick={()=>setYr(y=>y-1)} style={{border:"none",background:G.accent,borderRadius:6,padding:"5px 13px",cursor:"pointer",fontSize:17,color:G.primary,fontWeight:700}}>‹</button>
-<span style={{fontFamily:"'Cormorant Garamond'",fontSize:18,fontWeight:700,minWidth:48,textAlign:"center"}}>{yr}</span>
-<button onClick={()=>setYr(y=>y+1)} style={{border:"none",background:G.accent,borderRadius:6,padding:"5px 13px",cursor:"pointer",fontSize:17,color:G.primary,fontWeight:700}}>›</button>
-<Btn ch="+ Adicionar" onClick={()=>{setNewPat({patientId:"",service:"Implante"});setAddModal(true);}}/>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:14,flexWrap:“wrap”,gap:10}}>
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26}}>Controle de Implantes</h2>
+<div style={{display:“flex”,gap:8,alignItems:“center”}}>
+<button onClick={()=>setYr(y=>y-1)} style={{border:“none”,background:G.accent,borderRadius:6,padding:“5px 13px”,cursor:“pointer”,fontSize:17,color:G.primary,fontWeight:700}}>‹</button>
+<span style={{fontFamily:”‘Cormorant Garamond’”,fontSize:18,fontWeight:700,minWidth:48,textAlign:“center”}}>{yr}</span>
+<button onClick={()=>setYr(y=>y+1)} style={{border:“none”,background:G.accent,borderRadius:6,padding:“5px 13px”,cursor:“pointer”,fontSize:17,color:G.primary,fontWeight:700}}>›</button>
+<Btn ch=”+ Adicionar” onClick={()=>{setNewPat({patientId:””,service:“Implante”});setAddModal(true);}}/>
 </div>
 </div>
 
@@ -1794,35 +1783,34 @@ const remove=id=>{if(window.confirm(“Remover?”))setExpenses(prev=>({…prev,
 const togglePaid=id=>setExpenses(prev=>({…prev,[tab]:prev[tab].map(e=>e.id===id?{…e,paid:!e.paid}:e)}));
 
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Despesas</h2>
-<div style={{display:"flex",gap:8}}><Inp val={mo} set={setMo} type="month" style={{width:165}}/><Btn ch="+ Nova Despesa" onClick={()=>{setEdit(null);setF({…blank,cat:tab==="clinic"?"Aluguel":"Moradia"});setModal(true);}}/></div>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,flexWrap:“wrap”,gap:10}}>
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26}}>Despesas</h2>
+<div style={{display:“flex”,gap:8}}><Inp val={mo} set={setMo} type="month" style={{width:165}}/><Btn ch=”+ Nova Despesa” onClick={()=>{setEdit(null);setF({…blank,cat:tab===“clinic”?“Aluguel”:“Moradia”});setModal(true);}}/></div>
 </div>
-<div style={{display:"flex",gap:0,borderBottom:`2px solid ${G.border}`}}>
-{[["clinic","🏥 Clínica"],["personal","🏠 Pessoal"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 18px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2}}>{l}</button>)}
+<div style={{display:“flex”,gap:0,borderBottom:`2px solid ${G.border}`}}>
+{[[“clinic”,“🏥 Clínica”],[“personal”,“🏠 Pessoal”]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:“none”,background:“none”,padding:“9px 18px”,fontFamily:”‘DM Sans’”,fontWeight:700,fontSize:12,cursor:“pointer”,color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2}}>{l}</button>)}
 </div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
-{[["Total",cur(total),G.primary],["Pago",cur(paid),G.success],["Pendente",cur(total-paid),G.red]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:`4px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div></div>)}
+<div style={{display:“grid”,gridTemplateColumns:“repeat(3,1fr)”,gap:11}}>
+{[[“Total”,cur(total),G.primary],[“Pago”,cur(paid),G.success],[“Pendente”,cur(total-paid),G.red]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:“12px 14px”,textAlign:“center”,borderTop:`4px solid ${c}`,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}><div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div><div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:22,color:c}}>{v}</div></div>)}
 </div>
-<div style={{display:"flex",flexDirection:"column",gap:8}}>
-{moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:20,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>Nenhuma despesa neste mês</div>}
-{moList.sort((a,b)=>a.date.localeCompare(b.date)).map(e=><div key={e.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11,opacity:e.paid?.7:1}}>
-<input type="checkbox" checked={e.paid} onChange={()=>togglePaid(e.id)} style={{accentColor:G.primary,width:16,height:16,flexShrink:0}}/>
+<div style={{display:“flex”,flexDirection:“column”,gap:8}}>
+{moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:20,textAlign:“center”,color:G.muted,fontSize:13,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}>Nenhuma despesa neste mês</div>}
+{moList.sort((a,b)=>a.date.localeCompare(b.date)).map(e=><div key={e.id} style={{background:G.card,borderRadius:11,padding:“11px 14px”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”,display:“flex”,alignItems:“center”,gap:11,opacity:e.paid?.7:1}}>
+<input type=“checkbox” checked={e.paid} onChange={()=>togglePaid(e.id)} style={{accentColor:G.primary,width:16,height:16,flexShrink:0}}/>
 <div style={{flex:1}}>
-<div style={{fontWeight:700,fontSize:13,textDecoration:e.paid?"line-through":"none"}}>{e.desc}</div>
+<div style={{fontWeight:700,fontSize:13,textDecoration:e.paid?“line-through”:“none”}}>{e.desc}</div>
 <div style={{fontSize:11,color:G.muted}}>{e.cat} · {fmt(e.date)}</div>
 </div>
-<Bdg l={e.paid?"✓ Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
+<Bdg l={e.paid?“✓ Pago”:“Pendente”} col={e.paid?G.success:G.red} sm/>
 <span style={{fontWeight:700,fontSize:13}}>{cur(e.value)}</span>
-<Btn ch="✏️" v="g" sm onClick={()=>{setEdit(e);setF({…e,value:String(e.value)});setModal(true);}}/>
-<Btn ch="✕" v="r" sm onClick={()=>remove(e.id)}/>
+<Btn ch=“✏️” v=“g” sm onClick={()=>{setEdit(e);setF({…e,value:String(e.value)});setModal(true);}}/>
+<Btn ch=“✕” v=“r” sm onClick={()=>remove(e.id)}/>
 </div>)}
 </div>
-<Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Despesa":"Nova Despesa"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
-<Inp lb="Descrição" val={f.desc} set={upd("desc")} ph="Ex: Aluguel consultório maio"/>
-<R2 a={<Sel lb="Categoria" val={f.cat} set={upd("cat")} opts={tab==="clinic"?EXPENSE_CATS:["Moradia","Alimentação","Transporte","Saúde","Lazer","Educação","Vestuário","Outros"]}/>} b={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>}/>
-<R2 a={<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>} b={<div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end"}}><label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={f.paid} onChange={e=>upd("paid")(e.target.checked)} style={{accentColor:G.primary,width:15,height:15}}/> Já pago</label></div>}/>
+<Modal open={modal} close={()=>setModal(false)} title={edit?“Editar Despesa”:“Nova Despesa”} ch={<div style={{display:“flex”,flexDirection:“column”,gap:11}}>
+<Inp lb=“Descrição” val={f.desc} set={upd(“desc”)} ph=“Ex: Aluguel consultório maio”/>
+<R2 a={<Sel lb=“Categoria” val={f.cat} set={upd(“cat”)} opts={tab===“clinic”?EXPENSE_CATS:[“Moradia”,“Alimentação”,“Transporte”,“Saúde”,“Lazer”,“Educação”,“Vestuário”,“Outros”]}/>} b={<Inp lb=“Valor (R$)” val={f.value} set={upd(“value”)} type=“number”/>}/>
+<R2 a={<Inp lb=“Data” val={f.date} set={upd(“date”)} type=“date”/>} b={<div style={{display:“flex”,flexDirection:“column”,justifyContent:“flex-end”}}><label style={{display:“flex”,alignItems:“center”,gap:8,fontSize:13,cursor:“pointer”}}><input type=“checkbox” checked={f.paid} onChange={e=>upd(“paid”)(e.target.checked)} style={{accentColor:G.primary,width:15,height:15}}/> Já pago</label></div>}/>
 <SC2 save={save} cancel={()=>setModal(false)}/>
 </div>}/>
 
@@ -1858,36 +1846,35 @@ var [showEspModal,setShowEspModal]=useState(false);
 var esperaAtiva=(espera||[]).filter(function(e){return e.valido>=t3;});
 var esperaExp=(espera||[]).filter(function(e){return e.valido<t3;});
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<div style={{background:"#F3E5F5",border:"2px solid "+(esperaAtiva.length>0?"#7B1FA2":G.border),borderRadius:14,padding:"14px 16px"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:esperaAtiva.length>0?10:0}}>
-<div style={{fontWeight:700,fontSize:13,color:"#7B1FA2"}}>{"⏳ Lista de Espera ("+esperaAtiva.length+")"}</div>
-<button onClick={function(){setShowEspModal(true);}} style={{background:"#7B1FA2",color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"+ Novo"}</button>
+<div style={{background:”#F3E5F5”,border:“2px solid “+(esperaAtiva.length>0?”#7B1FA2”:G.border),borderRadius:14,padding:“14px 16px”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:esperaAtiva.length>0?10:0}}>
+<div style={{fontWeight:700,fontSize:13,color:”#7B1FA2”}}>{“⏳ Lista de Espera (”+esperaAtiva.length+”)”}</div>
+<button onClick={function(){setShowEspModal(true);}} style={{background:”#7B1FA2”,color:”#fff”,border:“none”,borderRadius:8,padding:“5px 12px”,fontSize:12,fontWeight:700,cursor:“pointer”}}>{”+ Novo”}</button>
 </div>
-{esperaAtiva.length===0&&<div style={{fontSize:12,color:G.muted,marginTop:8}}>{"Nenhum paciente aguardando. Clique em + Novo para adicionar."}</div>}
+{esperaAtiva.length===0&&<div style={{fontSize:12,color:G.muted,marginTop:8}}>{“Nenhum paciente aguardando. Clique em + Novo para adicionar.”}</div>}
 {esperaAtiva.map(function(e){
-var diasNome=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
-var amanha=new Date(new Date(t3+"T12:00").getTime()+86400000).toISOString().split("T")[0];
+var diasNome=[“Dom”,“Seg”,“Ter”,“Qua”,“Qui”,“Sex”,“Sáb”];
+var amanha=new Date(new Date(t3+“T12:00”).getTime()+86400000).toISOString().split(“T”)[0];
 var vencHoje=e.valido===t3;
 var vencAmanha=e.valido===amanha;
 return(
-<div key={e.id} style={{background:"#fff",borderRadius:12,padding:"10px 12px",marginBottom:8,border:"1.5px solid "+(vencHoje?"#F44336":vencAmanha?"#FF9800":"#E1BEE7")}}>
-<div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+<div key={e.id} style={{background:”#fff”,borderRadius:12,padding:“10px 12px”,marginBottom:8,border:“1.5px solid “+(vencHoje?”#F44336”:vencAmanha?”#FF9800”:”#E1BEE7”)}}>
+<div style={{display:“flex”,justifyContent:“space-between”,gap:8}}>
 <div style={{flex:1}}>
 <div style={{fontWeight:700,fontSize:13}}>{e.patName}</div>
-<div style={{fontSize:11,color:G.muted}}>{e.proc+" · "+e.dentName+" · "+e.tempo+"min"}</div>
-<div style={{display:"flex",flexWrap:"wrap",gap:3,marginTop:4}}>
+<div style={{fontSize:11,color:G.muted}}>{e.proc+” · “+e.dentName+” · “+e.tempo+“min”}</div>
+<div style={{display:“flex”,flexWrap:“wrap”,gap:3,marginTop:4}}>
 {e.slots.map(function(s,i){return(
-<span key={i} style={{background:"#EDE7F6",borderRadius:6,padding:"2px 6px",color:"#7B1FA2",fontWeight:600,fontSize:10}}>
-{s.dias.map(function(d){return diasNome[d];}).join("/")+": "+s.ini+"-"+s.fim}
+<span key={i} style={{background:”#EDE7F6”,borderRadius:6,padding:“2px 6px”,color:”#7B1FA2”,fontWeight:600,fontSize:10}}>
+{s.dias.map(function(d){return diasNome[d];}).join(”/”)+”: “+s.ini+”-”+s.fim}
 </span>
 );})}
 </div>
-<div style={{fontSize:11,fontWeight:600,marginTop:4,color:vencHoje?"#F44336":vencAmanha?"#FF9800":"#7B1FA2"}}>
-{vencHoje?"⚠️ Vence HOJE!":vencAmanha?"⚠️ Vence amanhã!":"Válido até "+fmt(e.valido)}
+<div style={{fontSize:11,fontWeight:600,marginTop:4,color:vencHoje?”#F44336”:vencAmanha?”#FF9800”:”#7B1FA2”}}>
+{vencHoje?“⚠️ Vence HOJE!”:vencAmanha?“⚠️ Vence amanhã!”:“Válido até “+fmt(e.valido)}
 </div>
 </div>
-<button onClick={function(){setEspera(function(prev){return prev.filter(function(x){return x.id!==e.id;});});}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:18,flexShrink:0,alignSelf:"flex-start"}}>{"✕"}</button>
+<button onClick={function(){setEspera(function(prev){return prev.filter(function(x){return x.id!==e.id;});});}} style={{background:“none”,border:“none”,color:G.muted,cursor:“pointer”,fontSize:18,flexShrink:0,alignSelf:“flex-start”}}>{“✕”}</button>
 </div>
 </div>
 );
@@ -1969,32 +1956,31 @@ const byP=PAY.map(pt=>({pt,v:mr.filter(r=>r.payment===pt).reduce((s,r)=>s+r.paid
 const mx=Math.max(…byP.map(x=>x.v),1);
 const PC={“Dinheiro”:G.success,“PIX”:”#00B894”,“Cartão Crédito”:G.blue,“Cartão Débito”:”#6C5CE7”,“Convênio”:G.muted,“Cheque”:G.orange};
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Financeiro</h2>
-<div style={{display:"flex",gap:9}}><Inp val={mo} set={setMo} type="month" style={{width:160}}/><Sel val={dn} set={setDn} opts={[{v:"all",l:"Todos"},…dents.map(d=>({v:d.id,l:d.name}))]} style={{width:180}}/></div>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,flexWrap:“wrap”,gap:10}}>
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26}}>Financeiro</h2>
+<div style={{display:“flex”,gap:9}}><Inp val={mo} set={setMo} type="month" style={{width:160}}/><Sel val={dn} set={setDn} opts={[{v:“all”,l:“Todos”},…dents.map(d=>({v:d.id,l:d.name}))]} style={{width:180}}/></div>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
-{[["Receita Bruta",raw,G.primary],["Receita Líquida",liq,G.success],["Despesas Clínica",clinicExp,G.red],["Resultado",liq-clinicExp,liq-clinicExp>=0?G.success:G.red]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:`4px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{cur(v)}</div></div>)}
+<div style={{display:“grid”,gridTemplateColumns:“repeat(2,1fr)”,gap:11}}>
+{[[“Receita Bruta”,raw,G.primary],[“Receita Líquida”,liq,G.success],[“Despesas Clínica”,clinicExp,G.red],[“Resultado”,liq-clinicExp,liq-clinicExp>=0?G.success:G.red]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:“12px 14px”,textAlign:“center”,borderTop:`4px solid ${c}`,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}><div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div><div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:22,color:c}}>{cur(v)}</div></div>)}
 </div>
-<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}>
 <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>💳 Receita por Forma de Pagamento</div>
 {byP.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum recebimento</p>}
 {byP.map(({pt,v})=><div key={pt} style={{marginBottom:10}}>
-<div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{pt}</span><div style={{display:"flex",gap:9}}><span style={{fontSize:12,fontWeight:700}}>{cur(v)}</span>{(pt==="Cartão Crédito"||pt==="Cartão Débito")&&<span style={{fontSize:10,color:G.red}}>líq:{cur(calcNet(v,pt))}</span>}</div></div>
-<div style={{background:G.border,borderRadius:6,height:10}}><div style={{background:PC[pt]||G.muted,height:10,borderRadius:6,width:`${v/mx*100}%`,transition:"width .4s"}}/></div>
+<div style={{display:“flex”,justifyContent:“space-between”,marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{pt}</span><div style={{display:“flex”,gap:9}}><span style={{fontSize:12,fontWeight:700}}>{cur(v)}</span>{(pt===“Cartão Crédito”||pt===“Cartão Débito”)&&<span style={{fontSize:10,color:G.red}}>líq:{cur(calcNet(v,pt))}</span>}</div></div>
+<div style={{background:G.border,borderRadius:6,height:10}}><div style={{background:PC[pt]||G.muted,height:10,borderRadius:6,width:`${v/mx*100}%`,transition:“width .4s”}}/></div>
 </div>)}
 </div>
-<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}>
 <div style={{fontWeight:700,marginBottom:11,fontSize:13}}>Detalhamento</div>
 {mr.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum recebimento</p>}
-{mr.sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{const p=pats.find(x=>x.id===r.patientId);const d=dents.find(x=>x.id===r.dentistId)||dents[0];return <div key={r.id} style={{display:"flex",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${G.border}`,gap:8,flexWrap:"wrap"}}>
+{mr.sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{const p=pats.find(x=>x.id===r.patientId);const d=dents.find(x=>x.id===r.dentistId)||dents[0];return <div key={r.id} style={{display:“flex”,alignItems:“center”,padding:“6px 0”,borderBottom:`1px solid ${G.border}`,gap:8,flexWrap:“wrap”}}>
 <span style={{color:G.muted,fontSize:11,minWidth:70}}>{fmt(r.date)}</span>
 <div style={{flex:1,minWidth:80}}><span style={{fontSize:12}}>{p?.name} — {r.procedure}</span>{r.inst>1&&<span style={{fontSize:10,color:G.blue,fontWeight:700}}> {r.inst}x crédito</span>}</div>
-<span style={{fontSize:11,color:d.color,fontWeight:600}}>{d.name.split(" ")[0]}</span>
-<Bdg l={r.payment+(r.inst>1?" "+r.inst+"x":"")} col={PC[r.payment]||G.muted} sm/>
+<span style={{fontSize:11,color:d.color,fontWeight:600}}>{d.name.split(” “)[0]}</span>
+<Bdg l={r.payment+(r.inst>1?” “+r.inst+“x”:””)} col={PC[r.payment]||G.muted} sm/>
 <span style={{fontWeight:700,fontSize:12}}>{cur(r.paid)}</span>
-{(r.payment==="Cartão Crédito"||r.payment==="Cartão Débito")&&<span style={{fontSize:10,color:G.red}}>→{cur(calcNet(r.paid,r.payment))}</span>}
+{(r.payment===“Cartão Crédito”||r.payment===“Cartão Débito”)&&<span style={{fontSize:10,color:G.red}}>→{cur(calcNet(r.paid,r.payment))}</span>}
 </div>;})}
 </div>
 
@@ -2262,20 +2248,19 @@ const tick=getTick(listId,pid);
 const d=dents.find(x=>x.id===recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0]?.dentistId)||dents[0];
 return <div style={{background:ticked?”#f0faf4”:G.card,borderRadius:10,padding:“10px 13px”,borderLeft:`4px solid ${ticked?G.success:badgeCol}`,display:“flex”,gap:9,alignItems:“flex-start”,boxShadow:“0 1px 4px rgba(0,0,0,.05)”,transition:“all .2s”,marginBottom:6}}>
 <button onClick={()=>doTick(listId,pid)} style={{width:24,height:24,borderRadius:“50%”,border:`2px solid ${ticked?G.success:G.border}`,background:ticked?G.success:”#fff”,display:“flex”,alignItems:“center”,justifyContent:“center”,cursor:“pointer”,fontSize:13,flexShrink:0,marginTop:1,transition:“all .2s”}}>{ticked?“✓”:””}</button>
-
 <div style={{flex:1}}>
-<div style={{fontWeight:700,fontSize:13,textDecoration:ticked?"line-through":"none",color:ticked?G.muted:G.text}}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {p.folder}</span></div>
+<div style={{fontWeight:700,fontSize:13,textDecoration:ticked?“line-through”:“none”,color:ticked?G.muted:G.text}}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {p.folder}</span></div>
 {extra&&<div style={{fontSize:11,color:G.muted,marginTop:1}}>{extra}</div>}
 {d&&<div style={{fontSize:10,color:d.color,marginTop:1}}>👨‍⚕️ {d.name}</div>}
-{ticked&&tick&&<div style={{fontSize:10,color:G.success,marginTop:3,fontWeight:600}}>✓ {tick.note||"Resolvido"} — {tick.doneBy} em {fmt(tick.doneAt)}</div>}
+{ticked&&tick&&<div style={{fontSize:10,color:G.success,marginTop:3,fontWeight:600}}>✓ {tick.note||“Resolvido”} — {tick.doneBy} em {fmt(tick.doneAt)}</div>}
 </div>
-<div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end",flexShrink:0}}>
-<Bdg l={ticked?"✓ Resolvido":badge} col={ticked?G.success:badgeCol} sm/>
-{!ticked&&<div style={{display:"flex",gap:4}}>
-{p.phone&&waMsg&&<button onClick={()=>wa(p.phone,waMsg.replace(/{nome}/g,p.name))} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>WA</button>}
-<button onClick={()=>{setNoteModal({listId,pid,label:`${p.name} — ${badge}`});setNoteText("");}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✓ Marcar</button>
+<div style={{display:“flex”,flexDirection:“column”,gap:4,alignItems:“flex-end”,flexShrink:0}}>
+<Bdg l={ticked?“✓ Resolvido”:badge} col={ticked?G.success:badgeCol} sm/>
+{!ticked&&<div style={{display:“flex”,gap:4}}>
+{p.phone&&waMsg&&<button onClick={()=>wa(p.phone,waMsg.replace(/{nome}/g,p.name))} style={{background:”#25D366”,color:”#fff”,border:“none”,borderRadius:6,padding:“3px 8px”,fontSize:10,fontWeight:700,cursor:“pointer”}}>WA</button>}
+<button onClick={()=>{setNoteModal({listId,pid,label:`${p.name} — ${badge}`});setNoteText(””);}} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:6,padding:“3px 8px”,fontSize:10,fontWeight:700,cursor:“pointer”}}>✓ Marcar</button>
 </div>}
-{ticked&&<button onClick={()=>doTick(listId,pid)} style={{background:"none",border:`1px solid ${G.border}`,borderRadius:6,padding:"2px 7px",fontSize:10,color:G.muted,cursor:"pointer"}}>↩</button>}
+{ticked&&<button onClick={()=>doTick(listId,pid)} style={{background:“none”,border:`1px solid ${G.border}`,borderRadius:6,padding:“2px 7px”,fontSize:10,color:G.muted,cursor:“pointer”}}>↩</button>}
 </div>
 </div>;
 };
@@ -2289,41 +2274,40 @@ const sections=[
 ];
 
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:9}}>
-{[["Aniv. semana",bdayWeek.length,G.gold],["Semestral",semestral.length,G.orange],["Sem retorno",semRetorno.length,G.red],["Novos mês",newPats.length,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"10px",textAlign:"center",borderTop:`3px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div></div>)}
+<div style={{display:“grid”,gridTemplateColumns:“repeat(4,1fr)”,gap:9}}>
+{[[“Aniv. semana”,bdayWeek.length,G.gold],[“Semestral”,semestral.length,G.orange],[“Sem retorno”,semRetorno.length,G.red],[“Novos mês”,newPats.length,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:“10px”,textAlign:“center”,borderTop:`3px solid ${c}`,boxShadow:“0 1px 4px rgba(0,0,0,.05)”}}><div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:22,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div></div>)}
 </div>
 {sections.map(sec=>{
-const done=sec.list.filter(x=>{const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;return p&&isTicked(sec.id,p.id+(sec.isTreat?x.id:""));});
-return <div key={sec.id} style={{background:G.card,borderRadius:13,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:6}}>
+const done=sec.list.filter(x=>{const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;return p&&isTicked(sec.id,p.id+(sec.isTreat?x.id:””));});
+return <div key={sec.id} style={{background:G.card,borderRadius:13,padding:14,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:6,flexWrap:“wrap”,gap:6}}>
 <div><span style={{fontWeight:700,fontSize:14,color:sec.col}}>{sec.label} ({sec.list.length})</span>{sec.sub&&<div style={{fontSize:11,color:G.muted}}>{sec.sub}</div>}</div>
 {sec.list.length>0&&<span style={{fontSize:11,color:G.success,fontWeight:700}}>{done.length}/{sec.list.length} resolvidos</span>}
 </div>
-{sec.list.length===0&&<p style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhum no momento 👍</p>}
+{sec.list.length===0&&<p style={{fontSize:12,color:G.muted,padding:“6px 0”}}>Nenhum no momento 👍</p>}
 {sec.list.map(x=>{
 const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;
 if(!p)return null;
 return <PatCard key={sec.isTreat?x.id:p.id} p={p} badge={sec.label.slice(2)} badgeCol={sec.col} extra={sec.extra(x)} listId={sec.id} waMsg={sec.wa} treatId={sec.isTreat?x.id:undefined}/>;
 })}
-{sec.list.length>0&&<div style={{marginTop:9,background:G.border,borderRadius:4,height:4}}><div style={{background:G.success,height:4,borderRadius:4,width:`${done.length/sec.list.length*100}%`,transition:"width .4s"}}/></div>}
+{sec.list.length>0&&<div style={{marginTop:9,background:G.border,borderRadius:4,height:4}}><div style={{background:G.success,height:4,borderRadius:4,width:`${done.length/sec.list.length*100}%`,transition:“width .4s”}}/></div>}
 </div>;
 })}
-{noteModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#fff",borderRadius:14,width:"100%",maxWidth:400,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 18px",borderBottom:`1px solid ${G.border}`}}>
-<span style={{fontFamily:"'Cormorant Garamond'",fontSize:18}}>Marcar como resolvido</span>
-<button onClick={()=>setNoteModal(null)} style={{border:"none",background:"none",fontSize:22,cursor:"pointer",color:G.muted}}>×</button>
+{noteModal&&<div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.45)”,zIndex:3000,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
+<div style={{background:”#fff”,borderRadius:14,width:“100%”,maxWidth:400,boxShadow:“0 16px 48px rgba(0,0,0,.22)”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,padding:“13px 18px”,borderBottom:`1px solid ${G.border}`}}>
+<span style={{fontFamily:”‘Cormorant Garamond’”,fontSize:18}}>Marcar como resolvido</span>
+<button onClick={()=>setNoteModal(null)} style={{border:“none”,background:“none”,fontSize:22,cursor:“pointer”,color:G.muted}}>×</button>
 </div>
-<div style={{padding:18,display:"flex",flexDirection:"column",gap:11}}>
+<div style={{padding:18,display:“flex”,flexDirection:“column”,gap:11}}>
 <div style={{fontSize:13,color:G.primary,fontWeight:600}}>{noteModal.label}</div>
-<div style={{display:"flex",flexDirection:"column",gap:4}}>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>O que foi feito? (opcional)</label>
-<textarea value={noteText} onChange={e=>setNoteText(e.target.value)} rows={3} placeholder="Ex: Ligou e agendou para 15/05 às 09h…" style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"'DM Sans'"}}/>
+<div style={{display:“flex”,flexDirection:“column”,gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”}}>O que foi feito? (opcional)</label>
+<textarea value={noteText} onChange={e=>setNoteText(e.target.value)} rows={3} placeholder=“Ex: Ligou e agendou para 15/05 às 09h…” style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 11px”,fontSize:13,outline:“none”,resize:“vertical”,fontFamily:”‘DM Sans’”}}/>
 </div>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:`1px solid ${G.border}`}}>
-<button onClick={()=>setNoteModal(null)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 15px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
-<button onClick={()=>{doTick(noteModal.listId,noteModal.pid,noteText);setNoteModal(null);}} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>✓ Confirmar</button>
+<div style={{display:“flex”,gap:9,justifyContent:“flex-end”,paddingTop:8,borderTop:`1px solid ${G.border}`}}>
+<button onClick={()=>setNoteModal(null)} style={{border:`1.5px solid ${G.primary}`,background:“transparent”,color:G.primary,borderRadius:8,padding:“8px 15px”,fontSize:13,fontWeight:600,cursor:“pointer”}}>Cancelar</button>
+<button onClick={()=>{doTick(noteModal.listId,noteModal.pid,noteText);setNoteModal(null);}} style={{background:G.success,color:”#fff”,border:“none”,borderRadius:8,padding:“9px 18px”,fontSize:13,fontWeight:700,cursor:“pointer”}}>✓ Confirmar</button>
 </div>
 </div>
 </div>
@@ -2402,38 +2386,37 @@ const TABS=[[“dent”,“Dentistas”],[“prot”,“Protéticos”],[“orc�
 if(user.level>=3)TABS.push([“exp”,“Despesas”]);
 
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Relatórios</h2>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,flexWrap:“wrap”,gap:10}}>
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26}}>Relatórios</h2>
 <Inp val={mo} set={setMo} type="month" style={{width:165}}/>
 </div>
-<div style={{display:"flex",gap:0,borderBottom:`2px solid ${G.border}`}}>
-{TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 15px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2}}>{l}</button>)}
+<div style={{display:“flex”,gap:0,borderBottom:`2px solid ${G.border}`}}>
+{TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:“none”,background:“none”,padding:“9px 15px”,fontFamily:”‘DM Sans’”,fontWeight:700,fontSize:12,cursor:“pointer”,color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2}}>{l}</button>)}
 </div>
-{tab==="dent"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-{dr.map(({d,rs,raw,liq,com,cf,donedItems,doneLiq,doneCom})=><div key={d.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:`4px solid ${d.color}`}}>
-<div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:11}}>
+{tab===“dent”&&<div style={{display:“flex”,flexDirection:“column”,gap:14}}>
+{dr.map(({d,rs,raw,liq,com,cf,donedItems,doneLiq,doneCom})=><div key={d.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:“0 1px 4px rgba(0,0,0,.07)”,borderLeft:`4px solid ${d.color}`}}>
+<div style={{display:“flex”,justifyContent:“space-between”,flexWrap:“wrap”,gap:10,marginBottom:11}}>
 <div><div style={{fontWeight:700,fontSize:15,color:d.color}}>{d.name}</div><div style={{fontSize:11,color:G.muted}}>{d.specialty} · {rs.length} atend.</div></div>
-<div style={{textAlign:"right"}}><div style={{fontWeight:700,fontSize:17,color:G.primary}}>{cur(com+doneCom)}</div><div style={{fontSize:11,color:G.muted}}>Comissão total ({d.commission}%)</div></div>
+<div style={{textAlign:“right”}}><div style={{fontWeight:700,fontSize:17,color:G.primary}}>{cur(com+doneCom)}</div><div style={{fontSize:11,color:G.muted}}>Comissão total ({d.commission}%)</div></div>
 </div>
 {/* Summary grid */}
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:9,marginBottom:11}}>
-{[["Receita Bruta",raw,G.text],["Receita Líquida",liq,G.success],["Comissão Recibos",com,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.bg,borderRadius:8,padding:"6px 10px",textAlign:"center"}}><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div><div style={{fontWeight:700,color:c,fontSize:13}}>{cur(v)}</div></div>)}
+<div style={{display:“grid”,gridTemplateColumns:“repeat(3,1fr)”,gap:9,marginBottom:11}}>
+{[[“Receita Bruta”,raw,G.text],[“Receita Líquida”,liq,G.success],[“Comissão Recibos”,com,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.bg,borderRadius:8,padding:“6px 10px”,textAlign:“center”}}><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div><div style={{fontWeight:700,color:c,fontSize:13}}>{cur(v)}</div></div>)}
 </div>
 {/* Done treatment procedures */}
 {donedItems.length>0&&<>
 <Div lb="Procedimentos Realizados (Baixa)"/>
-<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:11}}>
-{[["Valor Líquido Procedimentos",doneLiq,G.blue],["Comissão Procedimentos",doneCom,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.blue+"10",borderRadius:8,padding:"6px 10px",textAlign:"center"}}><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div><div style={{fontWeight:700,color:c,fontSize:13}}>{cur(v)}</div></div>)}
+<div style={{display:“grid”,gridTemplateColumns:“repeat(2,1fr)”,gap:9,marginBottom:11}}>
+{[[“Valor Líquido Procedimentos”,doneLiq,G.blue],[“Comissão Procedimentos”,doneCom,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.blue+“10”,borderRadius:8,padding:“6px 10px”,textAlign:“center”}}><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div><div style={{fontWeight:700,color:c,fontSize:13}}>{cur(v)}</div></div>)}
 </div>
 {donedItems.map((it,i)=>{
-const fee=it.payMethod==="Cartão Crédito"?3.5:it.payMethod==="Cartão Débito"?2:0;
+const fee=it.payMethod===“Cartão Crédito”?3.5:it.payMethod===“Cartão Débito”?2:0;
 const creditPending=it.creditFuture;
-return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}>
+return <div key={i} style={{display:“flex”,gap:8,fontSize:11,padding:“5px 0”,borderBottom:`1px solid ${G.border}`,flexWrap:“wrap”,alignItems:“center”}}>
 <span style={{color:G.muted,minWidth:70}}>{fmt(it.doneDate)}</span>
 <span style={{flex:1}}>{it.patName} — {it.desc}</span>
-{fee>0&&<span style={{background:"#fdecea",color:G.red,borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>-{fee}%</span>}
-{creditPending&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>💳 Aguarda crédito</span>}
+{fee>0&&<span style={{background:”#fdecea”,color:G.red,borderRadius:10,padding:“1px 7px”,fontSize:10,fontWeight:700}}>-{fee}%</span>}
+{creditPending&&<span style={{background:G.blue+“20”,color:G.blue,borderRadius:10,padding:“1px 7px”,fontSize:10,fontWeight:700}}>💳 Aguarda crédito</span>}
 <span style={{fontWeight:700,color:creditPending?G.muted:G.success}}>{cur(it.liqValue*(d.commission||40)/100)}</span>
 </div>;
 })}
@@ -2441,8 +2424,8 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 {/* Future credit */}
 {Object.keys(cf).length>0&&<>
 <Div lb="💳 Crédito Futuro (cartão parcelado)"/>
-<div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:9}}>
-{Object.entries(cf).sort().map(([m,v])=><div key={m} style={{background:G.blue+"15",borderRadius:7,padding:"5px 12px",fontSize:11,color:G.blue,textAlign:"center"}}>
+<div style={{display:“flex”,gap:7,flexWrap:“wrap”,marginBottom:9}}>
+{Object.entries(cf).sort().map(([m,v])=><div key={m} style={{background:G.blue+“15”,borderRadius:7,padding:“5px 12px”,fontSize:11,color:G.blue,textAlign:“center”}}>
 <div style={{fontWeight:700}}>{m.slice(5)}/{m.slice(0,4)}</div>
 <div>{cur(v)}</div>
 </div>)}
@@ -2451,7 +2434,7 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 {/* Attendance list */}
 {rs.length>0&&<>
 <Div lb="Atendimentos do Mês"/>
-{rs.map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{display:"flex",gap:8,fontSize:11,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap"}}>
+{rs.map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{display:“flex”,gap:8,fontSize:11,padding:“4px 0”,borderBottom:`1px solid ${G.border}`,flexWrap:“wrap”}}>
 <span style={{color:G.muted,minWidth:70}}>{fmt(r.date)}</span>
 <span style={{flex:1}}>{p?.name} — {r.procedure}</span>
 <Bdg l={r.payment} col={PC[r.payment]||G.muted} sm/>
@@ -2461,72 +2444,72 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 </>}
 </div>)}
 </div>}
-{tab==="prot"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-{lr.map(({l,ps,tot,done,wait,cost})=><div key={l.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-<div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:11}}>
+{tab===“prot”&&<div style={{display:“flex”,flexDirection:“column”,gap:14}}>
+{lr.map(({l,ps,tot,done,wait,cost})=><div key={l.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,flexWrap:“wrap”,gap:10,marginBottom:11}}>
 <div><div style={{fontWeight:700,fontSize:15}}>{l.name}</div><div style={{fontSize:11,color:G.muted}}>{l.contact} · {l.phone}</div></div>
-<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-{[["Enviados",tot,G.primary],["Instalados",done,G.success],["Pendentes",wait,G.yellow],["Custo Total",cur(cost),G.red]].map(([lbl,v,c])=><div key={lbl} style={{textAlign:"center",background:G.bg,borderRadius:8,padding:"6px 11px"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{lbl}</div></div>)}
+<div style={{display:“flex”,gap:8,flexWrap:“wrap”}}>
+{[[“Enviados”,tot,G.primary],[“Instalados”,done,G.success],[“Pendentes”,wait,G.yellow],[“Custo Total”,cur(cost),G.red]].map(([lbl,v,c])=><div key={lbl} style={{textAlign:“center”,background:G.bg,borderRadius:8,padding:“6px 11px”}}><div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:18,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{lbl}</div></div>)}
 </div>
 </div>
-{ps.length>0&&ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.sent)}</span><span style={{flex:1}}>{pat?.name} — {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{cur(p.price)}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;})}
+{ps.length>0&&ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:“flex”,gap:8,fontSize:11,padding:“5px 0”,borderBottom:`1px solid ${G.border}`,flexWrap:“wrap”,alignItems:“center”}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.sent)}</span><span style={{flex:1}}>{pat?.name} — {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(” “)[0]}</span><span style={{fontWeight:700,color:G.primary}}>{cur(p.price)}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;})}
 </div>)}
 </div>}
-{tab==="orc"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+{tab===“orc”&&<div style={{display:“flex”,flexDirection:“column”,gap:14}}>
 {/* Origem summary */}
-<div style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div style={{background:G.card,borderRadius:13,padding:15,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}>
 <div style={{fontWeight:700,fontSize:14,marginBottom:12,color:G.primary}}>📊 Origem dos Pacientes</div>
-<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-{["Indicação","Instagram","Já era paciente","Urgência","Passando na rua","Google","Outro","Não informado"].map(o=>{
-const cnt=pats.filter(p=>(p.origem||"Não informado")===o).length;
+<div style={{display:“flex”,gap:8,flexWrap:“wrap”}}>
+{[“Indicação”,“Instagram”,“Já era paciente”,“Urgência”,“Passando na rua”,“Google”,“Outro”,“Não informado”].map(o=>{
+const cnt=pats.filter(p=>(p.origem||“Não informado”)===o).length;
 if(!cnt)return null;
-return <div key={o} style={{background:G.accent,borderRadius:9,padding:"8px 14px",textAlign:"center"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:G.primary}}>{cnt}</div><div style={{fontSize:11,color:G.muted,fontWeight:700}}>{o}</div></div>;
+return <div key={o} style={{background:G.accent,borderRadius:9,padding:“8px 14px”,textAlign:“center”}}><div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:22,color:G.primary}}>{cnt}</div><div style={{fontSize:11,color:G.muted,fontWeight:700}}>{o}</div></div>;
 })}
 </div>
 </div>
 {/* Budgets by dentist */}
-<div style={{display:"flex",flexDirection:"column",gap:4}}>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Filtrar dentista</label>
-<select onChange={e=>setOrcDent(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none",background:"#fff",maxWidth:250}}>
+<div style={{display:“flex”,flexDirection:“column”,gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”}}>Filtrar dentista</label>
+<select onChange={e=>setOrcDent(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:“8px 11px”,fontSize:13,outline:“none”,background:”#fff”,maxWidth:250}}>
 <option value="all">Todos os dentistas</option>
 {dents.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
 </select>
 </div>
 {(()=>{
-const filtB=budgets.filter(b=>orcDent==="all"||String(b.dentistId)===String(orcDent));
+const filtB=budgets.filter(b=>orcDent===“all”||String(b.dentistId)===String(orcDent));
 const moB=filtB.filter(b=>b.date.startsWith(mo));
-const totApproved=moB.filter(b=>b.status==="approved").reduce((s,b)=>s+b.items.reduce((ss,i)=>ss+i.v,0)-(b.disc||0),0);
-const totPending=moB.filter(b=>b.status==="pending").reduce((s,b)=>s+b.items.reduce((ss,i)=>ss+i.v,0)-(b.disc||0),0);
-const totRej=moB.filter(b=>b.status==="rejected").reduce((s,b)=>s+b.items.reduce((ss,i)=>ss+i.v,0)-(b.disc||0),0);
+const totApproved=moB.filter(b=>b.status===“approved”).reduce((s,b)=>s+b.items.reduce((ss,i)=>ss+i.v,0)-(b.disc||0),0);
+const totPending=moB.filter(b=>b.status===“pending”).reduce((s,b)=>s+b.items.reduce((ss,i)=>ss+i.v,0)-(b.disc||0),0);
+const totRej=moB.filter(b=>b.status===“rejected”).reduce((s,b)=>s+b.items.reduce((ss,i)=>ss+i.v,0)-(b.disc||0),0);
 const BCOLOR2={approved:G.success,pending:G.yellow,rejected:G.red};
-const BLABEL={approved:"Aprovados",pending:"Em espera",rejected:"Recusados"};
+const BLABEL={approved:“Aprovados”,pending:“Em espera”,rejected:“Recusados”};
 return <>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
-{[["Aprovados",totApproved,G.success],["Em Espera",totPending,G.yellow],["Recusados",totRej,G.red]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"11px",textAlign:"center",borderTop:`4px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c}}>{cur(v)}</div></div>)}
+<div style={{display:“grid”,gridTemplateColumns:“repeat(3,1fr)”,gap:11}}>
+{[[“Aprovados”,totApproved,G.success],[“Em Espera”,totPending,G.yellow],[“Recusados”,totRej,G.red]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:“11px”,textAlign:“center”,borderTop:`4px solid ${c}`,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div><div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:20,color:c}}>{cur(v)}</div></div>)}
 </div>
-<div style={{display:"flex",flexDirection:"column",gap:7}}>
-{moB.length===0&&<div style={{background:G.card,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum orçamento neste mês</div>}
+<div style={{display:“flex”,flexDirection:“column”,gap:7}}>
+{moB.length===0&&<div style={{background:G.card,borderRadius:10,padding:20,textAlign:“center”,color:G.muted,fontSize:13}}>Nenhum orçamento neste mês</div>}
 {moB.map((b,bi)=>{const pat=pats.find(p=>p.id===b.patientId);const tot=b.items.reduce((s,i)=>s+i.v,0)-(b.disc||0);const den=dents.find(d=>d.id===b.dentistId);
-return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:`4px solid ${BCOLOR2[b.status]||G.muted}`}}>
-<div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
-<div><div style={{fontWeight:700,fontSize:13}}>{pat?.name||"—"}</div><div style={{fontSize:11,color:G.muted}}>{fmt(b.date)}{den?` · ${den.name}`:""}</div></div>
-<div style={{display:"flex",gap:7,alignItems:"center"}}><Bdg l={BLABEL[b.status]||b.status} col={BCOLOR2[b.status]||G.muted} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(tot)}</span></div>
+return <div key={bi} style={{background:G.card,borderRadius:10,padding:“11px 14px”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”,borderLeft:`4px solid ${BCOLOR2[b.status]||G.muted}`}}>
+<div style={{display:“flex”,justifyContent:“space-between”,flexWrap:“wrap”,gap:6}}>
+<div><div style={{fontWeight:700,fontSize:13}}>{pat?.name||”—”}</div><div style={{fontSize:11,color:G.muted}}>{fmt(b.date)}{den?` · ${den.name}`:””}</div></div>
+<div style={{display:“flex”,gap:7,alignItems:“center”}}><Bdg l={BLABEL[b.status]||b.status} col={BCOLOR2[b.status]||G.muted} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(tot)}</span></div>
 </div>
-{b.items.map((it,i)=><div key={i} style={{fontSize:11,color:G.muted,display:"flex",justifyContent:"space-between",marginTop:3}}><span>{it.d}</span><span>{cur(it.v)}</span></div>)}
+{b.items.map((it,i)=><div key={i} style={{fontSize:11,color:G.muted,display:“flex”,justifyContent:“space-between”,marginTop:3}}><span>{it.d}</span><span>{cur(it.v)}</span></div>)}
 </div>;})}
 </div>
 </>;
 })()}
 </div>}
-{tab==="exp"&&user.level>=3&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-{[["Despesas Clínica",clinicExp,G.red],["Despesas Pessoais",persExp,G.purple]].map(([title,list,color])=><div key={title} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+{tab===“exp”&&user.level>=3&&<div style={{display:“flex”,flexDirection:“column”,gap:14}}>
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:14}}>
+{[[“Despesas Clínica”,clinicExp,G.red],[“Despesas Pessoais”,persExp,G.purple]].map(([title,list,color])=><div key={title} style={{background:G.card,borderRadius:13,padding:15,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}>
 <div style={{fontWeight:700,fontSize:14,color,marginBottom:10}}>{title}</div>
-<div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color,marginBottom:12}}>{cur(list.reduce((s,e)=>s+Number(e.value||0),0))}</div>
-{list.map(e=><div key={e.id} style={{display:"flex",gap:8,fontSize:12,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}>
+<div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:22,color,marginBottom:12}}>{cur(list.reduce((s,e)=>s+Number(e.value||0),0))}</div>
+{list.map(e=><div key={e.id} style={{display:“flex”,gap:8,fontSize:12,padding:“4px 0”,borderBottom:`1px solid ${G.border}`,flexWrap:“wrap”,alignItems:“center”}}>
 <span style={{color:G.muted,minWidth:70}}>{fmt(e.date)}</span>
 <span style={{flex:1}}>{e.desc} <span style={{color:G.muted}}>({e.cat})</span></span>
-<Bdg l={e.paid?"Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
+<Bdg l={e.paid?“Pago”:“Pendente”} col={e.paid?G.success:G.red} sm/>
 <span style={{fontWeight:700}}>{cur(e.value)}</span>
 </div>)}
 {list.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhuma despesa</p>}
@@ -2556,41 +2539,40 @@ const [m,setM]=useState({t:“in”,q:””,note:””,date:today()});
 const save=()=>{if(!f.name)return;const obj={…f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[…prev,obj]);setModal(false);};
 const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{…s,qty:m.t===“in”?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note},…(s.movs||[])]}:s));setMv(null);};
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
-<button onClick={function(){setStkTab("material");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="material"?"#fff":G.bg,color:stkTab==="material"?G.primary:G.muted,boxShadow:stkTab==="material"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"📦 Material"}</button>
-<button onClick={function(){setStkTab("implantes");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="implantes"?"#fff":G.bg,color:stkTab==="implantes"?G.primary:G.muted,boxShadow:stkTab==="implantes"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"🦷 Implantes"}</button>
+<div style={{display:“flex”,gap:4,background:G.bg,borderRadius:12,padding:4}}>
+<button onClick={function(){setStkTab(“material”);}} style={{flex:1,border:“none”,borderRadius:9,padding:“9px 4px”,fontSize:12,fontWeight:700,cursor:“pointer”,background:stkTab===“material”?”#fff”:G.bg,color:stkTab===“material”?G.primary:G.muted,boxShadow:stkTab===“material”?“0 1px 4px rgba(0,0,0,.1)”:“none”}}>{“📦 Material”}</button>
+<button onClick={function(){setStkTab(“implantes”);}} style={{flex:1,border:“none”,borderRadius:9,padding:“9px 4px”,fontSize:12,fontWeight:700,cursor:“pointer”,background:stkTab===“implantes”?”#fff”:G.bg,color:stkTab===“implantes”?G.primary:G.muted,boxShadow:stkTab===“implantes”?“0 1px 4px rgba(0,0,0,.1)”:“none”}}>{“🦷 Implantes”}</button>
 </div>
-{stkTab==="implantes"&&<ImplantesConsig implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={addLog}/>}
-{stkTab==="material"&&<>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Estoque</h2>
-<Btn ch="+ Novo Item" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/>
+{stkTab===“implantes”&&<ImplantesConsig implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={addLog}/>}
+{stkTab===“material”&&<>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,flexWrap:“wrap”,gap:10}}>
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26}}>Estoque</h2>
+<Btn ch=”+ Novo Item” onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:11}}>
-{stock.map(s=>{const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:`4px solid ${low?G.red:G.success}`}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+<div style={{display:“grid”,gridTemplateColumns:“repeat(auto-fill,minmax(250px,1fr))”,gap:11}}>
+{stock.map(s=>{const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:“0 1px 4px rgba(0,0,0,.07)”,borderLeft:`4px solid ${low?G.red:G.success}`}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“flex-start”}}>
 <div><div style={{fontWeight:700,fontSize:13}}>{s.name}</div><div style={{fontSize:11,color:G.muted}}>Custo: {cur(s.price)}/{s.unit}</div></div>
-<div style={{textAlign:"right"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:low?G.red:G.success,lineHeight:1}}>{s.qty}</div><div style={{fontSize:10,color:G.muted}}>{s.unit}</div></div>
+<div style={{textAlign:“right”}}><div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:24,color:low?G.red:G.success,lineHeight:1}}>{s.qty}</div><div style={{fontSize:10,color:G.muted}}>{s.unit}</div></div>
 </div>
-{low&&<div style={{background:G.red+"15",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:G.red,marginTop:5}}>⚠ Estoque baixo!</div>}
-<div style={{display:"flex",gap:5,marginTop:9}}>
-<Btn ch="+ Entrada" sm onClick={()=>{setM({t:"in",q:"",note:"",date:today()});setMv(s.id);}}/>
-<Btn ch="- Saída" v="y" sm onClick={()=>{setM({t:"out",q:"",note:"",date:today()});setMv(s.id);}}/>
-<Btn ch="✏️" v="g" sm onClick={()=>{setEdit(s);setF({…s});setModal(true);}}/>
+{low&&<div style={{background:G.red+“15”,borderRadius:6,padding:“3px 8px”,fontSize:10,fontWeight:700,color:G.red,marginTop:5}}>⚠ Estoque baixo!</div>}
+<div style={{display:“flex”,gap:5,marginTop:9}}>
+<Btn ch=”+ Entrada” sm onClick={()=>{setM({t:“in”,q:””,note:””,date:today()});setMv(s.id);}}/>
+<Btn ch=”- Saída” v=“y” sm onClick={()=>{setM({t:“out”,q:””,note:””,date:today()});setMv(s.id);}}/>
+<Btn ch=“✏️” v=“g” sm onClick={()=>{setEdit(s);setF({…s});setModal(true);}}/>
 </div>
 </div>;})}
 </div>
-<Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Item":"Novo Item"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
-<Inp lb="Nome do Material" val={f.name} set={upd("name")}/>
-<R2 a={<Inp lb="Qtd. Atual" val={String(f.qty)} set={upd("qty")} type="number"/>} b={<Inp lb="Unidade" val={f.unit} set={upd("unit")} ph="un / cx / ml"/>}/>
-<R2 a={<Inp lb="Qtd. Mínima" val={String(f.min)} set={upd("min")} type="number"/>} b={<Inp lb="Preço Un. (R$)" val={String(f.price)} set={upd("price")} type="number"/>}/>
+<Modal open={modal} close={()=>setModal(false)} title={edit?“Editar Item”:“Novo Item”} ch={<div style={{display:“flex”,flexDirection:“column”,gap:11}}>
+<Inp lb=“Nome do Material” val={f.name} set={upd(“name”)}/>
+<R2 a={<Inp lb=“Qtd. Atual” val={String(f.qty)} set={upd(“qty”)} type=“number”/>} b={<Inp lb=“Unidade” val={f.unit} set={upd(“unit”)} ph=“un / cx / ml”/>}/>
+<R2 a={<Inp lb=“Qtd. Mínima” val={String(f.min)} set={upd(“min”)} type=“number”/>} b={<Inp lb=“Preço Un. (R$)” val={String(f.price)} set={upd(“price”)} type=“number”/>}/>
 <SC2 save={save} cancel={()=>setModal(false)}/>
 </div>}/>
-<Modal open={!!mv} close={()=>setMv(null)} title={m.t==="in"?"Entrada":"Saída"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
-<R2 a={<Inp lb="Quantidade" val={m.q} set={v=>setM(p=>({…p,q:v}))} type="number"/>} b={<Inp lb="Data" val={m.date} set={v=>setM(p=>({…p,date:v}))} type="date"/>}/>
-<Inp lb="Motivo" val={m.note} set={v=>setM(p=>({…p,note:v}))}/>
-<SC2 save={addMov} cancel={()=>setMv(null)} lbl="Registrar"/>
+<Modal open={!!mv} close={()=>setMv(null)} title={m.t===“in”?“Entrada”:“Saída”} ch={<div style={{display:“flex”,flexDirection:“column”,gap:11}}>
+<R2 a={<Inp lb=“Quantidade” val={m.q} set={v=>setM(p=>({…p,q:v}))} type=“number”/>} b={<Inp lb=“Data” val={m.date} set={v=>setM(p=>({…p,date:v}))} type=“date”/>}/>
+<Inp lb=“Motivo” val={m.note} set={v=>setM(p=>({…p,note:v}))}/>
+<SC2 save={addMov} cancel={()=>setMv(null)} lbl=“Registrar”/>
 </div>}/>
 </>}
 
@@ -2626,63 +2608,62 @@ const saveU=()=>{if(!uf.name||!uf.login)return;const obj={…uf,dentistId:uf.den
 const saveP=()=>{if(!pf.name)return;const obj={…pf,price:Number(pf.price),id:ep?ep.id:nid(procs)};setProcs(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[…prev,obj]);setPm(false);};
 const saveL=()=>{if(!lf.name)return alert(“Informe o nome do laboratório”);const obj={…lf,id:el?el.id:nid(labs)};setLabs(prev=>el?prev.map(l=>l.id===el.id?obj:l):[…prev,obj]);setLm(false);};
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
-<div style={{display:"flex",gap:0,borderBottom:`2px solid ${G.border}`}}>
-{[["users","Usuários"],["procs","Procedimentos"],["labs","Laboratórios"],["agenda","📅 Horários"],["access","🔑 Acessos"],["log","📋 Log"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 15px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2}}>{l}</button>)}
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26}}>Administrativo</h2>
+<div style={{display:“flex”,gap:0,borderBottom:`2px solid ${G.border}`}}>
+{[[“users”,“Usuários”],[“procs”,“Procedimentos”],[“labs”,“Laboratórios”],[“agenda”,“📅 Horários”],[“access”,“🔑 Acessos”],[“log”,“📋 Log”]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:“none”,background:“none”,padding:“9px 15px”,fontFamily:”‘DM Sans’”,fontWeight:700,fontSize:12,cursor:“pointer”,color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2}}>{l}</button>)}
 </div>
-{tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
-<div style={{textAlign:"right"}}><Btn ch="+ Novo Usuário" sm onClick={()=>{setEu(null);setUf(b0);setUm(true);}}/></div>
-{users.map(u=><div key={u.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11,borderLeft:`4px solid ${u.color}`}}>
-<div style={{width:34,height:34,borderRadius:"50%",background:u.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>{u.name[0]}</div>
-<div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{u.name}</div><div style={{fontSize:11,color:G.muted}}>{u.role} · {u.login} · Nível {["","Básico","Intermediário","Total"][u.level]}</div></div>
-<Bdg l={u.active?"Ativo":"Inativo"} col={u.active?G.success:G.red} sm/>
-<Btn ch="Editar" v="g" sm onClick={()=>{setEu(u);setUf({…u,dentistId:String(u.dentistId||"")});setUm(true);}}/>
+{tab===“users”&&<div style={{display:“flex”,flexDirection:“column”,gap:9}}>
+<div style={{textAlign:“right”}}><Btn ch=”+ Novo Usuário” sm onClick={()=>{setEu(null);setUf(b0);setUm(true);}}/></div>
+{users.map(u=><div key={u.id} style={{background:G.card,borderRadius:11,padding:“11px 14px”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”,display:“flex”,alignItems:“center”,gap:11,borderLeft:`4px solid ${u.color}`}}>
+<div style={{width:34,height:34,borderRadius:“50%”,background:u.color,display:“flex”,alignItems:“center”,justifyContent:“center”,color:”#fff”,fontWeight:700,fontSize:13,flexShrink:0}}>{u.name[0]}</div>
+<div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{u.name}</div><div style={{fontSize:11,color:G.muted}}>{u.role} · {u.login} · Nível {[””,“Básico”,“Intermediário”,“Total”][u.level]}</div></div>
+<Bdg l={u.active?“Ativo”:“Inativo”} col={u.active?G.success:G.red} sm/>
+<Btn ch=“Editar” v=“g” sm onClick={()=>{setEu(u);setUf({…u,dentistId:String(u.dentistId||””)});setUm(true);}}/>
 </div>)}
 </div>}
-{tab==="procs"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
-<div style={{textAlign:"right"}}><Btn ch="+ Novo" sm onClick={()=>{setEp(null);setPf(bp);setPm(true);}}/></div>
-{procs.map(p=><div key={p.id} style={{background:G.card,borderRadius:10,padding:"9px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11}}>
+{tab===“procs”&&<div style={{display:“flex”,flexDirection:“column”,gap:9}}>
+<div style={{textAlign:“right”}}><Btn ch=”+ Novo” sm onClick={()=>{setEp(null);setPf(bp);setPm(true);}}/></div>
+{procs.map(p=><div key={p.id} style={{background:G.card,borderRadius:10,padding:“9px 14px”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”,display:“flex”,alignItems:“center”,gap:11}}>
 <span style={{flex:1,fontWeight:700,fontSize:13}}>{p.name}</span><span style={{fontWeight:700,color:G.primary}}>{cur(p.price)}</span>
-<Btn ch="Editar" v="g" sm onClick={()=>{setEp(p);setPf({…p});setPm(true);}}/><Btn ch="✕" v="r" sm onClick={()=>{if(window.confirm("Remover?"))setProcs(prev=>prev.filter(x=>x.id!==p.id));}}/>
+<Btn ch=“Editar” v=“g” sm onClick={()=>{setEp(p);setPf({…p});setPm(true);}}/><Btn ch=“✕” v=“r” sm onClick={()=>{if(window.confirm(“Remover?”))setProcs(prev=>prev.filter(x=>x.id!==p.id));}}/>
 </div>)}
 </div>}
-{tab==="labs"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
-<div style={{textAlign:"right"}}><Btn ch="+ Novo Laboratório" sm onClick={()=>{setEl(null);setLf(bl);setLm(true);}}/></div>
-{labs.map(l=><div key={l.id} style={{background:G.card,borderRadius:10,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11}}>
+{tab===“labs”&&<div style={{display:“flex”,flexDirection:“column”,gap:9}}>
+<div style={{textAlign:“right”}}><Btn ch=”+ Novo Laboratório” sm onClick={()=>{setEl(null);setLf(bl);setLm(true);}}/></div>
+{labs.map(l=><div key={l.id} style={{background:G.card,borderRadius:10,padding:“11px 14px”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”,display:“flex”,alignItems:“center”,gap:11}}>
 <div style={{flex:1}}>
 <div style={{fontWeight:700,fontSize:13}}>{l.name}</div>
-<div style={{fontSize:12,color:G.muted}}>{l.contact}{l.phone?` · ${l.phone}`:""}</div>
+<div style={{fontSize:12,color:G.muted}}>{l.contact}{l.phone?` · ${l.phone}`:””}</div>
 </div>
-<Btn ch="Editar" v="g" sm onClick={()=>{setEl(l);setLf({…l});setLm(true);}}/>
-<Btn ch="✕" v="r" sm onClick={()=>{if(window.confirm("Remover laboratório?"))setLabs(prev=>prev.filter(x=>x.id!==l.id));}}/>
+<Btn ch=“Editar” v=“g” sm onClick={()=>{setEl(l);setLf({…l});setLm(true);}}/>
+<Btn ch=“✕” v=“r” sm onClick={()=>{if(window.confirm(“Remover laboratório?”))setLabs(prev=>prev.filter(x=>x.id!==l.id));}}/>
 </div>)}
-{labs.length===0&&<div style={{background:G.bg,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum laboratório cadastrado</div>}
+{labs.length===0&&<div style={{background:G.bg,borderRadius:10,padding:20,textAlign:“center”,color:G.muted,fontSize:13}}>Nenhum laboratório cadastrado</div>}
 </div>}
-{tab==="agenda"&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
-<div style={{background:G.accent,borderRadius:12,padding:"12px 14px",fontSize:13,color:G.primary}}>
+{tab===“agenda”&&<div style={{display:“flex”,flexDirection:“column”,gap:16}}>
+<div style={{background:G.accent,borderRadius:12,padding:“12px 14px”,fontSize:13,color:G.primary}}>
 Configure os dias de trabalho e horario de almoco de cada dentista.
 </div>
 {dents.map(function(d){
 var dias=d.dias||[1,2,3,4,5];
-var alIni=(d.almoco&&d.almoco.ini)||"12:00";
-var alFim=(d.almoco&&d.almoco.fim)||"13:00";
+var alIni=(d.almoco&&d.almoco.ini)||“12:00”;
+var alFim=(d.almoco&&d.almoco.fim)||“13:00”;
 var upDent=function(patch){setDents(function(prev){return prev.map(function(x){return x.id===d.id?Object.assign({},x,patch):x;});});};
 var togDia=function(dia){var nd=dias.indexOf(dia)>=0?dias.filter(function(x){return x!==dia;}):[…dias,dia].sort();upDent({dias:nd});};
 return(
-<div key={d.id} style={{background:G.card,borderRadius:14,padding:"14px 16px",boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
-<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-<div style={{width:10,height:10,borderRadius:"50%",background:d.color,flexShrink:0}}/>
+<div key={d.id} style={{background:G.card,borderRadius:14,padding:“14px 16px”,boxShadow:“0 2px 8px rgba(0,0,0,.06)”}}>
+<div style={{display:“flex”,alignItems:“center”,gap:10,marginBottom:12}}>
+<div style={{width:10,height:10,borderRadius:“50%”,background:d.color,flexShrink:0}}/>
 <span style={{fontWeight:700,fontSize:15}}>{d.name}</span>
 </div>
 <div style={{marginBottom:12}}>
-<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>Dias de trabalho</div>
-<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-{["Dom","Seg","Ter","Qua","Qui","Sex","Sab"].map(function(nm,i){
+<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”,marginBottom:6}}>Dias de trabalho</div>
+<div style={{display:“flex”,gap:5,flexWrap:“wrap”}}>
+{[“Dom”,“Seg”,“Ter”,“Qua”,“Qui”,“Sex”,“Sab”].map(function(nm,i){
 var ativo=dias.indexOf(i)>=0;
 return(
 <button key={i} onClick={function(){togDia(i);}}
-style={{border:"2px solid "+(ativo?d.color:G.border),background:ativo?d.color:"#fff",color:ativo?"#fff":G.muted,borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer",minWidth:38}}>
+style={{border:“2px solid “+(ativo?d.color:G.border),background:ativo?d.color:”#fff”,color:ativo?”#fff”:G.muted,borderRadius:8,padding:“5px 10px”,fontSize:12,fontWeight:700,cursor:“pointer”,minWidth:38}}>
 {nm}
 </button>
 );
@@ -2690,26 +2671,26 @@ style={{border:"2px solid "+(ativo?d.color:G.border),background:ativo?d.color:"#
 </div>
 </div>
 {(function(){
-var HORAS=["06:00","06:30","07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00","20:30","21:00","21:30","22:00","22:30"];
-var selStyle={border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none",width:"100%",background:"#fff"};
+var HORAS=[“06:00”,“06:30”,“07:00”,“07:30”,“08:00”,“08:30”,“09:00”,“09:30”,“10:00”,“10:30”,“11:00”,“11:30”,“12:00”,“12:30”,“13:00”,“13:30”,“14:00”,“14:30”,“15:00”,“15:30”,“16:00”,“16:30”,“17:00”,“17:30”,“18:00”,“18:30”,“19:00”,“19:30”,“20:00”,“20:30”,“21:00”,“21:30”,“22:00”,“22:30”];
+var selStyle={border:“1.5px solid “+G.border,borderRadius:8,padding:“8px 10px”,fontSize:13,outline:“none”,width:“100%”,background:”#fff”};
 return <div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:10,marginBottom:10}}>
 <div>
-<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>Entrada</div>
-<select value={d.entrada||"08:00"} onChange={function(e){upDent({entrada:e.target.value});}} style={selStyle}>
+<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”,marginBottom:6}}>Entrada</div>
+<select value={d.entrada||“08:00”} onChange={function(e){upDent({entrada:e.target.value});}} style={selStyle}>
 {HORAS.map(function(h){return <option key={h} value={h}>{h}</option>;})}
 </select>
 </div>
 <div>
-<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>Saida</div>
-<select value={d.saida||"18:00"} onChange={function(e){upDent({saida:e.target.value});}} style={selStyle}>
+<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”,marginBottom:6}}>Saida</div>
+<select value={d.saida||“18:00”} onChange={function(e){upDent({saida:e.target.value});}} style={selStyle}>
 {HORAS.map(function(h){return <option key={h} value={h}>{h}</option>;})}
 </select>
 </div>
 </div>
 <div style={{marginBottom:6}}>
-<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>Horario de almoco</div>
-<div style={{display:"flex",alignItems:"center",gap:8}}>
+<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”,marginBottom:6}}>Horario de almoco</div>
+<div style={{display:“flex”,alignItems:“center”,gap:8}}>
 <select value={alIni} onChange={function(e){var al=Object.assign({},d.almoco||{});al.ini=e.target.value;upDent({almoco:al});}} style={{…selStyle,flex:1}}>
 {HORAS.map(function(h){return <option key={h} value={h}>{h}</option>;})}
 </select>
@@ -2725,23 +2706,23 @@ return <div>
 );
 })}
 </div>}
-{tab==="access"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-<div style={{background:G.accent,borderRadius:12,padding:"10px 14px",fontSize:12,color:G.primary}}>
-{"Defina as permissões de cada nível. Itens em cinza são fixos do sistema."}
+{tab===“access”&&<div style={{display:“flex”,flexDirection:“column”,gap:14}}>
+<div style={{background:G.accent,borderRadius:12,padding:“10px 14px”,fontSize:12,color:G.primary}}>
+{“Defina as permissões de cada nível. Itens em cinza são fixos do sistema.”}
 </div>
 {[1,2,3].map(function(lvl){
 var pm=perms[lvl];
 return(
-<div key={lvl} style={{background:G.card,borderRadius:14,overflow:"hidden",boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
-<div style={{background:pm.color,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-<span style={{fontWeight:700,color:"#fff",fontSize:15}}>{pm.label}</span>
-<span style={{background:"rgba(255,255,255,.2)",color:"#fff",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{"Nível "+lvl}</span>
+<div key={lvl} style={{background:G.card,borderRadius:14,overflow:“hidden”,boxShadow:“0 2px 8px rgba(0,0,0,.06)”}}>
+<div style={{background:pm.color,padding:“12px 16px”,display:“flex”,alignItems:“center”,justifyContent:“space-between”}}>
+<span style={{fontWeight:700,color:”#fff”,fontSize:15}}>{pm.label}</span>
+<span style={{background:“rgba(255,255,255,.2)”,color:”#fff”,borderRadius:20,padding:“2px 10px”,fontSize:11,fontWeight:700}}>{“Nível “+lvl}</span>
 </div>
-<div style={{padding:"10px 16px",display:"flex",flexDirection:"column",gap:6}}>
+<div style={{padding:“10px 16px”,display:“flex”,flexDirection:“column”,gap:6}}>
 {pm.items.map(function(item){
 return(
-<div key={item.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
-<div style={{width:22,height:22,borderRadius:6,border:"2px solid "+(item.val?pm.color:G.border),background:item.val?pm.color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:item.fixed?"not-allowed":"pointer",opacity:item.fixed?.6:1}}
+<div key={item.id} style={{display:“flex”,alignItems:“center”,gap:10,padding:“6px 0”,borderBottom:“1px solid “+G.border}}>
+<div style={{width:22,height:22,borderRadius:6,border:“2px solid “+(item.val?pm.color:G.border),background:item.val?pm.color:”#fff”,display:“flex”,alignItems:“center”,justifyContent:“center”,flexShrink:0,cursor:item.fixed?“not-allowed”:“pointer”,opacity:item.fixed?.6:1}}
 onClick={function(){
 if(item.fixed)return;
 setPerms(function(prev){
@@ -2750,10 +2731,10 @@ novo[lvl]={…novo[lvl],items:novo[lvl].items.map(function(x){return x.id===item
 return novo;
 });
 }}>
-{item.val&&<span style={{color:"#fff",fontSize:14,lineHeight:1}}>{"✓"}</span>}
+{item.val&&<span style={{color:”#fff”,fontSize:14,lineHeight:1}}>{“✓”}</span>}
 </div>
 <span style={{fontSize:13,color:item.val?G.text:G.muted,flex:1}}>{item.label}</span>
-{item.fixed&&<span style={{fontSize:9,color:G.muted,background:G.bg,borderRadius:4,padding:"1px 5px"}}>FIXO</span>}
+{item.fixed&&<span style={{fontSize:9,color:G.muted,background:G.bg,borderRadius:4,padding:“1px 5px”}}>FIXO</span>}
 </div>
 );
 })}
@@ -2878,44 +2859,43 @@ const ar=autoRems(pats,recs,appts);
 const urgent=[…ar,…rems.filter(r=>!r.done)].filter(r=>r.date<=t);
 const todayP=pros.filter(p=>p.due===t&&p.status===“waiting”);
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
-
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div><div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div></div>
-{urgent.filter(r=>r.type==="surg").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.red+"15",border:`2px solid ${G.red}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🔴</span><span style={{fontWeight:700,color:G.red,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! Como está se sentindo após o procedimento de ontem? 😊`)}/>}</div>;})}
-{urgent.filter(r=>r.type==="bday").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.gold+"15",border:`2px solid ${G.gold}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🎂</span><span style={{fontWeight:700,color:G.gold,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 Parabéns" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! 🎂 Feliz aniversário da equipe Affonso Odontologia! 😊`)}/>}</div>;})}
-{todayP.length>0&&<div style={{background:G.orange+"15",border:`2px solid ${G.orange}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🏥</span><span style={{fontWeight:700,color:G.orange,flex:1}}>{todayP.length} prótese(s) prevista(s) para hoje!</span><Btn ch="Ver" v="y" sm onClick={()=>setView("pros")}/></div>}
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-{[{l:"Pacientes",v:pats.length,i:"👥",c:G.primary},{l:"Hoje",v:todayA.length,i:"📅",c:G.blue},{l:"Próteses em Lab",v:pros.filter(p=>p.status==="waiting").length,i:"🏥",c:G.purple},{l:"Receita Mês",v:cur(rev),i:"💰",c:G.yellow}].map(({l,v,i,c})=><div key={l} style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:`4px solid ${c}`}}><div style={{fontSize:19,marginBottom:4}}>{i}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div><div style={{fontSize:11,color:G.muted,fontWeight:600,marginTop:1}}>{l}</div></div>)}
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”}}><div><h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString(“pt-BR”,{weekday:“long”,day:“numeric”,month:“long”,year:“numeric”})}</div></div><div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div></div>
+{urgent.filter(r=>r.type===“surg”).map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.red+“15”,border:`2px solid ${G.red}`,borderRadius:10,padding:“8px 14px”,display:“flex”,gap:10,alignItems:“center”}}><span>🔴</span><span style={{fontWeight:700,color:G.red,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch=“📱 WhatsApp” v=“w” sm onClick={()=>wa(p.phone,`Olá ${p.name}! Como está se sentindo após o procedimento de ontem? 😊`)}/>}</div>;})}
+{urgent.filter(r=>r.type===“bday”).map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.gold+“15”,border:`2px solid ${G.gold}`,borderRadius:10,padding:“8px 14px”,display:“flex”,gap:10,alignItems:“center”}}><span>🎂</span><span style={{fontWeight:700,color:G.gold,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch=“📱 Parabéns” v=“w” sm onClick={()=>wa(p.phone,`Olá ${p.name}! 🎂 Feliz aniversário da equipe Affonso Odontologia! 😊`)}/>}</div>;})}
+{todayP.length>0&&<div style={{background:G.orange+“15”,border:`2px solid ${G.orange}`,borderRadius:10,padding:“8px 14px”,display:“flex”,gap:10,alignItems:“center”}}><span>🏥</span><span style={{fontWeight:700,color:G.orange,flex:1}}>{todayP.length} prótese(s) prevista(s) para hoje!</span><Btn ch=“Ver” v=“y” sm onClick={()=>setView(“pros”)}/></div>}
+<div style={{display:“grid”,gridTemplateColumns:“1fr 1fr”,gap:11}}>
+{[{l:“Pacientes”,v:pats.length,i:“👥”,c:G.primary},{l:“Hoje”,v:todayA.length,i:“📅”,c:G.blue},{l:“Próteses em Lab”,v:pros.filter(p=>p.status===“waiting”).length,i:“🏥”,c:G.purple},{l:“Receita Mês”,v:cur(rev),i:“💰”,c:G.yellow}].map(({l,v,i,c})=><div key={l} style={{background:G.card,borderRadius:12,padding:14,boxShadow:“0 1px 5px rgba(0,0,0,.07)”,borderLeft:`4px solid ${c}`}}><div style={{fontSize:19,marginBottom:4}}>{i}</div><div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:22,color:c}}>{v}</div><div style={{fontSize:11,color:G.muted,fontWeight:600,marginTop:1}}>{l}</div></div>)}
 </div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:9}}>{dents.map(d=>{const cnt=appts.filter(a=>a.date===t&&a.dentistId===d.id).length;return <div key={d.id} style={{background:G.card,borderRadius:11,padding:11,textAlign:"center",borderTop:`3px solid ${d.color}`,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontWeight:700,color:d.color,fontSize:11}}>{d.name}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:d.color,marginTop:2}}>{cnt}</div><div style={{fontSize:10,color:G.muted}}>hoje</div></div>;})}</div>
-<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 5px rgba(0,0,0,.07)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-<div style={{fontWeight:700,fontSize:13}}>{isDent?"Minha Agenda Hoje":"Agenda de Hoje"}</div>
-{isDent&&myDent&&<div style={{fontSize:12,color:G.primary,fontWeight:600,background:G.accent,borderRadius:8,padding:"3px 10px"}}>{todayA.length+" paciente(s)"}</div>}
+<div style={{display:“grid”,gridTemplateColumns:“repeat(3,1fr)”,gap:9}}>{dents.map(d=>{const cnt=appts.filter(a=>a.date===t&&a.dentistId===d.id).length;return <div key={d.id} style={{background:G.card,borderRadius:11,padding:11,textAlign:“center”,borderTop:`3px solid ${d.color}`,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}><div style={{fontWeight:700,color:d.color,fontSize:11}}>{d.name}</div><div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:20,color:d.color,marginTop:2}}>{cnt}</div><div style={{fontSize:10,color:G.muted}}>hoje</div></div>;})}</div>
+<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:“0 1px 5px rgba(0,0,0,.07)”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:10}}>
+<div style={{fontWeight:700,fontSize:13}}>{isDent?“Minha Agenda Hoje”:“Agenda de Hoje”}</div>
+{isDent&&myDent&&<div style={{fontSize:12,color:G.primary,fontWeight:600,background:G.accent,borderRadius:8,padding:“3px 10px”}}>{todayA.length+” paciente(s)”}</div>}
 </div>
-{!isDent&&dentTodayCounts.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+{!isDent&&dentTodayCounts.length>0&&<div style={{display:“flex”,gap:6,flexWrap:“wrap”,marginBottom:10}}>
 {dentTodayCounts.map(function(x){return(
-<div key={x.dent.id} style={{background:"#fff",border:"1.5px solid "+x.dent.color,borderRadius:10,padding:"4px 10px",display:"flex",alignItems:"center",gap:5}}>
-<div style={{width:8,height:8,borderRadius:"50%",background:x.dent.color}}/>
-<span style={{fontSize:11,fontWeight:700,color:x.dent.color}}>{x.dent.name.split(" ")[0]+": "+x.count}</span>
+<div key={x.dent.id} style={{background:”#fff”,border:“1.5px solid “+x.dent.color,borderRadius:10,padding:“4px 10px”,display:“flex”,alignItems:“center”,gap:5}}>
+<div style={{width:8,height:8,borderRadius:“50%”,background:x.dent.color}}/>
+<span style={{fontSize:11,fontWeight:700,color:x.dent.color}}>{x.dent.name.split(” “)[0]+”: “+x.count}</span>
 </div>
 );})}
 </div>}
 {todayA.length===0&&<p style={{color:G.muted,fontSize:13}}>Nenhum agendamento</p>}
 {todayA.map(a=>{const p=pats.find(x=>x.id===a.patientId);const d=dents.find(x=>x.id===a.dentistId)||dents[0];
 const an=p?.anamnese||{};
-const hasAlert=p?.obs||(p?.allergy&&p.allergy!=="Nenhuma")||an.hypertension||an.diabetes||an.heartDisease||an.allergicMeds;
-return <div key={a.id} style={{borderBottom:`1px solid ${G.border}`,overflow:"hidden"}}>
-<div style={{background:SC[a.status]+"15",padding:"3px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<span style={{fontSize:9,fontWeight:700,color:SC[a.status],textTransform:"uppercase"}}>{SL[a.status]}</span>
+const hasAlert=p?.obs||(p?.allergy&&p.allergy!==“Nenhuma”)||an.hypertension||an.diabetes||an.heartDisease||an.allergicMeds;
+return <div key={a.id} style={{borderBottom:`1px solid ${G.border}`,overflow:“hidden”}}>
+<div style={{background:SC[a.status]+“15”,padding:“3px 10px”,display:“flex”,justifyContent:“space-between”,alignItems:“center”}}>
+<span style={{fontSize:9,fontWeight:700,color:SC[a.status],textTransform:“uppercase”}}>{SL[a.status]}</span>
 <span style={{fontWeight:700,color:SC[a.status],fontSize:13}}>{a.time}</span>
 </div>
-<div style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 10px",flexWrap:"wrap"}}>
+<div style={{display:“flex”,alignItems:“flex-start”,gap:9,padding:“8px 10px”,flexWrap:“wrap”}}>
 <div style={{flex:1,minWidth:90}}>
 <div style={{fontWeight:600,fontSize:13}}>{p?.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · P.{p?.folder}</span></div>
-{hasAlert&&<div style={{fontSize:10,background:G.red+"20",color:G.red,borderRadius:4,padding:"1px 6px",fontWeight:700,marginTop:1,display:"inline-block"}}>⚠ Atenção</div>}
+{hasAlert&&<div style={{fontSize:10,background:G.red+“20”,color:G.red,borderRadius:4,padding:“1px 6px”,fontWeight:700,marginTop:1,display:“inline-block”}}>⚠ Atenção</div>}
 <div style={{fontSize:11,color:G.muted}}>{a.procedure}</div>
 </div>
-<span style={{fontSize:11,color:d.color,fontWeight:600,flexShrink:0}}>{d.name.split(" ")[0]}</span>
+<span style={{fontSize:11,color:d.color,fontWeight:600,flexShrink:0}}>{d.name.split(” “)[0]}</span>
 </div>
 </div>;})}
 </div>
@@ -2933,32 +2913,31 @@ const n=(ph||””).replace(/\D/g,””);
 const url=`https://wa.me/${n.startsWith("55")?n:"55"+n}?text=${encodeURIComponent(msg)}`;
 const copy=()=>{ navigator.clipboard?.writeText(msg).then(()=>alert(“Mensagem copiada!”)).catch(()=>alert(“Copie manualmente:\n\n”+msg)); };
 return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.55)”,zIndex:9999,display:“flex”,alignItems:“flex-end”,justifyContent:“center”,padding:“0 0 0 0”}}>
-
-<div style={{background:"#fff",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:560,boxShadow:"0 -8px 32px rgba(0,0,0,.18)",overflow:"hidden"}}>
+<div style={{background:”#fff”,borderRadius:“20px 20px 0 0”,width:“100%”,maxWidth:560,boxShadow:“0 -8px 32px rgba(0,0,0,.18)”,overflow:“hidden”}}>
 {/* Header */}
-<div style={{background:"#25D366",padding:"14px 18px",display:"flex",alignItems:"center",gap:12}}>
+<div style={{background:”#25D366”,padding:“14px 18px”,display:“flex”,alignItems:“center”,gap:12}}>
 <span style={{fontSize:24}}>📱</span>
 <div style={{flex:1}}>
-<div style={{fontWeight:700,color:"#fff",fontSize:15}}>Prévia da Mensagem WhatsApp</div>
-<div style={{fontSize:11,color:"rgba(255,255,255,.8)"}}>Para: {ph}</div>
+<div style={{fontWeight:700,color:”#fff”,fontSize:15}}>Prévia da Mensagem WhatsApp</div>
+<div style={{fontSize:11,color:“rgba(255,255,255,.8)”}}>Para: {ph}</div>
 </div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",fontSize:18,cursor:"pointer",padding:"5px 10px"}}>✕</button>
+<button onClick={onClose} style={{border:“none”,background:“rgba(255,255,255,.2)”,borderRadius:8,color:”#fff”,fontSize:18,cursor:“pointer”,padding:“5px 10px”}}>✕</button>
 </div>
 {/* Message preview — like WhatsApp bubble */}
-<div style={{background:"#ECE5DD",padding:"16px",maxHeight:"45vh",overflowY:"auto"}}>
-<div style={{background:"#fff",borderRadius:"0 12px 12px 12px",padding:"10px 14px",maxWidth:"85%",boxShadow:"0 1px 3px rgba(0,0,0,.1)",display:"inline-block",fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap",color:"#111",wordBreak:"break-word"}}>
+<div style={{background:”#ECE5DD”,padding:“16px”,maxHeight:“45vh”,overflowY:“auto”}}>
+<div style={{background:”#fff”,borderRadius:“0 12px 12px 12px”,padding:“10px 14px”,maxWidth:“85%”,boxShadow:“0 1px 3px rgba(0,0,0,.1)”,display:“inline-block”,fontSize:13,lineHeight:1.6,whiteSpace:“pre-wrap”,color:”#111”,wordBreak:“break-word”}}>
 {msg}
 </div>
 </div>
 {/* Actions */}
-<div style={{padding:"14px 18px",display:"flex",gap:10,borderTop:"1px solid #eee"}}>
-<button onClick={copy} style={{flex:1,background:"#f0f0f0",color:"#333",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer"}}>📋 Copiar Texto</button>
-<a href={url} target="_blank" rel="noreferrer" onClick={onClose} style={{flex:2,background:"#25D366",color:"#fff",border:"none",borderRadius:10,padding:"11px",fontSize:14,fontWeight:700,cursor:"pointer",textAlign:"center",textDecoration:"none",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+<div style={{padding:“14px 18px”,display:“flex”,gap:10,borderTop:“1px solid #eee”}}>
+<button onClick={copy} style={{flex:1,background:”#f0f0f0”,color:”#333”,border:“none”,borderRadius:10,padding:“11px”,fontSize:13,fontWeight:700,cursor:“pointer”}}>📋 Copiar Texto</button>
+<a href={url} target=”_blank” rel=“noreferrer” onClick={onClose} style={{flex:2,background:”#25D366”,color:”#fff”,border:“none”,borderRadius:10,padding:“11px”,fontSize:14,fontWeight:700,cursor:“pointer”,textAlign:“center”,textDecoration:“none”,display:“flex”,alignItems:“center”,justifyContent:“center”,gap:6}}>
 <span>📲</span> Abrir no WhatsApp
 </a>
 </div>
-<div style={{padding:"0 18px 14px",fontSize:11,color:"#999",textAlign:"center"}}>
-Clique em "Abrir no WhatsApp" para enviar. O texto já estará preenchido.
+<div style={{padding:“0 18px 14px”,fontSize:11,color:”#999”,textAlign:“center”}}>
+Clique em “Abrir no WhatsApp” para enviar. O texto já estará preenchido.
 </div>
 </div>
 
@@ -3026,10 +3005,9 @@ var a=document.createElement(“a”);a.href=recLink;a.target=”_blank”;a.rel
 document.body.appendChild(a);a.click();document.body.removeChild(a);
 };
 return (
-
-<div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Receituário</h2>
+<div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,flexWrap:“wrap”,gap:8}}>
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26,margin:0}}>Receituário</h2>
 <Btn ch="+ Nova Medicação" sm onClick={function(){setAddMod(true);}}/>
 </div>
 
@@ -3240,10 +3218,9 @@ var nm1=month===11?0:month+1; var ny1=month===11?year+1:year;
 var nm2=nm1===11?0:nm1+1;     var ny2=nm1===11?ny1+1:ny1;
 
 return (
-
-<div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
-<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"💰 Recebimentos"}</h2>
+<div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+<div style={{display:“flex”,alignItems:“center”,justifyContent:“space-between”,flexWrap:“wrap”,gap:8}}>
+<h2 style={{fontFamily:”‘Cormorant Garamond’”,fontSize:26,margin:0}}>{“💰 Recebimentos”}</h2>
 {!isDent&&<Sel lb="" val={selDent} set={setSelDent} opts={myDents.map(function(d){return{v:String(d.id),l:d.name};})}/>}
 </div>
 
@@ -3328,24 +3305,23 @@ const msg=“Ola, “+pat.name+”! 😊\n\nPara seu atendimento na Affonso Odon
 wa(pat.phone,msg);setSent(true);
 };
 return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.55)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
-
-<div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
-<div style={{background:"#075E54",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
-<span style={{fontSize:20}}>{"📋"}</span>
-<div style={{flex:1}}><div style={{fontWeight:700,color:"#fff",fontSize:14}}>Anamnese por WhatsApp</div><div style={{fontSize:11,color:"rgba(255,255,255,.8)"}}>{pat.name}</div></div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"X"}</button>
+<div style={{background:”#fff”,borderRadius:18,width:“100%”,maxWidth:420,boxShadow:“0 8px 32px rgba(0,0,0,.2)”}}>
+<div style={{background:”#075E54”,borderRadius:“18px 18px 0 0”,padding:“14px 18px”,display:“flex”,alignItems:“center”,gap:10}}>
+<span style={{fontSize:20}}>{“📋”}</span>
+<div style={{flex:1}}><div style={{fontWeight:700,color:”#fff”,fontSize:14}}>Anamnese por WhatsApp</div><div style={{fontSize:11,color:“rgba(255,255,255,.8)”}}>{pat.name}</div></div>
+<button onClick={onClose} style={{border:“none”,background:“rgba(255,255,255,.2)”,borderRadius:8,color:”#fff”,cursor:“pointer”,padding:“5px 10px”,fontSize:16}}>{“X”}</button>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-{!sent?<div style={{display:"flex",flexDirection:"column",gap:12}}>
-<p style={{fontSize:13,color:"#555",margin:0}}>Envia um link para <strong>{pat.name}</strong> preencher a ficha de saude pelo celular com botoes SIM e NAO.</p>
-<div style={{background:"#f0f4f0",borderRadius:10,padding:"10px 12px",fontSize:11,color:"#1B5E4A",wordBreak:"break-all",fontWeight:600}}>{ANAM_LINK}</div>
-<button onClick={send} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{"📱 Enviar por WhatsApp"}</button>
-<button onClick={onClose} style={{background:"none",border:"1.5px solid #ddd",borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",color:"#888"}}>Cancelar</button>
-</div>:<div style={{textAlign:"center",display:"flex",flexDirection:"column",gap:12}}>
-<div style={{fontSize:48}}>{"✅"}</div>
-<div style={{fontWeight:700,fontSize:16,color:"#27AE60"}}>Link enviado!</div>
-<div style={{fontSize:13,color:"#888"}}>O paciente recebeu o link. Quando preencher, marque as respostas na aba Anamnese.</div>
-<button onClick={onClose} style={{background:"#1B5E4A",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Fechar</button>
+<div style={{padding:20,display:“flex”,flexDirection:“column”,gap:12}}>
+{!sent?<div style={{display:“flex”,flexDirection:“column”,gap:12}}>
+<p style={{fontSize:13,color:”#555”,margin:0}}>Envia um link para <strong>{pat.name}</strong> preencher a ficha de saude pelo celular com botoes SIM e NAO.</p>
+<div style={{background:”#f0f4f0”,borderRadius:10,padding:“10px 12px”,fontSize:11,color:”#1B5E4A”,wordBreak:“break-all”,fontWeight:600}}>{ANAM_LINK}</div>
+<button onClick={send} style={{background:”#25D366”,color:”#fff”,border:“none”,borderRadius:12,padding:“13px”,fontSize:15,fontWeight:700,cursor:“pointer”}}>{“📱 Enviar por WhatsApp”}</button>
+<button onClick={onClose} style={{background:“none”,border:“1.5px solid #ddd”,borderRadius:10,padding:“10px”,fontSize:13,cursor:“pointer”,color:”#888”}}>Cancelar</button>
+</div>:<div style={{textAlign:“center”,display:“flex”,flexDirection:“column”,gap:12}}>
+<div style={{fontSize:48}}>{“✅”}</div>
+<div style={{fontWeight:700,fontSize:16,color:”#27AE60”}}>Link enviado!</div>
+<div style={{fontSize:13,color:”#888”}}>O paciente recebeu o link. Quando preencher, marque as respostas na aba Anamnese.</div>
+<button onClick={onClose} style={{background:”#1B5E4A”,color:”#fff”,border:“none”,borderRadius:12,padding:“13px”,fontSize:15,fontWeight:700,cursor:“pointer”}}>Fechar</button>
 </div>}
 </div>
 </div>
@@ -3374,20 +3350,19 @@ setResult(data.content&&data.content[0]&&data.content[0].text||“Não foi poss�
 setLoading(false);
 };
 return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.55)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
-
-<div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:460,maxHeight:"90vh",overflow:"auto"}}>
-<div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
-<span style={{fontSize:20}}>{"🦷"}</span>
-<div style={{flex:1}}><div style={{fontWeight:700,color:"#fff",fontSize:14}}>{"Análise de RX com IA"}</div><div style={{fontSize:11,color:"rgba(255,255,255,.8)"}}>{pat&&pat.name}</div></div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
+<div style={{background:”#fff”,borderRadius:18,width:“100%”,maxWidth:460,maxHeight:“90vh”,overflow:“auto”}}>
+<div style={{background:G.primary,borderRadius:“18px 18px 0 0”,padding:“14px 18px”,display:“flex”,alignItems:“center”,gap:10}}>
+<span style={{fontSize:20}}>{“🦷”}</span>
+<div style={{flex:1}}><div style={{fontWeight:700,color:”#fff”,fontSize:14}}>{“Análise de RX com IA”}</div><div style={{fontSize:11,color:“rgba(255,255,255,.8)”}}>{pat&&pat.name}</div></div>
+<button onClick={onClose} style={{border:“none”,background:“rgba(255,255,255,.2)”,borderRadius:8,color:”#fff”,cursor:“pointer”,padding:“5px 10px”,fontSize:16}}>{“x”}</button>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:14}}>
-<div style={{border:"2px dashed "+G.border,borderRadius:12,padding:20,textAlign:"center",cursor:"pointer",background:G.bg}} onClick={function(){document.getElementById("rx-up").click();}}>
-{img?<img src={img} style={{maxWidth:"100%",maxHeight:180,borderRadius:8}} alt="RX"/>:<div><div style={{fontSize:32}}>{"📷"}</div><div style={{fontSize:13,color:G.muted}}>{"Toque para selecionar o RX"}</div></div>}
+<div style={{padding:20,display:“flex”,flexDirection:“column”,gap:14}}>
+<div style={{border:“2px dashed “+G.border,borderRadius:12,padding:20,textAlign:“center”,cursor:“pointer”,background:G.bg}} onClick={function(){document.getElementById(“rx-up”).click();}}>
+{img?<img src={img} style={{maxWidth:“100%”,maxHeight:180,borderRadius:8}} alt=“RX”/>:<div><div style={{fontSize:32}}>{“📷”}</div><div style={{fontSize:13,color:G.muted}}>{“Toque para selecionar o RX”}</div></div>}
 </div>
-<input id="rx-up" type="file" accept="image/*" style={{display:"none"}} onChange={onFile}/>
-{img&&!result&&<button onClick={analyze} disabled={loading} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer",opacity:loading?.7:1}}>{loading?"Analisando…":"Analisar com IA"}</button>}
-{result&&<div style={{background:G.bg,borderRadius:12,padding:"14px 16px"}}><div style={{fontWeight:700,fontSize:13,color:G.primary,marginBottom:8}}>{"Resultado:"}</div><div style={{fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{result}</div></div>}
+<input id=“rx-up” type=“file” accept=“image/*” style={{display:“none”}} onChange={onFile}/>
+{img&&!result&&<button onClick={analyze} disabled={loading} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:12,padding:“13px”,fontSize:15,fontWeight:700,cursor:“pointer”,opacity:loading?.7:1}}>{loading?“Analisando…”:“Analisar com IA”}</button>}
+{result&&<div style={{background:G.bg,borderRadius:12,padding:“14px 16px”}}><div style={{fontWeight:700,fontSize:13,color:G.primary,marginBottom:8}}>{“Resultado:”}</div><div style={{fontSize:13,lineHeight:1.6,whiteSpace:“pre-wrap”}}>{result}</div></div>}
 </div>
 </div>
 
@@ -3402,24 +3377,23 @@ wa(pat.phone,“Olá, “+pat.name+”! Sua consulta de “+fmt(appt.date)+” �
 setDone(true);
 };
 return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.55)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
-
-<div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:380}}>
-<div style={{background:G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
-<span style={{fontSize:20}}>{"❌"}</span>
-<div style={{flex:1,fontWeight:700,color:"#fff",fontSize:14}}>Cancelar Consulta</div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
+<div style={{background:”#fff”,borderRadius:18,width:“100%”,maxWidth:380}}>
+<div style={{background:G.red,borderRadius:“18px 18px 0 0”,padding:“14px 18px”,display:“flex”,alignItems:“center”,gap:10}}>
+<span style={{fontSize:20}}>{“❌”}</span>
+<div style={{flex:1,fontWeight:700,color:”#fff”,fontSize:14}}>Cancelar Consulta</div>
+<button onClick={onClose} style={{border:“none”,background:“rgba(255,255,255,.2)”,borderRadius:8,color:”#fff”,cursor:“pointer”,padding:“5px 10px”,fontSize:16}}>{“x”}</button>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-{!done?<div style={{display:"flex",flexDirection:"column",gap:12}}>
-<div style={{background:G.bg,borderRadius:10,padding:"10px 12px"}}><div style={{fontWeight:700,fontSize:13}}>{pat&&pat.name}</div><div style={{fontSize:12,color:G.muted}}>{fmt(appt&&appt.date)+" às "+(appt&&appt.time)+" · "+(appt&&appt.procedure)}</div></div>
-<div style={{fontSize:12}}><div>{"✅ Desmarca da agenda"}</div><div>{"📱 Envia WA perguntando se quer reagendar"}</div><div>{"🔔 Recepcionista contata se responder SIM"}</div></div>
-<button onClick={doIt} style={{background:G.red,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Confirmar</button>
-<button onClick={onClose} style={{background:"none",border:"1.5px solid "+G.border,borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",color:G.muted}}>Voltar</button>
-</div>:<div style={{textAlign:"center",display:"flex",flexDirection:"column",gap:12,padding:"10px 0"}}>
-<div style={{fontSize:48}}>{"✅"}</div>
+<div style={{padding:20,display:“flex”,flexDirection:“column”,gap:12}}>
+{!done?<div style={{display:“flex”,flexDirection:“column”,gap:12}}>
+<div style={{background:G.bg,borderRadius:10,padding:“10px 12px”}}><div style={{fontWeight:700,fontSize:13}}>{pat&&pat.name}</div><div style={{fontSize:12,color:G.muted}}>{fmt(appt&&appt.date)+” às “+(appt&&appt.time)+” · “+(appt&&appt.procedure)}</div></div>
+<div style={{fontSize:12}}><div>{“✅ Desmarca da agenda”}</div><div>{“📱 Envia WA perguntando se quer reagendar”}</div><div>{“🔔 Recepcionista contata se responder SIM”}</div></div>
+<button onClick={doIt} style={{background:G.red,color:”#fff”,border:“none”,borderRadius:12,padding:“13px”,fontSize:15,fontWeight:700,cursor:“pointer”}}>Confirmar</button>
+<button onClick={onClose} style={{background:“none”,border:“1.5px solid “+G.border,borderRadius:10,padding:“10px”,fontSize:13,cursor:“pointer”,color:G.muted}}>Voltar</button>
+</div>:<div style={{textAlign:“center”,display:“flex”,flexDirection:“column”,gap:12,padding:“10px 0”}}>
+<div style={{fontSize:48}}>{“✅”}</div>
 <div style={{fontWeight:700,fontSize:16,color:G.success}}>Cancelado!</div>
 <div style={{fontSize:13,color:G.muted}}>WA enviado. Se responder SIM a recepcionista entra em contato.</div>
-<button onClick={onClose} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Fechar</button>
+<button onClick={onClose} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:12,padding:“13px”,fontSize:15,fontWeight:700,cursor:“pointer”}}>Fechar</button>
 </div>}
 </div>
 </div>
@@ -3433,27 +3407,26 @@ var d=dents.find(function(x){return x.id===appt.dentistId;})||dents[0];
 var [motivo,setMotivo]=useState(””);
 var [outro,setOutro]=useState(””);
 return(
-
-<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
-<div style={{background:G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
-<span style={{fontSize:20}}>{"📋"}</span>
-<div style={{flex:1,color:"#fff"}}><div style={{fontWeight:700,fontSize:14}}>Motivo do Não Agendamento</div><div style={{fontSize:11,opacity:.8}}>{p&&p.name}</div></div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
+<div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.6)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
+<div style={{background:”#fff”,borderRadius:18,width:“100%”,maxWidth:420,boxShadow:“0 8px 32px rgba(0,0,0,.2)”}}>
+<div style={{background:G.red,borderRadius:“18px 18px 0 0”,padding:“14px 18px”,display:“flex”,alignItems:“center”,gap:10}}>
+<span style={{fontSize:20}}>{“📋”}</span>
+<div style={{flex:1,color:”#fff”}}><div style={{fontWeight:700,fontSize:14}}>Motivo do Não Agendamento</div><div style={{fontSize:11,opacity:.8}}>{p&&p.name}</div></div>
+<button onClick={onClose} style={{border:“none”,background:“rgba(255,255,255,.2)”,borderRadius:8,color:”#fff”,cursor:“pointer”,padding:“5px 10px”}}>{“X”}</button>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
-<div style={{fontSize:12,color:G.muted}}>{(appt.status==="missed"?"Faltou":"Cancelou")+" em "+fmt(appt.date)+" · "+appt.procedure}</div>
+<div style={{padding:20,display:“flex”,flexDirection:“column”,gap:10}}>
+<div style={{fontSize:12,color:G.muted}}>{(appt.status===“missed”?“Faltou”:“Cancelou”)+” em “+fmt(appt.date)+” · “+appt.procedure}</div>
 {MOTIVOS_REM.map(function(m){return(
-<button key={m} onClick={function(){setMotivo(m);}} style={{border:"2px solid "+(motivo===m?G.red:G.border),background:motivo===m?"#FFEBEE":"#fff",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:motivo===m?700:400,cursor:"pointer",textAlign:"left",color:motivo===m?G.red:G.text}}>
-{(motivo===m?"✓ ":"")+m}
+<button key={m} onClick={function(){setMotivo(m);}} style={{border:“2px solid “+(motivo===m?G.red:G.border),background:motivo===m?”#FFEBEE”:”#fff”,borderRadius:10,padding:“10px 14px”,fontSize:13,fontWeight:motivo===m?700:400,cursor:“pointer”,textAlign:“left”,color:motivo===m?G.red:G.text}}>
+{(motivo===m?“✓ “:””)+m}
 </button>
 );})}
-{motivo==="Outros"&&<textarea value={outro} onChange={function(e){setOutro(e.target.value);}} rows={2} placeholder="Descreva o motivo…"
-style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"10px",fontSize:13,outline:"none",resize:"none",fontFamily:"sans-serif"}}/>}
-<button onClick={function(){if(!motivo)return;onSave(motivo==="Outros"?outro||"Outros":motivo);onClose();}}
-disabled={!motivo||(motivo==="Outros"&&!outro.trim())}
-style={{background:motivo?G.primary:"#ccc",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:motivo?"pointer":"not-allowed",marginTop:4}}>
-{"Salvar Motivo"}
+{motivo===“Outros”&&<textarea value={outro} onChange={function(e){setOutro(e.target.value);}} rows={2} placeholder=“Descreva o motivo…”
+style={{border:“1.5px solid “+G.border,borderRadius:10,padding:“10px”,fontSize:13,outline:“none”,resize:“none”,fontFamily:“sans-serif”}}/>}
+<button onClick={function(){if(!motivo)return;onSave(motivo===“Outros”?outro||“Outros”:motivo);onClose();}}
+disabled={!motivo||(motivo===“Outros”&&!outro.trim())}
+style={{background:motivo?G.primary:”#ccc”,color:”#fff”,border:“none”,borderRadius:12,padding:“13px”,fontSize:15,fontWeight:700,cursor:motivo?“pointer”:“not-allowed”,marginTop:4}}>
+{“Salvar Motivo”}
 </button>
 </div>
 </div>
@@ -3480,63 +3453,62 @@ marcarRem(appt.id);
 }
 function doWA(ph,msg){var a=document.createElement(“a”);a.href=“https://wa.me/55”+ph.replace(/[^0-9]/g,””)+”?text=”+encodeURIComponent(msg);a.target=”_blank”;document.body.appendChild(a);a.click();document.body.removeChild(a);}
 return(
-
-<div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
-<div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
-<button onClick={function(){setAba("pendentes");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:aba==="pendentes"?"#fff":G.bg,color:aba==="pendentes"?G.red:G.muted,boxShadow:aba==="pendentes"?"0 1px 4px rgba(0,0,0,.1)":"none",position:"relative"}}>
-{"⏳ Pendentes"}
-{pendentes.length>0&&<span style={{position:"absolute",top:-3,right:4,background:G.red,color:"#fff",borderRadius:20,fontSize:9,fontWeight:700,padding:"1px 5px"}}>{pendentes.length}</span>}
+<div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+<div style={{display:“flex”,gap:4,background:G.bg,borderRadius:12,padding:4}}>
+<button onClick={function(){setAba(“pendentes”);}} style={{flex:1,border:“none”,borderRadius:9,padding:“9px 4px”,fontSize:12,fontWeight:700,cursor:“pointer”,background:aba===“pendentes”?”#fff”:G.bg,color:aba===“pendentes”?G.red:G.muted,boxShadow:aba===“pendentes”?“0 1px 4px rgba(0,0,0,.1)”:“none”,position:“relative”}}>
+{“⏳ Pendentes”}
+{pendentes.length>0&&<span style={{position:“absolute”,top:-3,right:4,background:G.red,color:”#fff”,borderRadius:20,fontSize:9,fontWeight:700,padding:“1px 5px”}}>{pendentes.length}</span>}
 </button>
-<button onClick={function(){setAba("historico");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:aba==="historico"?"#fff":G.bg,color:aba==="historico"?G.primary:G.muted,boxShadow:aba==="historico"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>
-{"📊 Histórico"}
+<button onClick={function(){setAba(“historico”);}} style={{flex:1,border:“none”,borderRadius:9,padding:“9px 4px”,fontSize:12,fontWeight:700,cursor:“pointer”,background:aba===“historico”?”#fff”:G.bg,color:aba===“historico”?G.primary:G.muted,boxShadow:aba===“historico”?“0 1px 4px rgba(0,0,0,.1)”:“none”}}>
+{“📊 Histórico”}
 </button>
 </div>
-{aba==="pendentes"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-{pendentes.length===0&&<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:14}}>{"✅ Nenhum paciente pendente!"}</div>}
+{aba===“pendentes”&&<div style={{display:“flex”,flexDirection:“column”,gap:10}}>
+{pendentes.length===0&&<div style={{textAlign:“center”,padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:14}}>{“✅ Nenhum paciente pendente!”}</div>}
 {pendentes.map(function(a){
 var p=pats.find(function(x){return x.id===a.patientId;});
-var d=dents&&dents.find(function(x){return x.id===a.dentistId;})||{name:"—"};
+var d=dents&&dents.find(function(x){return x.id===a.dentistId;})||{name:”—”};
 if(!p)return null;
 var isMot=selMot===a.id;
 return(
-<div key={a.id} style={{background:G.card,borderRadius:14,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.06)",borderLeft:"4px solid "+(a.status==="missed"?G.red:"#FF9800")}}>
+<div key={a.id} style={{background:G.card,borderRadius:14,padding:“12px 14px”,boxShadow:“0 2px 8px rgba(0,0,0,.06)”,borderLeft:“4px solid “+(a.status===“missed”?G.red:”#FF9800”)}}>
 <div style={{fontWeight:700,fontSize:14}}>{p.name}</div>
-<div style={{fontSize:12,color:G.muted,marginTop:2}}>{a.procedure+" · "+d.name}</div>
-<div style={{fontSize:11,fontWeight:600,color:a.status==="missed"?G.red:"#FF9800",marginBottom:10}}>{(a.status==="missed"?"🚫 Faltou":a.status==="rescheduled"?"🔄 Desmarcou":"❌ Cancelou")+" em "+fmt(a.date)}</div>
-{!isMot&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-{p.phone&&<button onClick={function(){doWA(p.phone,"Olá, "+p.name+"! Notamos que sua consulta de "+fmt(a.date)+" não foi realizada. Gostaria de remarcar? Responda SIM! Affonso Odontologia.");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 WA"}</button>}
-<button onClick={function(){marcarRem(a.id);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✅ Remarcado"}</button>
-<button onClick={function(){setSelMot(a.id);setOutroTxt("");}} style={{background:"#FF9800",color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📝 Registrar Motivo"}</button>
+<div style={{fontSize:12,color:G.muted,marginTop:2}}>{a.procedure+” · “+d.name}</div>
+<div style={{fontSize:11,fontWeight:600,color:a.status===“missed”?G.red:”#FF9800”,marginBottom:10}}>{(a.status===“missed”?“🚫 Faltou”:a.status===“rescheduled”?“🔄 Desmarcou”:“❌ Cancelou”)+” em “+fmt(a.date)}</div>
+{!isMot&&<div style={{display:“flex”,gap:5,flexWrap:“wrap”}}>
+{p.phone&&<button onClick={function(){doWA(p.phone,“Olá, “+p.name+”! Notamos que sua consulta de “+fmt(a.date)+” não foi realizada. Gostaria de remarcar? Responda SIM! Affonso Odontologia.”);}} style={{background:”#25D366”,color:”#fff”,border:“none”,borderRadius:8,padding:“6px 11px”,fontSize:12,fontWeight:700,cursor:“pointer”}}>{“📱 WA”}</button>}
+<button onClick={function(){marcarRem(a.id);}} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:8,padding:“6px 11px”,fontSize:12,fontWeight:700,cursor:“pointer”}}>{“✅ Remarcado”}</button>
+<button onClick={function(){setSelMot(a.id);setOutroTxt(””);}} style={{background:”#FF9800”,color:”#fff”,border:“none”,borderRadius:8,padding:“6px 11px”,fontSize:12,fontWeight:700,cursor:“pointer”}}>{“📝 Registrar Motivo”}</button>
 </div>}
-{isMot&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
+{isMot&&<div style={{display:“flex”,flexDirection:“column”,gap:6}}>
 <div style={{fontSize:12,fontWeight:700,color:G.muted}}>Por que não será remarcado?</div>
 {MOTIVOS_REM.map(function(m){return(
-<button key={m} onClick={function(){if(m!=="Outros"){registrar(a,m);}else{setOutroTxt(" ");}}} style={{border:"1.5px solid "+(outroTxt&&m==="Outros"?G.red:G.border),background:outroTxt&&m==="Outros"?"#FFEBEE":"#fff",borderRadius:10,padding:"8px 12px",fontSize:12,cursor:"pointer",textAlign:"left",color:G.text,fontWeight:400}}>
+<button key={m} onClick={function(){if(m!==“Outros”){registrar(a,m);}else{setOutroTxt(” “);}}} style={{border:“1.5px solid “+(outroTxt&&m===“Outros”?G.red:G.border),background:outroTxt&&m===“Outros”?”#FFEBEE”:”#fff”,borderRadius:10,padding:“8px 12px”,fontSize:12,cursor:“pointer”,textAlign:“left”,color:G.text,fontWeight:400}}>
 {m}
 </button>
 );})}
-{outroTxt!==undefined&&outroTxt!==""&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
-<textarea value={outroTxt.trim()===""?"":outroTxt} onChange={function(e){setOutroTxt(e.target.value);}} rows={2} placeholder="Descreva o motivo…"
-style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"10px",fontSize:13,outline:"none",resize:"none",fontFamily:"sans-serif"}}/>
-<button onClick={function(){if(outroTxt.trim())registrar(a,outroTxt.trim());}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:10,padding:"9px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Salvar</button>
+{outroTxt!==undefined&&outroTxt!==””&&<div style={{display:“flex”,flexDirection:“column”,gap:6}}>
+<textarea value={outroTxt.trim()===””?””:outroTxt} onChange={function(e){setOutroTxt(e.target.value);}} rows={2} placeholder=“Descreva o motivo…”
+style={{border:“1.5px solid “+G.border,borderRadius:10,padding:“10px”,fontSize:13,outline:“none”,resize:“none”,fontFamily:“sans-serif”}}/>
+<button onClick={function(){if(outroTxt.trim())registrar(a,outroTxt.trim());}} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:10,padding:“9px”,fontSize:13,fontWeight:700,cursor:“pointer”}}>Salvar</button>
 </div>}
-<button onClick={function(){setSelMot(null);}} style={{background:"none",border:"none",color:G.muted,fontSize:12,cursor:"pointer",marginTop:2}}>Cancelar</button>
+<button onClick={function(){setSelMot(null);}} style={{background:“none”,border:“none”,color:G.muted,fontSize:12,cursor:“pointer”,marginTop:2}}>Cancelar</button>
 </div>}
 </div>
 );
 })}
 </div>}
-{aba==="historico"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-{historico.length===0&&<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:14}}>{"Nenhum registro ainda"}</div>}
+{aba===“historico”&&<div style={{display:“flex”,flexDirection:“column”,gap:10}}>
+{historico.length===0&&<div style={{textAlign:“center”,padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:14}}>{“Nenhum registro ainda”}</div>}
 {historico.map(function(r){return(
-<div key={r.id} style={{background:G.card,borderRadius:12,padding:"10px 14px",boxShadow:"0 1px 5px rgba(0,0,0,.06)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+<div key={r.id} style={{background:G.card,borderRadius:12,padding:“10px 14px”,boxShadow:“0 1px 5px rgba(0,0,0,.06)”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“flex-start”}}>
 <div>
 <div style={{fontWeight:700,fontSize:13}}>{r.patName}</div>
-<div style={{fontSize:11,color:G.muted}}>{r.proc+" · "+(r.status==="missed"?"Faltou":"Cancelou")+" em "+fmt(r.apptDate)}</div>
-<div style={{fontSize:12,color:G.red,fontWeight:600,marginTop:4}}>{"Motivo: "+r.motivo}</div>
+<div style={{fontSize:11,color:G.muted}}>{r.proc+” · “+(r.status===“missed”?“Faltou”:“Cancelou”)+” em “+fmt(r.apptDate)}</div>
+<div style={{fontSize:12,color:G.red,fontWeight:600,marginTop:4}}>{“Motivo: “+r.motivo}</div>
 </div>
-<button onClick={function(){setRemarcar(function(prev){return prev.filter(function(x){return x.id!==r.id;});});}} style={{background:"none",border:"none",color:G.muted,fontSize:16,cursor:"pointer"}}>{"✕"}</button>
+<button onClick={function(){setRemarcar(function(prev){return prev.filter(function(x){return x.id!==r.id;});});}} style={{background:“none”,border:“none”,color:G.muted,fontSize:16,cursor:“pointer”}}>{“✕”}</button>
 </div>
 </div>
 );})}
@@ -3568,52 +3540,51 @@ setDias([]);
 var pat=pats.find(function(p){return p.id===Number(patId);});
 var canSave=pat&&dentId&&proc&&valido&&slots.length>0;
 return(
-
-<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
-<div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:480,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
-<div style={{background:"#7B1FA2",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
-<span style={{fontSize:20}}>{"⏳"}</span>
-<div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>Nova Lista de Espera</div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
+<div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.6)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16,overflowY:“auto”}}>
+<div style={{background:”#fff”,borderRadius:18,width:“100%”,maxWidth:480,boxShadow:“0 8px 32px rgba(0,0,0,.2)”}}>
+<div style={{background:”#7B1FA2”,borderRadius:“18px 18px 0 0”,padding:“14px 18px”,display:“flex”,alignItems:“center”,gap:10}}>
+<span style={{fontSize:20}}>{“⏳”}</span>
+<div style={{flex:1,color:”#fff”,fontWeight:700,fontSize:14}}>Nova Lista de Espera</div>
+<button onClick={onClose} style={{border:“none”,background:“rgba(255,255,255,.2)”,borderRadius:8,color:”#fff”,cursor:“pointer”,padding:“5px 10px”}}>{“X”}</button>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:12,maxHeight:"75vh",overflowY:"auto"}}>
+<div style={{padding:20,display:“flex”,flexDirection:“column”,gap:12,maxHeight:“75vh”,overflowY:“auto”}}>
 <div>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Paciente</label>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,display:“block”,marginBottom:4}}>Paciente</label>
 <PatSearch lb="Buscar paciente" val={patId} set={setPatId} pats={pats}/>
 </div>
 <div>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Dentista</label>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,display:“block”,marginBottom:4}}>Dentista</label>
 <Sel lb="Dentista" val={dentId} set={setDentId} opts={dents.map(function(d){return{v:String(d.id),l:d.name};})}/>
 </div>
 <Inp lb="Procedimento" val={proc} set={setProc} ph="Ex: Consulta, Extração, Implante..."/>
 <div>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Tempo necessário</label>
-<Sel lb="Duração" val={tempo} set={setTempo} opts={[{v:"30",l:"30 minutos"},{v:"60",l:"1 hora"},{v:"90",l:"1h 30min"},{v:"120",l:"2 horas"},{v:"180",l:"3 horas"}]}/>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,display:“block”,marginBottom:4}}>Tempo necessário</label>
+<Sel lb=“Duração” val={tempo} set={setTempo} opts={[{v:“30”,l:“30 minutos”},{v:“60”,l:“1 hora”},{v:“90”,l:“1h 30min”},{v:“120”,l:“2 horas”},{v:“180”,l:“3 horas”}]}/>
 </div>
 <Inp lb="Válido até (data limite)" val={valido} set={setValido} type="date"/>
 <div>
-<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Disponibilidade do paciente</div>
-<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:8}}>
+<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,marginBottom:6}}>Disponibilidade do paciente</div>
+<div style={{display:“flex”,gap:4,flexWrap:“wrap”,marginBottom:8}}>
 {DIAS_SEM.map(function(d,i){var at=dias.indexOf(i)>=0;return(
-<button key={i} onClick={function(){togDia(i);}} style={{border:"2px solid "+(at?"#7B1FA2":G.border),background:at?"#7B1FA2":"#fff",color:at?"#fff":G.muted,borderRadius:8,padding:"5px 8px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{d}</button>
+<button key={i} onClick={function(){togDia(i);}} style={{border:“2px solid “+(at?”#7B1FA2”:G.border),background:at?”#7B1FA2”:”#fff”,color:at?”#fff”:G.muted,borderRadius:8,padding:“5px 8px”,fontSize:11,fontWeight:700,cursor:“pointer”}}>{d}</button>
 );})}
 </div>
-<div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
+<div style={{display:“flex”,gap:6,alignItems:“center”,marginBottom:6}}>
 <Sel lb="De" val={horaIni} set={setHoraIni} opts={HORAS.map(function(h){return{v:h,l:h};})}/>
 <span style={{color:G.muted,fontSize:12}}>às</span>
 <Sel lb="Até" val={horaFim} set={setHoraFim} opts={HORAS.map(function(h){return{v:h,l:h};})}/>
-<button onClick={addSlot} style={{background:"#7B1FA2",color:"#fff",border:"none",borderRadius:8,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{"+ Add"}</button>
+<button onClick={addSlot} style={{background:”#7B1FA2”,color:”#fff”,border:“none”,borderRadius:8,padding:“8px 12px”,fontSize:12,fontWeight:700,cursor:“pointer”,whiteSpace:“nowrap”}}>{”+ Add”}</button>
 </div>
 {slots.map(function(s,i){return(
-<div key={i} style={{background:"#F3E5F5",borderRadius:8,padding:"6px 10px",fontSize:12,marginBottom:4,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<span style={{color:"#7B1FA2",fontWeight:600}}>{s.dias.map(function(d){return DIAS_SEM[d];}).join(", ")+" · "+s.ini+" às "+s.fim}</span>
-<button onClick={function(){setSlots(function(prev){return prev.filter(function(_,j){return j!==i;});});}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:14}}>{"✕"}</button>
+<div key={i} style={{background:”#F3E5F5”,borderRadius:8,padding:“6px 10px”,fontSize:12,marginBottom:4,display:“flex”,justifyContent:“space-between”,alignItems:“center”}}>
+<span style={{color:”#7B1FA2”,fontWeight:600}}>{s.dias.map(function(d){return DIAS_SEM[d];}).join(”, “)+” · “+s.ini+” às “+s.fim}</span>
+<button onClick={function(){setSlots(function(prev){return prev.filter(function(_,j){return j!==i;});});}} style={{background:“none”,border:“none”,color:G.muted,cursor:“pointer”,fontSize:14}}>{“✕”}</button>
 </div>
 );})}
 </div>
-<button onClick={function(){if(!canSave)return;onSave({id:Date.now(),patientId:Number(patId),patName:pat.name,dentId:Number(dentId),dentName:(dents.find(function(d){return d.id===Number(dentId);})||{name:""}).name,proc:proc,tempo:Number(tempo),valido:valido,slots:slots,criado:today()});onClose();}}
-disabled={!canSave} style={{background:canSave?"#7B1FA2":"#ccc",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:canSave?"pointer":"not-allowed"}}>
-{"Adicionar à Lista de Espera"}
+<button onClick={function(){if(!canSave)return;onSave({id:Date.now(),patientId:Number(patId),patName:pat.name,dentId:Number(dentId),dentName:(dents.find(function(d){return d.id===Number(dentId);})||{name:””}).name,proc:proc,tempo:Number(tempo),valido:valido,slots:slots,criado:today()});onClose();}}
+disabled={!canSave} style={{background:canSave?”#7B1FA2”:”#ccc”,color:”#fff”,border:“none”,borderRadius:12,padding:“13px”,fontSize:15,fontWeight:700,cursor:canSave?“pointer”:“not-allowed”}}>
+{“Adicionar à Lista de Espera”}
 </button>
 </div>
 </div>
@@ -3653,143 +3624,142 @@ if(addLog){if(movF.tipo===“saida”)addLog(“estoque”,“Saida: “+entry.i
 setShowMov(false);setMovF({tipo:“entrada”,itemId:””,qty:1,patId:””,dente:””,dentId:””,obs:””,date:t});
 };
 return(
-
-<div style={{display:"flex",flexDirection:"column",gap:12}}>
-<div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
-{[["estoque","📦 Estoque"],["movs","Movimentacoes"],["relatorio","Relatorio"]].map(function(tb){return(
-<button key={tb[0]} onClick={function(){setAba(tb[0]);}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 2px",fontSize:11,fontWeight:700,cursor:"pointer",background:aba===tb[0]?"#fff":G.bg,color:aba===tb[0]?G.primary:G.muted,boxShadow:aba===tb[0]?"0 1px 4px rgba(0,0,0,.1)":"none"}}>
+<div style={{display:“flex”,flexDirection:“column”,gap:12}}>
+<div style={{display:“flex”,gap:4,background:G.bg,borderRadius:12,padding:4}}>
+{[[“estoque”,“📦 Estoque”],[“movs”,“Movimentacoes”],[“relatorio”,“Relatorio”]].map(function(tb){return(
+<button key={tb[0]} onClick={function(){setAba(tb[0]);}} style={{flex:1,border:“none”,borderRadius:9,padding:“8px 2px”,fontSize:11,fontWeight:700,cursor:“pointer”,background:aba===tb[0]?”#fff”:G.bg,color:aba===tb[0]?G.primary:G.muted,boxShadow:aba===tb[0]?“0 1px 4px rgba(0,0,0,.1)”:“none”}}>
 {tb[1]}
 </button>
 );})}
 </div>
-{aba==="estoque"&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+{aba===“estoque”&&<div style={{display:“flex”,flexDirection:“column”,gap:8}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”}}>
 <div style={{fontSize:11,color:G.muted}}>Fornecedor: Titaniofix</div>
-<div style={{display:"flex",gap:5}}>
-<button onClick={function(){setShowMov(true);setMovF(function(p){return{…p,tipo:"entrada"};});}} style={{background:"#27AE60",color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{"+ Entrada"}</button>
-<button onClick={function(){setShowMov(true);setMovF(function(p){return{…p,tipo:"saida"};});}} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{"- Saida"}</button>
-<button onClick={function(){setShowCat(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{"+ Item"}</button>
+<div style={{display:“flex”,gap:5}}>
+<button onClick={function(){setShowMov(true);setMovF(function(p){return{…p,tipo:“entrada”};});}} style={{background:”#27AE60”,color:”#fff”,border:“none”,borderRadius:8,padding:“5px 10px”,fontSize:11,fontWeight:700,cursor:“pointer”}}>{”+ Entrada”}</button>
+<button onClick={function(){setShowMov(true);setMovF(function(p){return{…p,tipo:“saida”};});}} style={{background:G.red,color:”#fff”,border:“none”,borderRadius:8,padding:“5px 10px”,fontSize:11,fontWeight:700,cursor:“pointer”}}>{”- Saida”}</button>
+<button onClick={function(){setShowCat(true);}} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:8,padding:“5px 10px”,fontSize:11,fontWeight:700,cursor:“pointer”}}>{”+ Item”}</button>
 </div>
 </div>
-{implCat.length===0&&<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>Nenhum item. Clique em + Item para cadastrar.</div>}
+{implCat.length===0&&<div style={{textAlign:“center”,padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>Nenhum item. Clique em + Item para cadastrar.</div>}
 {implCat.map(function(item){var qty=stockMap[item.id]||0;var baixo=qty<=item.estoque_min;return(
-<div key={item.id} style={{background:G.card,borderRadius:12,padding:"12px 14px",borderLeft:"4px solid "+(baixo?G.red:G.primary)}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div key={item.id} style={{background:G.card,borderRadius:12,padding:“12px 14px”,borderLeft:“4px solid “+(baixo?G.red:G.primary)}}>
+<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”}}>
 <div>
-<div style={{display:"flex",gap:5,marginBottom:3}}>
-<span style={{fontSize:10,background:G.primary+"20",color:G.primary,borderRadius:5,padding:"1px 6px",fontWeight:700}}>{item.tipo}</span>
-{baixo&&<span style={{fontSize:10,background:"#FFEBEE",color:G.red,borderRadius:5,padding:"1px 6px",fontWeight:700}}>Estoque baixo!</span>}
+<div style={{display:“flex”,gap:5,marginBottom:3}}>
+<span style={{fontSize:10,background:G.primary+“20”,color:G.primary,borderRadius:5,padding:“1px 6px”,fontWeight:700}}>{item.tipo}</span>
+{baixo&&<span style={{fontSize:10,background:”#FFEBEE”,color:G.red,borderRadius:5,padding:“1px 6px”,fontWeight:700}}>Estoque baixo!</span>}
 </div>
 <div style={{fontWeight:700,fontSize:13}}>{item.desc}</div>
-<div style={{fontSize:11,color:G.muted}}>{item.marca+(item.codigo?" · Cód: "+item.codigo:"")}</div>
+<div style={{fontSize:11,color:G.muted}}>{item.marca+(item.codigo?” · Cód: “+item.codigo:””)}</div>
 </div>
-<div style={{textAlign:"right"}}>
+<div style={{textAlign:“right”}}>
 <div style={{fontSize:24,fontWeight:800,color:baixo?G.red:G.primary}}>{qty}</div>
-<div style={{fontSize:10,color:G.muted}}>{"min: "+item.estoque_min}</div>
+<div style={{fontSize:10,color:G.muted}}>{“min: “+item.estoque_min}</div>
 </div>
 </div>
-<div style={{display:"flex",gap:5,marginTop:8}}>
-<button onClick={function(){setEditCat(item);setCatF({tipo:item.tipo,marca:item.marca,desc:item.desc,estoque_min:item.estoque_min});setShowCat(true);}} style={{background:G.bg,border:"1px solid "+G.border,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.muted}}>{"Editar"}</button>
-<button onClick={function(){setShowMov(true);setMovF({tipo:"saida",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"#FFEBEE",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700}}>{"- Usar"}</button>
+<div style={{display:“flex”,gap:5,marginTop:8}}>
+<button onClick={function(){setEditCat(item);setCatF({tipo:item.tipo,marca:item.marca,desc:item.desc,estoque_min:item.estoque_min});setShowCat(true);}} style={{background:G.bg,border:“1px solid “+G.border,borderRadius:7,padding:“4px 8px”,fontSize:11,cursor:“pointer”,color:G.muted}}>{“Editar”}</button>
+<button onClick={function(){setShowMov(true);setMovF({tipo:“saida”,itemId:String(item.id),qty:1,patId:””,dente:””,dentId:””,obs:””,date:t});}} style={{background:”#FFEBEE”,border:“1px solid “+G.red,borderRadius:7,padding:“4px 8px”,fontSize:11,cursor:“pointer”,color:G.red,fontWeight:700}}>{”- Usar”}</button>
 </div>
 </div>
 );})}
 </div>}
-{aba==="movs"&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
-<input type="month" value={filtMes} onChange={function(e){setFiltMes(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"6px 10px",fontSize:12,outline:"none"}}/>
-{movsDoMes.length===0&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>Nenhuma movimentacao neste mes</div>}
+{aba===“movs”&&<div style={{display:“flex”,flexDirection:“column”,gap:8}}>
+<input type=“month” value={filtMes} onChange={function(e){setFiltMes(e.target.value);}} style={{border:“1.5px solid “+G.border,borderRadius:8,padding:“6px 10px”,fontSize:12,outline:“none”}}/>
+{movsDoMes.length===0&&<div style={{textAlign:“center”,padding:20,color:G.muted,fontSize:13}}>Nenhuma movimentacao neste mes</div>}
 {movsDoMes.sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(m){return(
-<div key={m.id} style={{background:G.card,borderRadius:10,padding:"10px 12px",borderLeft:"4px solid "+(m.tipo==="entrada"?"#27AE60":G.red)}}>
-<div style={{display:"flex",justifyContent:"space-between"}}>
+<div key={m.id} style={{background:G.card,borderRadius:10,padding:“10px 12px”,borderLeft:“4px solid “+(m.tipo===“entrada”?”#27AE60”:G.red)}}>
+<div style={{display:“flex”,justifyContent:“space-between”}}>
 <div>
-<div style={{fontSize:12,fontWeight:700,color:m.tipo==="entrada"?"#27AE60":G.red}}>{m.tipo==="entrada"?"Entrada":"Saida"}+" "+m.qty+"x "+m.itemName</div>
-{m.tipo==="saida"&&<div style={{fontSize:11,color:G.muted}}>{m.patName+" - Dente "+m.dente+(m.dentName?" - "+m.dentName:"")}</div>}
+<div style={{fontSize:12,fontWeight:700,color:m.tipo===“entrada”?”#27AE60”:G.red}}>{m.tipo===“entrada”?“Entrada”:“Saida”}+” “+m.qty+“x “+m.itemName</div>
+{m.tipo===“saida”&&<div style={{fontSize:11,color:G.muted}}>{m.patName+” - Dente “+m.dente+(m.dentName?” - “+m.dentName:””)}</div>}
 </div>
 <div style={{fontSize:11,color:G.muted}}>{fmt(m.date)}</div>
 </div>
 </div>
 );})}
 </div>}
-{aba==="relatorio"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-<div style={{display:"flex",alignItems:"center",gap:8}}>
-<input type="month" value={filtMes} onChange={function(e){setFiltMes(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"6px 10px",fontSize:12,outline:"none"}}/>
+{aba===“relatorio”&&<div style={{display:“flex”,flexDirection:“column”,gap:10}}>
+<div style={{display:“flex”,alignItems:“center”,gap:8}}>
+<input type=“month” value={filtMes} onChange={function(e){setFiltMes(e.target.value);}} style={{border:“1.5px solid “+G.border,borderRadius:8,padding:“6px 10px”,fontSize:12,outline:“none”}}/>
 <span style={{fontSize:12,fontWeight:700,color:G.primary}}>Fechamento Titaniofix</span>
 </div>
-<div style={{background:"#E8F5E9",border:"2px solid #A5D6A7",borderRadius:12,padding:"12px 16px",textAlign:"center"}}>
+<div style={{background:”#E8F5E9”,border:“2px solid #A5D6A7”,borderRadius:12,padding:“12px 16px”,textAlign:“center”}}>
 <div style={{fontSize:12,color:G.muted}}>Total usado no mes</div>
-<div style={{fontSize:28,fontWeight:800,color:"#2E7D32"}}>{totalUsado}</div>
+<div style={{fontSize:28,fontWeight:800,color:”#2E7D32”}}>{totalUsado}</div>
 <div style={{fontSize:11,color:G.muted}}>peca(s) a pagar</div>
 </div>
 {implCat.map(function(item){
-var saidas=movsDoMes.filter(function(m){return m.tipo==="saida"&&m.itemId===item.id;});
+var saidas=movsDoMes.filter(function(m){return m.tipo===“saida”&&m.itemId===item.id;});
 if(saidas.length===0)return null;
 return(
-<div key={item.id} style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
-<div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+<div key={item.id} style={{background:G.card,borderRadius:12,padding:“12px 14px”}}>
+<div style={{display:“flex”,justifyContent:“space-between”,marginBottom:6}}>
 <div style={{fontWeight:700,fontSize:13}}>{item.desc}</div>
-<span style={{fontWeight:800,color:G.red}}>{saidas.length+"x"}</span>
+<span style={{fontWeight:800,color:G.red}}>{saidas.length+“x”}</span>
 </div>
 {saidas.map(function(s){return(
-<div key={s.id} style={{fontSize:11,color:G.muted,padding:"3px 0",borderBottom:"1px solid "+G.border}}>
-{fmt(s.date)+" - "+s.patName+" - Dente "+s.dente+(s.dentName?" - "+s.dentName:"")}
+<div key={s.id} style={{fontSize:11,color:G.muted,padding:“3px 0”,borderBottom:“1px solid “+G.border}}>
+{fmt(s.date)+” - “+s.patName+” - Dente “+s.dente+(s.dentName?” - “+s.dentName:””)}
 </div>
 );})}
 </div>
 );
 })}
 </div>}
-{showCat&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:400}}>
-<div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
-<div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>{editCat?"Editar Item":"Novo Item"}</div>
-<button onClick={function(){setShowCat(false);setEditCat(null);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
+{showCat&&<div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.6)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
+<div style={{background:”#fff”,borderRadius:18,width:“100%”,maxWidth:400}}>
+<div style={{background:G.primary,borderRadius:“18px 18px 0 0”,padding:“14px 18px”,display:“flex”,alignItems:“center”,gap:10}}>
+<div style={{flex:1,color:”#fff”,fontWeight:700,fontSize:14}}>{editCat?“Editar Item”:“Novo Item”}</div>
+<button onClick={function(){setShowCat(false);setEditCat(null);}} style={{border:“none”,background:“rgba(255,255,255,.2)”,borderRadius:8,color:”#fff”,cursor:“pointer”,padding:“5px 10px”}}>{“X”}</button>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
+<div style={{padding:20,display:“flex”,flexDirection:“column”,gap:10}}>
 <div>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Tipo</label>
-<select value={catF.tipo} onChange={function(e){setCatF(function(p){return{…p,tipo:e.target.value};});}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none"}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,display:“block”,marginBottom:4}}>Tipo</label>
+<select value={catF.tipo} onChange={function(e){setCatF(function(p){return{…p,tipo:e.target.value};});}} style={{width:“100%”,border:“1.5px solid “+G.border,borderRadius:8,padding:“8px 10px”,fontSize:13,outline:“none”}}>
 {TIPOS_ITEM.map(function(t){return <option key={t} value={t}>{t}</option>;})}
 </select>
 </div>
 <Inp lb="Descricao" val={catF.desc} set={function(v){setCatF(function(p){return{...p,desc:v};});}} ph="Ex: Conemorse 3.5x8, UCLA, Cicatrizador..."/>
-<Inp lb="Codigo do implante" val={catF.codigo||""} set={function(v){setCatF(function(p){return{…p,codigo:v};});}} ph="Ex: TF-3508, CM-456…"/>
+<Inp lb=“Codigo do implante” val={catF.codigo||””} set={function(v){setCatF(function(p){return{…p,codigo:v};});}} ph=“Ex: TF-3508, CM-456…”/>
 <Inp lb="Marca" val={catF.marca} set={function(v){setCatF(function(p){return{...p,marca:v};});}} ph="Titaniofix"/>
 <Inp lb="Estoque minimo" val={String(catF.estoque_min)} set={function(v){setCatF(function(p){return{...p,estoque_min:Number(v)};});}} type="number"/>
-<button onClick={saveCat} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Salvar"}</button>
+<button onClick={saveCat} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:12,padding:“12px”,fontSize:14,fontWeight:700,cursor:“pointer”}}>{“Salvar”}</button>
 </div>
 </div>
 </div>}
-{showMov&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,maxHeight:"90vh",overflowY:"auto"}}>
-<div style={{background:movF.tipo==="entrada"?"#27AE60":G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
-<div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>{movF.tipo==="entrada"?"Registrar Entrada":"Registrar Saida (Uso)"}</div>
-<button onClick={function(){setShowMov(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
+{showMov&&<div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.6)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
+<div style={{background:”#fff”,borderRadius:18,width:“100%”,maxWidth:420,maxHeight:“90vh”,overflowY:“auto”}}>
+<div style={{background:movF.tipo===“entrada”?”#27AE60”:G.red,borderRadius:“18px 18px 0 0”,padding:“14px 18px”,display:“flex”,alignItems:“center”,gap:10}}>
+<div style={{flex:1,color:”#fff”,fontWeight:700,fontSize:14}}>{movF.tipo===“entrada”?“Registrar Entrada”:“Registrar Saida (Uso)”}</div>
+<button onClick={function(){setShowMov(false);}} style={{border:“none”,background:“rgba(255,255,255,.2)”,borderRadius:8,color:”#fff”,cursor:“pointer”,padding:“5px 10px”}}>{“X”}</button>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
-<div style={{display:"flex",gap:6}}>
-{["entrada","saida"].map(function(tp){return(
-<button key={tp} onClick={function(){setMovF(function(p){return{…p,tipo:tp};});}} style={{flex:1,border:"2px solid "+(movF.tipo===tp?(tp==="entrada"?"#27AE60":G.red):G.border),background:movF.tipo===tp?(tp==="entrada"?"#E8F5E9":"#FFEBEE"):"#fff",borderRadius:8,padding:"8px",fontSize:12,fontWeight:700,cursor:"pointer",color:movF.tipo===tp?(tp==="entrada"?"#27AE60":G.red):G.muted}}>
-{tp==="entrada"?"Entrada Titaniofix":"Saida (Uso)"}
+<div style={{padding:20,display:“flex”,flexDirection:“column”,gap:10}}>
+<div style={{display:“flex”,gap:6}}>
+{[“entrada”,“saida”].map(function(tp){return(
+<button key={tp} onClick={function(){setMovF(function(p){return{…p,tipo:tp};});}} style={{flex:1,border:“2px solid “+(movF.tipo===tp?(tp===“entrada”?”#27AE60”:G.red):G.border),background:movF.tipo===tp?(tp===“entrada”?”#E8F5E9”:”#FFEBEE”):”#fff”,borderRadius:8,padding:“8px”,fontSize:12,fontWeight:700,cursor:“pointer”,color:movF.tipo===tp?(tp===“entrada”?”#27AE60”:G.red):G.muted}}>
+{tp===“entrada”?“Entrada Titaniofix”:“Saida (Uso)”}
 </button>
 );})}
 </div>
 <div>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Item</label>
-<select value={movF.itemId} onChange={function(e){setMovF(function(p){return{…p,itemId:e.target.value};});}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none"}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,display:“block”,marginBottom:4}}>Item</label>
+<select value={movF.itemId} onChange={function(e){setMovF(function(p){return{…p,itemId:e.target.value};});}} style={{width:“100%”,border:“1.5px solid “+G.border,borderRadius:8,padding:“8px 10px”,fontSize:13,outline:“none”}}>
 <option value="">Selecione…</option>
-{implCat.map(function(item){return <option key={item.id} value={String(item.id)}>{item.tipo+" - "+item.desc+(item.codigo?" ("+item.codigo+")":"")}</option>;})}
+{implCat.map(function(item){return <option key={item.id} value={String(item.id)}>{item.tipo+” - “+item.desc+(item.codigo?” (”+item.codigo+”)”:””)}</option>;})}
 </select>
 </div>
 <Inp lb="Quantidade" val={String(movF.qty)} set={function(v){setMovF(function(p){return{...p,qty:v};});}} type="number"/>
-{movF.tipo==="saida"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+{movF.tipo===“saida”&&<div style={{display:“flex”,flexDirection:“column”,gap:10}}>
 <div>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Paciente</label>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,display:“block”,marginBottom:4}}>Paciente</label>
 <PatSearch lb="Buscar paciente" val={String(movF.patId)} set={function(v){setMovF(function(p){return{...p,patId:v};});}} pats={pats}/>
 </div>
 <Inp lb="Numero do dente" val={movF.dente} set={function(v){setMovF(function(p){return{...p,dente:v};});}} ph="Ex: 36, 11, 21..."/>
 <div>
-<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Dentista</label>
-<select value={movF.dentId} onChange={function(e){setMovF(function(p){return{…p,dentId:e.target.value};});}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none"}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,display:“block”,marginBottom:4}}>Dentista</label>
+<select value={movF.dentId} onChange={function(e){setMovF(function(p){return{…p,dentId:e.target.value};});}} style={{width:“100%”,border:“1.5px solid “+G.border,borderRadius:8,padding:“8px 10px”,fontSize:13,outline:“none”}}>
 <option value="">Selecione…</option>
 {dents.map(function(d){return <option key={d.id} value={String(d.id)}>{d.name}</option>;})}
 </select>
@@ -3797,7 +3767,7 @@ return(
 </div>}
 <Inp lb="Observacao" val={movF.obs} set={function(v){setMovF(function(p){return{...p,obs:v};});}} ph="Opcional..."/>
 <Inp lb="Data" val={movF.date} set={function(v){setMovF(function(p){return{...p,date:v};});}} type="date"/>
-<button onClick={saveMov} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Salvar</button>
+<button onClick={saveMov} style={{background:G.primary,color:”#fff”,border:“none”,borderRadius:12,padding:“12px”,fontSize:14,fontWeight:700,cursor:“pointer”}}>Salvar</button>
 </div>
 </div>
 </div>}
@@ -3812,37 +3782,36 @@ function Login({users,onLogin}){
 const [l,sl]=useState(””);const [p,sp]=useState(””);const [e,se]=useState(””);
 const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});u?onLogin(u):se(“Login ou senha inválidos”);};
 return(
-
-<div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1B5E4A 0%,#0a2e1e 60%,#051a10 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-<div style={{width:"100%",maxWidth:380,display:"flex",flexDirection:"column",alignItems:"center"}}>
-<div style={{textAlign:"center",marginBottom:32}}>
-<div style={{fontSize:64,marginBottom:12}}>{"🦷"}</div>
-<div style={{fontFamily:"'Cormorant Garamond'",fontSize:34,color:"#fff",fontWeight:700,lineHeight:1.1}}>Affonso Odontologia</div>
-<div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginTop:6,letterSpacing:"2px",textTransform:"uppercase"}}>Sistema de Gestão</div>
-<div style={{width:40,height:2,background:"rgba(255,255,255,.2)",margin:"14px auto 0",borderRadius:2}}/>
+<div style={{minHeight:“100vh”,background:“linear-gradient(160deg,#1B5E4A 0%,#0a2e1e 60%,#051a10 100%)”,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:20}}>
+<div style={{width:“100%”,maxWidth:380,display:“flex”,flexDirection:“column”,alignItems:“center”}}>
+<div style={{textAlign:“center”,marginBottom:32}}>
+<div style={{fontSize:64,marginBottom:12}}>{“🦷”}</div>
+<div style={{fontFamily:”‘Cormorant Garamond’”,fontSize:34,color:”#fff”,fontWeight:700,lineHeight:1.1}}>Affonso Odontologia</div>
+<div style={{fontSize:12,color:“rgba(255,255,255,.5)”,marginTop:6,letterSpacing:“2px”,textTransform:“uppercase”}}>Sistema de Gestão</div>
+<div style={{width:40,height:2,background:“rgba(255,255,255,.2)”,margin:“14px auto 0”,borderRadius:2}}/>
 </div>
-<div style={{background:"rgba(255,255,255,.07)",borderRadius:20,padding:"32px 28px",width:"100%",boxShadow:"0 24px 64px rgba(0,0,0,.4)",border:"1px solid rgba(255,255,255,.1)",boxSizing:"border-box"}}>
-<div style={{display:"flex",flexDirection:"column",gap:14}}>
+<div style={{background:“rgba(255,255,255,.07)”,borderRadius:20,padding:“32px 28px”,width:“100%”,boxShadow:“0 24px 64px rgba(0,0,0,.4)”,border:“1px solid rgba(255,255,255,.1)”,boxSizing:“border-box”}}>
+<div style={{display:“flex”,flexDirection:“column”,gap:14}}>
 <div>
-<label style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",textTransform:"uppercase",letterSpacing:"1px",display:"block",marginBottom:6}}>Usuário</label>
-<input value={l} onChange={function(ev){sl(ev.target.value);}} onKeyDown={function(ev){if(ev.key==="Enter")go();}}
-placeholder="Digite seu usuário"
-style={{width:"100%",background:"rgba(255,255,255,.1)",border:"1.5px solid rgba(255,255,255,.15)",borderRadius:10,padding:"12px 14px",fontSize:14,color:"#fff",outline:"none",boxSizing:"border-box"}}/>
+<label style={{fontSize:11,fontWeight:700,color:“rgba(255,255,255,.5)”,textTransform:“uppercase”,letterSpacing:“1px”,display:“block”,marginBottom:6}}>Usuário</label>
+<input value={l} onChange={function(ev){sl(ev.target.value);}} onKeyDown={function(ev){if(ev.key===“Enter”)go();}}
+placeholder=“Digite seu usuário”
+style={{width:“100%”,background:“rgba(255,255,255,.1)”,border:“1.5px solid rgba(255,255,255,.15)”,borderRadius:10,padding:“12px 14px”,fontSize:14,color:”#fff”,outline:“none”,boxSizing:“border-box”}}/>
 </div>
 <div>
-<label style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",textTransform:"uppercase",letterSpacing:"1px",display:"block",marginBottom:6}}>Senha</label>
-<input value={p} onChange={function(ev){sp(ev.target.value);}} onKeyDown={function(ev){if(ev.key==="Enter")go();}}
-type="password" placeholder="••••••••"
-style={{width:"100%",background:"rgba(255,255,255,.1)",border:"1.5px solid rgba(255,255,255,.15)",borderRadius:10,padding:"12px 14px",fontSize:14,color:"#fff",outline:"none",boxSizing:"border-box"}}/>
+<label style={{fontSize:11,fontWeight:700,color:“rgba(255,255,255,.5)”,textTransform:“uppercase”,letterSpacing:“1px”,display:“block”,marginBottom:6}}>Senha</label>
+<input value={p} onChange={function(ev){sp(ev.target.value);}} onKeyDown={function(ev){if(ev.key===“Enter”)go();}}
+type=“password” placeholder=”••••••••”
+style={{width:“100%”,background:“rgba(255,255,255,.1)”,border:“1.5px solid rgba(255,255,255,.15)”,borderRadius:10,padding:“12px 14px”,fontSize:14,color:”#fff”,outline:“none”,boxSizing:“border-box”}}/>
 </div>
-{e&&<div style={{background:"rgba(244,67,54,.15)",border:"1px solid rgba(244,67,54,.3)",color:"#ff8a80",borderRadius:8,padding:"8px 12px",fontSize:12,textAlign:"center"}}>{e}</div>}
-<button onClick={go} style={{background:"linear-gradient(135deg,#2E7D5A,#1B5E4A)",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",color:"#fff",marginTop:4,boxShadow:"0 4px 16px rgba(0,0,0,.3)"}}>
+{e&&<div style={{background:“rgba(244,67,54,.15)”,border:“1px solid rgba(244,67,54,.3)”,color:”#ff8a80”,borderRadius:8,padding:“8px 12px”,fontSize:12,textAlign:“center”}}>{e}</div>}
+<button onClick={go} style={{background:“linear-gradient(135deg,#2E7D5A,#1B5E4A)”,border:“none”,borderRadius:12,padding:“14px”,fontSize:15,fontWeight:700,cursor:“pointer”,color:”#fff”,marginTop:4,boxShadow:“0 4px 16px rgba(0,0,0,.3)”}}>
 Entrar
 </button>
 </div>
 </div>
-<div style={{marginTop:20,fontSize:11,color:"rgba(255,255,255,.2)",textAlign:"center"}}>
-{"Affonso Odontologia © 2025"}
+<div style={{marginTop:20,fontSize:11,color:“rgba(255,255,255,.2)”,textAlign:“center”}}>
+{“Affonso Odontologia © 2025”}
 </div>
 </div>
 </div>
@@ -3922,33 +3891,8 @@ finally{isSaving.current=false;saveTimer.current=null;}
 },2000);
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov]);
 
-// ── REALTIME — polling a cada 30s (só atualiza se não estiver salvando) ──
-useEffect(()=>{
-const poll=setInterval(async()=>{
-// Não atualiza se: ainda não inicializou, está salvando, aba oculta, ou save pendente
-if(!initialized.current||isSaving.current||document.hidden||saveTimer.current)return;
-const data=await supabase.load();
-if(!data)return;
-const str=JSON.stringify(data);
-if(str===lastSaved.current)return; // nada mudou no Supabase
-// Só atualiza se o dado do Supabase for diferente do atual
-lastSaved.current=str;
-try{
-if(data.pats?.length)setPats(data.pats);
-if(data.appts?.length)setAppts(data.appts);
-if(data.recs?.length)setRecs(data.recs);
-if(data.treats?.length)setTreats(data.treats);
-if(data.pros?.length)setPros(data.pros);
-if(data.rems?.length)setRems(data.rems);
-if(data.budgets?.length)setBudgets(data.budgets);
-if(data.dents?.length)setDents(data.dents);
-if(data.procs?.length)setProcs(data.procs);
-if(data.stock?.length)setStock(data.stock);
-if(data.expenses)setExpenses(data.expenses);
-}catch(err){}
-},30000);
-return()=>clearInterval(poll);
-},[]);
+// ── REALTIME desativado — use F5 para sincronizar entre dispositivos ──
+// (polling estava sobrescrevendo dados novos)
 
 if(!user)return <Login users={users} onLogin={setUser}/>;
 
@@ -3983,7 +3927,6 @@ const BOTTOM_NAV=[
 const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}`;
 
 return <>
-
 <style>{CSS+RESPONSIVE_CSS}</style>
 
 ```
