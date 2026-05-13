@@ -1385,15 +1385,12 @@ return (
       {/* Duração */}
       <div style={{display:"flex",flexDirection:"column",gap:4}}>
         <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Duração da Consulta</label>
-        <select value={String(f.duration||30)} onChange={e=>{const d=Number(e.target.value);setF(p=>({...p,duration:d}));}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",background:"#fff"}}>
-          <option value="30">30 minutos</option>
-          <option value="60">1 hora</option>
-          <option value="90">1h 30min</option>
-          <option value="120">2 horas</option>
-          <option value="150">2h 30min</option>
-          <option value="180">3 horas</option>
-        </select>
-        {Number(f.duration||30)>30&&<div style={{background:G.accent,borderRadius:8,padding:"5px 9px",fontSize:11,color:G.primary}}>⏱️ Ocupa slots até: {(()=>{const t=f.timeCustom||f.time;if(!t)return "...";let [h,m]=t.split(":").map(Number);m+=Number(f.duration||30)-30;while(m>=60){m-=60;h++;}return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;})()}</div>}
+        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+          {[{v:30,l:"30min"},{v:60,l:"1h"},{v:90,l:"1h30"},{v:120,l:"2h"},{v:150,l:"2h30"},{v:180,l:"3h"}].map(({v,l})=>(
+            <button key={v} onClick={()=>upd("duration")(v)} style={{border:`2px solid ${(f.duration||30)===v?G.primary:G.border}`,background:(f.duration||30)===v?G.primary:"#fff",color:(f.duration||30)===v?"#fff":G.muted,borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{l}</button>
+          ))}
+        </div>
+        {(f.duration||30)>30&&<div style={{background:G.accent,borderRadius:8,padding:"5px 9px",fontSize:11,color:G.primary}}>⏱️ Ocupa slots até: {(()=>{const t=f.timeCustom||f.time;if(!t)return "...";let [h,m]=t.split(":").map(Number);m+=(f.duration-30);while(m>=60){m-=60;h++;}return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;})()}</div>}
       </div>
       {/* Procedimento com opção manual */}
       <div style={{display:"flex",flexDirection:"column",gap:4}}>
