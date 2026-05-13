@@ -1044,9 +1044,11 @@ const [denF,setDenF]=useState(“all”);
 const [modal,setModal]=useState(false);
 const [viewA,setViewA]=useState(null);const [showCancel,setShowCancel]=useState(null);const [histTab,setHistTab]=useState(“info”);
 const [edit,setEdit]=useState(null);
-const blank={patientId:””,dentistId:user.dentistId||dents[0]?.id||1,date:selDate,time:””,procedure:””,treatment:””,status:“pending”,notes:””,value:””,payment:“Dinheiro”};
+const blank={patientId:””,patientName:””,useManual:false,dentistId:user.dentistId||dents[0]?.id||1,date:selDate,time:””,timeCustom:””,procedure:””,procedureCustom:””,treatment:””,status:“pending”,notes:””,value:””,payment:“Dinheiro”,duration:30,blocked:false,blockReason:””};
 const [f,setF]=useState(blank);
 const upd=k=>v=>setF(p=>({…p,[k]:v}));
+const [blockModal,setBlockModal]=useState(null); // {date,time,dentistId}
+const [blockReason,setBlockReason]=useState(””);
 const isDent=user.level===1;
 const td=today();
 const DAY=[“Dom”,“Seg”,“Ter”,“Qua”,“Qui”,“Sex”,“Sáb”];
@@ -1066,12 +1068,31 @@ const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
 const save=()=>{
-if(!f.patientId||!f.time){alert(“Preencha paciente e horário”);return;}
-const obj={…f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),value:Number(f.value)||0,id:edit?edit.id:nid(appts)};
+const finalTime=(f.timeCustom||””).trim()||(f.time||””).trim();
+const hasPat=String(f.patientId||””).trim()||String(f.patientName||””).trim();
+// Permite salvar sem paciente - aparece como “A confirmar” na agenda
+if(!finalTime){alert(“Preencha o horário”);return;}
+const dur=Number(f.duration)||30;
+// Gerar slots ocupados pela duração
+const extraSlots=[];
+if(dur>30){
+let [h,m]=finalTime.split(”:”).map(Number);
+for(let i=30;i<dur;i+=30){
+m+=30;if(m>=60){m-=60;h++;}
+extraSlots.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
+}
+}
+const obj={…f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,patientName:f.patientId?””:(f.patientName||“A confirmar”),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
 setAppts(prev=>edit?prev.map(a=>a.id===edit.id?obj:a):[…prev,obj]);
 const p=pats.find(x=>x.id===Number(f.patientId));
-if(addLog)addLog(“agenda”,(edit?“Editou”:“Criou”)+” consulta de “+(p&&p.name||””)+” — “+fmt(f.date)+” “+f.time,p&&p.name);
+const nome=p?.name||f.patientName||””;
+if(addLog)addLog(“agenda”,(edit?“Editou”:“Criou”)+” consulta de “+nome+” — “+fmt(f.date)+” “+finalTime,nome);
 setModal(false);setEdit(null);setF(blank);
+};
+const saveBlock=(date,time,dentistId)=>{
+if(!blockReason.trim()){alert(“Informe o motivo do bloqueio”);return;}
+setAppts(prev=>[…prev,{id:nid(prev),date,time,dentistId:Number(dentistId),blocked:true,blockReason,patientId:null,status:“blocked”,procedure:“Bloqueado”,value:0,payment:””}]);
+setBlockModal(null);setBlockReason(””);
 };
 const chSt=(id,st)=>{
 setAppts(prev=>prev.map(a=>a.id===id?{…a,status:st}:a));
@@ -1164,14 +1185,32 @@ return (
           <span style={{fontSize:11,color:isOff?"#C62828":isAlm?"#E65100":"#6A1B9A",fontWeight:600}}>{isOff?"🚫 Folga":isAlm?"🍽️ Almoço":"⛔ Fechado"}</span>
         </div>
       );
+      // Slot ocupado por duração de consulta anterior
+      const isExtraSlot=appts.some(a2=>a2.date===selDate&&a2.dentistId===d.id&&(a2.extraSlots||[]).includes(slot));
+      if(isExtraSlot&&!a)return(
+        <div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#F3E5F5",border:"1px solid #CE93D8"}}>
+          <span style={{fontSize:11,color:"#6A1B9A",minWidth:38,fontWeight:600}}>{slot}</span>
+          <span style={{fontSize:11,color:"#6A1B9A"}}>⏱️ Em consulta</span>
+        </div>
+      );
       if(!a)return(
         <div key={slot} onClick={function(){if(isDent)return;setEdit(null);setF({...blank,date:selDate,time:slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer"}}>
           <span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
           {isDent
             ?<span style={{fontSize:11,color:G.border}}>─────────</span>
             :<span style={{fontSize:11,color:G.border,flex:1}}>{"+ agendar"}</span>}
+          {!isDent&&<button onClick={e=>{e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{marginLeft:"auto",background:"#FFEBEE",border:"1px solid #FFCDD2",borderRadius:6,padding:"2px 7px",fontSize:10,color:G.red,cursor:"pointer",fontWeight:700}} title="Bloquear horário">🔒</button>}
         </div>
       );
+      // Slot bloqueado
+      if(a&&a.blocked)return(
+        <div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
+          <span style={{fontSize:12,fontWeight:700,color:G.red,minWidth:38}}>{slot}</span>
+          <span style={{fontSize:12,fontWeight:700,color:G.red}}>🔒 {a.blockReason||"Bloqueado"}</span>
+          {!isDent&&<span style={{fontSize:10,color:G.muted,marginLeft:"auto"}}>toque p/ desbloquear</span>}
+        </div>
+      );
+      const isPartial=!a.patientId&&a.patientName;
       var flags=[];
       if(p&&p.obs)flags.push("⚠️ "+p.obs);
       if(p&&p.allergy&&p.allergy!=="Nenhuma")flags.push("💊 "+p.allergy);
@@ -1180,14 +1219,15 @@ return (
       if(anObj.diabetes)flags.push("Diabetes");
       if(anObj.heartDisease)flags.push("Cardio");
       return(
-        <div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:SC[a.status]+"15",border:"1.5px solid "+SC[a.status],cursor:"pointer"}}>
-          <span style={{fontSize:12,fontWeight:700,color:SC[a.status],minWidth:38}}>{slot}</span>
+        <div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:isPartial?"#FFEBEE":SC[a.status]+"15",border:"1.5px solid "+(isPartial?G.red:SC[a.status]),cursor:"pointer"}}>
+          <span style={{fontSize:12,fontWeight:700,color:isPartial?G.red:SC[a.status],minWidth:38}}>{slot}</span>
           <div style={{flex:1,minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-              <span style={{fontWeight:700,fontSize:13,color:G.text}}>{p&&p.name}</span>
-              {p&&p.phone&&<span style={{fontSize:11,color:G.muted}}>{p.phone}</span>}
-              <span style={{fontSize:11,color:G.muted}}>{"· "+a.procedure}</span>
-              <span style={{fontSize:10,fontWeight:700,color:SC[a.status],background:SC[a.status]+"20",borderRadius:5,padding:"1px 6px"}}>{SL[a.status]}</span>
+              <span style={{fontWeight:700,fontSize:13,color:isPartial?G.red:G.text}}>{isPartial?a.patientName:(p&&p.name)}</span>
+              {isPartial&&<span style={{fontSize:10,background:G.red+"20",color:G.red,borderRadius:4,padding:"1px 5px",fontWeight:700}}>⚠ Parcial</span>}
+              {p&&p.phone&&!isPartial&&<span style={{fontSize:11,color:G.muted}}>{p.phone}</span>}
+              <span style={{fontSize:11,color:G.muted}}>{"· "+(a.procedureCustom||a.procedure)}</span>
+              <span style={{fontSize:10,fontWeight:700,color:isPartial?G.red:SC[a.status],background:(isPartial?G.red:SC[a.status])+"20",borderRadius:5,padding:"1px 6px"}}>{SL[a.status]}</span>
             </div>
             {flags.length>0&&<div style={{display:"flex",gap:4,marginTop:2,flexWrap:"wrap"}}>
               {flags.map(function(f,i){return <span key={i} style={{fontSize:9,background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 5px",fontWeight:700}}>{f}</span>;})}
@@ -1310,51 +1350,93 @@ return (
       }/>
     );
   })()}
-  {showCancel&&(()=>{const a=showCancel;const p=pats.find(x=>x.id===a.patientId);return p&&<CancelWA appt={a} pat={p} onCancel={function(id){setAppts(function(prev){return prev.filter(function(x){return x.id!==id;});});}} onClose={function(){setShowCancel(null);setViewA(null);}}/>;})()}
-  {viewA&&(()=>{
-    const a=viewA;const p=pats.find(x=>x.id===a.patientId);const d=dents.find(x=>x.id===a.dentistId)||dents[0];
-    return(
-      <Modal open close={()=>setViewA(null)} title="Consulta" wide ch={
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {p&&p.obs&&<div style={{background:G.yellow+"18",border:"2px solid "+G.yellow,borderRadius:10,padding:"8px 12px",fontWeight:700,color:G.yellow}}>{"⚠ "+p.obs}</div>}
-          <div style={{background:G.accent,borderRadius:10,padding:"10px 14px"}}>
-            <div style={{fontSize:15,fontWeight:700}}>{p&&p.name}</div>
-            <div style={{fontSize:12,color:G.muted}}>{"📁 "+(p&&p.folder)}</div>
+        
+  <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Agendamento":"Novo Agendamento"} wide ch={
+    <div style={{display:"flex",flexDirection:"column",gap:11}}>
+      <Sel lb="Dentista" val={String(f.dentistId)} set={upd("dentistId")} opts={dents.map(d=>({v:d.id,l:d.name}))}/>
+      {/* Paciente — busca cadastrado OU nome manual */}
+      <div>
+        <div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",marginBottom:4}}>Paciente</div>
+        <div style={{display:"flex",gap:6,marginBottom:6}}>
+          <button onClick={()=>setF(p=>({...p,useManual:false,patientName:""}))} style={{flex:1,border:`2px solid ${!f.useManual?G.primary:G.border}`,background:!f.useManual?G.primary:"#fff",color:!f.useManual?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔍 Cadastrado</button>
+          <button onClick={()=>setF(p=>({...p,useManual:true,patientId:""}))} style={{flex:1,border:`2px solid ${f.useManual?G.red:G.border}`,background:f.useManual?G.red:"#fff",color:f.useManual?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Digitar nome</button>
+        </div>
+        {f.useManual
+          ?<div>
+            <Inp val={f.patientName||""} set={upd("patientName")} ph="Nome completo + telefone do paciente"/>
+            <div style={{background:"#FFF3E0",borderRadius:8,padding:"5px 9px",fontSize:11,color:"#E65100",marginTop:4}}>⚠️ Aparecerá em vermelho na agenda — cadastro parcial</div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-            {[["Data/Hora",fmt(a.date)+" · "+a.time],["Procedimento",a.procedure],["Dentista",d.name],["Status",SL[a.status]]].map(([k,v])=>(
-              <div key={k} style={{background:G.bg,borderRadius:8,padding:"6px 10px"}}>
-                <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{k}</div>
-                <div style={{fontWeight:600,fontSize:12}}>{v}</div>
-              </div>
-            ))}
+          :<div>
+            <PatSearch val={f.patientId} set={upd("patientId")} pats={pats}/>
+            {!f.patientId&&<div style={{fontSize:11,color:G.muted,marginTop:4}}>Não encontrou? Use <strong>"✏️ Digitar nome"</strong> acima</div>}
           </div>
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-            {Object.entries(SL).map(([k,l])=><button key={k} onClick={()=>chSt(a.id,k)} style={{border:"2px solid "+SC[k],background:a.status===k?SC[k]:"#fff",color:a.status===k?"#fff":SC[k],borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
-          </div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! Sua consulta: "+fmt(a.date)+" às "+a.time+". "+a.procedure+". Affonso Odontologia")}/>}
-            {p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" — "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
-            {p&&p.phone&&<Btn ch="🔄 Paciente Cancelou" v="r" sm onClick={function(){chSt(a.id,"cancelled");wa(p.phone,"Olá, "+p.name+"! 😊 Entendemos que nao podera comparecer. Gostaria de remarcar sua consulta? Responda SIM que nossa equipe entrara em contato para escolher o melhor horario! Affonso Odontologia");setViewA(null);}}/>}
-            <Btn ch="Editar" sm onClick={()=>{setEdit(a);setF({...a,patientId:String(a.patientId),dentistId:String(a.dentistId)});setViewA(null);setModal(true);}}/>
-            {!isDent&&p&&p.phone&&<Btn ch="❌ Cancelar" v="r" sm onClick={function(){setShowCancel(a);}}/>}<Btn ch="Remover" v="r" sm onClick={()=>{if(window.confirm("Remover?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));setViewA(null);}}/>
-            <Btn ch="Fechar" v="g" sm onClick={()=>setViewA(null)}/>
-          </div>
+        }
+      </div>
+      {/* Data e Horário */}
+      <R2 a={<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>} b={
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Horário</label>
+          <select value={f.time} onChange={e=>upd("time")(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 8px",fontSize:13,outline:"none",background:"#fff"}}>
+            {[{v:"",l:"Selecione..."},...SLOTS].map(o=><option key={o.v??o} value={o.v??o}>{o.l??o}</option>)}
+          </select>
+          <input value={f.timeCustom||""} onChange={e=>upd("timeCustom")(e.target.value)} placeholder="Horário personalizado ex: 09:15" style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"7px 8px",fontSize:12,outline:"none"}}/>
         </div>
       }/>
-    );
-  })()}
-
-  <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar":"Novo Agendamento"} wide ch={
-    <div style={{display:"flex",flexDirection:"column",gap:11}}>
-      <R2 a={<Sel lb="Dentista" val={String(f.dentistId)} set={upd("dentistId")} opts={dents.map(d=>({v:d.id,l:d.name}))}/>} b={<PatSearch lb="Paciente" val={f.patientId} set={upd("patientId")} pats={pats}/>}/>
-      <R2 a={<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>} b={<Sel lb="Horário" val={f.time} set={upd("time")} opts={[{v:"",l:"Selecione..."},...SLOTS]}/>}/>
-      <R2 a={<Sel lb="Procedimento" val={f.procedure} set={v=>{upd("procedure")(v);const pr=procs.find(p=>p.name===v);if(pr&&!f.value)upd("value")(String(pr.price));}} opts={[{v:"",l:"Selecione..."},...procs.map(p=>({v:p.name,l:p.name}))]}/>} b={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>}/>
+      {/* Duração */}
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Duração da Consulta</label>
+        <select value={String(f.duration||30)} onChange={e=>{const d=Number(e.target.value);setF(p=>({...p,duration:d}));}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",background:"#fff"}}>
+          <option value="30">30 minutos</option>
+          <option value="60">1 hora</option>
+          <option value="90">1h 30min</option>
+          <option value="120">2 horas</option>
+          <option value="150">2h 30min</option>
+          <option value="180">3 horas</option>
+        </select>
+        {Number(f.duration||30)>30&&<div style={{background:G.accent,borderRadius:8,padding:"5px 9px",fontSize:11,color:G.primary}}>⏱️ Ocupa slots até: {(()=>{const t=f.timeCustom||f.time;if(!t)return "...";let [h,m]=t.split(":").map(Number);m+=Number(f.duration||30)-30;while(m>=60){m-=60;h++;}return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;})()}</div>}
+      </div>
+      {/* Procedimento com opção manual */}
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Procedimento</label>
+        <select value={f.procedure} onChange={e=>{upd("procedure")(e.target.value);const pr=procs.find(p=>p.name===e.target.value);if(pr&&!f.value)upd("value")(String(pr.price));}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 8px",fontSize:13,outline:"none",background:"#fff"}}>
+          <option value="">Selecione...</option>
+          <option value="Avaliação">Avaliação</option>
+          <option value="Retorno">Retorno</option>
+          <option value="Urgência">Urgência</option>
+          {procs.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
+        </select>
+        <input value={f.procedureCustom||""} onChange={e=>{upd("procedureCustom")(e.target.value);if(e.target.value)upd("procedure")(e.target.value);}} placeholder="Ou digite outro procedimento..." style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"7px 8px",fontSize:12,outline:"none"}}/>
+      </div>
+      <R2 a={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>} b={<Sel lb="Status" val={f.status} set={upd("status")} opts={Object.entries(SL).map(([v,l])=>({v,l}))}/>}/>
       <Inp lb="Descrição do Tratamento" val={f.treatment} set={upd("treatment")} ph="Ex: Restauração dente 36"/>
-      <R2 a={<Sel lb="Pagamento" val={f.payment} set={upd("payment")} opts={PAY}/>} b={<Sel lb="Status" val={f.status} set={upd("status")} opts={Object.entries(SL).map(([v,l])=>({v,l}))}/>}/>
       <SC2 save={save} cancel={()=>setModal(false)}/>
     </div>
   }/>
+  {/* Modal de bloqueio de horário */}
+  {blockModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
+        <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>🔒 Bloquear Horário</span>
+        <button onClick={()=>setBlockModal(null)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+      </div>
+      <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.primary,fontWeight:600}}>{blockModal.time} — {dents.find(d=>d.id===Number(blockModal.dentistId))?.name}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Motivo do bloqueio</label>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:4}}>
+            {["Saída antecipada","Reunião","Almoço extra","Procedimento interno","Outro"].map(m=>(
+              <button key={m} onClick={()=>setBlockReason(m)} style={{border:`2px solid ${blockReason===m?G.red:G.border}`,background:blockReason===m?"#FFEBEE":"#fff",color:blockReason===m?G.red:G.muted,borderRadius:8,padding:"5px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{m}</button>
+            ))}
+          </div>
+          <input value={blockReason} onChange={e=>setBlockReason(e.target.value)} placeholder="Ou digite o motivo..." style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none"}}/>
+        </div>
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
+          <button onClick={()=>setBlockModal(null)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+          <button onClick={()=>saveBlock(blockModal.date,blockModal.time,blockModal.dentistId)} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>🔒 Bloquear</button>
+        </div>
+      </div>
+    </div>
+  </div>}
 </div>
 ```
 
