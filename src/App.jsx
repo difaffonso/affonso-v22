@@ -2684,9 +2684,9 @@ return <div style={{display:“flex”,flexDirection:“column”,gap:14}} class
 // ADMIN
 // ══════════════════════════════════════════════════════════
 function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user}){
-const [tab,setTab]=useState(“users”);const [lfUser,setLfUser]=useState(“all”);const [lfPat,setLfPat]=useState(””);const [lfData,setLfData]=useState(””);const [lfTipo,setLfTipo]=useState(“all”);
+const [tab,setTab]=useState(“users”);const [schedDent,setSchedDent]=useState(null);const [lfUser,setLfUser]=useState(“all”);const [lfPat,setLfPat]=useState(””);const [lfData,setLfData]=useState(””);const [lfTipo,setLfTipo]=useState(“all”);
 const TIPOS_LOG=[“all”,“agenda”,“paciente”,“financeiro”,“estoque”,“protese”,“lembrete”,“remarcar”,“admin”];
-const TIPO_L_LOG={all:“Todos”,agenda:“Agenda”,paciente:“Paciente”,financeiro:“Financeiro”,estoque:“Estoque”,protese:“Protese”,lembrete:“Lembrete”,remarcar:“Remarcar”,admin:“Admin”};
+const TIPO_L_LOG={all:“Todos”,agenda:“📅 Agenda”,paciente:“👥 Paciente”,financeiro:“💰 Financeiro”,estoque:“📦 Estoque”,protese:“🏥 Prótese”,lembrete:“📌 Lembrete”,remarcar:“🔄 Remarcar”,admin:“⚙️ Admin”};
 const filtered=(logs||[]).filter(function(l){
 if(lfUser!==“all”&&l.user!==lfUser)return false;
 if(lfPat&&!(l.patName||””).toLowerCase().includes(lfPat.toLowerCase())&&!l.desc.toLowerCase().includes(lfPat.toLowerCase()))return false;
@@ -2694,101 +2694,30 @@ if(lfData&&!l.ts.startsWith(lfData))return false;
 if(lfTipo!==“all”&&l.tipo!==lfTipo)return false;
 return true;
 });
-const uniqueUsers=[…new Set((logs||[]).map(function(l){return l.user;}))];
-const [um,setUm]=useState(false);const [pm,setPm]=useState(false);const [lm,setLm]=useState(false);const [dm,setDm]=useState(false);
-const [eu,setEu]=useState(null);const [ep,setEp]=useState(null);const [el,setEl]=useState(null);const [ed,setEd]=useState(null);
-const b0={name:””,role:“Recepcionista”,level:2,login:””,pass:””,dentistId:””,color:UCOLS[0],active:true,criaDentista:false};
-const bp={name:””,price:0};
+const uniqueUsers=[…new Set((logs||[]).map(function(l){return l.user;}))];const [um,setUm]=useState(false);const [pm,setPm]=useState(false);const [lm,setLm]=useState(false);
+const [eu,setEu]=useState(null);const [ep,setEp]=useState(null);const [el,setEl]=useState(null);
+const b0={name:””,role:“Recepcionista”,level:2,login:””,pass:””,dentistId:””,color:UCOLS[0],active:true};const bp={name:””,price:0};
 const bl={name:””,contact:””,phone:””};
-const bd={name:””,specialty:“Clinico Geral”,commission:40,cro:””,color:UCOLS[0],dias:[1,2,3,4,5],entrada:“08:00”,saida:“18:00”,almoco:{ini:“12:00”,fim:“13:00”}};
-const [uf,setUf]=useState(b0);const [pf,setPf]=useState(bp);const [lf,setLf]=useState(bl);const [df,setDf]=useState(bd);
+const [uf,setUf]=useState(b0);const [pf,setPf]=useState(bp);const [lf,setLf]=useState(bl);
 const fu=k=>v=>setUf(p=>({…p,[k]:v}));const fp=k=>v=>setPf(p=>({…p,[k]:v}));const fl=k=>v=>setLf(p=>({…p,[k]:v}));
-const upDf=k=>v=>setDf(p=>({…p,[k]:v}));
-if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:“center”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}><p style={{color:G.red,fontSize:15}}>Acesso restrito ao Administrador</p></div>;
-
-const saveU=()=>{
-if(!uf.name||!uf.login)return alert(“Preencha nome e login”);
-let dentId=uf.dentistId?Number(uf.dentistId):null;
-if(!eu&&uf.level===1&&uf.criaDentista){
-const newDent={id:nid(dents),name:uf.name,color:uf.color,specialty:“Clinico Geral”,commission:40,cro:””,dias:[1,2,3,4,5],entrada:“08:00”,saida:“18:00”,almoco:{ini:“12:00”,fim:“13:00”}};
-setDents(prev=>[…prev,newDent]);
-dentId=newDent.id;
-}
-const obj={…uf,dentistId:dentId,id:eu?eu.id:nid(users),criaDentista:undefined};
-setUsers(prev=>eu?prev.map(u=>u.id===eu.id?obj:u):[…prev,obj]);
-setUm(false);
-};
-
-const removeUser=(u)=>{
-if(u.dentistId){
-const dentName=dents.find(d=>d.id===u.dentistId)?.name||””;
-if(window.confirm(“Remover tambem o dentista “+dentName+” da agenda e horarios?”)){
-setDents(prev=>prev.filter(d=>d.id!==u.dentistId));
-}
-}
-setUsers(prev=>prev.filter(x=>x.id!==u.id));
-};
-
+if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:“center”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}><p style={{color:G.red,fontSize:15}}>🔒 Acesso restrito ao Administrador</p></div>;
+const saveU=()=>{if(!uf.name||!uf.login)return;const obj={…uf,dentistId:uf.dentistId?Number(uf.dentistId):null,id:eu?eu.id:nid(users)};setUsers(prev=>eu?prev.map(u=>u.id===eu.id?obj:u):[…prev,obj]);setUm(false);};
 const saveP=()=>{if(!pf.name)return;const obj={…pf,price:Number(pf.price),id:ep?ep.id:nid(procs)};setProcs(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[…prev,obj]);setPm(false);};
 const saveL=()=>{if(!lf.name)return alert(“Informe o nome do laboratório”);const obj={…lf,id:el?el.id:nid(labs)};setLabs(prev=>el?prev.map(l=>l.id===el.id?obj:l):[…prev,obj]);setLm(false);};
 return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
 
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
-<div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border,overflowX:"auto"}}>
-{[["users","Usuários"],["dents","🦷 Dentistas"],["procs","Procedimentos"],["labs","Laboratórios"],["agenda","📅 Horários"],["access","🔑 Acessos"],["log","📋 Log"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 12px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:11,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
+<div style={{display:"flex",gap:0,borderBottom:`2px solid ${G.border}`}}>
+{[["users","Usuários"],["procs","Procedimentos"],["labs","Laboratórios"],["agenda","📅 Horários"],["access","🔑 Acessos"],["log","📋 Log"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 15px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2}}>{l}</button>)}
 </div>
-
-{tab===“users”&&<div style={{display:“flex”,flexDirection:“column”,gap:9}}>
-
-<div style={{background:G.accent,borderRadius:10,padding:"9px 12px",fontSize:12,color:G.primary,marginBottom:4}}>
-💡 Para adicionar dentista use a aba <strong>🦷 Dentistas</strong>. Aqui crie apenas credenciais de acesso.
-</div>
+{tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
 <div style={{textAlign:"right"}}><Btn ch="+ Novo Usuário" sm onClick={()=>{setEu(null);setUf(b0);setUm(true);}}/></div>
-{users.map(u=>{
-const linkedDent=u.dentistId?dents.find(d=>d.id===u.dentistId):null;
-return <div key={u.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11,borderLeft:"4px solid "+u.color}}>
+{users.map(u=><div key={u.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11,borderLeft:`4px solid ${u.color}`}}>
 <div style={{width:34,height:34,borderRadius:"50%",background:u.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>{u.name[0]}</div>
-<div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:13}}>{u.name}</div><div style={{fontSize:11,color:G.muted}}>{u.role} · {u.login} · Nível {["","Básico","Intermediário","Total"][u.level]}</div>
-{linkedDent&&<div style={{fontSize:10,color:linkedDent.color,fontWeight:700,marginTop:2}}>🦷 Vinculado: {linkedDent.name}</div>}
-</div>
+<div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{u.name}</div><div style={{fontSize:11,color:G.muted}}>{u.role} · {u.login} · Nível {["","Básico","Intermediário","Total"][u.level]}</div></div>
 <Bdg l={u.active?"Ativo":"Inativo"} col={u.active?G.success:G.red} sm/>
-<Btn ch="Editar" v="g" sm onClick={()=>{setEu(u);setUf({...u,dentistId:String(u.dentistId||""),criaDentista:false});setUm(true);}}/>
-<Btn ch="✕" v="r" sm onClick={()=>removeUser(u)}/>
-</div>;
-})}
-</div>}
-
-{tab===“dents”&&<div style={{display:“flex”,flexDirection:“column”,gap:9}}>
-
-<div style={{background:G.accent,borderRadius:10,padding:"9px 12px",fontSize:12,color:G.primary}}>
-🦷 Cada dentista aqui aparece na <strong>agenda</strong> e nos <strong>horários</strong>. Para acesso ao sistema crie um usuário e vincule.
-</div>
-<div style={{textAlign:"right"}}><Btn ch="+ Novo Dentista" sm onClick={()=>{setEd(null);setDf(bd);setDm(true);}}/></div>
-{dents.length===0&&<div style={{background:G.bg,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum dentista cadastrado</div>}
-{dents.map(d=>{
-const linkedUser=users.find(u=>u.dentistId===d.id);
-return <div key={d.id} style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+d.color}}>
-<div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-<div style={{width:36,height:36,borderRadius:"50%",background:d.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:14,flexShrink:0}}>{d.name[0]}</div>
-<div style={{flex:1,minWidth:0}}>
-<div style={{fontWeight:700,fontSize:13}}>{d.name}</div>
-<div style={{fontSize:11,color:G.muted}}>{d.specialty||"Clínico Geral"}{d.cro?" · CRO: "+d.cro:""} · Comissão: {d.commission||40}%</div>
-<div style={{fontSize:10,color:G.muted,marginTop:1}}>Dias: {(d.dias||[]).map(i=>["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"][i]).join(", ")} · {d.entrada||"08:00"}-{d.saida||"18:00"}</div>
-{linkedUser?<div style={{fontSize:10,color:G.success,fontWeight:700,marginTop:2}}>👤 Login: {linkedUser.login} ({["","Básico","Intermediário","Total"][linkedUser.level]})</div>:<div style={{fontSize:10,color:G.orange,fontWeight:700,marginTop:2}}>⚠ Sem credencial -- crie um usuário e vincule este dentista</div>}
-</div>
-<div style={{display:"flex",gap:5}}>
-<Btn ch="Editar" v="g" sm onClick={()=>{setEd(d);setDf({...d,commission:d.commission||40});setDm(true);}}/>
-<Btn ch="✕" v="r" sm onClick={()=>{
-const lu=users.find(u=>u.dentistId===d.id);
-if(lu&&!window.confirm("Remover dentista "+d.name+" da agenda? O login "+lu.login+" será mantido."))return;
-if(!lu&&!window.confirm("Remover "+d.name+" da agenda e horários?"))return;
-setDents(prev=>prev.filter(x=>x.id!==d.id));
-if(lu)setUsers(prev=>prev.map(u=>u.dentistId===d.id?{...u,dentistId:null}:u));
-}}/>
-</div>
-</div>
-</div>;
-})}
+<Btn ch="Editar" v="g" sm onClick={()=>{setEu(u);setUf({...u,dentistId:String(u.dentistId||"")});setUm(true);}}/>
+</div>)}
 </div>}
 {tab==="procs"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
 <div style={{textAlign:"right"}}><Btn ch="+ Novo" sm onClick={()=>{setEp(null);setPf(bp);setPm(true);}}/></div>
@@ -2982,34 +2911,8 @@ return novo;
   <div><div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Cor</div>
   <div style={{display:"flex",gap:7}}>{UCOLS.map(c=><button key={c} onClick={()=>fu("color")(c)} style={{width:26,height:26,borderRadius:"50%",background:c,border:`3px solid ${uf.color===c?"#000":"transparent"}`,cursor:"pointer"}}/>)}</div></div>
   <label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={uf.active} onChange={e=>fu("active")(e.target.checked)} style={{accentColor:G.primary}}/> Usuário ativo</label>
-  {!eu&&Number(uf.level)===1&&<label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer",background:uf.criaDentista?G.accent:"#f9f9f9",borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(uf.criaDentista?G.primary:G.border)}}><input type="checkbox" checked={!!uf.criaDentista} onChange={e=>fu("criaDentista")(e.target.checked)} style={{accentColor:G.primary,width:15,height:15}}/><span><strong>Criar dentista vinculado automaticamente</strong><br/><span style={{fontSize:11,color:G.muted}}>Aparecerá na agenda e nos horários</span></span></label>}
   <SC2 save={saveU} cancel={()=>setUm(false)}/>
 </div>}/>
-{dm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
-<span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{ed?"Editar Dentista":"Novo Dentista"}</span>
-<button onClick={()=>setDm(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
-</div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-<Inp lb="Nome completo *" val={df.name} set={upDf("name")} ph="Ex: Dra. Juliana Santos"/>
-<R2 a={<div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Especialidade</label><select value={df.specialty||"Clínico Geral"} onChange={e=>upDf("specialty")(e.target.value)} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",background:"#fff"}}>{["Clínico Geral","Ortodontia","Implantodontia","Endodontia","Periodontia","Cirurgia","Odontopediatria","Prótese","Dentística","Radiologia","Outro"].map(s=><option key={s} value={s}>{s}</option>)}</select></div>} b={<Inp lb="CRO" val={df.cro||""} set={upDf("cro")} ph="SP-00000"/>}/>
-<R2 a={<Inp lb="Comissão (%)" val={String(df.commission||40)} set={upDf("commission")} type="number" ph="40"/>} b={<div/>}/>
-<div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Cor na Agenda</label>
-<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{UCOLS.map(c=><button key={c} onClick={()=>upDf("color")(c)} style={{width:28,height:28,borderRadius:"50%",background:c,border:"3px solid "+(df.color===c?"#000":"transparent"),cursor:"pointer"}}/>)}</div></div>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:6,paddingTop:12,borderTop:"1px solid "+G.border}}>
-<button onClick={()=>setDm(false)} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
-<button onClick={()=>{
-if(!df.name)return alert("Informe o nome");
-const obj={...df,commission:Number(df.commission||40),id:ed?ed.id:nid(dents)};
-setDents(prev=>ed?prev.map(d=>d.id===ed.id?obj:d):[...prev,obj]);
-if(ed)setUsers(prev=>prev.map(u=>u.dentistId===ed.id?{...u,name:df.name,color:df.color}:u));
-setDm(false);
-}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>💾 Salvar Dentista</button>
-</div>
-</div>
-</div>
-</div>}
 <Modal open={pm} close={()=>setPm(false)} title={ep?"Editar Procedimento":"Novo Procedimento"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
   <Inp lb="Nome" val={pf.name} set={fp("name")}/>
   <Inp lb="Preço Padrão (R$)" val={String(pf.price)} set={fp("price")} type="number"/>
