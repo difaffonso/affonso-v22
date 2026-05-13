@@ -1,207 +1,207 @@
-const SUPA_URL = "https://ncfsepyzrqaljswjiuiv.supabase.co";
-const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jZnNlcHl6cnFhbGpzd2ppdWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTg1NzYsImV4cCI6MjA5NDA5NDU3Nn0.j_7sctB2bP0zljxPbh3Q4I_MzEksgL8PO5QNdzbaJDM";
+const SUPA_URL = “https://ncfsepyzrqaljswjiuiv.supabase.co”;
+const SUPA_KEY = “eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jZnNlcHl6cnFhbGpzd2ppdWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTg1NzYsImV4cCI6MjA5NDA5NDU3Nn0.j_7sctB2bP0zljxPbh3Q4I_MzEksgL8PO5QNdzbaJDM”;
 const supabase={
-async load(){try{const r=await fetch(`${SUPA_URL}/rest/v1/clinic_data?id=eq.main&select=data`,{headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return rows[0].data;return null;}catch(e){return null;}},
-async save(data){try{await fetch(`${SUPA_URL}/rest/v1/clinic_data?id=eq.main`,{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});}catch(e){}}
-}; import { useState, useEffect, useRef } from "react";
+async load(){try{const r=await fetch(`${SUPA_URL}/rest/v1/clinic_data?id=eq.main&select=data`,{headers:{“apikey”:SUPA_KEY,“Authorization”:`Bearer ${SUPA_KEY}`}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return rows[0].data;return null;}catch(e){return null;}},
+async save(data){try{await fetch(`${SUPA_URL}/rest/v1/clinic_data?id=eq.main`,{method:“PATCH”,headers:{“apikey”:SUPA_KEY,“Authorization”:`Bearer ${SUPA_KEY}`,“Content-Type”:“application/json”,“Prefer”:“return=minimal”},body:JSON.stringify({data,updated_at:new Date().toISOString()})});}catch(e){}}
+}; import { useState, useEffect, useRef } from “react”;
 
 const G = {
-bg:"#EEF3F0",card:"#FFF",primary:"#1B5E4A",accent:"#E3EFE9",accentDark:"#A8D5C0",
-text:"#162420",muted:"#6B8880",red:"#C0392B",yellow:"#D68910",blue:"#1A5276",
-purple:"#6C3483",border:"#D5E8DF",success:"#1E8449",orange:"#CA6F1E",gold:"#B7950B",
+bg:”#EEF3F0”,card:”#FFF”,primary:”#1B5E4A”,accent:”#E3EFE9”,accentDark:”#A8D5C0”,
+text:”#162420”,muted:”#6B8880”,red:”#C0392B”,yellow:”#D68910”,blue:”#1A5276”,
+purple:”#6C3483”,border:”#D5E8DF”,success:”#1E8449”,orange:”#CA6F1E”,gold:”#B7950B”,
 };
 
 const PERMS0={
-1:{label:"Dentista",color:"#1B5E4A",
+1:{label:“Dentista”,color:”#1B5E4A”,
 items:[
-{id:"agenda_own",    label:"Ver sua agenda",                    val:true, fixed:true},
-{id:"prontuario",    label:"Prontuário dos seus pacientes",      val:true, fixed:true},
-{id:"anamnese",      label:"Preencher anamnese do paciente",     val:true, fixed:true},
-{id:"baixa",         label:"Dar baixa nos procedimentos",        val:true, fixed:true},
-{id:"historico",     label:"Registrar atendimentos/histórico",   val:true, fixed:true},
-{id:"receituario",   label:"Emitir receituário",                 val:true, fixed:true},
-{id:"orcamento_own", label:"Criar orçamentos dos seus pacientes",val:true, fixed:true},
-{id:"relatorio_own", label:"Ver seu relatório de produção",      val:true, fixed:true},
-{id:"lembretes_own", label:"Ver lembretes relacionados a você",  val:true, fixed:true},
-{id:"implantes_own", label:"Ver seus casos de implantes",        val:true, fixed:true},
-{id:"proteses_own",  label:"Ver suas próteses",                  val:true, fixed:true},
-{id:"agenda_all",    label:"Ver agenda de todos os dentistas",   val:false,fixed:false},
-{id:"pats_all",      label:"Acessar todos os pacientes",         val:false,fixed:false},
-{id:"financeiro",    label:"Ver financeiro dos pacientes",       val:false,fixed:false},
-{id:"lembretes_all", label:"Ver todos os lembretes",             val:false,fixed:false},
-{id:"relatorio_all", label:"Ver relatórios de todos dentistas",  val:false,fixed:false},
-{id:"admin",         label:"Acessar Administrativo",             val:false,fixed:true},
+{id:“agenda_own”,    label:“Ver sua agenda”,                    val:true, fixed:true},
+{id:“prontuario”,    label:“Prontuário dos seus pacientes”,      val:true, fixed:true},
+{id:“anamnese”,      label:“Preencher anamnese do paciente”,     val:true, fixed:true},
+{id:“baixa”,         label:“Dar baixa nos procedimentos”,        val:true, fixed:true},
+{id:“historico”,     label:“Registrar atendimentos/histórico”,   val:true, fixed:true},
+{id:“receituario”,   label:“Emitir receituário”,                 val:true, fixed:true},
+{id:“orcamento_own”, label:“Criar orçamentos dos seus pacientes”,val:true, fixed:true},
+{id:“relatorio_own”, label:“Ver seu relatório de produção”,      val:true, fixed:true},
+{id:“lembretes_own”, label:“Ver lembretes relacionados a você”,  val:true, fixed:true},
+{id:“implantes_own”, label:“Ver seus casos de implantes”,        val:true, fixed:true},
+{id:“proteses_own”,  label:“Ver suas próteses”,                  val:true, fixed:true},
+{id:“agenda_all”,    label:“Ver agenda de todos os dentistas”,   val:false,fixed:false},
+{id:“pats_all”,      label:“Acessar todos os pacientes”,         val:false,fixed:false},
+{id:“financeiro”,    label:“Ver financeiro dos pacientes”,       val:false,fixed:false},
+{id:“lembretes_all”, label:“Ver todos os lembretes”,             val:false,fixed:false},
+{id:“relatorio_all”, label:“Ver relatórios de todos dentistas”,  val:false,fixed:false},
+{id:“admin”,         label:“Acessar Administrativo”,             val:false,fixed:true},
 ]},
-2:{label:"Recepção / Secretária",color:"#E65100",
+2:{label:“Recepção / Secretária”,color:”#E65100”,
 items:[
-{id:"agenda_all",    label:"Agendar e gerenciar consultas",      val:true, fixed:true},
-{id:"pats_all",      label:"Cadastrar e editar pacientes",       val:true, fixed:true},
-{id:"anamnese",      label:"Enviar anamnese por WhatsApp",       val:true, fixed:true},
-{id:"wa",            label:"Enviar WhatsApp aos pacientes",      val:true, fixed:true},
-{id:"lembretes_all", label:"Gerenciar todos os lembretes",      val:true, fixed:true},
-{id:"receituario",   label:"Imprimir receituário",               val:true, fixed:true},
-{id:"orcamento",     label:"Criar e editar orçamentos",          val:true, fixed:true},
-{id:"implantes",     label:"Acessar próteses e implantes",       val:true, fixed:true},
-{id:"financeiro",    label:"Ver financeiro dos pacientes",       val:true, fixed:false},
-{id:"relatorio_dent",label:"Ver relatório de dentistas",         val:true, fixed:false},
-{id:"recebimentos",  label:"Ver recebimentos dos dentistas",     val:false,fixed:false},
-{id:"financeiro_geral",label:"Ver relatório financeiro geral",   val:false,fixed:false},
-{id:"admin",         label:"Acessar Administrativo",             val:false,fixed:true},
+{id:“agenda_all”,    label:“Agendar e gerenciar consultas”,      val:true, fixed:true},
+{id:“pats_all”,      label:“Cadastrar e editar pacientes”,       val:true, fixed:true},
+{id:“anamnese”,      label:“Enviar anamnese por WhatsApp”,       val:true, fixed:true},
+{id:“wa”,            label:“Enviar WhatsApp aos pacientes”,      val:true, fixed:true},
+{id:“lembretes_all”, label:“Gerenciar todos os lembretes”,      val:true, fixed:true},
+{id:“receituario”,   label:“Imprimir receituário”,               val:true, fixed:true},
+{id:“orcamento”,     label:“Criar e editar orçamentos”,          val:true, fixed:true},
+{id:“implantes”,     label:“Acessar próteses e implantes”,       val:true, fixed:true},
+{id:“financeiro”,    label:“Ver financeiro dos pacientes”,       val:true, fixed:false},
+{id:“relatorio_dent”,label:“Ver relatório de dentistas”,         val:true, fixed:false},
+{id:“recebimentos”,  label:“Ver recebimentos dos dentistas”,     val:false,fixed:false},
+{id:“financeiro_geral”,label:“Ver relatório financeiro geral”,   val:false,fixed:false},
+{id:“admin”,         label:“Acessar Administrativo”,             val:false,fixed:true},
 ]},
-3:{label:"Administrador",color:"#4A148C",
+3:{label:“Administrador”,color:”#4A148C”,
 items:[
-{id:"all",           label:"Acesso total ao sistema",            val:true, fixed:true},
-{id:"agenda_all",    label:"Ver e editar todas as agendas",      val:true, fixed:true},
-{id:"pats_all",      label:"Todos os pacientes",                 val:true, fixed:true},
-{id:"financeiro_geral",label:"Financeiro geral da clínica",      val:true, fixed:true},
-{id:"recebimentos",  label:"Recebimentos e comissões dentistas", val:true, fixed:true},
-{id:"relatorios",    label:"Todos os relatórios",                val:true, fixed:true},
-{id:"orcamentos",    label:"Todos os orçamentos",                val:true, fixed:true},
-{id:"implantes",     label:"Próteses e implantes",               val:true, fixed:true},
-{id:"lembretes_all", label:"Todos os lembretes",                 val:true, fixed:true},
-{id:"funcionarios",  label:"Gerenciar funcionários e logins",    val:true, fixed:true},
-{id:"horarios",      label:"Configurar horários dos dentistas",  val:true, fixed:true},
-{id:"config",        label:"Configurações do sistema",           val:true, fixed:true},
-{id:"admin",         label:"Acessar Administrativo",             val:true, fixed:true},
+{id:“all”,           label:“Acesso total ao sistema”,            val:true, fixed:true},
+{id:“agenda_all”,    label:“Ver e editar todas as agendas”,      val:true, fixed:true},
+{id:“pats_all”,      label:“Todos os pacientes”,                 val:true, fixed:true},
+{id:“financeiro_geral”,label:“Financeiro geral da clínica”,      val:true, fixed:true},
+{id:“recebimentos”,  label:“Recebimentos e comissões dentistas”, val:true, fixed:true},
+{id:“relatorios”,    label:“Todos os relatórios”,                val:true, fixed:true},
+{id:“orcamentos”,    label:“Todos os orçamentos”,                val:true, fixed:true},
+{id:“implantes”,     label:“Próteses e implantes”,               val:true, fixed:true},
+{id:“lembretes_all”, label:“Todos os lembretes”,                 val:true, fixed:true},
+{id:“funcionarios”,  label:“Gerenciar funcionários e logins”,    val:true, fixed:true},
+{id:“horarios”,      label:“Configurar horários dos dentistas”,  val:true, fixed:true},
+{id:“config”,        label:“Configurações do sistema”,           val:true, fixed:true},
+{id:“admin”,         label:“Acessar Administrativo”,             val:true, fixed:true},
 ]},
 };
-const MOTIVOS_REM=["Desistiu do tratamento","Mudou de clínica","Problema financeiro","Sem retorno (não responde)","Outros"];
-const WA_TOKEN="EAASoAO9Ee4ABRTNwUDnXlghZCcevkhVNHyiAqhGerNbze52YXkqvBONwFF6cd99nMZBxg5BNicySfOl0ejRR6948F0EVyIMsZCmceUQwksoGtOLQqD6So8CoD9fCC6CU4AnBw7LCFmQkDmPQ7ONukHChhKYrVrogIeAi8cnLfrlpxVU3hgOnY0zhVQmAX9gaVKe0AysKqrSooV209UDHQTyoaO1k49j4m0pph6VTW4KlkyziYhfX8nxGaNVkd7qkxZARtEkgaeQaXzpV3kXsucHF";
-const WA_PHONE_ID="1149169951604986";
+const MOTIVOS_REM=[“Desistiu do tratamento”,“Mudou de clínica”,“Problema financeiro”,“Sem retorno (não responde)”,“Outros”];
+const WA_TOKEN=“EAASoAO9Ee4ABRTNwUDnXlghZCcevkhVNHyiAqhGerNbze52YXkqvBONwFF6cd99nMZBxg5BNicySfOl0ejRR6948F0EVyIMsZCmceUQwksoGtOLQqD6So8CoD9fCC6CU4AnBw7LCFmQkDmPQ7ONukHChhKYrVrogIeAi8cnLfrlpxVU3hgOnY0zhVQmAX9gaVKe0AysKqrSooV209UDHQTyoaO1k49j4m0pph6VTW4KlkyziYhfX8nxGaNVkd7qkxZARtEkgaeQaXzpV3kXsucHF”;
+const WA_PHONE_ID=“1149169951604986”;
 const WA_API=async function(to,msg){
-var phone=to.replace(/[^0-9]/g,"");
-if(phone.length===11)phone="55"+phone;
-else if(phone.length===10)phone="5511"+phone;
+var phone=to.replace(/[^0-9]/g,””);
+if(phone.length===11)phone=“55”+phone;
+else if(phone.length===10)phone=“5511”+phone;
 try{
-var r=await fetch("https://graph.facebook.com/v18.0/"+WA_PHONE_ID+"/messages",{
-method:"POST",
-headers:{"Authorization":"Bearer "+WA_TOKEN,"Content-Type":"application/json"},
-body:JSON.stringify({messaging_product:"whatsapp",to:phone,type:"text",text:{body:msg}})
+var r=await fetch(“https://graph.facebook.com/v18.0/”+WA_PHONE_ID+”/messages”,{
+method:“POST”,
+headers:{“Authorization”:“Bearer “+WA_TOKEN,“Content-Type”:“application/json”},
+body:JSON.stringify({messaging_product:“whatsapp”,to:phone,type:“text”,text:{body:msg}})
 });
 var d=await r.json();
-if(d.error){console.error("WA error:",d.error.message);return false;}
+if(d.error){console.error(“WA error:”,d.error.message);return false;}
 return true;
-}catch(e){console.error("WA fetch error:",e);return false;}
+}catch(e){console.error(“WA fetch error:”,e);return false;}
 };
-const ANAM_LINK="https://claude.ai/public/artifacts/134f3434-6997-4396-ab62-3d37bae9d44e";
-const UCOLS=["#1B5E4A","#6C3483","#1A5276","#CA6F1E","#C0392B","#148F77","#D68910"];
+const ANAM_LINK=“https://claude.ai/public/artifacts/134f3434-6997-4396-ab62-3d37bae9d44e”;
+const UCOLS=[”#1B5E4A”,”#6C3483”,”#1A5276”,”#CA6F1E”,”#C0392B”,”#148F77”,”#D68910”];
 const CSS=`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@400;600;700&display=swap'); *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'DM Sans',sans-serif;background:${G.bg};color:${G.text};} ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-thumb{background:${G.accentDark};border-radius:3px;} input,select,textarea,button{font-family:'DM Sans',sans-serif;} @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}} .fi{animation:fi .2s ease}`;
 
-const PAY=["Dinheiro","PIX","Cartão Crédito","Cartão Débito","Convênio","Cheque"];
-const SL={confirmed:"Confirmado",pending:"Pendente",done:"Realizado",cancelled:"Cancelado",missed:"Faltou",rescheduled:"Desmarcado"};
+const PAY=[“Dinheiro”,“PIX”,“Cartão Crédito”,“Cartão Débito”,“Convênio”,“Cheque”];
+const SL={confirmed:“Confirmado”,pending:“Pendente”,done:“Realizado”,cancelled:“Cancelado”,missed:“Faltou”,rescheduled:“Desmarcado”};
 // Colors exactly like the photo: confirmed=green, pending=orange, cancelled=red, rescheduled=grey, missed=orange-red
-const SC={confirmed:"#2E7D4F",pending:"#E07B20",done:"#6B8880",cancelled:"#C0392B",missed:"#C0392B",rescheduled:"#7F8C8D"};
+const SC={confirmed:”#2E7D4F”,pending:”#E07B20”,done:”#6B8880”,cancelled:”#C0392B”,missed:”#C0392B”,rescheduled:”#7F8C8D”};
 // Background colors for cards (light tint)
-const SC_BG={confirmed:"#E8F5EE",pending:"#FEF3E2",done:"#F2F4F3",cancelled:"#FDECEA",missed:"#FDECEA",rescheduled:"#F2F3F4"};
-const PROS_T=["Coroa Metalocerâmica","Coroa Zircônia","Coroa Porcelana","PPR","PPF","Prótese Total","Faceta","Inlay/Onlay","Implante (coroa)","Protocolo","Outro"];
-const PROS_SL={waiting:"Aguardando",returned:"Retornou",placed:"Instalada",remake:"Refazer"};
+const SC_BG={confirmed:”#E8F5EE”,pending:”#FEF3E2”,done:”#F2F4F3”,cancelled:”#FDECEA”,missed:”#FDECEA”,rescheduled:”#F2F3F4”};
+const PROS_T=[“Coroa Metalocerâmica”,“Coroa Zircônia”,“Coroa Porcelana”,“PPR”,“PPF”,“Prótese Total”,“Faceta”,“Inlay/Onlay”,“Implante (coroa)”,“Protocolo”,“Outro”];
+const PROS_SL={waiting:“Aguardando”,returned:“Retornou”,placed:“Instalada”,remake:“Refazer”};
 const PROS_SC={waiting:G.yellow,returned:G.blue,placed:G.success,remake:G.red};
-const IMPL_ST=["Extração","Enxerto","Implante","Prótese","Controle"];
-const SLOTS=(()=>{const s=[];for(let h=8;h<=19;h++){if(h===8)s.push("08:30");else{s.push(`${String(h).padStart(2,"0")}:00`);if(h<19)s.push(`${String(h).padStart(2,"0")}:30`);}}return s;})();
-const MONTHS_PT=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const EXPENSE_CATS=["Aluguel","Água","Luz","Internet","Telefone","Salários","Material","Equipamento","Manutenção","Contabilidade","Outros"];
+const IMPL_ST=[“Extração”,“Enxerto”,“Implante”,“Prótese”,“Controle”];
+const SLOTS=(()=>{const s=[];for(let h=8;h<=19;h++){if(h===8)s.push(“08:30”);else{s.push(`${String(h).padStart(2,"0")}:00`);if(h<19)s.push(`${String(h).padStart(2,"0")}:30`);}}return s;})();
+const MONTHS_PT=[“Janeiro”,“Fevereiro”,“Março”,“Abril”,“Maio”,“Junho”,“Julho”,“Agosto”,“Setembro”,“Outubro”,“Novembro”,“Dezembro”];
+const EXPENSE_CATS=[“Aluguel”,“Água”,“Luz”,“Internet”,“Telefone”,“Salários”,“Material”,“Equipamento”,“Manutenção”,“Contabilidade”,“Outros”];
 
 // ── Seeds ──────────────────────────────────────────────────
 const USERS0=[
-{id:1,name:"Dr. Diego Affonso",role:"Admin",level:3,login:"admin",pass:"1234",dentistId:1,color:UCOLS[0],active:true},
-{id:2,name:"Fernanda",role:"Recepcionista",level:2,login:"fernanda",pass:"1234",dentistId:null,color:UCOLS[1],active:true},
-{id:3,name:"Dra. Mariana Souza",role:"Dentista",level:1,login:"mariana",pass:"1234",dentistId:2,color:UCOLS[2],active:true},
+{id:1,name:“Dr. Diego Affonso”,role:“Admin”,level:3,login:“admin”,pass:“1234”,dentistId:1,color:UCOLS[0],active:true},
+{id:2,name:“Fernanda”,role:“Recepcionista”,level:2,login:“fernanda”,pass:“1234”,dentistId:null,color:UCOLS[1],active:true},
+{id:3,name:“Dra. Mariana Souza”,role:“Dentista”,level:1,login:“mariana”,pass:“1234”,dentistId:2,color:UCOLS[2],active:true},
 ];
 const DENTS0=[
-{id:1,name:"Dr. Diego Affonso",color:UCOLS[0],specialty:"Clínico Geral",commission:40,cro:"SP-72.278",
-dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}},
-{id:2,name:"Dra. Mariana Souza",color:UCOLS[2],specialty:"Ortodontia",commission:40,cro:"SP-00000",
-dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}},
-{id:3,name:"Dr. Pedro Lima",color:UCOLS[3],specialty:"Implantodontia",commission:40,cro:"SP-00000",
-dias:[1,3,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}},
+{id:1,name:“Dr. Diego Affonso”,color:UCOLS[0],specialty:“Clínico Geral”,commission:40,cro:“SP-72.278”,
+dias:[1,2,3,4,5],entrada:“08:00”,saida:“18:00”,almoco:{ini:“12:00”,fim:“13:00”}},
+{id:2,name:“Dra. Mariana Souza”,color:UCOLS[2],specialty:“Ortodontia”,commission:40,cro:“SP-00000”,
+dias:[1,2,3,4,5],entrada:“08:00”,saida:“18:00”,almoco:{ini:“12:00”,fim:“13:00”}},
+{id:3,name:“Dr. Pedro Lima”,color:UCOLS[3],specialty:“Implantodontia”,commission:40,cro:“SP-00000”,
+dias:[1,3,5],entrada:“08:00”,saida:“18:00”,almoco:{ini:“12:00”,fim:“13:00”}},
 ];
 const LABS0=[
-{id:1,name:"Lab Dental Souza",phone:"1133334444",contact:"João Souza"},
-{id:2,name:"Studio Protético Alves",phone:"1144445555",contact:"Carlos Alves"},
+{id:1,name:“Lab Dental Souza”,phone:“1133334444”,contact:“João Souza”},
+{id:2,name:“Studio Protético Alves”,phone:“1144445555”,contact:“Carlos Alves”},
 ];
 const PROCS0=[
-{id:1,name:"Consulta",price:150},{id:2,name:"Limpeza",price:180},{id:3,name:"Restauração",price:280},
-{id:4,name:"Canal",price:900},{id:5,name:"Extração",price:250},{id:6,name:"Cirurgia",price:600},
-{id:7,name:"Clareamento",price:700},{id:8,name:"Implante",price:3500},{id:9,name:"Ortodontia",price:300},
-{id:10,name:"Prótese",price:1200},{id:11,name:"Radiografia",price:80},
+{id:1,name:“Consulta”,price:150},{id:2,name:“Limpeza”,price:180},{id:3,name:“Restauração”,price:280},
+{id:4,name:“Canal”,price:900},{id:5,name:“Extração”,price:250},{id:6,name:“Cirurgia”,price:600},
+{id:7,name:“Clareamento”,price:700},{id:8,name:“Implante”,price:3500},{id:9,name:“Ortodontia”,price:300},
+{id:10,name:“Prótese”,price:1200},{id:11,name:“Radiografia”,price:80},
 ];
 const PROS_PROCS0=[
-{id:1,name:"Instalação de Coroa"},{id:2,name:"Instalação de Prótese Total"},
-{id:3,name:"Instalação de Faceta"},{id:4,name:"Ajuste de Prótese"},{id:5,name:"Cimentação"},
+{id:1,name:“Instalação de Coroa”},{id:2,name:“Instalação de Prótese Total”},
+{id:3,name:“Instalação de Faceta”},{id:4,name:“Ajuste de Prótese”},{id:5,name:“Cimentação”},
 ];
 const PATS0=[
-{id:1,name:"Ana Costa",dob:"1990-04-29",genero:"F",phone:"11998123456",email:"ana@email.com",cpf:"123.456.789-00",rg:"",blood:"A+",allergy:"Nenhuma",insurance:"Unimed",notes:"Paciente hipertensa em uso de captopril.",folder:"F-0001",rx:"RX-2024-001",nf:"",obs:"",
-anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,allergicMeds:"",otherConditions:"Hipertensão arterial",medications:"Captopril 25mg",pregnant:false,smoking:false,notes:""}},
-{id:2,name:"Bruno Martins",dob:"1985-07-22",genero:"M",phone:"11976543210",email:"bruno@email.com",cpf:"987.654.321-00",rg:"",blood:"O-",allergy:"Penicilina",insurance:"",notes:"",folder:"F-0002",rx:"RX-2024-002",nf:"",obs:"ALÉRGICO A PENICILINA -- verificar antes de medicar",
-anamnese:{hypertension:false,diabetes:true,heartDisease:false,bleeding:false,allergicMeds:"Penicilina",otherConditions:"Diabetes tipo 2",medications:"Metformina",pregnant:false,smoking:false,notes:""}},
-{id:3,name:"Carla Lima",dob:"2001-11-05",genero:"F",phone:"11912345678",email:"",cpf:"456.789.123-00",rg:"",blood:"B+",allergy:"Nenhuma",insurance:"",notes:"",folder:"F-0003",rx:"RX-2024-003",nf:"",obs:"",
-anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}},
+{id:1,name:“Ana Costa”,dob:“1990-04-29”,genero:“F”,phone:“11998123456”,email:“ana@email.com”,cpf:“123.456.789-00”,rg:””,blood:“A+”,allergy:“Nenhuma”,insurance:“Unimed”,notes:“Paciente hipertensa em uso de captopril.”,folder:“F-0001”,rx:“RX-2024-001”,nf:””,obs:””,
+anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,allergicMeds:””,otherConditions:“Hipertensão arterial”,medications:“Captopril 25mg”,pregnant:false,smoking:false,notes:””}},
+{id:2,name:“Bruno Martins”,dob:“1985-07-22”,genero:“M”,phone:“11976543210”,email:“bruno@email.com”,cpf:“987.654.321-00”,rg:””,blood:“O-”,allergy:“Penicilina”,insurance:””,notes:””,folder:“F-0002”,rx:“RX-2024-002”,nf:””,obs:“ALÉRGICO A PENICILINA – verificar antes de medicar”,
+anamnese:{hypertension:false,diabetes:true,heartDisease:false,bleeding:false,allergicMeds:“Penicilina”,otherConditions:“Diabetes tipo 2”,medications:“Metformina”,pregnant:false,smoking:false,notes:””}},
+{id:3,name:“Carla Lima”,dob:“2001-11-05”,genero:“F”,phone:“11912345678”,email:””,cpf:“456.789.123-00”,rg:””,blood:“B+”,allergy:“Nenhuma”,insurance:””,notes:””,folder:“F-0003”,rx:“RX-2024-003”,nf:””,obs:””,
+anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:””,otherConditions:””,medications:””,notes:””}},
 ];
 const APPTS0=[
-{id:1,patientId:1,dentistId:1,date:"2026-04-29",time:"08:30",procedure:"Limpeza",treatment:"Profilaxia semestral",status:"confirmed",notes:"",value:180,payment:"PIX"},
-{id:2,patientId:2,dentistId:1,date:"2026-04-29",time:"10:00",procedure:"Restauração",treatment:"Restauração dente 36",status:"pending",notes:"",value:280,payment:"Dinheiro"},
-{id:3,patientId:3,dentistId:2,date:"2026-04-30",time:"14:00",procedure:"Ortodontia",treatment:"Ativação de aparelho",status:"confirmed",notes:"",value:300,payment:"Cartão Crédito"},
-{id:4,patientId:1,dentistId:1,date:"2026-05-05",time:"09:00",procedure:"Clareamento",treatment:"",status:"pending",notes:"",value:700,payment:"PIX"},
+{id:1,patientId:1,dentistId:1,date:“2026-04-29”,time:“08:30”,procedure:“Limpeza”,treatment:“Profilaxia semestral”,status:“confirmed”,notes:””,value:180,payment:“PIX”},
+{id:2,patientId:2,dentistId:1,date:“2026-04-29”,time:“10:00”,procedure:“Restauração”,treatment:“Restauração dente 36”,status:“pending”,notes:””,value:280,payment:“Dinheiro”},
+{id:3,patientId:3,dentistId:2,date:“2026-04-30”,time:“14:00”,procedure:“Ortodontia”,treatment:“Ativação de aparelho”,status:“confirmed”,notes:””,value:300,payment:“Cartão Crédito”},
+{id:4,patientId:1,dentistId:1,date:“2026-05-05”,time:“09:00”,procedure:“Clareamento”,treatment:””,status:“pending”,notes:””,value:700,payment:“PIX”},
 ];
 const RECS0=[
-{id:1,patientId:1,date:"2026-03-10",procedure:"Limpeza",tooth:"Geral",dentistId:1,obs:"Sem intercorrências",rx:"",paid:180,payment:"PIX",closed:true,inst:1,instM:[]},
-{id:2,patientId:2,date:"2026-04-28",procedure:"Cirurgia",tooth:"38",dentistId:1,obs:"Extração siso inferior esquerdo",rx:"Amoxicilina 500mg",paid:600,payment:"Cartão Crédito",closed:true,inst:3,instM:["2026-05","2026-06","2026-07"]},
-{id:3,patientId:3,date:"2025-10-29",procedure:"Limpeza",tooth:"Geral",dentistId:1,obs:"Controle semestral",rx:"",paid:180,payment:"Dinheiro",closed:true,inst:1,instM:[]},
+{id:1,patientId:1,date:“2026-03-10”,procedure:“Limpeza”,tooth:“Geral”,dentistId:1,obs:“Sem intercorrências”,rx:””,paid:180,payment:“PIX”,closed:true,inst:1,instM:[]},
+{id:2,patientId:2,date:“2026-04-28”,procedure:“Cirurgia”,tooth:“38”,dentistId:1,obs:“Extração siso inferior esquerdo”,rx:“Amoxicilina 500mg”,paid:600,payment:“Cartão Crédito”,closed:true,inst:3,instM:[“2026-05”,“2026-06”,“2026-07”]},
+{id:3,patientId:3,date:“2025-10-29”,procedure:“Limpeza”,tooth:“Geral”,dentistId:1,obs:“Controle semestral”,rx:””,paid:180,payment:“Dinheiro”,closed:true,inst:1,instM:[]},
 ];
-const TREATS0=[{id:1,patientId:2,name:"Tratamento de Canal",items:[{desc:"1ª Sessão",value:400,paid:true,paidDate:"2026-03-20"},{desc:"2ª Sessão",value:400,paid:false},{desc:"Obturação",value:300,paid:false}],start:"2026-03-20",payments:[{id:1,date:"2026-03-20",value:400,method:"PIX",note:"1ª parcela"}]}];
-const BUDGETS0=[{id:1,patientId:1,date:"2026-03-01",items:[{d:"Clareamento",v:600},{d:"Limpeza",v:180}],status:"approved",notes:"",disc:0,attach:""}];
+const TREATS0=[{id:1,patientId:2,name:“Tratamento de Canal”,items:[{desc:“1ª Sessão”,value:400,paid:true,paidDate:“2026-03-20”},{desc:“2ª Sessão”,value:400,paid:false},{desc:“Obturação”,value:300,paid:false}],start:“2026-03-20”,payments:[{id:1,date:“2026-03-20”,value:400,method:“PIX”,note:“1ª parcela”}]}];
+const BUDGETS0=[{id:1,patientId:1,date:“2026-03-01”,items:[{d:“Clareamento”,v:600},{d:“Limpeza”,v:180}],status:“approved”,notes:””,disc:0,attach:””}];
 const PROS0=[
-{id:1,patientId:1,dentistId:1,labId:1,type:"Coroa Metalocerâmica",proc:"Instalação de Coroa",tooth:"16",sent:"2026-04-10",due:"2026-04-29",returned:"",status:"waiting",notes:"Cor A2",price:350},
-{id:2,patientId:2,dentistId:1,labId:1,type:"Coroa Zircônia",proc:"Instalação de Coroa",tooth:"21",sent:"2026-04-15",due:"2026-04-29",returned:"",status:"waiting",notes:"Cor B1",price:580},
+{id:1,patientId:1,dentistId:1,labId:1,type:“Coroa Metalocerâmica”,proc:“Instalação de Coroa”,tooth:“16”,sent:“2026-04-10”,due:“2026-04-29”,returned:””,status:“waiting”,notes:“Cor A2”,price:350},
+{id:2,patientId:2,dentistId:1,labId:1,type:“Coroa Zircônia”,proc:“Instalação de Coroa”,tooth:“21”,sent:“2026-04-15”,due:“2026-04-29”,returned:””,status:“waiting”,notes:“Cor B1”,price:580},
 ];
-const REMS0=[{id:1,title:"Confirmar consulta Ana",desc:"Ligar para confirmar",date:"2026-04-29",priority:"high",done:false,patientId:1,assignedUserId:2}];
+const REMS0=[{id:1,title:“Confirmar consulta Ana”,desc:“Ligar para confirmar”,date:“2026-04-29”,priority:“high”,done:false,patientId:1,assignedUserId:2}];
 const STOCK0=[
-{id:1,name:"Luvas P (cx)",qty:5,unit:"cx",min:2,price:28.5,movs:[{t:"in",q:10,date:"2026-04-01",note:"Compra"}]},
-{id:2,name:"Resina Composta A2",qty:8,unit:"un",min:3,price:89,movs:[{t:"in",q:10,date:"2026-04-01",note:"Compra"}]},
+{id:1,name:“Luvas P (cx)”,qty:5,unit:“cx”,min:2,price:28.5,movs:[{t:“in”,q:10,date:“2026-04-01”,note:“Compra”}]},
+{id:2,name:“Resina Composta A2”,qty:8,unit:“un”,min:3,price:89,movs:[{t:“in”,q:10,date:“2026-04-01”,note:“Compra”}]},
 ];
 const IMPL0=[
-{id:1,patientId:1,notes:"Implante unitário dente 16",months:{"2026-02":{"Cirurgia":"IMPLANTE","Obs.":"Extraído fev"},"2026-04":{"Implante":"IMPLANTE"},"2026-07":{"Prótese":"PRÓTESE"}}},
-{id:2,patientId:2,notes:"Dente 21",months:{"2026-03":{"Enxerto":"ENXERTO"},"2026-05":{"Implante":"IMPLANTE"}}}
+{id:1,patientId:1,notes:“Implante unitário dente 16”,months:{“2026-02”:{“Cirurgia”:“IMPLANTE”,“Obs.”:“Extraído fev”},“2026-04”:{“Implante”:“IMPLANTE”},“2026-07”:{“Prótese”:“PRÓTESE”}}},
+{id:2,patientId:2,notes:“Dente 21”,months:{“2026-03”:{“Enxerto”:“ENXERTO”},“2026-05”:{“Implante”:“IMPLANTE”}}}
 ];
 const EXPENSES0={
 clinic:[
-{id:1,date:"2026-04-05",cat:"Aluguel",desc:"Aluguel consultório abril",value:3500,paid:true},
-{id:2,date:"2026-04-10",cat:"Água",desc:"Conta água março",value:120,paid:true},
-{id:3,date:"2026-04-10",cat:"Luz",desc:"Conta luz março",value:280,paid:false},
+{id:1,date:“2026-04-05”,cat:“Aluguel”,desc:“Aluguel consultório abril”,value:3500,paid:true},
+{id:2,date:“2026-04-10”,cat:“Água”,desc:“Conta água março”,value:120,paid:true},
+{id:3,date:“2026-04-10”,cat:“Luz”,desc:“Conta luz março”,value:280,paid:false},
 ],
 personal:[
-{id:1,date:"2026-04-01",cat:"Moradia",desc:"Aluguel residencial",value:2200,paid:true},
-{id:2,date:"2026-04-15",cat:"Alimentação",desc:"Supermercado",value:650,paid:true},
+{id:1,date:“2026-04-01”,cat:“Moradia”,desc:“Aluguel residencial”,value:2200,paid:true},
+{id:2,date:“2026-04-15”,cat:“Alimentação”,desc:“Supermercado”,value:650,paid:true},
 ]
 };
 
 // ── Helpers ────────────────────────────────────────────────
-const fmt=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR"):"--";
-const today=()=>new Date().toISOString().split("T")[0];
-const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];};
-const tom=()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];};
+const fmt=d=>d?new Date(d+“T12:00”).toLocaleDateString(“pt-BR”):”–”;
+const today=()=>new Date().toISOString().split(“T”)[0];
+const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split(“T”)[0];};
+const tom=()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().split(“T”)[0];};
 const cur=v=>`R$ ${Number(v||0).toFixed(2).replace(".",",")}`;
-const nid=a=>a.length?Math.max(...a.map(x=>x.id))+1:1;
+const nid=a=>a.length?Math.max(…a.map(x=>x.id))+1:1;
 const mkLog=function(logs,setLogs,user,tipo,desc,patName){
-var entry={id:Date.now(),ts:new Date().toISOString(),user:user&&user.name||"Sistema",tipo:tipo,desc:desc,patName:patName||""};
-setLogs(function(prev){return[entry,...prev].slice(0,500);});
+var entry={id:Date.now(),ts:new Date().toISOString(),user:user&&user.name||“Sistema”,tipo:tipo,desc:desc,patName:patName||””};
+setLogs(function(prev){return[entry,…prev].slice(0,500);});
 };
 const isBday=d=>{if(!d)return false;return d.slice(5)===today().slice(5);};
-const mo6=d=>{const x=new Date(d+"T12:00");x.setMonth(x.getMonth()+6);return x.toISOString().split("T")[0];};
-const calcNet=(v,p)=>p==="Cartão Crédito"?v*0.965:p==="Cartão Débito"?v*0.98:v;
-const wa=(ph,msg)=>{const n=(ph||"").replace(/\D/g,"");const u="https://wa.me/"+(n.startsWith("55")?n:"55"+n)+"?text="+encodeURIComponent(msg);const a=document.createElement("a");a.href=u;a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);};
-const age=dob=>{if(!dob)return"";const d=new Date(dob+"T12:00");const a=new Date();let y=a.getFullYear()-d.getFullYear();if(a.getMonth()<d.getMonth()||(a.getMonth()===d.getMonth()&&a.getDate()<d.getDate()))y--;return y+" anos";};
+const mo6=d=>{const x=new Date(d+“T12:00”);x.setMonth(x.getMonth()+6);return x.toISOString().split(“T”)[0];};
+const calcNet=(v,p)=>p===“Cartão Crédito”?v*0.965:p===“Cartão Débito”?v*0.98:v;
+const wa=(ph,msg)=>{const n=(ph||””).replace(/\D/g,””);const u=“https://wa.me/”+(n.startsWith(“55”)?n:“55”+n)+”?text=”+encodeURIComponent(msg);const a=document.createElement(“a”);a.href=u;a.target=”_blank”;document.body.appendChild(a);a.click();document.body.removeChild(a);};
+const age=dob=>{if(!dob)return””;const d=new Date(dob+“T12:00”);const a=new Date();let y=a.getFullYear()-d.getFullYear();if(a.getMonth()<d.getMonth()||(a.getMonth()===d.getMonth()&&a.getDate()<d.getDate()))y–;return y+” anos”;};
 const getDaysInMonth=(y,m)=>new Date(y,m+1,0).getDate();
 const getFirstDayOfMonth=(y,m)=>new Date(y,m,1).getDay();
 
 // ── UI Atoms ───────────────────────────────────────────────
-const Bdg=({l,col,sm})=><span style={{background:col+"22",color:col,borderRadius:20,padding:sm?"2px 7px":"3px 10px",fontSize:sm?10:11,fontWeight:700,whiteSpace:"nowrap"}}>{l}</span>;
-const Btn=({ch,onClick,v="p",sm,style,dis})=>{
-const b={cursor:dis?"not-allowed":"pointer",opacity:dis?.5:1,border:"none",borderRadius:8,fontFamily:"'DM Sans'",fontWeight:600,transition:"all .15s",display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap"};
-const vs={p:{background:G.primary,color:"#fff",padding:sm?"5px 11px":"9px 17px",fontSize:sm?12:14},g:{background:"transparent",color:G.primary,border:`1.5px solid ${G.primary}`,padding:sm?"4px 10px":"8px 16px",fontSize:sm?12:14},r:{background:G.red,color:"#fff",padding:sm?"5px 11px":"9px 17px",fontSize:sm?12:14},y:{background:G.yellow,color:"#fff",padding:sm?"5px 11px":"9px 17px",fontSize:sm?12:14},w:{background:"#25D366",color:"#fff",padding:sm?"5px 11px":"9px 17px",fontSize:sm?12:14},f:{background:G.accent,color:G.primary,padding:sm?"5px 11px":"9px 17px",fontSize:sm?12:14}};
+const Bdg=({l,col,sm})=><span style={{background:col+“22”,color:col,borderRadius:20,padding:sm?“2px 7px”:“3px 10px”,fontSize:sm?10:11,fontWeight:700,whiteSpace:“nowrap”}}>{l}</span>;
+const Btn=({ch,onClick,v=“p”,sm,style,dis})=>{
+const b={cursor:dis?“not-allowed”:“pointer”,opacity:dis?.5:1,border:“none”,borderRadius:8,fontFamily:”‘DM Sans’”,fontWeight:600,transition:“all .15s”,display:“inline-flex”,alignItems:“center”,gap:5,whiteSpace:“nowrap”};
+const vs={p:{background:G.primary,color:”#fff”,padding:sm?“5px 11px”:“9px 17px”,fontSize:sm?12:14},g:{background:“transparent”,color:G.primary,border:`1.5px solid ${G.primary}`,padding:sm?“4px 10px”:“8px 16px”,fontSize:sm?12:14},r:{background:G.red,color:”#fff”,padding:sm?“5px 11px”:“9px 17px”,fontSize:sm?12:14},y:{background:G.yellow,color:”#fff”,padding:sm?“5px 11px”:“9px 17px”,fontSize:sm?12:14},w:{background:”#25D366”,color:”#fff”,padding:sm?“5px 11px”:“9px 17px”,fontSize:sm?12:14},f:{background:G.accent,color:G.primary,padding:sm?“5px 11px”:“9px 17px”,fontSize:sm?12:14}};
 return <button style={{...b,...vs[v],...style}} onClick={onClick} disabled={dis}>{ch}</button>;
 };
-const Inp=({lb,val,set,type="text",ph,ro,style,min,max})=>(
+const Inp=({lb,val,set,type=“text”,ph,ro,style,min,max})=>(
 
   <div style={{display:"flex",flexDirection:"column",gap:4,...style}}>
     {lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{lb}</label>}
@@ -231,7 +231,8 @@ const SC2=({save,cancel,lbl="Salvar"})=><div style={{display:"flex",gap:9,justif
 
 const Modal=({open,close,title,ch,wide,xl})=>{
 if(!open)return null;
-return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:12}}>
+return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.45)”,zIndex:1000,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:12}}>
+
 <div style={{background:G.card,borderRadius:18,width:"100%",maxWidth:xl?980:wide?720:520,maxHeight:"94vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`,position:"sticky",top:0,background:G.card,zIndex:1}}>
 <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{title}</span>
@@ -244,12 +245,13 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
 };
 
 const DatePick=({lb,val,set})=>{
-const p=val?val.split("-"):["","",""];
+const p=val?val.split(”-”):[””,””,””];
 const [y,sy]=useState(p[0]);const [m,sm]=useState(p[1]);const [d,sd]=useState(p[2]);
 useEffect(()=>{if(y&&m&&d)set(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`);},[y,m,d]);
 const yrs=[];for(let yr=1930;yr<=new Date().getFullYear();yr++)yrs.push(yr);
-return <div style={{display:"flex",flexDirection:"column",gap:4}}>
-{lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{lb}</label>}
+return <div style={{display:“flex”,flexDirection:“column”,gap:4}}>
+{lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:“uppercase”,letterSpacing:”.4px”}}>{lb}</label>}
+
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr",gap:5}}>
 <input placeholder="DD" maxLength={2} value={d} onChange={e=>sd(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 6px",fontSize:13,outline:"none",textAlign:"center"}}/>
 <input placeholder="MM" maxLength={2} value={m} onChange={e=>sm(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 6px",fontSize:13,outline:"none",textAlign:"center"}}/>
@@ -266,38 +268,39 @@ return <div style={{display:"flex",flexDirection:"column",gap:4}}>
 const autoRems=(pats,recs,appts)=>{
 const t=today(),y=yest(),tm=tom();const out=[];
 pats.forEach(p=>{
-if(isBday(p.dob))out.push({id:`b${p.id}`,title:`🎂 Aniversário -- ${p.name}`,desc:"Hoje é aniversário! Enviar parabéns.",date:t,priority:"medium",done:false,patientId:p.id,type:"bday"});
+if(isBday(p.dob))out.push({id:`b${p.id}`,title:`🎂 Aniversário -- ${p.name}`,desc:“Hoje é aniversário! Enviar parabéns.”,date:t,priority:“medium”,done:false,patientId:p.id,type:“bday”});
 const lr=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
-if(lr&&mo6(lr.date)<=t)out.push({id:`s${p.id}`,title:`📅 Semestral -- ${p.name}`,desc:`Último atend: ${fmt(lr.date)}`,date:t,priority:"medium",done:false,patientId:p.id,type:"semi"});
-const surg=recs.find(r=>r.patientId===p.id&&r.procedure==="Cirurgia"&&r.date===y);
-if(surg)out.push({id:`c${p.id}`,title:`🔴 Pós-Cirurgia -- ${p.name}`,desc:`Cirurgia ontem (D.${surg.tooth}).`,date:t,priority:"high",done:false,patientId:p.id,type:"surg"});
+if(lr&&mo6(lr.date)<=t)out.push({id:`s${p.id}`,title:`📅 Semestral -- ${p.name}`,desc:`Último atend: ${fmt(lr.date)}`,date:t,priority:“medium”,done:false,patientId:p.id,type:“semi”});
+const surg=recs.find(r=>r.patientId===p.id&&r.procedure===“Cirurgia”&&r.date===y);
+if(surg)out.push({id:`c${p.id}`,title:`🔴 Pós-Cirurgia -- ${p.name}`,desc:`Cirurgia ontem (D.${surg.tooth}).`,date:t,priority:“high”,done:false,patientId:p.id,type:“surg”});
 });
-appts.filter(a=>a.date===y&&(a.status==="missed"||a.status==="cancelled"||a.status==="rescheduled")).forEach(a=>{
+appts.filter(a=>a.date===y&&(a.status===“missed”||a.status===“cancelled”||a.status===“rescheduled”)).forEach(a=>{
 const p=pats.find(x=>x.id===a.patientId);if(!p)return;
-out.push({id:`m${a.id}`,title:`📵 Remarcar -- ${p.name}`,desc:`${SL[a.status]} em ${fmt(a.date)} às ${a.time}`,date:t,priority:"high",done:false,patientId:p.id,type:"miss"});
+out.push({id:`m${a.id}`,title:`📵 Remarcar -- ${p.name}`,desc:`${SL[a.status]} em ${fmt(a.date)} às ${a.time}`,date:t,priority:“high”,done:false,patientId:p.id,type:“miss”});
 });
-appts.filter(a=>a.date===tm&&a.status==="confirmed").forEach(a=>{
+appts.filter(a=>a.date===tm&&a.status===“confirmed”).forEach(a=>{
 const p=pats.find(x=>x.id===a.patientId);if(!p)return;
-out.push({id:`t${a.id}`,title:`📲 Confirmar amanhã -- ${p.name}`,desc:`${a.procedure} às ${a.time}`,date:t,priority:"medium",done:false,patientId:p.id,type:"conf",apptId:a.id});
+out.push({id:`t${a.id}`,title:`📲 Confirmar amanhã -- ${p.name}`,desc:`${a.procedure} às ${a.time}`,date:t,priority:“medium”,done:false,patientId:p.id,type:“conf”,apptId:a.id});
 });
 return out;
 };
 
 // ══════════════════════════════════════════════════════════
-// PATIENT FOLDER -- full modal with tabs like the photo
+// PATIENT FOLDER – full modal with tabs like the photo
 // ══════════════════════════════════════════════════════════
 function PatSearch({lb,val,set,pats,optional}){
 var sel=pats.find(function(p){return p.id===Number(val);});
-var [q,setQ]=useState("");
+var [q,setQ]=useState(””);
 var [open,setOpen]=useState(false);
-var norm=function(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");};
+var norm=function(s){return (s||””).toLowerCase().normalize(“NFD”).replace(/[\u0300-\u036f]/g,””);};
 var res=q.length>=1?pats.filter(function(p){
 var nq=norm(q);
 return norm(p.name).indexOf(nq)>=0||
-(p.folder||"").indexOf(q)>=0||
-(p.phone||"").indexOf(q)>=0;
+(p.folder||””).indexOf(q)>=0||
+(p.phone||””).indexOf(q)>=0;
 }).slice(0,12):[];
 return (
+
 <div style={{position:"relative",display:"flex",flexDirection:"column",gap:4}}>
 {lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{lb}</label>}
 {sel&&!open
@@ -333,39 +336,39 @@ onMouseLeave={function(e){e.currentTarget.style.background="#fff";}}>
 }
 
 function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose}){
-// Always read live data from pats -- this ensures saves reflect immediately
+// Always read live data from pats – this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
 const isDentUser=user&&user.level===1;
-const [tab,setTab]=useState("ficha");
+const [tab,setTab]=useState(“ficha”);
 const [editMode,setEditMode]=useState(false);
-const [pf,setPf]=useState({...pat});const [showWAanam,setShowWAanam]=useState(false);const [showIARX,setShowIARX]=useState(false);
+const [pf,setPf]=useState({…pat});const [showWAanam,setShowWAanam]=useState(false);const [showIARX,setShowIARX]=useState(false);
 
 // Keep pf in sync when pat updates externally (e.g. after NF save)
-// But don't override if user is actively editing
+// But don’t override if user is actively editing
 const prevPatId=pat.id;
 
 // Payment modal for treatments
 const [payModal,setPayModal]=useState(null);
-const [payForm,setPayForm]=useState({date:today(),value:"",method:"Dinheiro",note:""});
+const [payForm,setPayForm]=useState({date:today(),value:””,method:“Dinheiro”,note:””});
 
 // Record modal
 const [recModal,setRecModal]=useState(false);
 const [recEdit,setRecEdit]=useState(null);
-const blankR={date:today(),procedure:"",tooth:"",dentistId:user.dentistId||dents[0]?.id||1,obs:"",rx:"",paid:"",payment:"Dinheiro",closed:false,inst:1,instM:[]};
+const blankR={date:today(),procedure:””,tooth:””,dentistId:user.dentistId||dents[0]?.id||1,obs:””,rx:””,paid:””,payment:“Dinheiro”,closed:false,inst:1,instM:[]};
 const [rf,setRf]=useState(blankR);
-const upR=k=>v=>setRf(p=>({...p,[k]:v}));
+const upR=k=>v=>setRf(p=>({…p,[k]:v}));
 
 // Treatment modal
 const [treatModal,setTreatModal]=useState(false);
-const [tf,setTf]=useState({name:"",start:today(),items:[],payments:[]});
-const [tni,setTni]=useState({d:"",procId:"",v:""});
+const [tf,setTf]=useState({name:””,start:today(),items:[],payments:[]});
+const [tni,setTni]=useState({d:””,procId:””,v:””});
 
 // Budget modal
 const [budgModal,setBudgModal]=useState(false);
 const [budgEdit,setBudgEdit]=useState(null);
-const blankB={date:today(),items:[],status:"pending",notes:"",disc:0,attach:""};
+const blankB={date:today(),items:[],status:“pending”,notes:””,disc:0,attach:””};
 const [bf,setBf]=useState(blankB);
-const [bni,setBni]=useState({d:"",v:""});
+const [bni,setBni]=useState({d:””,v:””});
 
 const patRecs=recs.filter(r=>r.patientId===pat.id).sort((a,b)=>b.date.localeCompare(a.date));
 const patTreats=treats.filter(t=>t.patientId===pat.id);
@@ -376,23 +379,23 @@ const patPaid=patRecs.reduce((s,r)=>s+r.paid,0);
 const savePat=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
 const saveAnam=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
 
-const genM=(d,n)=>{const ms=[];const x=new Date(d+"T12:00");for(let i=1;i<=n;i++){x.setMonth(x.getMonth()+1);ms.push(`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}`);}return ms;};
+const genM=(d,n)=>{const ms=[];const x=new Date(d+“T12:00”);for(let i=1;i<=n;i++){x.setMonth(x.getMonth()+1);ms.push(`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}`);}return ms;};
 const saveRec=()=>{
-if(Number(rf.paid)>0&&!rf.closed)return alert("Marque 'Confirmar baixa financeira'.");
-const ms=rf.payment==="Cartão Crédito"&&Number(rf.inst)>1?genM(rf.date,Number(rf.inst)):[];
-const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:Number(rf.paid),inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs)};
-setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
+if(Number(rf.paid)>0&&!rf.closed)return alert(“Marque ‘Confirmar baixa financeira’.”);
+const ms=rf.payment===“Cartão Crédito”&&Number(rf.inst)>1?genM(rf.date,Number(rf.inst)):[];
+const obj={…rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:Number(rf.paid),inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs)};
+setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[…prev,obj]);
 setRecModal(false);
 };
-const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,id:nid(treats)}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
+const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[…prev,{…tf,patientId:pat.id,id:nid(treats)}]);setTreatModal(false);setTf({name:””,start:today(),items:[],payments:[]});};
 const addTItem=()=>{
-if(!tni.d&&!tni.procId)return alert("Selecione um procedimento");
-if(!tni.v)return alert("Informe o valor");
-const procName=procs.find(p=>String(p.id)===String(tni.procId))?.name||"";
-const detail=tni.d&&tni.d!==procName?tni.d:"";
-const desc=procName?(detail?`${procName} -- ${detail}`:procName):(tni.d||"Procedimento");
-setTf(p=>({...p,items:[...p.items,{desc,value:Number(tni.v),paid:false}]}));
-setTni({d:"",procId:"",v:""});
+if(!tni.d&&!tni.procId)return alert(“Selecione um procedimento”);
+if(!tni.v)return alert(“Informe o valor”);
+const procName=procs.find(p=>String(p.id)===String(tni.procId))?.name||””;
+const detail=tni.d&&tni.d!==procName?tni.d:””;
+const desc=procName?(detail?`${procName} -- ${detail}`:procName):(tni.d||“Procedimento”);
+setTf(p=>({…p,items:[…p.items,{desc,value:Number(tni.v),paid:false}]}));
+setTni({d:””,procId:””,v:””});
 };
 // Baixa de procedimento pelo dentista
 const togItemPaid=(tid,idx)=>{
@@ -401,86 +404,87 @@ if(!treat)return;
 const item=treat.items[idx];
 // Giving baixa
 if(!item.done){
-// Check if user is dentist level -- only their own dentistId or admin
+// Check if user is dentist level – only their own dentistId or admin
 if(user.level===1&&user.dentistId!==treat.dentistId&&treat.dentistId){
-alert("Você só pode dar baixa em procedimentos do seu próprio tratamento.");return;
+alert(“Você só pode dar baixa em procedimentos do seu próprio tratamento.”);return;
 }
 // Calculate payment info for credit control
 const payments=treat.payments||[];
 const totalPaid=payments.reduce((s,p)=>s+p.value,0);
 const totalItems=treat.items.reduce((s,i)=>s+i.value,0);
 // If payments are via cartão parcelado, credit may be future
-const hasInstallment=payments.some(p=>p.installments>1||(p.method==="Cartão Crédito"&&p.installmentMonths?.length>1));
-setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==idx?it:{
-...it,done:true,doneDate:today(),doneBy:user.name,
+const hasInstallment=payments.some(p=>p.installments>1||(p.method===“Cartão Crédito”&&p.installmentMonths?.length>1));
+setTreats(prev=>prev.map(t=>t.id!==tid?t:{…t,items:t.items.map((it,i)=>i!==idx?it:{
+…it,done:true,doneDate:today(),doneBy:user.name,
 creditFuture:hasInstallment,
 })}));
 } else {
-// Undo baixa -- only admin or same person
+// Undo baixa – only admin or same person
 if(user.level===1&&item.doneBy!==user.name&&user.level<3){
-alert("Apenas quem deu a baixa pode desfazê-la.");return;
+alert(“Apenas quem deu a baixa pode desfazê-la.”);return;
 }
-setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==idx?it:{
-...it,done:false,doneDate:null,doneBy:null,creditFuture:false
+setTreats(prev=>prev.map(t=>t.id!==tid?t:{…t,items:t.items.map((it,i)=>i!==idx?it:{
+…it,done:false,doneDate:null,doneBy:null,creditFuture:false
 })}));
 }
 };
 const addPayment=(tid)=>{
-const pv=Number(payForm.value);if(!pv)return alert("Informe o valor");
+const pv=Number(payForm.value);if(!pv)return alert(“Informe o valor”);
 const t=treats.find(x=>x.id===tid);
 // Save payment in treatment plan
-setTreats(prev=>prev.map(tr=>tr.id!==tid?tr:{...tr,payments:[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note}]}));
+setTreats(prev=>prev.map(tr=>tr.id!==tid?tr:{…tr,payments:[…(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note}]}));
 // Also create a rec entry so Financeiro sees it
-const inst=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
+const inst=payForm.method.toLowerCase().indexOf(“crédito”)>=0||payForm.method.toLowerCase().indexOf(“credito”)>=0?Number(payForm.inst||1):1;
 const recObj={
 id:nid(recs),
 patientId:pat.id,
 dentistId:t&&t.dentistId||dents[0]&&dents[0].id||1,
-procedure:t&&t.name||"Procedimento",
+procedure:t&&t.name||“Procedimento”,
 date:payForm.date,
 paid:pv,
 payment:payForm.method,
 inst:inst,
-note:payForm.note||"",
+note:payForm.note||””,
 apptId:null,
 fromTreat:tid,
 };
-setRecs(prev=>[...prev,recObj]);
-setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",note:""});
+setRecs(prev=>[…prev,recObj]);
+setPayModal(null);setPayForm({date:today(),value:””,method:“Dinheiro”,inst:“1”,note:””});
 };
-const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:Number(bf.disc),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
+const saveBudg=()=>{if(!bf.items.length)return alert(“Adicione itens”);const obj={…bf,patientId:pat.id,disc:Number(bf.disc),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[…prev,obj]);setBudgModal(false);};
 
-const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["historico","📅 Histórico"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
+const TABS=[[“ficha”,“📋 Ficha”],[“anamnese”,“🩺 Anamnese”],[“tratamento”,“🦷 Tratamento”],[“historico”,“📅 Histórico”],…(!isDentUser?[[“financeiro”,“💰 Financeiro”],[“nf”,“🧾 Nota Fiscal”]]:[])];
 // NF (Nota Fiscal) state
 const [nfModal,setNfModal]=useState(false);
 const [nfEdit,setNfEdit]=useState(null);
-const blankNF={date:today(),number:"",payer:"empresa",payerName:"",payerCnpj:"",dentistId:"",procedure:"",value:"",tax:"",notes:"",status:"pending"};
+const blankNF={date:today(),number:””,payer:“empresa”,payerName:””,payerCnpj:””,dentistId:””,procedure:””,value:””,tax:””,notes:””,status:“pending”};
 const [nff,setNff]=useState(blankNF);
 const patNFs=(pat.nfs||[]);
 const saveNF=()=>{
-if(!nff.procedure||!nff.value)return alert("Informe procedimento e valor");
-const obj={...nff,value:Number(nff.value),tax:Number(nff.tax||0),id:nfEdit?nfEdit.id:nid(patNFs)};
-const newNFs=nfEdit?patNFs.map(n=>n.id===nfEdit.id?obj:n):[...patNFs,obj];
-setPats(prev=>prev.map(p=>p.id===pat.id?{...p,nfs:newNFs}:p));
+if(!nff.procedure||!nff.value)return alert(“Informe procedimento e valor”);
+const obj={…nff,value:Number(nff.value),tax:Number(nff.tax||0),id:nfEdit?nfEdit.id:nid(patNFs)};
+const newNFs=nfEdit?patNFs.map(n=>n.id===nfEdit.id?obj:n):[…patNFs,obj];
+setPats(prev=>prev.map(p=>p.id===pat.id?{…p,nfs:newNFs}:p));
 setNfModal(false);
 };
 
 // Add procedure to existing plan
 const [addProcModal,setAddProcModal]=useState(null); // treatId
-const [addProcForm,setAddProcForm]=useState({procId:"",d:"",v:""});
+const [addProcForm,setAddProcForm]=useState({procId:””,d:””,v:””});
 const saveAddProc=()=>{
-if(!addProcForm.v||Number(addProcForm.v)<=0){alert("Informe o valor");return;}
-const procName=procs.find(p=>String(p.id)===String(addProcForm.procId))?.name||"";
-const detail=addProcForm.d&&addProcForm.d!==procName?addProcForm.d:"";
-const desc=procName?(detail?`${procName} -- ${detail}`:procName):(addProcForm.d||"Procedimento");
-setTreats(prev=>prev.map(t=>t.id!==addProcModal?t:{...t,items:[...t.items,{desc,value:Number(addProcForm.v),paid:false}]}));
+if(!addProcForm.v||Number(addProcForm.v)<=0){alert(“Informe o valor”);return;}
+const procName=procs.find(p=>String(p.id)===String(addProcForm.procId))?.name||””;
+const detail=addProcForm.d&&addProcForm.d!==procName?addProcForm.d:””;
+const desc=procName?(detail?`${procName} -- ${detail}`:procName):(addProcForm.d||“Procedimento”);
+setTreats(prev=>prev.map(t=>t.id!==addProcModal?t:{…t,items:[…t.items,{desc,value:Number(addProcForm.v),paid:false}]}));
 setAddProcModal(null);
 };
 
-const BSTATUS={pending:"Em espera",approved:"Aprovado",rejected:"Recusado"};
+const BSTATUS={pending:“Em espera”,approved:“Aprovado”,rejected:“Recusado”};
 const BCOLOR={pending:G.yellow,approved:G.success,rejected:G.red};
 
 return <>
+
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:10}}>
 <div style={{background:G.card,borderRadius:18,width:"100%",maxWidth:820,maxHeight:"95vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.28)"}}>
 {/* Header */}
@@ -1040,68 +1044,69 @@ const [selDate,setSelDate]=useState(today());
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(new Date().getFullYear());
 const [calM,setCalM]=useState(new Date().getMonth());
-const [denF,setDenF]=useState("all");
+const [denF,setDenF]=useState(“all”);
 const [modal,setModal]=useState(false);
-const [viewA,setViewA]=useState(null);const [showCancel,setShowCancel]=useState(null);const [histTab,setHistTab]=useState("info");
+const [viewA,setViewA]=useState(null);const [showCancel,setShowCancel]=useState(null);const [histTab,setHistTab]=useState(“info”);
 const [edit,setEdit]=useState(null);
-const blank={patientId:"",patientName:"",useManual:false,dentistId:user.dentistId||dents[0]?.id||1,date:selDate,time:"",timeCustom:"",procedure:"",procedureCustom:"",treatment:"",status:"pending",notes:"",value:"",payment:"Dinheiro",duration:30,blocked:false,blockReason:""};
+const blank={patientId:””,patientName:””,useManual:false,dentistId:user.dentistId||dents[0]?.id||1,date:selDate,time:””,timeCustom:””,procedure:””,procedureCustom:””,treatment:””,status:“pending”,notes:””,value:””,payment:“Dinheiro”,duration:30,blocked:false,blockReason:””};
 const [f,setF]=useState(blank);
-const upd=k=>v=>setF(p=>({...p,[k]:v}));
+const upd=k=>v=>setF(p=>({…p,[k]:v}));
 const [blockModal,setBlockModal]=useState(null); // {date,time,dentistId}
-const [blockReason,setBlockReason]=useState("");
+const [blockReason,setBlockReason]=useState(””);
 const isDent=user.level===1;
 const td=today();
-const DAY=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
-const MONTHS=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const DAY=[“Dom”,“Seg”,“Ter”,“Qua”,“Qui”,“Sex”,“Sáb”];
+const MONTHS=[“Janeiro”,“Fevereiro”,“Março”,“Abril”,“Maio”,“Junho”,“Julho”,“Agosto”,“Setembro”,“Outubro”,“Novembro”,“Dezembro”];
 
 const getWeek=ds=>{
-const d=new Date(ds+"T12:00");
+const d=new Date(ds+“T12:00”);
 const diff=d.getDay()===0?-6:1-d.getDay();
 const mon=new Date(d);mon.setDate(d.getDate()+diff);
-return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x.toISOString().split("T")[0];});
+return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x.toISOString().split(“T”)[0];});
 };
 const week=getWeek(selDate);
-const prevW=()=>{const d=new Date(week[0]+"T12:00");d.setDate(d.getDate()-7);setSelDate(d.toISOString().split("T")[0]);};
-const nextW=()=>{const d=new Date(week[6]+"T12:00");d.setDate(d.getDate()+1);setSelDate(d.toISOString().split("T")[0]);};
-const vd=isDent?dents.filter(d=>d.id===user.dentistId):denF==="all"?dents:dents.filter(d=>d.id===Number(denF));
+const prevW=()=>{const d=new Date(week[0]+“T12:00”);d.setDate(d.getDate()-7);setSelDate(d.toISOString().split(“T”)[0]);};
+const nextW=()=>{const d=new Date(week[6]+“T12:00”);d.setDate(d.getDate()+1);setSelDate(d.toISOString().split(“T”)[0]);};
+const vd=isDent?dents.filter(d=>d.id===user.dentistId):denF===“all”?dents:dents.filter(d=>d.id===Number(denF));
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
 const save=()=>{
-const finalTime=(f.timeCustom||"").trim()||(f.time||"").trim();
-const hasPat=String(f.patientId||"").trim()||String(f.patientName||"").trim();
-// Permite salvar sem paciente - aparece como "A confirmar" na agenda
-if(!finalTime){alert("Preencha o horário");return;}
+const finalTime=(f.timeCustom||””).trim()||(f.time||””).trim();
+const hasPat=String(f.patientId||””).trim()||String(f.patientName||””).trim();
+// Permite salvar sem paciente - aparece como “A confirmar” na agenda
+if(!finalTime){alert(“Preencha o horário”);return;}
 const dur=Number(f.duration)||30;
 // Gerar slots ocupados pela duração
 const extraSlots=[];
 if(dur>30){
-let [h,m]=finalTime.split(":").map(Number);
+let [h,m]=finalTime.split(”:”).map(Number);
 for(let i=30;i<dur;i+=30){
 m+=30;if(m>=60){m-=60;h++;}
 extraSlots.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
 }
 }
-const obj={...f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,patientName:f.patientId?"":(f.patientName||"A confirmar"),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
-setAppts(prev=>edit?prev.map(a=>a.id===edit.id?obj:a):[...prev,obj]);
+const obj={…f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,patientName:f.patientId?””:(f.patientName||“A confirmar”),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
+setAppts(prev=>edit?prev.map(a=>a.id===edit.id?obj:a):[…prev,obj]);
 const p=pats.find(x=>x.id===Number(f.patientId));
-const nome=p?.name||f.patientName||"";
-if(addLog)addLog("agenda",(edit?"Editou":"Criou")+" consulta de "+nome+" -- "+fmt(f.date)+" "+finalTime,nome);
+const nome=p?.name||f.patientName||””;
+if(addLog)addLog(“agenda”,(edit?“Editou”:“Criou”)+” consulta de “+nome+” – “+fmt(f.date)+” “+finalTime,nome);
 setModal(false);setEdit(null);setF(blank);
 };
 const saveBlock=(date,time,dentistId)=>{
-if(!blockReason.trim()){alert("Informe o motivo do bloqueio");return;}
-setAppts(prev=>[...prev,{id:nid(prev),date,time,dentistId:Number(dentistId),blocked:true,blockReason,patientId:null,status:"blocked",procedure:"Bloqueado",value:0,payment:""}]);
-setBlockModal(null);setBlockReason("");
+if(!blockReason.trim()){alert(“Informe o motivo do bloqueio”);return;}
+setAppts(prev=>[…prev,{id:nid(prev),date,time,dentistId:Number(dentistId),blocked:true,blockReason,patientId:null,status:“blocked”,procedure:“Bloqueado”,value:0,payment:””}]);
+setBlockModal(null);setBlockReason(””);
 };
 const chSt=(id,st)=>{
-setAppts(prev=>prev.map(a=>a.id===id?{...a,status:st}:a));
+setAppts(prev=>prev.map(a=>a.id===id?{…a,status:st}:a));
 const a=appts.find(x=>x.id===id);const p=pats.find(x=>x.id===(a&&a.patientId));
-const ST={confirmed:"Confirmou",pending:"Pendente",done:"Realizou",cancelled:"Cancelou",missed:"Faltou",rescheduled:"Desmarcou"};
-if(addLog&&a)addLog("agenda",(ST[st]||st)+" consulta de "+(p&&p.name||"paciente")+" -- "+fmt(a.date)+" "+a.time,p&&p.name);
+const ST={confirmed:“Confirmou”,pending:“Pendente”,done:“Realizou”,cancelled:“Cancelou”,missed:“Faltou”,rescheduled:“Desmarcou”};
+if(addLog&&a)addLog(“agenda”,(ST[st]||st)+” consulta de “+(p&&p.name||“paciente”)+” – “+fmt(a.date)+” “+a.time,p&&p.name);
 };
 
 return (
+
 <div style={{display:"flex",flexDirection:"column",gap:10}} className="fi">
 
 ```
@@ -1444,18 +1449,19 @@ return (
 }
 
 // ══════════════════════════════════════════════════════════
-// PACIENTES -- list with folder button
+// PACIENTES – list with folder button
 // ══════════════════════════════════════════════════════════
 function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog}){
-const [srch,setSrch]=useState("");
+const [srch,setSrch]=useState(””);
 const [openFolder,setOpenFolder]=useState(null);
 const [pm,setPm]=useState(false);const [ep,setEp]=useState(null);
-const b0={name:"",dob:"",phone:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insurance:"",notes:"",folder:"",since:today(),rx:"",nf:"",obs:"",origem:"",genero:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}};
-const [pf,setPf]=useState(b0);const fp=k=>v=>setPf(p=>({...p,[k]:v}));
-const ft=pats.filter(p=>p.name.toLowerCase().includes(srch.toLowerCase())||p.phone.includes(srch)||(p.folder||"").includes(srch)||(p.cpf||"").includes(srch));
-const savePat=()=>{if(!pf.name)return;const isNew=!ep;const obj={...pf,id:ep?ep.id:nid(pats)};setPats(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[...prev,obj]);if(addLog)addLog("paciente",(isNew?"Criou paciente: ":"Editou cadastro de ")+pf.name,pf.name);setPm(false);};
+const b0={name:””,dob:””,phone:””,email:””,cpf:””,rg:””,blood:””,allergy:””,insurance:””,notes:””,folder:””,since:today(),rx:””,nf:””,obs:””,origem:””,genero:””,anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:””,otherConditions:””,medications:””,notes:””}};
+const [pf,setPf]=useState(b0);const fp=k=>v=>setPf(p=>({…p,[k]:v}));
+const ft=pats.filter(p=>p.name.toLowerCase().includes(srch.toLowerCase())||p.phone.includes(srch)||(p.folder||””).includes(srch)||(p.cpf||””).includes(srch));
+const savePat=()=>{if(!pf.name)return;const isNew=!ep;const obj={…pf,id:ep?ep.id:nid(pats)};setPats(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[…prev,obj]);if(addLog)addLog(“paciente”,(isNew?“Criou paciente: “:“Editou cadastro de “)+pf.name,pf.name);setPm(false);};
 
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Pacientes</h2>
 <Btn ch="+ Novo Paciente" onClick={()=>{setEp(null);setPf(b0);setPm(true);}}/>
@@ -1511,20 +1517,21 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 }
 
 // ══════════════════════════════════════════════════════════
-// PRÓTESES -- with editable proc types
+// PRÓTESES – with editable proc types
 // ══════════════════════════════════════════════════════════
 function Proteses({pros,setPros,pats,dents,labs,prosProcs,setProsProcs,user}){
-const [filt,setFilt]=useState("today");const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);
-const [procModal,setProcModal]=useState(false);const [procForm,setProcForm]=useState({name:""});const [editProc,setEditProc]=useState(null);
-const b0={patientId:"",dentistId:1,labId:"",type:PROS_T[0],proc:"",tooth:"",sent:today(),due:"",returned:"",status:"waiting",notes:"",price:""};
-const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
+const [filt,setFilt]=useState(“today”);const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);
+const [procModal,setProcModal]=useState(false);const [procForm,setProcForm]=useState({name:””});const [editProc,setEditProc]=useState(null);
+const b0={patientId:””,dentistId:1,labId:””,type:PROS_T[0],proc:””,tooth:””,sent:today(),due:””,returned:””,status:“waiting”,notes:””,price:””};
+const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({…p,[k]:v}));
 const t=today();
-const todP=pros.filter(p=>p.due===t&&p.status==="waiting");
-const flt=filt==="today"?todP:filt==="all"?pros:pros.filter(p=>p.status===filt);
-const save=()=>{if(!f.patientId||!f.labId)return alert("Informe paciente e laboratório");const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),id:edit?edit.id:nid(pros)};setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[...prev,obj]);setModal(false);};
-const saveProc=()=>{if(!procForm.name)return;const obj={...procForm,id:editProc?editProc.id:nid(prosProcs)};setProsProcs(prev=>editProc?prev.map(p=>p.id===editProc.id?obj:p):[...prev,obj]);setProcModal(false);};
+const todP=pros.filter(p=>p.due===t&&p.status===“waiting”);
+const flt=filt===“today”?todP:filt===“all”?pros:pros.filter(p=>p.status===filt);
+const save=()=>{if(!f.patientId||!f.labId)return alert(“Informe paciente e laboratório”);const obj={…f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),id:edit?edit.id:nid(pros)};setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[…prev,obj]);setModal(false);};
+const saveProc=()=>{if(!procForm.name)return;const obj={…procForm,id:editProc?editProc.id:nid(prosProcs)};setProsProcs(prev=>editProc?prev.map(p=>p.id===editProc.id?obj:p):[…prev,obj]);setProcModal(false);};
 
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Próteses</h2>
 <div style={{display:"flex",gap:7}}><Btn ch="⚙️ Procedimentos" v="g" sm onClick={()=>setProcModal(true)}/><Btn ch="+ Nova Prótese" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/></div>
@@ -1655,59 +1662,60 @@ setModal(false);
 }
 
 // ══════════════════════════════════════════════════════════
-// IMPLANTES -- Planilha mês a mês estilo Excel
+// IMPLANTES – Planilha mês a mês estilo Excel
 // ══════════════════════════════════════════════════════════
 function Implantes({impl,setImpl,pats}){
-const MES=["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
-const SERVICES=["Exo","Enxerto","Implante","Prótese","Controle","Manutenção","Outro"];
+const MES=[“JAN”,“FEV”,“MAR”,“ABR”,“MAI”,“JUN”,“JUL”,“AGO”,“SET”,“OUT”,“NOV”,“DEZ”];
+const SERVICES=[“Exo”,“Enxerto”,“Implante”,“Prótese”,“Controle”,“Manutenção”,“Outro”];
 // Status cycle: pending -> scheduled -> done -> pending
-const STATUS={pending:"pending",scheduled:"scheduled",done:"done"};
-const ST_COLOR={pending:G.red,scheduled:G.success,done:"#111111"};
-const ST_LABEL={pending:"Não agendado",scheduled:"Agendado",done:"Finalizado"};
-const ST_NEXT={pending:"scheduled",scheduled:"done",done:"pending"};
+const STATUS={pending:“pending”,scheduled:“scheduled”,done:“done”};
+const ST_COLOR={pending:G.red,scheduled:G.success,done:”#111111”};
+const ST_LABEL={pending:“Não agendado”,scheduled:“Agendado”,done:“Finalizado”};
+const ST_NEXT={pending:“scheduled”,scheduled:“done”,done:“pending”};
 
 const now=new Date();
 const [yr,setYr]=useState(now.getFullYear());
 const [mo,setMo]=useState(now.getMonth());
 const [addModal,setAddModal]=useState(false);
-const [newPat,setNewPat]=useState({patientId:"",service:"Implante"});
+const [newPat,setNewPat]=useState({patientId:””,service:“Implante”});
 
 const mk=`${yr}-${String(mo+1).padStart(2,"0")}`;
 
 // Get all entries for this month
 const getEntry=(impId)=>{
 const imp=impl.find(x=>x.id===impId);
-return (imp?.months||{})[mk]||{service:"",status:"pending"};
+return (imp?.months||{})[mk]||{service:””,status:“pending”};
 };
 
 const setEntry=(impId,field,val)=>{
 setImpl(prev=>prev.map(x=>{
 if(x.id!==impId)return x;
-const months={...(x.months||{})};
-months[mk]={...(months[mk]||{service:"",status:"pending"}),[field]:val};
-return {...x,months};
+const months={…(x.months||{})};
+months[mk]={…(months[mk]||{service:””,status:“pending”}),[field]:val};
+return {…x,months};
 }));
 };
 
 const cycleStatus=(impId)=>{
 const entry=getEntry(impId);
-const cur=entry.status||"pending";
-setEntry(impId,"status",ST_NEXT[cur]);
+const cur=entry.status||“pending”;
+setEntry(impId,“status”,ST_NEXT[cur]);
 };
 
 const hasDat=(tk)=>impl.some(x=>Object.keys((x.months||{})[tk]||{}).length>0);
 
 const saveNew=()=>{
-if(!newPat.patientId){alert("Selecione o paciente");return;}
+if(!newPat.patientId){alert(“Selecione o paciente”);return;}
 const id=nid(impl);
-setImpl(prev=>[...prev,{id,patientId:Number(newPat.patientId),months:{[mk]:{service:newPat.service,status:"pending"}}}]);
-setAddModal(false);setNewPat({patientId:"",service:"Implante"});
+setImpl(prev=>[…prev,{id,patientId:Number(newPat.patientId),months:{[mk]:{service:newPat.service,status:“pending”}}}]);
+setAddModal(false);setNewPat({patientId:””,service:“Implante”});
 };
 
 const emptyRows=Math.max(0,12-impl.length);
 
-return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi">
+return <div style={{display:“flex”,flexDirection:“column”,gap:0}} className=“fi”>
 {/* Header */}
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Controle de Implantes</h2>
 <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -1839,32 +1847,33 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 }
 
 // ══════════════════════════════════════════════════════════
-// DESPESAS -- clinic + personal
+// DESPESAS – clinic + personal
 // ══════════════════════════════════════════════════════════
 function Despesas({expenses,setExpenses,user}){
-const [tab,setTab]=useState("clinic");
+const [tab,setTab]=useState(“clinic”);
 const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);
-const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false};
-const [f,setF]=useState(blank);const upd=k=>v=>setF(p=>({...p,[k]:v}));
+const blank={date:today(),cat:“Aluguel”,desc:””,value:””,paid:false};
+const [f,setF]=useState(blank);const upd=k=>v=>setF(p=>({…p,[k]:v}));
 const [mo,setMo]=useState(today().slice(0,7));
-const PERS_CATS=["Moradia","Alimentação","Transporte","Saúde","Lazer","Educação","Vestuário","Outros"];
+const PERS_CATS=[“Moradia”,“Alimentação”,“Transporte”,“Saúde”,“Lazer”,“Educação”,“Vestuário”,“Outros”];
 
-if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><p style={{color:G.red,fontSize:15}}>🔒 Acesso restrito ao Administrador</p></div>;
+if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:“center”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}><p style={{color:G.red,fontSize:15}}>🔒 Acesso restrito ao Administrador</p></div>;
 
 const list=expenses[tab]||[];
 const moList=list.filter(e=>e.date.startsWith(mo));
 const total=moList.reduce((s,e)=>s+Number(e.value||0),0);
 const paid=moList.filter(e=>e.paid).reduce((s,e)=>s+Number(e.value||0),0);
 
-const save=()=>{if(!f.desc||!f.value)return alert("Preencha descrição e valor");
-const obj={...f,value:Number(f.value),id:edit?edit.id:nid(list)};
-setExpenses(prev=>({...prev,[tab]:edit?prev[tab].map(e=>e.id===edit.id?obj:e):[...prev[tab],obj]}));
+const save=()=>{if(!f.desc||!f.value)return alert(“Preencha descrição e valor”);
+const obj={…f,value:Number(f.value),id:edit?edit.id:nid(list)};
+setExpenses(prev=>({…prev,[tab]:edit?prev[tab].map(e=>e.id===edit.id?obj:e):[…prev[tab],obj]}));
 setModal(false);
 };
-const remove=id=>{if(window.confirm("Remover?"))setExpenses(prev=>({...prev,[tab]:prev[tab].filter(e=>e.id!==id)}));};
-const togglePaid=id=>setExpenses(prev=>({...prev,[tab]:prev[tab].map(e=>e.id===id?{...e,paid:!e.paid}:e)}));
+const remove=id=>{if(window.confirm(“Remover?”))setExpenses(prev=>({…prev,[tab]:prev[tab].filter(e=>e.id!==id)}));};
+const togglePaid=id=>setExpenses(prev=>({…prev,[tab]:prev[tab].map(e=>e.id===id?{…e,paid:!e.paid}:e)}));
 
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Despesas</h2>
 <div style={{display:"flex",gap:8}}><Inp val={mo} set={setMo} type="month" style={{width:165}}/><Btn ch="+ Nova Despesa" onClick={()=>{setEdit(null);setF({...blank,cat:tab==="clinic"?"Aluguel":"Moradia"});setModal(true);}}/></div>
@@ -1903,31 +1912,32 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // LEMBRETES
 // ══════════════════════════════════════════════════════════
 function Lembretes({rems,setRems,pats,recs,appts,users,espera,setEspera,dents,user}){
-const [filt,setFilt]=useState("pending");const [uf,setUf]=useState("all");
+const [filt,setFilt]=useState(“pending”);const [uf,setUf]=useState(“all”);
 const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);
-const b0={title:"",desc:"",date:today(),priority:"medium",done:false,patientId:"",assignedUserId:""};
-const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
+const b0={title:””,desc:””,date:today(),priority:“medium”,done:false,patientId:””,assignedUserId:””};
+const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({…p,[k]:v}));
 const isDentist=user?.level===1;
 const myDentId=user?.dentistId;
 const visibleAppts=isDentist?appts.filter(a=>a.dentistId===myDentId):appts;
 const ar=autoRems(pats,recs,visibleAppts);
-const all=[...ar,...rems];
+const all=[…ar,…rems];
 const allFiltered=isDentist
 ?all.filter(r=>r.assignedUserId===myDentId||(!r.assignedUserId&&r.auto&&recs.find(rec=>rec.patientId===r.patientId&&rec.dentistId===myDentId)))
 :all;
-const flt=allFiltered.filter(r=>{const sok=filt==="all"?true:filt==="pending"?!r.done:r.done;const uok=uf==="all"?true:String(r.assignedUserId)===uf;return sok&&uok;}).sort((a,b)=>a.date.localeCompare(b.date));
+const flt=allFiltered.filter(r=>{const sok=filt===“all”?true:filt===“pending”?!r.done:r.done;const uok=uf===“all”?true:String(r.assignedUserId)===uf;return sok&&uok;}).sort((a,b)=>a.date.localeCompare(b.date));
 const t=today();
-const save=()=>{if(!f.title)return;const obj={...f,patientId:f.patientId?Number(f.patientId):null,assignedUserId:f.assignedUserId?Number(f.assignedUserId):null,id:edit?edit.id:nid(rems)};setRems(prev=>edit?prev.map(r=>r.id===edit.id?obj:r):[...prev,obj]);setModal(false);};
-const tog=id=>{if(typeof id==="string")return;setRems(prev=>prev.map(r=>r.id===id?{...r,done:!r.done}:r));};
-const rm=id=>{if(typeof id==="string")return;if(window.confirm("Remover?"))setRems(prev=>prev.filter(r=>r.id!==id));};
-const TI={bday:"🎂",semi:"📅",surg:"🔴",miss:"📵",conf:"📲"};
-const PRIO={high:"Alta",medium:"Média",low:"Baixa"};const PRIOC={high:G.red,medium:G.yellow,low:G.primary};
-const t2=today();const todayMD=t2.slice(5);const anivHoje=pats.filter(function(p){return p.dob&&p.dob.slice(5)===todayMD;});const anivMes=pats.filter(function(p){return p.dob&&p.dob.slice(5,7)===t2.slice(5,7);});const PCIR2=["Exodontia","Extracao","Implante","Cirurgia","Enxerto","Sinus","Gengivoplastia","Apicectomia","Frenectomia","Biopsia"];const yst2=new Date(new Date(t2)-86400000).toISOString().split("T")[0];const posCir2=appts.filter(function(a){return a.date===yst2&&(a.status==="done"||a.status==="confirmed")&&PCIR2.some(function(p){return a.procedure&&a.procedure.toLowerCase().indexOf(p.toLowerCase())>=0;});}).map(function(a){return{a:a,p:pats.find(function(x){return x.id===a.patientId;})};}).filter(function(x){return x.p;});const semAtras2=pats.filter(function(p){var uc=appts.filter(function(a){return a.patientId===p.id&&(a.status==="done"||a.status==="confirmed");}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000)>=180:!!p.since;});var sendWA2=async function(ph,msg){var sent=await WA_API(ph,msg);if(!sent){var a=document.createElement("a");a.href="https://wa.me/55"+ph.replace(/[^0-9]/g,"")+"?text="+encodeURIComponent(msg);a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);}};
+const save=()=>{if(!f.title)return;const obj={…f,patientId:f.patientId?Number(f.patientId):null,assignedUserId:f.assignedUserId?Number(f.assignedUserId):null,id:edit?edit.id:nid(rems)};setRems(prev=>edit?prev.map(r=>r.id===edit.id?obj:r):[…prev,obj]);setModal(false);};
+const tog=id=>{if(typeof id===“string”)return;setRems(prev=>prev.map(r=>r.id===id?{…r,done:!r.done}:r));};
+const rm=id=>{if(typeof id===“string”)return;if(window.confirm(“Remover?”))setRems(prev=>prev.filter(r=>r.id!==id));};
+const TI={bday:“🎂”,semi:“📅”,surg:“🔴”,miss:“📵”,conf:“📲”};
+const PRIO={high:“Alta”,medium:“Média”,low:“Baixa”};const PRIOC={high:G.red,medium:G.yellow,low:G.primary};
+const t2=today();const todayMD=t2.slice(5);const anivHoje=pats.filter(function(p){return p.dob&&p.dob.slice(5)===todayMD;});const anivMes=pats.filter(function(p){return p.dob&&p.dob.slice(5,7)===t2.slice(5,7);});const PCIR2=[“Exodontia”,“Extracao”,“Implante”,“Cirurgia”,“Enxerto”,“Sinus”,“Gengivoplastia”,“Apicectomia”,“Frenectomia”,“Biopsia”];const yst2=new Date(new Date(t2)-86400000).toISOString().split(“T”)[0];const posCir2=appts.filter(function(a){return a.date===yst2&&(a.status===“done”||a.status===“confirmed”)&&PCIR2.some(function(p){return a.procedure&&a.procedure.toLowerCase().indexOf(p.toLowerCase())>=0;});}).map(function(a){return{a:a,p:pats.find(function(x){return x.id===a.patientId;})};}).filter(function(x){return x.p;});const semAtras2=pats.filter(function(p){var uc=appts.filter(function(a){return a.patientId===p.id&&(a.status===“done”||a.status===“confirmed”);}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000)>=180:!!p.since;});var sendWA2=async function(ph,msg){var sent=await WA_API(ph,msg);if(!sent){var a=document.createElement(“a”);a.href=“https://wa.me/55”+ph.replace(/[^0-9]/g,””)+”?text=”+encodeURIComponent(msg);a.target=”_blank”;document.body.appendChild(a);a.click();document.body.removeChild(a);}};
 var t3=today();
 var [showEspModal,setShowEspModal]=useState(false);
 var esperaAtiva=(espera||[]).filter(function(e){return e.valido>=t3;});
 var esperaExp=(espera||[]).filter(function(e){return e.valido<t3;});
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <div style={{background:"#F3E5F5",border:"2px solid "+(esperaAtiva.length>0?"#7B1FA2":G.border),borderRadius:14,padding:"14px 16px"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:esperaAtiva.length>0?10:0}}>
 <div style={{fontWeight:700,fontSize:13,color:"#7B1FA2"}}>{"⏳ Lista de Espera ("+esperaAtiva.length+")"}</div>
@@ -2030,14 +2040,15 @@ return(
 // FINANCEIRO
 // ══════════════════════════════════════════════════════════
 function Financeiro({recs,pats,dents,expenses}){
-const [mo,setMo]=useState(today().slice(0,7));const [dn,setDn]=useState("all");
-const mr=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0&&(dn==="all"||r.dentistId===Number(dn)));
+const [mo,setMo]=useState(today().slice(0,7));const [dn,setDn]=useState(“all”);
+const mr=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0&&(dn===“all”||r.dentistId===Number(dn)));
 const raw=mr.reduce((s,r)=>s+r.paid,0);const liq=mr.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
 const clinicExp=(expenses.clinic||[]).filter(e=>e.date.startsWith(mo)).reduce((s,e)=>s+Number(e.value||0),0);
 const byP=PAY.map(pt=>({pt,v:mr.filter(r=>r.payment===pt).reduce((s,r)=>s+r.paid,0)})).filter(x=>x.v>0);
-const mx=Math.max(...byP.map(x=>x.v),1);
-const PC={"Dinheiro":G.success,"PIX":"#00B894","Cartão Crédito":G.blue,"Cartão Débito":"#6C5CE7","Convênio":G.muted,"Cheque":G.orange};
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+const mx=Math.max(…byP.map(x=>x.v),1);
+const PC={“Dinheiro”:G.success,“PIX”:”#00B894”,“Cartão Crédito”:G.blue,“Cartão Débito”:”#6C5CE7”,“Convênio”:G.muted,“Cheque”:G.orange};
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Financeiro</h2>
 <div style={{display:"flex",gap:9}}><Inp val={mo} set={setMo} type="month" style={{width:160}}/><Sel val={dn} set={setDn} opts={[{v:"all",l:"Todos"},...dents.map(d=>({v:d.id,l:d.name}))]} style={{width:180}}/></div>
@@ -2070,37 +2081,37 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 }
 
 // ══════════════════════════════════════════════════════════
-// MSG TAB -- WhatsApp component (outside Relatorios to allow useState)
+// MSG TAB – WhatsApp component (outside Relatorios to allow useState)
 // ══════════════════════════════════════════════════════════
 function MsgTab({pats}){
-const NL="\n";
+const NL=”\n”;
 const mk=lines=>lines.join(NL);
 
 const DATAS=[
-{id:"natal",  label:"🎄 Natal",       msg:mk(["🎄 Feliz Natal! 🦷✨","","Olá, {nome}!","","Nesta data tão especial, a equipe Affonso Odontologia deseja a você e sua família um Natal repleto de alegria, saúde e muitos sorrisos!","","Que o próximo ano traga ainda mais motivos para sorrir! 😁","","Com carinho,","Dr. Diego Affonso e equipe 🤍"])},
-{id:"reveillon",label:"🥂 Réveillon", msg:mk(["🥂 Feliz Ano Novo! 🎉","","Olá, {nome}!","","Que este novo ano seja repleto de saúde, alegria e sorrisos bonitos! 😁","","Continuamos aqui para cuidar do seu sorriso.","","Com carinho,","Dr. Diego Affonso e equipe 🦷"])},
-{id:"pascoa",  label:"🐣 Páscoa",      msg:mk(["🐣 Feliz Páscoa! 🍫","","Olá, {nome}!","","Desejamos a você uma Páscoa cheia de paz, amor e razões para sorrir! 😊","","Lembre-se: depois dos chocolates, não esqueça da higiene bucal! 🦷😄","","Com carinho,","Dr. Diego Affonso e equipe"])},
-{id:"mae",    label:"💐 Dia das Mães", msgF:mk(["💐 Feliz Dia das Mães!","","Olá, {nome}!","","Neste dia tão especial, queremos te parabenizar por todo amor e dedicação que você oferece! Que seu sorriso ilumine sempre quem você ama. 😊🌸","","Com muito carinho,","Dr. Diego Affonso e equipe 🦷"]), msgM:mk(["💐 Feliz Dia das Mães!","","Olá, {nome}!","","Neste dia especial, desejamos que a mãe da sua vida seja muito celebrada! 💐😊","","Com carinho,","Dr. Diego Affonso e equipe 🦷"])},
-{id:"pai",    label:"👔 Dia dos Pais", msgM:mk(["👔 Feliz Dia dos Pais!","","Olá, {nome}!","","Neste dia especial, queremos te parabenizar por toda dedicação e amor que você oferece à sua família! 😊","","Com muito carinho,","Dr. Diego Affonso e equipe 🦷"]), msgF:mk(["👔 Feliz Dia dos Pais!","","Olá, {nome}!","","Neste dia especial, desejamos que o pai da sua vida seja muito celebrado! 👔😊","","Com carinho,","Dr. Diego Affonso e equipe 🦷"])},
-{id:"crianca",label:"👧 Dia das Crianças",msg:mk(["👧 Feliz Dia das Crianças! 🎈","","Olá, {nome}!","","Que o sorriso das crianças ilumine seu dia! 😁","","Cuide do sorrisinho dos pequenos -- uma boa saúde bucal começa cedo!","","Com carinho,","Dr. Diego Affonso e equipe 🦷"])},
+{id:“natal”,  label:“🎄 Natal”,       msg:mk([“🎄 Feliz Natal! 🦷✨”,””,“Olá, {nome}!”,””,“Nesta data tão especial, a equipe Affonso Odontologia deseja a você e sua família um Natal repleto de alegria, saúde e muitos sorrisos!”,””,“Que o próximo ano traga ainda mais motivos para sorrir! 😁”,””,“Com carinho,”,“Dr. Diego Affonso e equipe 🤍”])},
+{id:“reveillon”,label:“🥂 Réveillon”, msg:mk([“🥂 Feliz Ano Novo! 🎉”,””,“Olá, {nome}!”,””,“Que este novo ano seja repleto de saúde, alegria e sorrisos bonitos! 😁”,””,“Continuamos aqui para cuidar do seu sorriso.”,””,“Com carinho,”,“Dr. Diego Affonso e equipe 🦷”])},
+{id:“pascoa”,  label:“🐣 Páscoa”,      msg:mk([“🐣 Feliz Páscoa! 🍫”,””,“Olá, {nome}!”,””,“Desejamos a você uma Páscoa cheia de paz, amor e razões para sorrir! 😊”,””,“Lembre-se: depois dos chocolates, não esqueça da higiene bucal! 🦷😄”,””,“Com carinho,”,“Dr. Diego Affonso e equipe”])},
+{id:“mae”,    label:“💐 Dia das Mães”, msgF:mk([“💐 Feliz Dia das Mães!”,””,“Olá, {nome}!”,””,“Neste dia tão especial, queremos te parabenizar por todo amor e dedicação que você oferece! Que seu sorriso ilumine sempre quem você ama. 😊🌸”,””,“Com muito carinho,”,“Dr. Diego Affonso e equipe 🦷”]), msgM:mk([“💐 Feliz Dia das Mães!”,””,“Olá, {nome}!”,””,“Neste dia especial, desejamos que a mãe da sua vida seja muito celebrada! 💐😊”,””,“Com carinho,”,“Dr. Diego Affonso e equipe 🦷”])},
+{id:“pai”,    label:“👔 Dia dos Pais”, msgM:mk([“👔 Feliz Dia dos Pais!”,””,“Olá, {nome}!”,””,“Neste dia especial, queremos te parabenizar por toda dedicação e amor que você oferece à sua família! 😊”,””,“Com muito carinho,”,“Dr. Diego Affonso e equipe 🦷”]), msgF:mk([“👔 Feliz Dia dos Pais!”,””,“Olá, {nome}!”,””,“Neste dia especial, desejamos que o pai da sua vida seja muito celebrado! 👔😊”,””,“Com carinho,”,“Dr. Diego Affonso e equipe 🦷”])},
+{id:“crianca”,label:“👧 Dia das Crianças”,msg:mk([“👧 Feliz Dia das Crianças! 🎈”,””,“Olá, {nome}!”,””,“Que o sorriso das crianças ilumine seu dia! 😁”,””,“Cuide do sorrisinho dos pequenos – uma boa saúde bucal começa cedo!”,””,“Com carinho,”,“Dr. Diego Affonso e equipe 🦷”])},
 ];
 const MSGS=[
-{id:"bday",     label:"🎂 Aniversário",       msg:mk(["🎂 Feliz Aniversário, {nome}! 🥳","","A equipe Affonso Odontologia deseja um dia incrível cheio de alegria e muitos sorrisos!","","Que este novo ano seja repleto de saúde e conquistas. 🌟","","Parabéns!","Dr. Diego Affonso e equipe 🦷🤍"])},
-{id:"fim",      label:"✅ Fim de Tratamento",  msg:mk(["Olá, {nome}! 😊","","Agradecemos imensamente pela confiança no nosso trabalho! 🦷✨","","Seu tratamento foi concluído com sucesso. Para manter os resultados, é fundamental a *manutenção semestral* -- uma consulta a cada 6 meses evita novos problemas.","","Já anote na agenda: seu próximo retorno é em *{mes_retorno}*. 📅","","Estamos sempre aqui para você!","Com carinho, Dr. Diego Affonso e equipe 🤍"])},
-{id:"semestral",label:"📅 Controle Semestral",msg:mk(["Olá, {nome}! 😊","","Estamos com saudades do seu sorriso! 🦷","","Já faz alguns meses desde sua última consulta. Que tal agendar seu controle semestral? É rápido e fundamental para manter sua saúde bucal em dia!","","Entre em contato -- ficaremos felizes em recebê-lo(a)! 😁","","Affonso Odontologia"])},
-{id:"retorno",  label:"⚠️ Retorno Tratamento",msg:mk(["Olá, {nome}! 😊","","Notamos que você está em tratamento conosco e ainda não remarcou sua próxima consulta. Que tal agendarmos? 😊","","Estamos aqui para você!","","Affonso Odontologia"])},
+{id:“bday”,     label:“🎂 Aniversário”,       msg:mk([“🎂 Feliz Aniversário, {nome}! 🥳”,””,“A equipe Affonso Odontologia deseja um dia incrível cheio de alegria e muitos sorrisos!”,””,“Que este novo ano seja repleto de saúde e conquistas. 🌟”,””,“Parabéns!”,“Dr. Diego Affonso e equipe 🦷🤍”])},
+{id:“fim”,      label:“✅ Fim de Tratamento”,  msg:mk([“Olá, {nome}! 😊”,””,“Agradecemos imensamente pela confiança no nosso trabalho! 🦷✨”,””,“Seu tratamento foi concluído com sucesso. Para manter os resultados, é fundamental a *manutenção semestral* – uma consulta a cada 6 meses evita novos problemas.”,””,“Já anote na agenda: seu próximo retorno é em *{mes_retorno}*. 📅”,””,“Estamos sempre aqui para você!”,“Com carinho, Dr. Diego Affonso e equipe 🤍”])},
+{id:“semestral”,label:“📅 Controle Semestral”,msg:mk([“Olá, {nome}! 😊”,””,“Estamos com saudades do seu sorriso! 🦷”,””,“Já faz alguns meses desde sua última consulta. Que tal agendar seu controle semestral? É rápido e fundamental para manter sua saúde bucal em dia!”,””,“Entre em contato – ficaremos felizes em recebê-lo(a)! 😁”,””,“Affonso Odontologia”])},
+{id:“retorno”,  label:“⚠️ Retorno Tratamento”,msg:mk([“Olá, {nome}! 😊”,””,“Notamos que você está em tratamento conosco e ainda não remarcou sua próxima consulta. Que tal agendarmos? 😊”,””,“Estamos aqui para você!”,””,“Affonso Odontologia”])},
 ];
 
-const MES_FULL=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const nextMo=()=>{const d=new Date();d.setMonth(d.getMonth()+6);return MES_FULL[d.getMonth()]+"/"+d.getFullYear();};
+const MES_FULL=[“Janeiro”,“Fevereiro”,“Março”,“Abril”,“Maio”,“Junho”,“Julho”,“Agosto”,“Setembro”,“Outubro”,“Novembro”,“Dezembro”];
+const nextMo=()=>{const d=new Date();d.setMonth(d.getMonth()+6);return MES_FULL[d.getMonth()]+”/”+d.getFullYear();};
 
 const resolveTemplate=(d,p)=>{
-let t=d.msg||"";
+let t=d.msg||””;
 if(d.msgF||d.msgM){
-const g=p?p.genero||"":"F";
-t=g==="M"?(d.msgM||d.msg||""):(d.msgF||d.msg||"");
+const g=p?p.genero||””:“F”;
+t=g===“M”?(d.msgM||d.msg||””):(d.msgF||d.msg||””);
 }
-return t.replace(/{nome}/g,p?p.name:"{nome}").replace(/{mes_retorno}/g,nextMo());
+return t.replace(/{nome}/g,p?p.name:”{nome}”).replace(/{mes_retorno}/g,nextMo());
 };
 
 const withPhone=pats.filter(p=>p.phone);
@@ -2108,16 +2119,16 @@ const bdayToday=pats.filter(p=>isBday(p.dob));
 
 // Preview modal state
 const [preview,setPreview]=useState(null);
-// {type:"single"|"batch"|"data", ph, name, editText, targets, dataObj, msgTemplate}
+// {type:“single”|“batch”|“data”, ph, name, editText, targets, dataObj, msgTemplate}
 
 const openSingle=(ph,name,rawMsg)=>{
-setPreview({type:"single",ph,name,editText:rawMsg});
+setPreview({type:“single”,ph,name,editText:rawMsg});
 };
 
 const openBatch=(targets,msgTemplate,dataObj)=>{
-if(!targets.length){alert("Nenhum paciente selecionado com telefone.");return;}
+if(!targets.length){alert(“Nenhum paciente selecionado com telefone.”);return;}
 const first=targets[0];
-setPreview({type:"batch",targets,dataObj,msgTemplate,editText:resolveTemplate(dataObj||{msg:msgTemplate},first),idx:0});
+setPreview({type:“batch”,targets,dataObj,msgTemplate,editText:resolveTemplate(dataObj||{msg:msgTemplate},first),idx:0});
 };
 
 // Personalized send state
@@ -2128,29 +2139,29 @@ const [localAll,setLocalAll]=useState(false);
 const handleSend=()=>{
 if(!preview)return;
 const {type,ph,editText,targets,dataObj,msgTemplate,idx}=preview;
-if(type==="single"){
-const n=(ph||"").replace(/\D/g,"");
-const url="https://wa.me/"+(n.startsWith("55")?n:"55"+n)+"?text="+encodeURIComponent(editText);
-window.open(url,"_blank");
+if(type===“single”){
+const n=(ph||””).replace(/\D/g,””);
+const url=“https://wa.me/”+(n.startsWith(“55”)?n:“55”+n)+”?text=”+encodeURIComponent(editText);
+window.open(url,”_blank”);
 setPreview(null);
-} else if(type==="batch"){
+} else if(type===“batch”){
 // Send current, advance to next
 const p=targets[idx];
-const n=(p.phone||"").replace(/\D/g,"");
-const url="https://wa.me/"+(n.startsWith("55")?n:"55"+n)+"?text="+encodeURIComponent(editText);
-window.open(url,"_blank");
+const n=(p.phone||””).replace(/\D/g,””);
+const url=“https://wa.me/”+(n.startsWith(“55”)?n:“55”+n)+”?text=”+encodeURIComponent(editText);
+window.open(url,”_blank”);
 const nextIdx=idx+1;
 if(nextIdx<targets.length){
 const nextP=targets[nextIdx];
 const nextMsg=resolveTemplate(dataObj||{msg:msgTemplate},nextP);
-setPreview({...preview,idx:nextIdx,editText:nextMsg,ph:nextP.phone,name:nextP.name});
+setPreview({…preview,idx:nextIdx,editText:nextMsg,ph:nextP.phone,name:nextP.name});
 } else {
 setPreview(null);
 }
 }
 };
 
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
 
 ```
 {/* Preview Modal */}
@@ -2298,7 +2309,7 @@ return mo6(last.date)<=t;
 });
 const emTrat=treats.filter(t2=>t2.items.some(it=>!it.done));
 const semRetorno=emTrat.filter(t2=>{
-const futura=appts.find(a=>a.patientId===t2.patientId&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed");
+const futura=appts.find(a=>a.patientId===t2.patientId&&a.date>=t&&a.status!==“cancelled”&&a.status!==“missed”);
 return !futura;
 });
 const newPats=pats.filter(p=>{
@@ -2308,28 +2319,29 @@ return first&&first.date.startsWith(mo);
 
 const [ticks,setTicks]=useState({});
 const [noteModal,setNoteModal]=useState(null);
-const [noteText,setNoteText]=useState("");
+const [noteText,setNoteText]=useState(””);
 
 const tickKey=(listId,patId)=>`${listId}_${patId}`;
 const isTicked=(listId,patId)=>!!ticks[tickKey(listId,patId)]?.done;
 const getTick=(listId,patId)=>ticks[tickKey(listId,patId)];
-const doTick=(listId,patId,note="")=>{
+const doTick=(listId,patId,note=””)=>{
 const k=tickKey(listId,patId);
 const already=ticks[k]?.done;
-setTicks(prev=>({...prev,[k]:already?{...prev[k],done:false}:{done:true,note,doneBy:user.name,doneAt:today()}}));
+setTicks(prev=>({…prev,[k]:already?{…prev[k],done:false}:{done:true,note,doneBy:user.name,doneAt:today()}}));
 };
 
-const waBday="Olá, {nome}! A equipe Affonso Odontologia deseja um feliz aniversário cheio de saúde e sorrisos! 🎂🦷";
-const waSemestral="Olá, {nome}! Já faz alguns meses desde sua última consulta. Que tal agendar seu controle semestral? 😊 Affonso Odontologia";
-const waSemRet="Olá, {nome}! Notamos que você está em tratamento e ainda não remarcou. Podemos ajudar a agendar? 😊 Affonso Odontologia";
+const waBday=“Olá, {nome}! A equipe Affonso Odontologia deseja um feliz aniversário cheio de saúde e sorrisos! 🎂🦷”;
+const waSemestral=“Olá, {nome}! Já faz alguns meses desde sua última consulta. Que tal agendar seu controle semestral? 😊 Affonso Odontologia”;
+const waSemRet=“Olá, {nome}! Notamos que você está em tratamento e ainda não remarcou. Podemos ajudar a agendar? 😊 Affonso Odontologia”;
 
 const PatCard=({p,badge,badgeCol,extra,listId,waMsg,treatId})=>{
-const pid=p.id+(treatId||"");
+const pid=p.id+(treatId||””);
 const ticked=isTicked(listId,pid);
 const tick=getTick(listId,pid);
 const d=dents.find(x=>x.id===recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0]?.dentistId)||dents[0];
-return <div style={{background:ticked?"#f0faf4":G.card,borderRadius:10,padding:"10px 13px",borderLeft:`4px solid ${ticked?G.success:badgeCol}`,display:"flex",gap:9,alignItems:"flex-start",boxShadow:"0 1px 4px rgba(0,0,0,.05)",transition:"all .2s",marginBottom:6}}>
-<button onClick={()=>doTick(listId,pid)} style={{width:24,height:24,borderRadius:"50%",border:`2px solid ${ticked?G.success:G.border}`,background:ticked?G.success:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:13,flexShrink:0,marginTop:1,transition:"all .2s"}}>{ticked?"✓":""}</button>
+return <div style={{background:ticked?”#f0faf4”:G.card,borderRadius:10,padding:“10px 13px”,borderLeft:`4px solid ${ticked?G.success:badgeCol}`,display:“flex”,gap:9,alignItems:“flex-start”,boxShadow:“0 1px 4px rgba(0,0,0,.05)”,transition:“all .2s”,marginBottom:6}}>
+<button onClick={()=>doTick(listId,pid)} style={{width:24,height:24,borderRadius:“50%”,border:`2px solid ${ticked?G.success:G.border}`,background:ticked?G.success:”#fff”,display:“flex”,alignItems:“center”,justifyContent:“center”,cursor:“pointer”,fontSize:13,flexShrink:0,marginTop:1,transition:“all .2s”}}>{ticked?“✓”:””}</button>
+
 <div style={{flex:1}}>
 <div style={{fontWeight:700,fontSize:13,textDecoration:ticked?"line-through":"none",color:ticked?G.muted:G.text}}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {p.folder}</span></div>
 {extra&&<div style={{fontSize:11,color:G.muted,marginTop:1}}>{extra}</div>}
@@ -2348,14 +2360,15 @@ return <div style={{background:ticked?"#f0faf4":G.card,borderRadius:10,padding:"
 };
 
 const sections=[
-{id:"bday_week",label:"🎂 Aniversariantes esta semana",col:G.gold,list:bdayWeek,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
-{id:"bday_month",label:"🎉 Aniversariantes este mês",col:G.gold,list:bdayMonth,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
-{id:"semestral",label:"📅 Controle Semestral",col:G.orange,list:semestral,sub:"Mais de 6 meses sem atendimento",extra:p=>{const l=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];return`Último atend: ${fmt(l?.date)}`;},wa:waSemestral},
-{id:"sem_ret",label:"⚠️ Em tratamento sem agendamento",col:G.red,list:semRetorno,sub:"Plano ativo sem consulta futura",extra:x=>{const pend=x.items.filter(i=>!i.done).length;return`Plano: ${x.name} · ${pend} proc. pendente${pend>1?"s":""}`;},wa:waSemRet,isTreat:true},
-{id:"new_pats",label:"✨ Novos pacientes no mês",col:G.primary,list:newPats,extra:()=>"",wa:null},
+{id:“bday_week”,label:“🎂 Aniversariantes esta semana”,col:G.gold,list:bdayWeek,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
+{id:“bday_month”,label:“🎉 Aniversariantes este mês”,col:G.gold,list:bdayMonth,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
+{id:“semestral”,label:“📅 Controle Semestral”,col:G.orange,list:semestral,sub:“Mais de 6 meses sem atendimento”,extra:p=>{const l=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];return`Último atend: ${fmt(l?.date)}`;},wa:waSemestral},
+{id:“sem_ret”,label:“⚠️ Em tratamento sem agendamento”,col:G.red,list:semRetorno,sub:“Plano ativo sem consulta futura”,extra:x=>{const pend=x.items.filter(i=>!i.done).length;return`Plano: ${x.name} · ${pend} proc. pendente${pend>1?"s":""}`;},wa:waSemRet,isTreat:true},
+{id:“new_pats”,label:“✨ Novos pacientes no mês”,col:G.primary,list:newPats,extra:()=>””,wa:null},
 ];
 
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:9}}>
 {[["Aniv. semana",bdayWeek.length,G.gold],["Semestral",semestral.length,G.orange],["Sem retorno",semRetorno.length,G.red],["Novos mês",newPats.length,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"10px",textAlign:"center",borderTop:`3px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div></div>)}
 </div>
@@ -2402,11 +2415,11 @@ return <PatCard key={sec.isTreat?x.id:p.id} p={p} badge={sec.label.slice(2)} bad
 // RELATÓRIOS
 // ══════════════════════════════════════════════════════════
 function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,user}){
-const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");
+const [tab,setTab]=useState(“dent”);const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState(“all”);
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
 const [allSelMsg,setAllSelMsg]=useState(false);
-const PC={"Dinheiro":G.success,"PIX":"#00B894","Cartão Crédito":G.blue,"Cartão Débito":"#6C5CE7","Convênio":G.muted,"Cheque":G.orange};
+const PC={“Dinheiro”:G.success,“PIX”:”#00B894”,“Cartão Crédito”:G.blue,“Cartão Débito”:”#6C5CE7”,“Convênio”:G.muted,“Cheque”:G.orange};
 
 const dr=dents.map(d=>{
 // Atendimentos do mês (recibos)
@@ -2460,14 +2473,15 @@ return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom};
 ```
 
 });
-const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&p.sent.startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
+const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&p.sent.startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status===“placed”).length,wait:ps.filter(p=>p.status===“waiting”).length,cost};});
 const clinicExp=(expenses.clinic||[]).filter(e=>e.date.startsWith(mo));
 const persExp=(expenses.personal||[]).filter(e=>e.date.startsWith(mo));
 
-const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
-if(user.level>=3)TABS.push(["exp","Despesas"]);
+const TABS=[[“dent”,“Dentistas”],[“prot”,“Protéticos”],[“orc”,“Orçamentos”],[“pacs”,“👥 Pacientes”],[“msg”,“📱 WhatsApp”]];
+if(user.level>=3)TABS.push([“exp”,“Despesas”]);
 
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Relatórios</h2>
 <Inp val={mo} set={setMo} type="month" style={{width:165}}/>
@@ -2614,13 +2628,14 @@ return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14p
 // ESTOQUE
 // ══════════════════════════════════════════════════════════
 function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog}){
-const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
-const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
-const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
-const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
-const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
-const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note},...(s.movs||[])]}:s));setMv(null);};
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState(“material”);
+const b0={name:””,qty:0,unit:“un”,min:1,price:0,movs:[]};
+const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({…p,[k]:v}));
+const [m,setM]=useState({t:“in”,q:””,note:””,date:today()});
+const save=()=>{if(!f.name)return;const obj={…f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[…prev,obj]);setModal(false);};
+const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{…s,qty:m.t===“in”?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note},…(s.movs||[])]}:s));setMv(null);};
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 <button onClick={function(){setStkTab("material");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="material"?"#fff":G.bg,color:stkTab==="material"?G.primary:G.muted,boxShadow:stkTab==="material"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"📦 Material"}</button>
 <button onClick={function(){setStkTab("implantes");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="implantes"?"#fff":G.bg,color:stkTab==="implantes"?G.primary:G.muted,boxShadow:stkTab==="implantes"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"🦷 Implantes"}</button>
@@ -2669,60 +2684,62 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ADMIN
 // ══════════════════════════════════════════════════════════
 function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user}){
-const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
-const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
-const TIPO_L_LOG={all:"Todos",agenda:"Agenda",paciente:"Paciente",financeiro:"Financeiro",estoque:"Estoque",protese:"Protese",lembrete:"Lembrete",remarcar:"Remarcar",admin:"Admin"};
+const [tab,setTab]=useState(“users”);const [lfUser,setLfUser]=useState(“all”);const [lfPat,setLfPat]=useState(””);const [lfData,setLfData]=useState(””);const [lfTipo,setLfTipo]=useState(“all”);
+const TIPOS_LOG=[“all”,“agenda”,“paciente”,“financeiro”,“estoque”,“protese”,“lembrete”,“remarcar”,“admin”];
+const TIPO_L_LOG={all:“Todos”,agenda:“Agenda”,paciente:“Paciente”,financeiro:“Financeiro”,estoque:“Estoque”,protese:“Protese”,lembrete:“Lembrete”,remarcar:“Remarcar”,admin:“Admin”};
 const filtered=(logs||[]).filter(function(l){
-if(lfUser!=="all"&&l.user!==lfUser)return false;
-if(lfPat&&!(l.patName||"").toLowerCase().includes(lfPat.toLowerCase())&&!l.desc.toLowerCase().includes(lfPat.toLowerCase()))return false;
+if(lfUser!==“all”&&l.user!==lfUser)return false;
+if(lfPat&&!(l.patName||””).toLowerCase().includes(lfPat.toLowerCase())&&!l.desc.toLowerCase().includes(lfPat.toLowerCase()))return false;
 if(lfData&&!l.ts.startsWith(lfData))return false;
-if(lfTipo!=="all"&&l.tipo!==lfTipo)return false;
+if(lfTipo!==“all”&&l.tipo!==lfTipo)return false;
 return true;
 });
-const uniqueUsers=[...new Set((logs||[]).map(function(l){return l.user;}))];
+const uniqueUsers=[…new Set((logs||[]).map(function(l){return l.user;}))];
 const [um,setUm]=useState(false);const [pm,setPm]=useState(false);const [lm,setLm]=useState(false);const [dm,setDm]=useState(false);
 const [eu,setEu]=useState(null);const [ep,setEp]=useState(null);const [el,setEl]=useState(null);const [ed,setEd]=useState(null);
-const b0={name:"",role:"Recepcionista",level:2,login:"",pass:"",dentistId:"",color:UCOLS[0],active:true,criaDentista:false};
-const bp={name:"",price:0};
-const bl={name:"",contact:"",phone:""};
-const bd={name:"",specialty:"Clinico Geral",commission:40,cro:"",color:UCOLS[0],dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}};
+const b0={name:””,role:“Recepcionista”,level:2,login:””,pass:””,dentistId:””,color:UCOLS[0],active:true,criaDentista:false};
+const bp={name:””,price:0};
+const bl={name:””,contact:””,phone:””};
+const bd={name:””,specialty:“Clinico Geral”,commission:40,cro:””,color:UCOLS[0],dias:[1,2,3,4,5],entrada:“08:00”,saida:“18:00”,almoco:{ini:“12:00”,fim:“13:00”}};
 const [uf,setUf]=useState(b0);const [pf,setPf]=useState(bp);const [lf,setLf]=useState(bl);const [df,setDf]=useState(bd);
-const fu=k=>v=>setUf(p=>({...p,[k]:v}));const fp=k=>v=>setPf(p=>({...p,[k]:v}));const fl=k=>v=>setLf(p=>({...p,[k]:v}));
-const upDf=k=>v=>setDf(p=>({...p,[k]:v}));
-if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><p style={{color:G.red,fontSize:15}}>Acesso restrito ao Administrador</p></div>;
+const fu=k=>v=>setUf(p=>({…p,[k]:v}));const fp=k=>v=>setPf(p=>({…p,[k]:v}));const fl=k=>v=>setLf(p=>({…p,[k]:v}));
+const upDf=k=>v=>setDf(p=>({…p,[k]:v}));
+if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:“center”,boxShadow:“0 1px 4px rgba(0,0,0,.07)”}}><p style={{color:G.red,fontSize:15}}>Acesso restrito ao Administrador</p></div>;
 
 const saveU=()=>{
-if(!uf.name||!uf.login)return alert("Preencha nome e login");
+if(!uf.name||!uf.login)return alert(“Preencha nome e login”);
 let dentId=uf.dentistId?Number(uf.dentistId):null;
 if(!eu&&uf.level===1&&uf.criaDentista){
-const newDent={id:nid(dents),name:uf.name,color:uf.color,specialty:"Clinico Geral",commission:40,cro:"",dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}};
-setDents(prev=>[...prev,newDent]);
+const newDent={id:nid(dents),name:uf.name,color:uf.color,specialty:“Clinico Geral”,commission:40,cro:””,dias:[1,2,3,4,5],entrada:“08:00”,saida:“18:00”,almoco:{ini:“12:00”,fim:“13:00”}};
+setDents(prev=>[…prev,newDent]);
 dentId=newDent.id;
 }
-const obj={...uf,dentistId:dentId,id:eu?eu.id:nid(users),criaDentista:undefined};
-setUsers(prev=>eu?prev.map(u=>u.id===eu.id?obj:u):[...prev,obj]);
+const obj={…uf,dentistId:dentId,id:eu?eu.id:nid(users),criaDentista:undefined};
+setUsers(prev=>eu?prev.map(u=>u.id===eu.id?obj:u):[…prev,obj]);
 setUm(false);
 };
 
 const removeUser=(u)=>{
 if(u.dentistId){
-const dentName=dents.find(d=>d.id===u.dentistId)?.name||"";
-if(window.confirm("Remover tambem o dentista "+dentName+" da agenda e horarios?")){
+const dentName=dents.find(d=>d.id===u.dentistId)?.name||””;
+if(window.confirm(“Remover tambem o dentista “+dentName+” da agenda e horarios?”)){
 setDents(prev=>prev.filter(d=>d.id!==u.dentistId));
 }
 }
 setUsers(prev=>prev.filter(x=>x.id!==u.id));
 };
 
-const saveP=()=>{if(!pf.name)return;const obj={...pf,price:Number(pf.price),id:ep?ep.id:nid(procs)};setProcs(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[...prev,obj]);setPm(false);};
-const saveL=()=>{if(!lf.name)return alert("Informe o nome do laboratório");const obj={...lf,id:el?el.id:nid(labs)};setLabs(prev=>el?prev.map(l=>l.id===el.id?obj:l):[...prev,obj]);setLm(false);};
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+const saveP=()=>{if(!pf.name)return;const obj={…pf,price:Number(pf.price),id:ep?ep.id:nid(procs)};setProcs(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[…prev,obj]);setPm(false);};
+const saveL=()=>{if(!lf.name)return alert(“Informe o nome do laboratório”);const obj={…lf,id:el?el.id:nid(labs)};setLabs(prev=>el?prev.map(l=>l.id===el.id?obj:l):[…prev,obj]);setLm(false);};
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
 <div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border,overflowX:"auto"}}>
 {[["users","Usuários"],["dents","🦷 Dentistas"],["procs","Procedimentos"],["labs","Laboratórios"],["agenda","📅 Horários"],["access","🔑 Acessos"],["log","📋 Log"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 12px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:11,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
 
-{tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
+{tab===“users”&&<div style={{display:“flex”,flexDirection:“column”,gap:9}}>
+
 <div style={{background:G.accent,borderRadius:10,padding:"9px 12px",fontSize:12,color:G.primary,marginBottom:4}}>
 💡 Para adicionar dentista use a aba <strong>🦷 Dentistas</strong>. Aqui crie apenas credenciais de acesso.
 </div>
@@ -2741,7 +2758,8 @@ return <div key={u.id} style={{background:G.card,borderRadius:11,padding:"11px 1
 })}
 </div>}
 
-{tab==="dents"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
+{tab===“dents”&&<div style={{display:“flex”,flexDirection:“column”,gap:9}}>
+
 <div style={{background:G.accent,borderRadius:10,padding:"9px 12px",fontSize:12,color:G.primary}}>
 🦷 Cada dentista aqui aparece na <strong>agenda</strong> e nos <strong>horários</strong>. Para acesso ao sistema crie um usuário e vincule.
 </div>
@@ -3031,11 +3049,12 @@ const todayA=appts.filter(a=>a.date===t&&(!isDent||a.dentistId===user.dentistId)
 const mo=t.slice(0,7);
 const rev=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0).reduce((s,r)=>s+r.paid,0);
 // Per-dentist today counts (for admin view)
-const dentTodayCounts=dents.map(function(d){return{dent:d,count:appts.filter(function(a){return a.date===t&&a.dentistId===d.id&&a.status!=="cancelled"&&a.status!=="missed";}).length};}).filter(function(x){return x.count>0;});
+const dentTodayCounts=dents.map(function(d){return{dent:d,count:appts.filter(function(a){return a.date===t&&a.dentistId===d.id&&a.status!==“cancelled”&&a.status!==“missed”;}).length};}).filter(function(x){return x.count>0;});
 const ar=autoRems(pats,recs,appts);
-const urgent=[...ar,...rems.filter(r=>!r.done)].filter(r=>r.date<=t);
-const todayP=pros.filter(p=>p.due===t&&p.status==="waiting");
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+const urgent=[…ar,…rems.filter(r=>!r.done)].filter(r=>r.date<=t);
+const todayP=pros.filter(p=>p.due===t&&p.status===“waiting”);
+return <div style={{display:“flex”,flexDirection:“column”,gap:14}} className=“fi”>
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div><div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div></div>
 {urgent.filter(r=>r.type==="surg").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.red+"15",border:`2px solid ${G.red}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🔴</span><span style={{fontWeight:700,color:G.red,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! Como está se sentindo após o procedimento de ontem? 😊`)}/>}</div>;})}
 {urgent.filter(r=>r.type==="bday").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.gold+"15",border:`2px solid ${G.gold}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🎂</span><span style={{fontWeight:700,color:G.gold,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 Parabéns" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! 🎂 Feliz aniversário da equipe Affonso Odontologia! 😊`)}/>}</div>;})}
@@ -3081,15 +3100,16 @@ return <div key={a.id} style={{borderBottom:`1px solid ${G.border}`,overflow:"hi
 }
 
 // ══════════════════════════════════════════════════════════
-// WA PREVIEW MODAL -- global, shown before sending
+// WA PREVIEW MODAL – global, shown before sending
 // ══════════════════════════════════════════════════════════
 function WaPreview({data,onClose}){
 if(!data)return null;
 const {ph,msg}=data;
-const n=(ph||"").replace(/\D/g,"");
+const n=(ph||””).replace(/\D/g,””);
 const url=`https://wa.me/${n.startsWith("55")?n:"55"+n}?text=${encodeURIComponent(msg)}`;
-const copy=()=>{ navigator.clipboard?.writeText(msg).then(()=>alert("Mensagem copiada!")).catch(()=>alert("Copie manualmente:\n\n"+msg)); };
-return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 0 0"}}>
+const copy=()=>{ navigator.clipboard?.writeText(msg).then(()=>alert(“Mensagem copiada!”)).catch(()=>alert(“Copie manualmente:\n\n”+msg)); };
+return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.55)”,zIndex:9999,display:“flex”,alignItems:“flex-end”,justifyContent:“center”,padding:“0 0 0 0”}}>
+
 <div style={{background:"#fff",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:560,boxShadow:"0 -8px 32px rgba(0,0,0,.18)",overflow:"hidden"}}>
 {/* Header */}
 <div style={{background:"#25D366",padding:"14px 18px",display:"flex",alignItems:"center",gap:12}}>
@@ -3125,63 +3145,64 @@ Clique em "Abrir no WhatsApp" para enviar. O texto já estará preenchido.
 // RECEITUÁRIO
 // ══════════════════════════════════════════════════════════
 var MEDS_BASE=[
-{id:"amox500",cat:"Antibiótico",name:"Amoxicilina 500mg",pos:"1 cápsula de 8/8h por 7 dias",qty:"21 cápsulas"},
-{id:"amox875",cat:"Antibiótico",name:"Amoxicilina 875mg + Clavulanato",pos:"1 comprimido de 12/12h por 7 dias",qty:"14 comprimidos"},
-{id:"azitro",cat:"Antibiótico",name:"Azitromicina 500mg",pos:"1 comprimido ao dia por 5 dias",qty:"5 comprimidos"},
-{id:"metro",cat:"Antibiótico",name:"Metronidazol 400mg",pos:"1 comprimido de 8/8h por 7 dias",qty:"21 comprimidos"},
-{id:"clinda",cat:"Antibiótico",name:"Clindamicina 300mg",pos:"1 cápsula de 6/6h por 7 dias",qty:"28 cápsulas"},
-{id:"dipiro",cat:"Analgésico",name:"Dipirona 500mg",pos:"1 a 2 comprimidos de 6/6h se dor",qty:"20 comprimidos"},
-{id:"paracet",cat:"Analgésico",name:"Paracetamol 750mg",pos:"1 comprimido de 6/6h se dor",qty:"20 comprimidos"},
-{id:"ibupr",cat:"Anti-inflamatório",name:"Ibuprofeno 600mg",pos:"1 comprimido de 8/8h por 3 dias após refeições",qty:"9 comprimidos"},
-{id:"nimes",cat:"Anti-inflamatório",name:"Nimesulida 100mg",pos:"1 comprimido de 12/12h por 3 dias após refeições",qty:"6 comprimidos"},
-{id:"dexa",cat:"Corticóide",name:"Dexametasona 4mg",pos:"1 comprimido ao dia por 3 dias",qty:"3 comprimidos"},
-{id:"predni",cat:"Corticóide",name:"Prednisona 20mg",pos:"1 comprimido ao dia por 5 dias",qty:"5 comprimidos"},
-{id:"clorex",cat:"Antisséptico",name:"Clorexidina 0,12% Bochecho",pos:"Bochechar 1 min de 12/12h por 7 dias -- Não engolir.",qty:"1 frasco"},
-{id:"omepra",cat:"Protetor Gástrico",name:"Omeprazol 20mg",pos:"1 cápsula em jejum 30 min antes das refeições",qty:"10 cápsulas"},
+{id:“amox500”,cat:“Antibiótico”,name:“Amoxicilina 500mg”,pos:“1 cápsula de 8/8h por 7 dias”,qty:“21 cápsulas”},
+{id:“amox875”,cat:“Antibiótico”,name:“Amoxicilina 875mg + Clavulanato”,pos:“1 comprimido de 12/12h por 7 dias”,qty:“14 comprimidos”},
+{id:“azitro”,cat:“Antibiótico”,name:“Azitromicina 500mg”,pos:“1 comprimido ao dia por 5 dias”,qty:“5 comprimidos”},
+{id:“metro”,cat:“Antibiótico”,name:“Metronidazol 400mg”,pos:“1 comprimido de 8/8h por 7 dias”,qty:“21 comprimidos”},
+{id:“clinda”,cat:“Antibiótico”,name:“Clindamicina 300mg”,pos:“1 cápsula de 6/6h por 7 dias”,qty:“28 cápsulas”},
+{id:“dipiro”,cat:“Analgésico”,name:“Dipirona 500mg”,pos:“1 a 2 comprimidos de 6/6h se dor”,qty:“20 comprimidos”},
+{id:“paracet”,cat:“Analgésico”,name:“Paracetamol 750mg”,pos:“1 comprimido de 6/6h se dor”,qty:“20 comprimidos”},
+{id:“ibupr”,cat:“Anti-inflamatório”,name:“Ibuprofeno 600mg”,pos:“1 comprimido de 8/8h por 3 dias após refeições”,qty:“9 comprimidos”},
+{id:“nimes”,cat:“Anti-inflamatório”,name:“Nimesulida 100mg”,pos:“1 comprimido de 12/12h por 3 dias após refeições”,qty:“6 comprimidos”},
+{id:“dexa”,cat:“Corticóide”,name:“Dexametasona 4mg”,pos:“1 comprimido ao dia por 3 dias”,qty:“3 comprimidos”},
+{id:“predni”,cat:“Corticóide”,name:“Prednisona 20mg”,pos:“1 comprimido ao dia por 5 dias”,qty:“5 comprimidos”},
+{id:“clorex”,cat:“Antisséptico”,name:“Clorexidina 0,12% Bochecho”,pos:“Bochechar 1 min de 12/12h por 7 dias – Não engolir.”,qty:“1 frasco”},
+{id:“omepra”,cat:“Protetor Gástrico”,name:“Omeprazol 20mg”,pos:“1 cápsula em jejum 30 min antes das refeições”,qty:“10 cápsulas”},
 ];
 
 function Receituario({pats,dents,user}){
-var [patId,setPatId]=useState("");
-var [dentId,setDentId]=useState(String(user.level===1&&user.dentistId?user.dentistId:dents[0]&&dents[0].id||""));
-var [cat,setCat]=useState("Todos");
+var [patId,setPatId]=useState(””);
+var [dentId,setDentId]=useState(String(user.level===1&&user.dentistId?user.dentistId:dents[0]&&dents[0].id||””));
+var [cat,setCat]=useState(“Todos”);
 var [sel,setSel]=useState([]);
 var [extra,setExtra]=useState([]);
 var [addMod,setAddMod]=useState(false);
-var [mf,setMf]=useState({name:"",cat:"Outros",pos:"",qty:""});
-var [obs,setObs]=useState("");
+var [mf,setMf]=useState({name:””,cat:“Outros”,pos:””,qty:””});
+var [obs,setObs]=useState(””);
 var pat=pats.find(function(p){return p.id===Number(patId);});
 var dent=dents.find(function(d){return d.id===Number(dentId);})||dents[0];
 var allMeds=MEDS_BASE.concat(extra);
-var cats=["Todos"].concat([...new Set(allMeds.map(function(m){return m.cat;}))]);
-var filt=cat==="Todos"?allMeds:allMeds.filter(function(m){return m.cat===cat;});
-var tog=function(med){setSel(function(prev){return prev.find(function(m){return m.id===med.id;})?prev.filter(function(m){return m.id!==med.id;}):[...prev,{...med,posEdit:med.pos,qtyEdit:med.qty}];});};
-var updSel=function(id,k,v){setSel(function(prev){return prev.map(function(m){return m.id===id?{...m,[k]:v}:m;});});};
+var cats=[“Todos”].concat([…new Set(allMeds.map(function(m){return m.cat;}))]);
+var filt=cat===“Todos”?allMeds:allMeds.filter(function(m){return m.cat===cat;});
+var tog=function(med){setSel(function(prev){return prev.find(function(m){return m.id===med.id;})?prev.filter(function(m){return m.id!==med.id;}):[…prev,{…med,posEdit:med.pos,qtyEdit:med.qty}];});};
+var updSel=function(id,k,v){setSel(function(prev){return prev.map(function(m){return m.id===id?{…m,[k]:v}:m;});});};
 var saveExtra=function(){
-if(!mf.name||!mf.pos){alert("Informe nome e posologia");return;}
-setExtra(function(prev){return[...prev,{...mf,id:"x_"+Date.now()}];});
-setAddMod(false);setMf({name:"",cat:"Outros",pos:"",qty:""});
+if(!mf.name||!mf.pos){alert(“Informe nome e posologia”);return;}
+setExtra(function(prev){return[…prev,{…mf,id:“x_”+Date.now()}];});
+setAddMod(false);setMf({name:””,cat:“Outros”,pos:””,qty:””});
 };
 var [showPrint,setShowPrint]=useState(false);
 var doPrint=function(){setShowPrint(true);};
 var doPrintWindow=function(){
-var hoje=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
-var meds_int=sel.filter(function(m){return m.cat!=="Antisséptico";});
-var meds_ext=sel.filter(function(m){return m.cat==="Antisséptico";});
+var hoje=new Date().toLocaleDateString(“pt-BR”,{day:“2-digit”,month:“long”,year:“numeric”});
+var meds_int=sel.filter(function(m){return m.cat!==“Antisséptico”;});
+var meds_ext=sel.filter(function(m){return m.cat===“Antisséptico”;});
 var data={
-paciente:pat&&pat.name||"--",
-dentista:dent&&dent.name||"Dr. Diego Affonso",
-cro:"CRO "+(dent&&dent.cro||"SP-72.278"),
-data:"São Paulo, "+hoje,
+paciente:pat&&pat.name||”–”,
+dentista:dent&&dent.name||“Dr. Diego Affonso”,
+cro:“CRO “+(dent&&dent.cro||“SP-72.278”),
+data:“São Paulo, “+hoje,
 meds_int:meds_int.map(function(m){return{nome:m.name,qty:m.qtyEdit,pos:m.posEdit};}),
 meds_ext:meds_ext.map(function(m){return{nome:m.name,qty:m.qtyEdit,pos:m.posEdit};}),
-obs:obs||""
+obs:obs||””
 };
 var hash=encodeURIComponent(JSON.stringify(data));
-var recLink="https://claude.ai/public/artifacts/1e3017aa-bd82-493d-929f-1a624a9c6445#"+hash;
-var a=document.createElement("a");a.href=recLink;a.target="_blank";a.rel="noreferrer";
+var recLink=“https://claude.ai/public/artifacts/1e3017aa-bd82-493d-929f-1a624a9c6445#”+hash;
+var a=document.createElement(“a”);a.href=recLink;a.target=”_blank”;a.rel=“noreferrer”;
 document.body.appendChild(a);a.click();document.body.removeChild(a);
 };
 return (
+
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Receituário</h2>
@@ -3302,35 +3323,35 @@ var [year,setYear]=useState(now.getFullYear());
 var [month,setMonth]=useState(now.getMonth());
 var isDent=user.level===1;
 var myDents=isDent?dents.filter(function(d){return d.id===user.dentistId;}):dents;
-var [selDent,setSelDent]=useState(String(myDents[0]&&myDents[0].id||""));
+var [selDent,setSelDent]=useState(String(myDents[0]&&myDents[0].id||””));
 var dent=dents.find(function(d){return d.id===Number(selDent);})||dents[0];
 var COMM=(dent&&dent.commission||40)/100;
 var CARD=0.035;
-var MONTHS_=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-var MONTHS_FULL=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+var MONTHS_=[“Jan”,“Fev”,“Mar”,“Abr”,“Mai”,“Jun”,“Jul”,“Ago”,“Set”,“Out”,“Nov”,“Dez”];
+var MONTHS_FULL=[“Janeiro”,“Fevereiro”,“Março”,“Abril”,“Maio”,“Junho”,“Julho”,“Agosto”,“Setembro”,“Outubro”,“Novembro”,“Dezembro”];
 
 var prevMonth=function(){if(month===0){setMonth(11);setYear(function(y){return y-1;});}else setMonth(function(m){return m-1;});};
 var nextMonth=function(){if(month===11){setMonth(0);setYear(function(y){return y+1;});}else setMonth(function(m){return m+1;});};
 
 var addMonths=function(dateStr,n){
-var d=new Date(dateStr+"T12:00");
+var d=new Date(dateStr+“T12:00”);
 d.setMonth(d.getMonth()+n);
-return d.toISOString().split("T")[0];
+return d.toISOString().split(“T”)[0];
 };
-var monthOf=function(dateStr){return dateStr?dateStr.slice(0,7):"";};
-var curMonth=year+"-"+String(month+1).padStart(2,"0");
+var monthOf=function(dateStr){return dateStr?dateStr.slice(0,7):””;};
+var curMonth=year+”-”+String(month+1).padStart(2,“0”);
 
 // Build installments from recs (baixas) for this dentist
 var allItems=[];
 recs.filter(function(r){return r.dentistId===Number(selDent)&&r.paid>0;}).forEach(function(r){
 var p=pats.find(function(x){return x.id===r.patientId;});
 var val=Number(r.paid)||0;
-var pay=(r.payment||r.method||"").toLowerCase();
-var isCard=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0||pay.indexOf("débito")>=0||pay.indexOf("debito")>=0;
+var pay=(r.payment||r.method||””).toLowerCase();
+var isCard=pay.indexOf(“crédito”)>=0||pay.indexOf(“credito”)>=0||pay.indexOf(“débito”)>=0||pay.indexOf(“debito”)>=0;
 var disc=isCard?val*CARD:0;
 var net=(val-disc)*COMM;
 var inst=Number(r.inst)||1;
-var isCredit=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0;
+var isCredit=pay.indexOf(“crédito”)>=0||pay.indexOf(“credito”)>=0;
 // CORRECT LOGIC:
 // Each card installment = val/inst per month
 // Dentist commission = (val * (1-CARD)) * COMM
@@ -3343,8 +3364,8 @@ var installAmt=val/inst;
 var monthsToPay=Math.ceil(net/installAmt);
 if(monthsToPay>inst)monthsToPay=inst;
 allItems.push({
-patName:p&&p.name||"Paciente",
-proc:r.procedure||r.proc||"",
+patName:p&&p.name||“Paciente”,
+proc:r.procedure||r.proc||””,
 date:r.date,
 receiveDate:addMonths(r.date,monthsToPay),
 origVal:val,
@@ -3355,13 +3376,13 @@ totalInst:inst,
 installAmt:installAmt,
 isCard:true,
 recId:r.id,
-detail:"Parcelas: R$"+installAmt.toFixed(2)+"/mês × "+inst+"x. Acumula em "+monthsToPay+"º mês.",
+detail:“Parcelas: R$”+installAmt.toFixed(2)+”/mês × “+inst+“x. Acumula em “+monthsToPay+“º mês.”,
 });
 } else {
 var receiveDate=isCard?addMonths(r.date,1):r.date;
 allItems.push({
-patName:p&&p.name||"Paciente",
-proc:r.procedure||r.proc||"",
+patName:p&&p.name||“Paciente”,
+proc:r.procedure||r.proc||””,
 date:r.date,
 receiveDate:receiveDate,
 origVal:val,
@@ -3371,14 +3392,14 @@ inst:1,
 totalInst:1,
 isCard:isCard,
 recId:r.id,
-detail:"",
+detail:””,
 });
 }
 });
 
 // Also check appts with status=done that have no rec (falta de crédito)
 var doneAppts=appts.filter(function(a){
-return a.dentistId===Number(selDent)&&a.status==="done"&&Number(a.value)>0;
+return a.dentistId===Number(selDent)&&a.status===“done”&&Number(a.value)>0;
 });
 var recApptIds=recs.filter(function(r){return r.dentistId===Number(selDent);}).map(function(r){return r.apptId;});
 var missing=doneAppts.filter(function(a){return !recApptIds.some(function(id){return id===a.id;});});
@@ -3388,13 +3409,14 @@ var totalMonth=thisMonthItems.reduce(function(s,x){return s+x.commVal;},0);
 
 // Preview next 3 months
 var getMonthTotal=function(y,m){
-var ms=y+"-"+String(m+1).padStart(2,"0");
+var ms=y+”-”+String(m+1).padStart(2,“0”);
 return allItems.filter(function(x){return monthOf(x.receiveDate)===ms;}).reduce(function(s,x){return s+x.commVal;},0);
 };
 var nm1=month===11?0:month+1; var ny1=month===11?year+1:year;
 var nm2=nm1===11?0:nm1+1;     var ny2=nm1===11?ny1+1:ny1;
 
 return (
+
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"💰 Recebimentos"}</h2>
@@ -3478,10 +3500,11 @@ return (
 function WAAnamneseModal({pat,onClose}){
 const [sent,setSent]=useState(false);
 const send=function(){
-const msg="Ola, "+pat.name+"! 😊\n\nPara seu atendimento na Affonso Odontologia, clique no link abaixo e preencha sua ficha de saude. Sao perguntas com botoes SIM e NAO, leva menos de 2 minutos!\n\n"+ANAM_LINK+"\n\nObrigado! 🦷 Affonso Odontologia";
+const msg=“Ola, “+pat.name+”! 😊\n\nPara seu atendimento na Affonso Odontologia, clique no link abaixo e preencha sua ficha de saude. Sao perguntas com botoes SIM e NAO, leva menos de 2 minutos!\n\n”+ANAM_LINK+”\n\nObrigado! 🦷 Affonso Odontologia”;
 wa(pat.phone,msg);setSent(true);
 };
-return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.55)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
+
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
 <div style={{background:"#075E54",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"📋"}</span>
@@ -3509,24 +3532,25 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex
 function IARX({pat,onClose}){
 const [img,setImg]=useState(null);
 const [imgData,setImgData]=useState(null);
-const [result,setResult]=useState("");
+const [result,setResult]=useState(””);
 const [loading,setLoading]=useState(false);
 const onFile=function(e){
 const f=e.target.files[0];if(!f)return;
 const r=new FileReader();
-r.onload=function(ev){setImgData(ev.target.result.split(",")[1]);setImg(ev.target.result);};
+r.onload=function(ev){setImgData(ev.target.result.split(”,”)[1]);setImg(ev.target.result);};
 r.readAsDataURL(f);
 };
 const analyze=async function(){
-if(!imgData)return;setLoading(true);setResult("");
+if(!imgData)return;setLoading(true);setResult(””);
 try{
-const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:800,system:"Você é especialista em radiologia odontológica. Analise o raio-X e descreva: estruturas visíveis, achados e sugestões clínicas.",messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:"image/jpeg",data:imgData}},{type:"text",text:"Analise este RX do paciente "+(pat&&pat.name||"")+"."}]}]})});
+const resp=await fetch(“https://api.anthropic.com/v1/messages”,{method:“POST”,headers:{“Content-Type”:“application/json”},body:JSON.stringify({model:“claude-sonnet-4-20250514”,max_tokens:800,system:“Você é especialista em radiologia odontológica. Analise o raio-X e descreva: estruturas visíveis, achados e sugestões clínicas.”,messages:[{role:“user”,content:[{type:“image”,source:{type:“base64”,media_type:“image/jpeg”,data:imgData}},{type:“text”,text:“Analise este RX do paciente “+(pat&&pat.name||””)+”.”}]}]})});
 const data=await resp.json();
-setResult(data.content&&data.content[0]&&data.content[0].text||"Não foi possível analisar.");
-}catch(e){setResult("Erro de conexão.");}
+setResult(data.content&&data.content[0]&&data.content[0].text||“Não foi possível analisar.”);
+}catch(e){setResult(“Erro de conexão.”);}
 setLoading(false);
 };
-return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.55)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
+
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:460,maxHeight:"90vh",overflow:"auto"}}>
 <div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"🦷"}</span>
@@ -3550,10 +3574,11 @@ function CancelWA({appt,pat,onCancel,onClose}){
 const [done,setDone]=useState(false);
 const doIt=function(){
 onCancel(appt.id);
-wa(pat.phone,"Olá, "+pat.name+"! Sua consulta de "+fmt(appt.date)+" às "+appt.time+" foi cancelada. Gostaria de reagendar? Responda SIM que entraremos em contato. Affonso Odontologia");
+wa(pat.phone,“Olá, “+pat.name+”! Sua consulta de “+fmt(appt.date)+” às “+appt.time+” foi cancelada. Gostaria de reagendar? Responda SIM que entraremos em contato. Affonso Odontologia”);
 setDone(true);
 };
-return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+return <div style={{position:“fixed”,inset:0,background:“rgba(0,0,0,.55)”,zIndex:9999,display:“flex”,alignItems:“center”,justifyContent:“center”,padding:16}}>
+
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:380}}>
 <div style={{background:G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"❌"}</span>
@@ -3581,9 +3606,10 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex
 function RemarcarModal({appt,pats,dents,onSave,onClose}){
 var p=pats.find(function(x){return x.id===appt.patientId;});
 var d=dents.find(function(x){return x.id===appt.dentistId;})||dents[0];
-var [motivo,setMotivo]=useState("");
-var [outro,setOutro]=useState("");
+var [motivo,setMotivo]=useState(””);
+var [outro,setOutro]=useState(””);
 return(
+
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
 <div style={{background:G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
@@ -3614,22 +3640,23 @@ style={{background:motivo?G.primary:"#ccc",color:"#fff",border:"none",borderRadi
 function RemarcarView({appts,setAppts,pats,dents,remarcar,setRemarcar}){
 var t=today();
 var [selMot,setSelMot]=useState(null);
-var [outroTxt,setOutroTxt]=useState("");
+var [outroTxt,setOutroTxt]=useState(””);
 var pendentes=appts.filter(function(a){
-if(a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled")return false;
+if(a.status!==“cancelled”&&a.status!==“missed”&&a.status!==“rescheduled”)return false;
 if(a.noRebook)return false;
-return !appts.some(function(b){return b.patientId===a.patientId&&b.id!==a.id&&b.date>a.date&&b.status!=="cancelled"&&b.status!=="missed"&&b.status!=="rescheduled";});
+return !appts.some(function(b){return b.patientId===a.patientId&&b.id!==a.id&&b.date>a.date&&b.status!==“cancelled”&&b.status!==“missed”&&b.status!==“rescheduled”;});
 }).sort(function(a,b){return b.date.localeCompare(a.date);});
 var historico=remarcar.sort(function(a,b){return b.date.localeCompare(a.date);});
-var [aba,setAba]=useState("pendentes");
-function marcarRem(apptId){setAppts(function(prev){return prev.map(function(x){return x.id===apptId?{...x,noRebook:true}:x;});});}
+var [aba,setAba]=useState(“pendentes”);
+function marcarRem(apptId){setAppts(function(prev){return prev.map(function(x){return x.id===apptId?{…x,noRebook:true}:x;});});}
 function registrar(appt,motivo){
 var p=pats.find(function(x){return x.id===appt.patientId;});
-setRemarcar(function(prev){return [...prev,{id:Date.now(),apptId:appt.id,patId:appt.patientId,patName:p&&p.name,proc:appt.procedure,apptDate:appt.date,status:appt.status,motivo:motivo,date:t}];});
+setRemarcar(function(prev){return […prev,{id:Date.now(),apptId:appt.id,patId:appt.patientId,patName:p&&p.name,proc:appt.procedure,apptDate:appt.date,status:appt.status,motivo:motivo,date:t}];});
 marcarRem(appt.id);
 }
-function doWA(ph,msg){var a=document.createElement("a");a.href="https://wa.me/55"+ph.replace(/[^0-9]/g,"")+"?text="+encodeURIComponent(msg);a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);}
+function doWA(ph,msg){var a=document.createElement(“a”);a.href=“https://wa.me/55”+ph.replace(/[^0-9]/g,””)+”?text=”+encodeURIComponent(msg);a.target=”_blank”;document.body.appendChild(a);a.click();document.body.removeChild(a);}
 return(
+
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 <button onClick={function(){setAba("pendentes");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:aba==="pendentes"?"#fff":G.bg,color:aba==="pendentes"?G.red:G.muted,boxShadow:aba==="pendentes"?"0 1px 4px rgba(0,0,0,.1)":"none",position:"relative"}}>
@@ -3695,28 +3722,29 @@ style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"10px",fontSize:1
 }
 
 function EsperaModal({pats,dents,onSave,onClose}){
-var [patId,setPatId]=useState("");
-var [dentId,setDentId]=useState("");
-var [proc,setProc]=useState("");
-var [tempo,setTempo]=useState("60");
-var [valido,setValido]=useState("");
+var [patId,setPatId]=useState(””);
+var [dentId,setDentId]=useState(””);
+var [proc,setProc]=useState(””);
+var [tempo,setTempo]=useState(“60”);
+var [valido,setValido]=useState(””);
 var [dias,setDias]=useState([]);
-var [horaIni,setHoraIni]=useState("08:00");
-var [horaFim,setHoraFim]=useState("18:00");
+var [horaIni,setHoraIni]=useState(“08:00”);
+var [horaFim,setHoraFim]=useState(“18:00”);
 var [slots,setSlots]=useState([]);
-var DIAS_SEM=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
-var HORAS=["07:00","07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00","18:30","19:00","19:30","20:00"];
+var DIAS_SEM=[“Dom”,“Seg”,“Ter”,“Qua”,“Qui”,“Sex”,“Sáb”];
+var HORAS=[“07:00”,“07:30”,“08:00”,“08:30”,“09:00”,“09:30”,“10:00”,“10:30”,“11:00”,“11:30”,“12:00”,“12:30”,“13:00”,“13:30”,“14:00”,“14:30”,“15:00”,“15:30”,“16:00”,“16:30”,“17:00”,“17:30”,“18:00”,“18:30”,“19:00”,“19:30”,“20:00”];
 var togDia=function(d){
-setDias(function(prev){return prev.indexOf(d)>=0?prev.filter(function(x){return x!==d;}):[...prev,d].sort();});
+setDias(function(prev){return prev.indexOf(d)>=0?prev.filter(function(x){return x!==d;}):[…prev,d].sort();});
 };
 var addSlot=function(){
-if(dias.length===0){alert("Selecione pelo menos um dia");return;}
-setSlots(function(prev){return[...prev,{dias:[...dias],ini:horaIni,fim:horaFim}];});
+if(dias.length===0){alert(“Selecione pelo menos um dia”);return;}
+setSlots(function(prev){return[…prev,{dias:[…dias],ini:horaIni,fim:horaFim}];});
 setDias([]);
 };
 var pat=pats.find(function(p){return p.id===Number(patId);});
 var canSave=pat&&dentId&&proc&&valido&&slots.length>0;
 return(
+
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:480,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
 <div style={{background:"#7B1FA2",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
@@ -3771,36 +3799,37 @@ disabled={!canSave} style={{background:canSave?"#7B1FA2":"#ccc",color:"#fff",bor
 
 function ImplantesConsig({implCat,setImplCat,implMov,setImplMov,pats,dents,addLog}){
 var t=today();
-var [aba,setAba]=useState("estoque");
+var [aba,setAba]=useState(“estoque”);
 var [showCat,setShowCat]=useState(false);
 var [showMov,setShowMov]=useState(false);
 var [editCat,setEditCat]=useState(null);
-var [catF,setCatF]=useState({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2});
-var [movF,setMovF]=useState({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
+var [catF,setCatF]=useState({tipo:“Implante”,marca:“Titaniofix”,desc:””,codigo:””,estoque_min:2});
+var [movF,setMovF]=useState({tipo:“entrada”,itemId:””,qty:1,patId:””,dente:””,dentId:””,obs:””,date:t});
 var [filtMes,setFiltMes]=useState(t.slice(0,7));
-var TIPOS_ITEM=["Implante","Componente","UCLA","Cicatrizador","Pilar","Coping","Outro"];
+var TIPOS_ITEM=[“Implante”,“Componente”,“UCLA”,“Cicatrizador”,“Pilar”,“Coping”,“Outro”];
 var stockMap={};
-implMov.forEach(function(m){if(!stockMap[m.itemId])stockMap[m.itemId]=0;if(m.tipo==="entrada")stockMap[m.itemId]+=Number(m.qty);else stockMap[m.itemId]-=Number(m.qty);});
+implMov.forEach(function(m){if(!stockMap[m.itemId])stockMap[m.itemId]=0;if(m.tipo===“entrada”)stockMap[m.itemId]+=Number(m.qty);else stockMap[m.itemId]-=Number(m.qty);});
 var movsDoMes=implMov.filter(function(m){return m.date.startsWith(filtMes);});
-var totalUsado=movsDoMes.filter(function(m){return m.tipo==="saida";}).reduce(function(s,m){return s+Number(m.qty);},0);
+var totalUsado=movsDoMes.filter(function(m){return m.tipo===“saida”;}).reduce(function(s,m){return s+Number(m.qty);},0);
 var saveCat=function(){
 if(!catF.desc.trim())return;
-if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...catF,id:x.id}:x;});});}
-else{setImplCat(function(prev){return[...prev,{...catF,id:Date.now()}];});}
-setShowCat(false);setEditCat(null);setCatF({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2});
+if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{…catF,id:x.id}:x;});});}
+else{setImplCat(function(prev){return[…prev,{…catF,id:Date.now()}];});}
+setShowCat(false);setEditCat(null);setCatF({tipo:“Implante”,marca:“Titaniofix”,desc:””,codigo:””,estoque_min:2});
 };
 var saveMov=function(){
 if(!movF.itemId||!movF.qty)return;
-if(movF.tipo==="saida"&&(!movF.patId||!movF.dente)){alert("Informe paciente e dente");return;}
+if(movF.tipo===“saida”&&(!movF.patId||!movF.dente)){alert(“Informe paciente e dente”);return;}
 var item=implCat.find(function(x){return x.id===Number(movF.itemId);});
 var pat=pats.find(function(x){return x.id===Number(movF.patId);});
 var dent=dents.find(function(x){return x.id===Number(movF.dentId);});
-var entry={...movF,id:Date.now(),itemId:Number(movF.itemId),qty:Number(movF.qty),patId:Number(movF.patId)||null,dentId:Number(movF.dentId)||null,itemName:item&&item.desc,patName:pat&&pat.name,dentName:dent&&dent.name};
-setImplMov(function(prev){return[...prev,entry];});
-if(addLog){if(movF.tipo==="saida")addLog("estoque","Saida: "+entry.itemName+" paciente "+entry.patName+" dente "+movF.dente,entry.patName);else addLog("estoque","Entrada: "+entry.qty+"x "+(item&&item.desc)+" Titaniofix","");}
-setShowMov(false);setMovF({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
+var entry={…movF,id:Date.now(),itemId:Number(movF.itemId),qty:Number(movF.qty),patId:Number(movF.patId)||null,dentId:Number(movF.dentId)||null,itemName:item&&item.desc,patName:pat&&pat.name,dentName:dent&&dent.name};
+setImplMov(function(prev){return[…prev,entry];});
+if(addLog){if(movF.tipo===“saida”)addLog(“estoque”,“Saida: “+entry.itemName+” paciente “+entry.patName+” dente “+movF.dente,entry.patName);else addLog(“estoque”,“Entrada: “+entry.qty+“x “+(item&&item.desc)+” Titaniofix”,””);}
+setShowMov(false);setMovF({tipo:“entrada”,itemId:””,qty:1,patId:””,dente:””,dentId:””,obs:””,date:t});
 };
 return(
+
 <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 {[["estoque","📦 Estoque"],["movs","Movimentacoes"],["relatorio","Relatorio"]].map(function(tb){return(
@@ -3956,9 +3985,10 @@ return(
 // LOGIN
 // ══════════════════════════════════════════════════════════
 function Login({users,onLogin}){
-const [l,sl]=useState("");const [p,sp]=useState("");const [e,se]=useState("");
-const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});u?onLogin(u):se("Login ou senha inválidos");};
+const [l,sl]=useState(””);const [p,sp]=useState(””);const [e,se]=useState(””);
+const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});u?onLogin(u):se(“Login ou senha inválidos”);};
 return(
+
 <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1B5E4A 0%,#0a2e1e 60%,#051a10 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
 <div style={{width:"100%",maxWidth:380,display:"flex",flexDirection:"column",alignItems:"center"}}>
 <div style={{textAlign:"center",marginBottom:32}}>
@@ -3999,7 +4029,7 @@ Entrar
 // APP ROOT
 // ══════════════════════════════════════════════════════════
 export default function App(){
-const [user,setUser]=useState(null);const [view,setView]=useState("dash");
+const [user,setUser]=useState(null);const [view,setView]=useState(“dash”);
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
@@ -4010,11 +4040,11 @@ const [stock,setStock]=useState(STOCK0);const [impl,setImpl]=useState(IMPL0);con
 const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [sideOpen,setSideOpen]=useState(false);
-const [saveStatus,setSaveStatus]=useState("idle");
+const [saveStatus,setSaveStatus]=useState(“idle”);
 const saveTimer=useRef(null);
 const initialized=useRef(false);
 const isSaving=useRef(false);
-const lastSaved=useRef("");
+const lastSaved=useRef(””);
 
 // ── CARREGAR do Supabase ──
 useEffect(()=>{
@@ -4053,7 +4083,7 @@ setTimeout(()=>{initialized.current=true;},3000);
 useEffect(()=>{
 if(!initialized.current)return;
 if(saveTimer.current)clearTimeout(saveTimer.current);
-setSaveStatus("saving");
+setSaveStatus(“saving”);
 saveTimer.current=setTimeout(async()=>{
 if(isSaving.current)return;
 isSaving.current=true;
@@ -4061,34 +4091,34 @@ try{
 const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov};
 await supabase.save(payload);
 lastSaved.current=JSON.stringify(payload);
-setSaveStatus("saved");
-setTimeout(()=>setSaveStatus("idle"),2500);
-}catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
+setSaveStatus(“saved”);
+setTimeout(()=>setSaveStatus(“idle”),2500);
+}catch(e){setSaveStatus(“error”);setTimeout(()=>setSaveStatus(“idle”),3000);}
 finally{isSaving.current=false;saveTimer.current=null;}
 },2000);
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov]);
 
-// ── REALTIME desativado -- use F5 para sincronizar entre dispositivos ──
+// ── REALTIME desativado – use F5 para sincronizar entre dispositivos ──
 // (polling estava sobrescrevendo dados novos)
 
 if(!user)return <Login users={users} onLogin={setUser}/>;
 
 const ar=autoRems(pats,recs,appts);
-const remBadge=[...ar,...rems.filter(r=>!r.done)].filter(r=>r.date<=today()).length;
-const prosBadge=pros.filter(p=>p.due===today()&&p.status==="waiting").length;
+const remBadge=[…ar,…rems.filter(r=>!r.done)].filter(r=>r.date<=today()).length;
+const prosBadge=pros.filter(p=>p.due===today()&&p.status===“waiting”).length;
 
 const ALL_NAV=[
-{id:"dash",l:"🏠 Visão Geral",lv:1},{id:"agenda",l:"📅 Agenda",lv:1},
-{id:"pacs",l:"👥 Pacientes",lv:1},{id:"remarcar",l:"🔄 Remarcar",lv:2},{id:"pros",l:"🏥 Próteses",lv:2,b:prosBadge},
-{id:"impl",l:"🔩 Implantes",lv:2},{id:"lems",l:"📌 Lembretes",lv:1,b:remBadge},
-{id:"fin",l:"💰 Financeiro",lv:3},{id:"rel",l:"📊 Relatórios",lv:2},
-{id:"desp",l:"💸 Despesas",lv:3},{id:"stk",l:"📦 Estoque",lv:2},
-{id:"rec",l:"📋 Receituário",lv:1},{id:"pdent",l:"💰 Recebimentos",lv:1},{id:"adm",l:"⚙️ Administrativo",lv:3},
+{id:“dash”,l:“🏠 Visão Geral”,lv:1},{id:“agenda”,l:“📅 Agenda”,lv:1},
+{id:“pacs”,l:“👥 Pacientes”,lv:1},{id:“remarcar”,l:“🔄 Remarcar”,lv:2},{id:“pros”,l:“🏥 Próteses”,lv:2,b:prosBadge},
+{id:“impl”,l:“🔩 Implantes”,lv:2},{id:“lems”,l:“📌 Lembretes”,lv:1,b:remBadge},
+{id:“fin”,l:“💰 Financeiro”,lv:3},{id:“rel”,l:“📊 Relatórios”,lv:2},
+{id:“desp”,l:“💸 Despesas”,lv:3},{id:“stk”,l:“📦 Estoque”,lv:2},
+{id:“rec”,l:“📋 Receituário”,lv:1},{id:“pdent”,l:“💰 Recebimentos”,lv:1},{id:“adm”,l:“⚙️ Administrativo”,lv:3},
 ];
 const NAV=ALL_NAV.filter(n=>n.lv<=user.level);
 const go=v=>{
 const n=ALL_NAV.find(x=>x.id===v)||{lv:1};
-if(n.lv>user.level){alert("Acesso não autorizado.");return;}
+if(n.lv>user.level){alert(“Acesso não autorizado.”);return;}
 setView(v);
 setSideOpen(false); // close menu on mobile after navigation
 };
@@ -4096,14 +4126,15 @@ const cp={pats,dents,procs,user,addLog:function(tipo,desc,pat){mkLog(logs,setLog
 
 // Bottom nav shortcuts (most used)
 const BOTTOM_NAV=[
-{id:"dash",icon:"🏠"},{id:"agenda",icon:"📅"},
-{id:"dash",icon:"🏠"},{id:"agenda",icon:"📅"},
-{id:"pacs",icon:"👥"},{id:"remarcar",icon:"🔄"},{id:"lems",icon:"📌",b:remBadge},
+{id:“dash”,icon:“🏠”},{id:“agenda”,icon:“📅”},
+{id:“dash”,icon:“🏠”},{id:“agenda”,icon:“📅”},
+{id:“pacs”,icon:“👥”},{id:“remarcar”,icon:“🔄”},{id:“lems”,icon:“📌”,b:remBadge},
 ];
 
 const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}`;
 
 return <>
+
 <style>{CSS+RESPONSIVE_CSS}</style>
 
 ```
