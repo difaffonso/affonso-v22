@@ -128,7 +128,7 @@ const PROS_PROCS0=[
 const PATS0=[
 {id:1,name:"Ana Costa",dob:"1990-04-29",genero:"F",phone:"11998123456",email:"ana@email.com",cpf:"123.456.789-00",rg:"",blood:"A+",allergy:"Nenhuma",insurance:"Unimed",notes:"Paciente hipertensa em uso de captopril.",folder:"F-0001",rx:"RX-2024-001",nf:"",obs:"",
 anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,allergicMeds:"",otherConditions:"Hipertensão arterial",medications:"Captopril 25mg",pregnant:false,smoking:false,notes:""}},
-{id:2,name:"Bruno Martins",dob:"1985-07-22",genero:"M",phone:"11976543210",email:"bruno@email.com",cpf:"987.654.321-00",rg:"",blood:"O-",allergy:"Penicilina",insurance:"",notes:"",folder:"F-0002",rx:"RX-2024-002",nf:"",obs:"ALÉRGICO A PENICILINA -- verificar antes de medicar",
+{id:2,name:"Bruno Martins",dob:"1985-07-22",genero:"M",phone:"11976543210",email:"bruno@email.com",cpf:"987.654.321-00",rg:"",blood:"O-",allergy:"Penicilina",insurance:"",notes:"",folder:"F-0002",rx:"RX-2024-002",nf:"",obs:"ALÉRGICO A PENICILINA - verificar antes de medicar",
 anamnese:{hypertension:false,diabetes:true,heartDisease:false,bleeding:false,allergicMeds:"Penicilina",otherConditions:"Diabetes tipo 2",medications:"Metformina",pregnant:false,smoking:false,notes:""}},
 {id:3,name:"Carla Lima",dob:"2001-11-05",genero:"F",phone:"11912345678",email:"",cpf:"456.789.123-00",rg:"",blood:"B+",allergy:"Nenhuma",insurance:"",notes:"",folder:"F-0003",rx:"RX-2024-003",nf:"",obs:"",
 anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}},
@@ -172,7 +172,7 @@ personal:[
 };
 
 // ── Helpers ────────────────────────────────────────────────
-const fmt=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR"):"--";
+const fmt=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR"):"-";
 const today=()=>new Date().toISOString().split("T")[0];
 const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];};
 const tom=()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];};
@@ -186,7 +186,7 @@ const isBday=d=>{if(!d)return false;return d.slice(5)===today().slice(5);};
 const mo6=d=>{const x=new Date(d+"T12:00");x.setMonth(x.getMonth()+6);return x.toISOString().split("T")[0];};
 const calcNet=(v,p)=>p==="Cartão Crédito"?v*0.965:p==="Cartão Débito"?v*0.98:v;
 const wa=(ph,msg)=>{const n=(ph||"").replace(/\D/g,"");const u="https://wa.me/"+(n.startsWith("55")?n:"55"+n)+"?text="+encodeURIComponent(msg);const a=document.createElement("a");a.href=u;a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);};
-const age=dob=>{if(!dob)return"";const d=new Date(dob+"T12:00");const a=new Date();let y=a.getFullYear()-d.getFullYear();if(a.getMonth()<d.getMonth()||(a.getMonth()===d.getMonth()&&a.getDate()<d.getDate()))y--;return y+" anos";};
+const age=dob=>{if(!dob)return"";const d=new Date(dob+"T12:00");const a=new Date();let y=a.getFullYear()-d.getFullYear();if(a.getMonth()<d.getMonth()||(a.getMonth()===d.getMonth()&&a.getDate()<d.getDate()))y-;return y+" anos";};
 const getDaysInMonth=(y,m)=>new Date(y,m+1,0).getDate();
 const getFirstDayOfMonth=(y,m)=>new Date(y,m,1).getDay();
 
@@ -228,6 +228,7 @@ const SC2=({save,cancel,lbl="Salvar"})=><div style={{display:"flex",gap:9,justif
 const Modal=({open,close,title,ch,wide,xl})=>{
 if(!open)return null;
 return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:12}}>
+
 <div style={{background:G.card,borderRadius:18,width:"100%",maxWidth:xl?980:wide?720:520,maxHeight:"94vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`,position:"sticky",top:0,background:G.card,zIndex:1}}>
 <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{title}</span>
@@ -246,6 +247,7 @@ useEffect(()=>{if(y&&m&&d)set(`${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`);
 const yrs=[];for(let yr=1930;yr<=new Date().getFullYear();yr++)yrs.push(yr);
 return <div style={{display:"flex",flexDirection:"column",gap:4}}>
 {lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{lb}</label>}
+
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr",gap:5}}>
 <input placeholder="DD" maxLength={2} value={d} onChange={e=>sd(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 6px",fontSize:13,outline:"none",textAlign:"center"}}/>
 <input placeholder="MM" maxLength={2} value={m} onChange={e=>sm(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 6px",fontSize:13,outline:"none",textAlign:"center"}}/>
@@ -280,7 +282,7 @@ return out;
 };
 
 // ══════════════════════════════════════════════════════════
-// PATIENT FOLDER -- full modal with tabs like the photo
+// PATIENT FOLDER - full modal with tabs like the photo
 // ══════════════════════════════════════════════════════════
 function PatSearch({lb,val,set,pats,optional}){
 var sel=pats.find(function(p){return p.id===Number(val);});
@@ -294,6 +296,7 @@ return norm(p.name).indexOf(nq)>=0||
 (p.phone||"").indexOf(q)>=0;
 }).slice(0,12):[];
 return (
+
 <div style={{position:"relative",display:"flex",flexDirection:"column",gap:4}}>
 {lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{lb}</label>}
 {sel&&!open
@@ -329,7 +332,7 @@ onMouseLeave={function(e){e.currentTarget.style.background="#fff";}}>
 }
 
 function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose}){
-// Always read live data from pats -- this ensures saves reflect immediately
+// Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
 const isDentUser=user&&user.level===1;
 const [tab,setTab]=useState("ficha");
@@ -397,7 +400,7 @@ if(!treat)return;
 const item=treat.items[idx];
 // Giving baixa
 if(!item.done){
-// Check if user is dentist level -- only their own dentistId or admin
+// Check if user is dentist level - only their own dentistId or admin
 if(user.level===1&&user.dentistId!==treat.dentistId&&treat.dentistId){
 alert("Você só pode dar baixa em procedimentos do seu próprio tratamento.");return;
 }
@@ -412,7 +415,7 @@ setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==idx
 creditFuture:hasInstallment,
 })}));
 } else {
-// Undo baixa -- only admin or same person
+// Undo baixa - only admin or same person
 if(user.level===1&&item.doneBy!==user.name&&user.level<3){
 alert("Apenas quem deu a baixa pode desfazê-la.");return;
 }
@@ -477,6 +480,7 @@ const BSTATUS={pending:"Em espera",approved:"Aprovado",rejected:"Recusado"};
 const BCOLOR={pending:G.yellow,approved:G.success,rejected:G.red};
 
 return <>
+
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:10}}>
 <div style={{background:G.card,borderRadius:18,width:"100%",maxWidth:820,maxHeight:"95vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.28)"}}>
 {/* Header */}
@@ -492,246 +496,250 @@ return <>
 {TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:tab===k?G.primary:"#f0f4f2",color:tab===k?"#fff":G.muted,borderRadius:"8px 8px 0 0",padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",transition:"all .15s",marginBottom:-2,borderBottom:tab===k?`2px solid ${G.primary}`:"none"}}>{l}</button>)}
 </div>
 
-    <div style={{padding:22}}>
-      {/* ── FICHA ── */}
-      {tab==="ficha"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-        {showIARX&&<IARX pat={pf} onClose={function(){setShowIARX(false);}}/>}
-        <button onClick={function(){setShowIARX(true);}} style={{background:G.blue,color:"#fff",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"🦷 Analisar RX com IA"}</button>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📋 Dados do Paciente</span>
-          {!editMode?<div style={{display:"flex",gap:5}}><Btn ch="📋 WA" v="g" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/></div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={savePat}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
-        </div>
-        {pat.obs&&<div style={{background:G.yellow+"18",border:`2px solid ${G.yellow}`,borderRadius:10,padding:"9px 14px"}}><span style={{fontWeight:700,color:G.yellow}}>⚠ ALERGIA / OBS. IMPORTANTE</span><div style={{color:G.text,marginTop:4,fontSize:14}}>{pat.obs||pat.allergy}</div></div>}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          {!editMode?<>
-            {[["NOME",pat.name],["IDADE",age(pat.dob)+" ("+fmt(pat.dob)+")"],["CPF",pat.cpf||"--"],["RG",pat.rg||"--"],["TELEFONE",user.level>=2?pat.phone:"••••••••••"],["E-MAIL",user.level>=2?(pat.email||"--"):"••••••••••"],["TIPO SANGUÍNEO",pat.blood||"--"],["PLANO",pat.insurance||"--"],["Nº DA FICHA",pat.folder],["Nº DO RX",pat.rx],["REF. NF",pat.nf||"--"],["ALERGIA",pat.allergy||"Nenhuma"],["COMO NOS CONHECEU",pat.origem||"Não informado"]].map(([k,v])=><div key={k} style={{background:G.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{k}</div><div style={{fontWeight:600,fontSize:13,color:k==="ALERGIA"&&v!=="Nenhuma"?G.red:G.text}}>{v}</div></div>)}
-          </>:<>
-            <Inp lb="Nome" val={pf.name} set={v=>setPf(p=>({...p,name:v}))}/>
-            <DatePick lb="Nascimento" val={pf.dob} set={v=>setPf(p=>({...p,dob:v}))}/>
-            <Inp lb="CPF" val={pf.cpf} set={v=>setPf(p=>({...p,cpf:v}))}/>
-            <Inp lb="RG" val={pf.rg} set={v=>setPf(p=>({...p,rg:v}))}/>
-            <Inp lb="Telefone" val={pf.phone} set={v=>setPf(p=>({...p,phone:v}))}/>
-            <Inp lb="E-mail" val={pf.email} set={v=>setPf(p=>({...p,email:v}))}/>
-            <Inp lb="Tipo Sanguíneo" val={pf.blood} set={v=>setPf(p=>({...p,blood:v}))}/>
-            <Inp lb="Plano de Saúde" val={pf.insurance} set={v=>setPf(p=>({...p,insurance:v}))}/>
-            <Inp lb="Nº da Ficha" val={pf.folder} set={v=>setPf(p=>({...p,folder:v}))}/>
-            <Inp lb="Nº do RX" val={pf.rx} set={v=>setPf(p=>({...p,rx:v}))}/>
-            <Inp lb="Ref. Nota Fiscal" val={pf.nf} set={v=>setPf(p=>({...p,nf:v}))}/>
-            <Inp lb="Alergia" val={pf.allergy} set={v=>setPf(p=>({...p,allergy:v}))}/>
-          </>}
-        </div>
-        {editMode&&<Txt lb="⚠ Obs. Importante (destaque em toda a clínica)" val={pf.obs} set={v=>setPf(p=>({...p,obs:v}))} rows={2}/>}
-        {editMode&&<Txt lb="Observações Gerais" val={pf.notes} set={v=>setPf(p=>({...p,notes:v}))} rows={2}/>}
-        {!editMode&&pat.notes&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.muted,fontStyle:"italic"}}>Obs: {pat.notes}</div>}
-        {pat.phone&&user.level>=2&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! 😊`)} style={{alignSelf:"flex-start"}}/>}
-      </div>}
-
-      {/* ── ANAMNESE ── */}
-      {tab==="anamnese"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-        {showWAanam&&<WAAnamneseModal pat={pf} onClose={function(){setShowWAanam(false);}}/>}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🩺 Anamnese Clínica</span>
-          {!editMode?<div style={{display:"flex",gap:6}}><Btn ch="📋 WA" v="w" sm onClick={function(){setShowWAanam(true);}}/>{!isDentUser&&<Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/>}</div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={()=>{setPats(prev=>prev.map(p=>p.id===pf.id?{...pf}:p));setEditMode(false);}}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
-        </div>
-        <Div lb="Condições Sistêmicas"/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-          {[["hypertension","Hipertensão"],["diabetes","Diabetes"],["heartDisease","Cardiopatia"],["bleeding","Coagulação"],["osteoporosis","Osteoporose"],["kidneyDisease","Doença Renal"],["liverDisease","Doença Hepática"],["thyroid","Tireóide"],["epilepsy","Epilepsia"],["cancer","Câncer/Quimio"],["pregnant","Gestante"],["smoking","Tabagismo"]].map(([k,l])=>{
-            const v=pf.anamnese?.[k]||false;
-            return <label key={k} style={{display:"flex",alignItems:"center",gap:9,background:v?G.red+"12":G.bg,borderRadius:9,padding:"10px 13px",cursor:"pointer",border:`1.5px solid ${v?G.red:G.border}`}}>
-              <input type="checkbox" checked={v} disabled={!editMode} onChange={e=>setPf(p=>({...p,anamnese:{...p.anamnese,[k]:e.target.checked}}))} style={{accentColor:G.red,width:15,height:15}}/>
-              <span style={{fontSize:13,fontWeight:v?700:400,color:v?G.red:G.text}}>{l}</span>
-              {v&&<span style={{marginLeft:"auto",fontSize:11,color:G.red,fontWeight:700}}>⚠ Sim</span>}
-            </label>;
-          })}
-        </div>
-        <Div lb="Medicamentos e Detalhes"/>
-        <R2 a={<Inp lb="Alergias a Medicamentos" val={pf.anamnese?.allergicMeds||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,allergicMeds:v}}))} ro={!editMode}/>}
-            b={<Inp lb="Medicamentos em Uso" val={pf.anamnese?.medications||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,medications:v}}))} ro={!editMode}/>}/>
-        <Txt lb="Outras Condições de Saúde" val={pf.anamnese?.otherConditions||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,otherConditions:v}}))} ro={!editMode} rows={2}/>
-        <Txt lb="Observações Clínicas" val={pf.anamnese?.notes||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,notes:v}}))} ro={!editMode} rows={2}/>
-      </div>}
-
-      {/* ── TRATAMENTO ── */}
-      {tab==="tratamento"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-          <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🦷 Planos de Tratamento</span>
-          <Btn ch="+ Novo Plano" sm onClick={()=>{setTf({name:"",start:today(),items:[],payments:[]});setTreatModal(true);}}/>
-        </div>
-        {patTreats.length===0&&<div style={{background:G.bg,borderRadius:10,padding:"20px",textAlign:"center",color:G.muted,fontSize:13}}>Nenhum plano de tratamento</div>}
-        {patTreats.map(t=>{
-          const total=t.items.reduce((s,i)=>s+i.value,0);
-          const paid=(t.payments||[]).reduce((s,p)=>s+p.value,0);
-          return <div key={t.id} style={{background:G.bg,borderRadius:12,padding:"14px 16px",border:`1px solid ${G.border}`}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:6}}>
-              <div><div style={{fontWeight:700,fontSize:14}}>{t.name}</div><div style={{fontSize:12,color:G.muted}}>Início: {fmt(t.start)}</div></div>
-              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
-                <button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>
-                <button onClick={()=>{if(window.confirm("Excluir plano '"+t.name+"'? Esta ação não pode ser desfeita."))setTreats(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️</button>
-              </div>
-            </div>
-            <div style={{background:G.border,borderRadius:4,height:5,marginBottom:10}}><div style={{background:G.primary,height:5,borderRadius:4,width:`${total?Math.min(100,paid/total*100):0}%`,transition:"width .3s"}}/></div>
-            {t.items.map((it,i)=>{
-              const canCheck=user.level>=2||(user.level===1); // dentist can check
-              const isDone=it.done||it.paid;
-              return <div key={i} style={{display:"flex",gap:9,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap"}}>
-                <div style={{position:"relative",flexShrink:0}}>
-                  <input type="checkbox" checked={!!isDone} onChange={()=>togItemPaid(t.id,i)}
-                    disabled={!canCheck}
-                    style={{accentColor:G.primary,width:17,height:17,cursor:canCheck?"pointer":"not-allowed"}}/>
-                </div>
-                <div style={{flex:1,minWidth:100}}>
-                  <span style={{fontSize:13,textDecoration:isDone?"line-through":"none",color:isDone?G.muted:G.text,fontWeight:isDone?400:600}}>{it.desc}</span>
-                  {isDone&&it.doneBy&&<div style={{fontSize:10,color:G.success,marginTop:1}}>✓ Realizado por {it.doneBy} em {fmt(it.doneDate)}</div>}
-                  {isDone&&it.creditFuture&&<div style={{fontSize:10,color:G.blue,marginTop:1,display:"flex",alignItems:"center",gap:4}}>
-                    <span>💳</span><span>Comissão aguarda crédito do cartão</span>
-                  </div>}
-                </div>
-                <span style={{fontSize:13,fontWeight:700,color:isDone?G.muted:G.primary}}>{cur(it.value)}</span>
-                {!isDone&&<button onClick={()=>{if(window.confirm("Remover este procedimento do plano?"))setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,items:tr.items.filter((_,idx)=>idx!==i)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}} title="Remover procedimento">✕</button>}
-              </div>;
-            })}
-            <Div lb="Pagamentos Registrados"/>
-            {(t.payments||[]).length===0&&<p style={{fontSize:12,color:G.muted}}>Nenhum pagamento registrado</p>}
-            {(t.payments||[]).map(p=><div key={p.id} style={{display:"flex",gap:8,fontSize:12,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}>
-              <span style={{color:G.muted,minWidth:72}}>{fmt(p.date)}</span>
-              <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}</span>
-              <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
-              <button onClick={()=>{if(window.confirm("Excluir este pagamento de "+cur(p.value)+"?"))setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:15,padding:"0 2px"}} title="Excluir pagamento">🗑️</button>
-            </div>)}
-            <Btn ch="+ Registrar Pagamento" sm v="f" style={{marginTop:10}} onClick={()=>{setPayModal(t.id);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",note:""}); }}/>
-          </div>;
-        })}
-
-        {/* Orçamentos */}
-        <Div lb="Orçamentos"/>
-        <div style={{display:"flex",justifyContent:"flex-end"}}><Btn ch="+ Novo Orçamento" sm onClick={()=>{setBudgEdit(null);setBf(blankB);setBudgModal(true);}}/></div>
-        {patBudgets.map(b=>{const tot=b.items.reduce((s,i)=>s+i.v,0)-(b.disc||0);return <div key={b.id} style={{background:G.bg,borderRadius:10,padding:"10px 13px",marginBottom:7,borderLeft:`3px solid ${BCOLOR[b.status]}`}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:5}}>
-            <span style={{fontWeight:700,fontSize:12}}>{fmt(b.date)}</span>
-            <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-              <Bdg l={BSTATUS[b.status]} col={BCOLOR[b.status]} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(tot)}</span>
-              {b.attach&&<Bdg l={`📎 ${b.attach}`} col={G.blue} sm/>}
-              <Btn ch="📱" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! Orçamento:\n${b.items.map(i=>`• ${i.d}: ${cur(i.v)}`).join("\n")}\nTotal: ${cur(tot)}`)}/> 
-              <Btn ch="Editar" v="g" sm onClick={()=>{setBudgEdit(b);setBf({...b,disc:b.disc||0});setBudgModal(true);}}/>
-            </div>
-          </div>
-          {b.items.map((it,i)=><div key={i} style={{fontSize:12,color:G.muted,display:"flex",justifyContent:"space-between",marginTop:2}}><span>{it.d}</span><span>{cur(it.v)}</span></div>)}
-        </div>;})}
-      </div>}
-
-      {/* ── HISTÓRICO ── */}
-      {tab==="historico"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-          <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📅 Histórico de Atendimentos</span>
-          <Btn ch="+ Registrar Atendimento" sm onClick={()=>{setRecEdit(null);setRf(blankR);setRecModal(true);}}/>
-        </div>
-        {patAppts.length>0&&<>
-          <Div lb="Consultas Agendadas"/>
-          {patAppts.map(a=>{const d=dents.find(x=>x.id===a.dentistId)||dents[0];return <div key={a.id} style={{display:"flex",gap:9,padding:"6px 0",borderBottom:`1px solid ${G.border}`,alignItems:"center",flexWrap:"wrap"}}>
-            <span style={{fontSize:12,color:G.muted,minWidth:100}}>{fmt(a.date)} {a.time}</span>
-            <span style={{flex:1,fontSize:12}}>{a.procedure}{a.treatment?` · ${a.treatment}`:""}</span>
-            <span style={{fontSize:11,color:d.color,fontWeight:600}}>{d.name.split(" ")[0]}</span>
-            <Bdg l={SL[a.status]} col={SC[a.status]} sm/>
-          </div>;})}
-        </>}
-        <Div lb="Atendimentos Realizados"/>
-        {patRecs.length===0&&<div style={{background:G.bg,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum atendimento registrado</div>}
-        {patRecs.map(r=>{const d=dents.find(x=>x.id===r.dentistId)||dents[0];return <div key={r.id} style={{background:G.bg,borderRadius:10,padding:"11px 13px",border:`1px solid ${G.border}`,borderLeft:`4px solid ${d.color}`,marginBottom:6}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,flexWrap:"wrap",gap:5}}>
-            <span style={{fontWeight:700,fontSize:13}}>{r.procedure}</span>
-            <div style={{display:"flex",gap:7,alignItems:"center"}}>
-              <span style={{color:G.muted,fontSize:12}}>{fmt(r.date)}</span>
-              {r.paid>0&&<Bdg l={`💰 ${cur(r.paid)}`} col={G.success} sm/>}
-            </div>
-          </div>
-          <div style={{fontSize:12,color:G.muted}}>{r.tooth&&`🦷 ${r.tooth} · `}<span style={{color:d.color}}>👨‍⚕️ {d.name}</span></div>
-          {r.obs&&<div style={{fontSize:12,marginTop:4}}>{r.obs}</div>}
-          {r.rx&&<div style={{fontSize:12,color:G.primary,marginTop:2}}>💊 {r.rx}</div>}
-          {r.instM?.length>0&&<div style={{fontSize:11,color:G.blue,marginTop:3}}>💳 Crédito: {r.instM.map(m=>`${m.slice(5)}/${m.slice(0,4)}`).join(", ")}</div>}
-          <Btn ch="Editar" v="g" sm style={{marginTop:7}} onClick={()=>{setRecEdit(r);setRf({...r,dentistId:String(r.dentistId)});setRecModal(true);}}/>
-        </div>;})}
-      </div>}
-
-      {/* ── FINANCEIRO ── */}
-      {tab==="financeiro"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-        <span style={{fontWeight:700,fontSize:15,color:G.primary}}>💰 Financeiro do Paciente</span>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11}}>
-          {[["Total Pago",cur(patPaid),G.success],["Orçamentos",patBudgets.length+" orç.",G.blue],["Atendimentos",patRecs.length+" atend.",G.primary]].map(([l,v,c])=><div key={l} style={{background:G.bg,borderRadius:10,padding:"11px 13px",textAlign:"center"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c,marginTop:3}}>{v}</div></div>)}
-        </div>
-        <Div lb="Pagamentos Recebidos"/>
-        {patRecs.filter(r=>r.paid>0).map(r=><div key={r.id} style={{display:"flex",gap:9,padding:"6px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}>
-          <span style={{color:G.muted,fontSize:12,minWidth:72}}>{fmt(r.date)}</span>
-          <span style={{flex:1,fontSize:12}}>{r.procedure}</span>
-          <Bdg l={r.payment} col={G.muted} sm/>
-          {r.inst>1&&<Bdg l={`${r.inst}x`} col={G.blue} sm/>}
-          <span style={{fontWeight:700,color:G.success,fontSize:12}}>{cur(r.paid)}</span>
-          <span style={{fontSize:11,color:G.muted}}>líq: {cur(calcNet(r.paid,r.payment))}</span>
-        </div>)}
-        <Div lb="Pagamentos de Planos de Tratamento"/>
-        {patTreats.map(t=><div key={t.id}>
-          <div style={{fontWeight:700,fontSize:12,marginBottom:5,color:G.primary}}>{t.name}</div>
-          {(t.payments||[]).map(p=><div key={p.id} style={{display:"flex",gap:9,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",fontSize:12}}>
-            <span style={{color:G.muted,minWidth:72}}>{fmt(p.date)}</span>
-            <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}</span>
-            <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
-          </div>)}
-          {(t.payments||[]).length===0&&<p style={{fontSize:12,color:G.muted,marginBottom:6}}>Nenhum pagamento</p>}
-        </div>)}
-      </div>}
-
-      {/* ── NOTA FISCAL ── */}
-      {tab==="nf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-          <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🧾 Notas Fiscais</span>
-          <Btn ch="+ Nova NF" sm onClick={()=>{setNfEdit(null);setNff(blankNF);setNfModal(true);}}/>
-        </div>
-        {/* Summary */}
-        {patNFs.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11}}>
-          {[
-            ["Total NFs",cur(patNFs.reduce((s,n)=>s+n.value,0)),G.primary],
-            ["Empresa",cur(patNFs.filter(n=>n.payer==="empresa").reduce((s,n)=>s+n.value,0)),G.blue],
-            ["Dentista",cur(patNFs.filter(n=>n.payer==="dentista").reduce((s,n)=>s+n.value,0)),G.purple],
-          ].map(([l,v,c])=><div key={l} style={{background:G.bg,borderRadius:10,padding:"10px 12px",textAlign:"center"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c,marginTop:2}}>{v}</div></div>)}
-        </div>}
-        {patNFs.length===0&&<div style={{background:G.bg,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhuma nota fiscal registrada</div>}
-        {patNFs.map(n=>{
-          const d=dents.find(x=>x.id===n.dentistId);
-          const statusC={pending:G.yellow,issued:G.success,cancelled:G.red};
-          const statusL={pending:"Pendente",issued:"Emitida",cancelled:"Cancelada"};
-          return <div key={n.id} style={{background:G.bg,borderRadius:12,padding:"13px 15px",border:`1px solid ${G.border}`,borderLeft:`4px solid ${n.payer==="empresa"?G.blue:G.purple}`}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,marginBottom:8}}>
-              <div>
-                <div style={{fontWeight:700,fontSize:14}}>{n.procedure}</div>
-                <div style={{fontSize:11,color:G.muted,marginTop:2}}>{fmt(n.date)}{n.number?` · NF ${n.number}`:""}</div>
-              </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontWeight:700,fontSize:16,color:G.primary}}>{cur(n.value)}</div>
-                {n.tax>0&&<div style={{fontSize:11,color:G.muted}}>Impostos: {cur(n.tax)} · Líq: {cur(n.value-n.tax)}</div>}
-              </div>
-            </div>
-            <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginBottom:n.notes?8:0}}>
-              <span style={{background:n.payer==="empresa"?G.blue+"20":G.purple+"20",color:n.payer==="empresa"?G.blue:G.purple,borderRadius:12,padding:"2px 10px",fontSize:11,fontWeight:700}}>
-                {n.payer==="empresa"?"🏢 Empresa":"👨‍⚕️ Dentista"}
-              </span>
-              {n.payerName&&<span style={{fontSize:11,color:G.muted}}>{n.payerName}{n.payerCnpj?` · CNPJ: ${n.payerCnpj}`:""}</span>}
-              {d&&<span style={{fontSize:11,color:d.color,fontWeight:600}}>👨‍⚕️ {d.name}</span>}
-              <span style={{background:statusC[n.status]+"20",color:statusC[n.status],borderRadius:12,padding:"2px 10px",fontSize:11,fontWeight:700}}>{statusL[n.status]||"Pendente"}</span>
-            </div>
-            {n.notes&&<div style={{fontSize:12,color:G.muted,fontStyle:"italic",borderTop:`1px solid ${G.border}`,paddingTop:7,marginTop:4}}>{n.notes}</div>}
-            <div style={{display:"flex",gap:6,marginTop:8}}>
-              <Btn ch="✏️ Editar" v="g" sm onClick={()=>{setNfEdit(n);setNff({...n,value:String(n.value),tax:String(n.tax||""),dentistId:String(n.dentistId||"")});setNfModal(true);}}/>
-              <Btn ch="✕ Remover" v="r" sm onClick={()=>{if(window.confirm("Remover NF?"))setPats(prev=>prev.map(p=>p.id===pat.id?{...p,nfs:patNFs.filter(x=>x.id!==n.id)}:p));}}/>
-            </div>
-          </div>;
-        })}
-      </div>}
+```
+<div style={{padding:22}}>
+  {/* ── FICHA ── */}
+  {tab==="ficha"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+    {showIARX&&<IARX pat={pf} onClose={function(){setShowIARX(false);}}/>}
+    <button onClick={function(){setShowIARX(true);}} style={{background:G.blue,color:"#fff",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"🦷 Analisar RX com IA"}</button>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📋 Dados do Paciente</span>
+      {!editMode?<div style={{display:"flex",gap:5}}><Btn ch="📋 WA" v="g" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/></div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={savePat}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
     </div>
+    {pat.obs&&<div style={{background:G.yellow+"18",border:`2px solid ${G.yellow}`,borderRadius:10,padding:"9px 14px"}}><span style={{fontWeight:700,color:G.yellow}}>⚠ ALERGIA / OBS. IMPORTANTE</span><div style={{color:G.text,marginTop:4,fontSize:14}}>{pat.obs||pat.allergy}</div></div>}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      {!editMode?<>
+        {[["NOME",pat.name],["IDADE",age(pat.dob)+" ("+fmt(pat.dob)+")"],["CPF",pat.cpf||"--"],["RG",pat.rg||"--"],["TELEFONE",user.level>=2?pat.phone:"••••••••••"],["E-MAIL",user.level>=2?(pat.email||"--"):"••••••••••"],["TIPO SANGUÍNEO",pat.blood||"--"],["PLANO",pat.insurance||"--"],["Nº DA FICHA",pat.folder],["Nº DO RX",pat.rx],["REF. NF",pat.nf||"--"],["ALERGIA",pat.allergy||"Nenhuma"],["COMO NOS CONHECEU",pat.origem||"Não informado"]].map(([k,v])=><div key={k} style={{background:G.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{k}</div><div style={{fontWeight:600,fontSize:13,color:k==="ALERGIA"&&v!=="Nenhuma"?G.red:G.text}}>{v}</div></div>)}
+      </>:<>
+        <Inp lb="Nome" val={pf.name} set={v=>setPf(p=>({...p,name:v}))}/>
+        <DatePick lb="Nascimento" val={pf.dob} set={v=>setPf(p=>({...p,dob:v}))}/>
+        <Inp lb="CPF" val={pf.cpf} set={v=>setPf(p=>({...p,cpf:v}))}/>
+        <Inp lb="RG" val={pf.rg} set={v=>setPf(p=>({...p,rg:v}))}/>
+        <Inp lb="Telefone" val={pf.phone} set={v=>setPf(p=>({...p,phone:v}))}/>
+        <Inp lb="E-mail" val={pf.email} set={v=>setPf(p=>({...p,email:v}))}/>
+        <Inp lb="Tipo Sanguíneo" val={pf.blood} set={v=>setPf(p=>({...p,blood:v}))}/>
+        <Inp lb="Plano de Saúde" val={pf.insurance} set={v=>setPf(p=>({...p,insurance:v}))}/>
+        <Inp lb="Nº da Ficha" val={pf.folder} set={v=>setPf(p=>({...p,folder:v}))}/>
+        <Inp lb="Nº do RX" val={pf.rx} set={v=>setPf(p=>({...p,rx:v}))}/>
+        <Inp lb="Ref. Nota Fiscal" val={pf.nf} set={v=>setPf(p=>({...p,nf:v}))}/>
+        <Inp lb="Alergia" val={pf.allergy} set={v=>setPf(p=>({...p,allergy:v}))}/>
+      </>}
+    </div>
+    {editMode&&<Txt lb="⚠ Obs. Importante (destaque em toda a clínica)" val={pf.obs} set={v=>setPf(p=>({...p,obs:v}))} rows={2}/>}
+    {editMode&&<Txt lb="Observações Gerais" val={pf.notes} set={v=>setPf(p=>({...p,notes:v}))} rows={2}/>}
+    {!editMode&&pat.notes&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.muted,fontStyle:"italic"}}>Obs: {pat.notes}</div>}
+    {pat.phone&&user.level>=2&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! 😊`)} style={{alignSelf:"flex-start"}}/>}
+  </div>}
+
+  {/* ── ANAMNESE ── */}
+  {tab==="anamnese"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+    {showWAanam&&<WAAnamneseModal pat={pf} onClose={function(){setShowWAanam(false);}}/>}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🩺 Anamnese Clínica</span>
+      {!editMode?<div style={{display:"flex",gap:6}}><Btn ch="📋 WA" v="w" sm onClick={function(){setShowWAanam(true);}}/>{!isDentUser&&<Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/>}</div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={()=>{setPats(prev=>prev.map(p=>p.id===pf.id?{...pf}:p));setEditMode(false);}}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
+    </div>
+    <Div lb="Condições Sistêmicas"/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+      {[["hypertension","Hipertensão"],["diabetes","Diabetes"],["heartDisease","Cardiopatia"],["bleeding","Coagulação"],["osteoporosis","Osteoporose"],["kidneyDisease","Doença Renal"],["liverDisease","Doença Hepática"],["thyroid","Tireóide"],["epilepsy","Epilepsia"],["cancer","Câncer/Quimio"],["pregnant","Gestante"],["smoking","Tabagismo"]].map(([k,l])=>{
+        const v=pf.anamnese?.[k]||false;
+        return <label key={k} style={{display:"flex",alignItems:"center",gap:9,background:v?G.red+"12":G.bg,borderRadius:9,padding:"10px 13px",cursor:"pointer",border:`1.5px solid ${v?G.red:G.border}`}}>
+          <input type="checkbox" checked={v} disabled={!editMode} onChange={e=>setPf(p=>({...p,anamnese:{...p.anamnese,[k]:e.target.checked}}))} style={{accentColor:G.red,width:15,height:15}}/>
+          <span style={{fontSize:13,fontWeight:v?700:400,color:v?G.red:G.text}}>{l}</span>
+          {v&&<span style={{marginLeft:"auto",fontSize:11,color:G.red,fontWeight:700}}>⚠ Sim</span>}
+        </label>;
+      })}
+    </div>
+    <Div lb="Medicamentos e Detalhes"/>
+    <R2 a={<Inp lb="Alergias a Medicamentos" val={pf.anamnese?.allergicMeds||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,allergicMeds:v}}))} ro={!editMode}/>}
+        b={<Inp lb="Medicamentos em Uso" val={pf.anamnese?.medications||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,medications:v}}))} ro={!editMode}/>}/>
+    <Txt lb="Outras Condições de Saúde" val={pf.anamnese?.otherConditions||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,otherConditions:v}}))} ro={!editMode} rows={2}/>
+    <Txt lb="Observações Clínicas" val={pf.anamnese?.notes||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,notes:v}}))} ro={!editMode} rows={2}/>
+  </div>}
+
+  {/* ── TRATAMENTO ── */}
+  {tab==="tratamento"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🦷 Planos de Tratamento</span>
+      <Btn ch="+ Novo Plano" sm onClick={()=>{setTf({name:"",start:today(),items:[],payments:[]});setTreatModal(true);}}/>
+    </div>
+    {patTreats.length===0&&<div style={{background:G.bg,borderRadius:10,padding:"20px",textAlign:"center",color:G.muted,fontSize:13}}>Nenhum plano de tratamento</div>}
+    {patTreats.map(t=>{
+      const total=t.items.reduce((s,i)=>s+i.value,0);
+      const paid=(t.payments||[]).reduce((s,p)=>s+p.value,0);
+      return <div key={t.id} style={{background:G.bg,borderRadius:12,padding:"14px 16px",border:`1px solid ${G.border}`}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:6}}>
+          <div><div style={{fontWeight:700,fontSize:14}}>{t.name}</div><div style={{fontSize:12,color:G.muted}}>Início: {fmt(t.start)}</div></div>
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
+            <button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>
+            <button onClick={()=>{if(window.confirm("Excluir plano '"+t.name+"'? Esta ação não pode ser desfeita."))setTreats(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️</button>
+          </div>
+        </div>
+        <div style={{background:G.border,borderRadius:4,height:5,marginBottom:10}}><div style={{background:G.primary,height:5,borderRadius:4,width:`${total?Math.min(100,paid/total*100):0}%`,transition:"width .3s"}}/></div>
+        {t.items.map((it,i)=>{
+          const canCheck=user.level>=2||(user.level===1); // dentist can check
+          const isDone=it.done||it.paid;
+          return <div key={i} style={{display:"flex",gap:9,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap"}}>
+            <div style={{position:"relative",flexShrink:0}}>
+              <input type="checkbox" checked={!!isDone} onChange={()=>togItemPaid(t.id,i)}
+                disabled={!canCheck}
+                style={{accentColor:G.primary,width:17,height:17,cursor:canCheck?"pointer":"not-allowed"}}/>
+            </div>
+            <div style={{flex:1,minWidth:100}}>
+              <span style={{fontSize:13,textDecoration:isDone?"line-through":"none",color:isDone?G.muted:G.text,fontWeight:isDone?400:600}}>{it.desc}</span>
+              {isDone&&it.doneBy&&<div style={{fontSize:10,color:G.success,marginTop:1}}>✓ Realizado por {it.doneBy} em {fmt(it.doneDate)}</div>}
+              {isDone&&it.creditFuture&&<div style={{fontSize:10,color:G.blue,marginTop:1,display:"flex",alignItems:"center",gap:4}}>
+                <span>💳</span><span>Comissão aguarda crédito do cartão</span>
+              </div>}
+            </div>
+            <span style={{fontSize:13,fontWeight:700,color:isDone?G.muted:G.primary}}>{cur(it.value)}</span>
+            {!isDone&&<button onClick={()=>{if(window.confirm("Remover este procedimento do plano?"))setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,items:tr.items.filter((_,idx)=>idx!==i)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}} title="Remover procedimento">✕</button>}
+          </div>;
+        })}
+        <Div lb="Pagamentos Registrados"/>
+        {(t.payments||[]).length===0&&<p style={{fontSize:12,color:G.muted}}>Nenhum pagamento registrado</p>}
+        {(t.payments||[]).map(p=><div key={p.id} style={{display:"flex",gap:8,fontSize:12,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{color:G.muted,minWidth:72}}>{fmt(p.date)}</span>
+          <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}</span>
+          <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
+          <button onClick={()=>{if(window.confirm("Excluir este pagamento de "+cur(p.value)+"?"))setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:15,padding:"0 2px"}} title="Excluir pagamento">🗑️</button>
+        </div>)}
+        <Btn ch="+ Registrar Pagamento" sm v="f" style={{marginTop:10}} onClick={()=>{setPayModal(t.id);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",note:""}); }}/>
+      </div>;
+    })}
+
+    {/* Orçamentos */}
+    <Div lb="Orçamentos"/>
+    <div style={{display:"flex",justifyContent:"flex-end"}}><Btn ch="+ Novo Orçamento" sm onClick={()=>{setBudgEdit(null);setBf(blankB);setBudgModal(true);}}/></div>
+    {patBudgets.map(b=>{const tot=b.items.reduce((s,i)=>s+i.v,0)-(b.disc||0);return <div key={b.id} style={{background:G.bg,borderRadius:10,padding:"10px 13px",marginBottom:7,borderLeft:`3px solid ${BCOLOR[b.status]}`}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:5}}>
+        <span style={{fontWeight:700,fontSize:12}}>{fmt(b.date)}</span>
+        <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+          <Bdg l={BSTATUS[b.status]} col={BCOLOR[b.status]} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(tot)}</span>
+          {b.attach&&<Bdg l={`📎 ${b.attach}`} col={G.blue} sm/>}
+          <Btn ch="📱" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! Orçamento:\n${b.items.map(i=>`• ${i.d}: ${cur(i.v)}`).join("\n")}\nTotal: ${cur(tot)}`)}/> 
+          <Btn ch="Editar" v="g" sm onClick={()=>{setBudgEdit(b);setBf({...b,disc:b.disc||0});setBudgModal(true);}}/>
+        </div>
+      </div>
+      {b.items.map((it,i)=><div key={i} style={{fontSize:12,color:G.muted,display:"flex",justifyContent:"space-between",marginTop:2}}><span>{it.d}</span><span>{cur(it.v)}</span></div>)}
+    </div>;})}
+  </div>}
+
+  {/* ── HISTÓRICO ── */}
+  {tab==="historico"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📅 Histórico de Atendimentos</span>
+      <Btn ch="+ Registrar Atendimento" sm onClick={()=>{setRecEdit(null);setRf(blankR);setRecModal(true);}}/>
+    </div>
+    {patAppts.length>0&&<>
+      <Div lb="Consultas Agendadas"/>
+      {patAppts.map(a=>{const d=dents.find(x=>x.id===a.dentistId)||dents[0];return <div key={a.id} style={{display:"flex",gap:9,padding:"6px 0",borderBottom:`1px solid ${G.border}`,alignItems:"center",flexWrap:"wrap"}}>
+        <span style={{fontSize:12,color:G.muted,minWidth:100}}>{fmt(a.date)} {a.time}</span>
+        <span style={{flex:1,fontSize:12}}>{a.procedure}{a.treatment?` · ${a.treatment}`:""}</span>
+        <span style={{fontSize:11,color:d.color,fontWeight:600}}>{d.name.split(" ")[0]}</span>
+        <Bdg l={SL[a.status]} col={SC[a.status]} sm/>
+      </div>;})}
+    </>}
+    <Div lb="Atendimentos Realizados"/>
+    {patRecs.length===0&&<div style={{background:G.bg,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum atendimento registrado</div>}
+    {patRecs.map(r=>{const d=dents.find(x=>x.id===r.dentistId)||dents[0];return <div key={r.id} style={{background:G.bg,borderRadius:10,padding:"11px 13px",border:`1px solid ${G.border}`,borderLeft:`4px solid ${d.color}`,marginBottom:6}}>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:3,flexWrap:"wrap",gap:5}}>
+        <span style={{fontWeight:700,fontSize:13}}>{r.procedure}</span>
+        <div style={{display:"flex",gap:7,alignItems:"center"}}>
+          <span style={{color:G.muted,fontSize:12}}>{fmt(r.date)}</span>
+          {r.paid>0&&<Bdg l={`💰 ${cur(r.paid)}`} col={G.success} sm/>}
+        </div>
+      </div>
+      <div style={{fontSize:12,color:G.muted}}>{r.tooth&&`🦷 ${r.tooth} · `}<span style={{color:d.color}}>👨‍⚕️ {d.name}</span></div>
+      {r.obs&&<div style={{fontSize:12,marginTop:4}}>{r.obs}</div>}
+      {r.rx&&<div style={{fontSize:12,color:G.primary,marginTop:2}}>💊 {r.rx}</div>}
+      {r.instM?.length>0&&<div style={{fontSize:11,color:G.blue,marginTop:3}}>💳 Crédito: {r.instM.map(m=>`${m.slice(5)}/${m.slice(0,4)}`).join(", ")}</div>}
+      <Btn ch="Editar" v="g" sm style={{marginTop:7}} onClick={()=>{setRecEdit(r);setRf({...r,dentistId:String(r.dentistId)});setRecModal(true);}}/>
+    </div>;})}
+  </div>}
+
+  {/* ── FINANCEIRO ── */}
+  {tab==="financeiro"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <span style={{fontWeight:700,fontSize:15,color:G.primary}}>💰 Financeiro do Paciente</span>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11}}>
+      {[["Total Pago",cur(patPaid),G.success],["Orçamentos",patBudgets.length+" orç.",G.blue],["Atendimentos",patRecs.length+" atend.",G.primary]].map(([l,v,c])=><div key={l} style={{background:G.bg,borderRadius:10,padding:"11px 13px",textAlign:"center"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c,marginTop:3}}>{v}</div></div>)}
+    </div>
+    <Div lb="Pagamentos Recebidos"/>
+    {patRecs.filter(r=>r.paid>0).map(r=><div key={r.id} style={{display:"flex",gap:9,padding:"6px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}>
+      <span style={{color:G.muted,fontSize:12,minWidth:72}}>{fmt(r.date)}</span>
+      <span style={{flex:1,fontSize:12}}>{r.procedure}</span>
+      <Bdg l={r.payment} col={G.muted} sm/>
+      {r.inst>1&&<Bdg l={`${r.inst}x`} col={G.blue} sm/>}
+      <span style={{fontWeight:700,color:G.success,fontSize:12}}>{cur(r.paid)}</span>
+      <span style={{fontSize:11,color:G.muted}}>líq: {cur(calcNet(r.paid,r.payment))}</span>
+    </div>)}
+    <Div lb="Pagamentos de Planos de Tratamento"/>
+    {patTreats.map(t=><div key={t.id}>
+      <div style={{fontWeight:700,fontSize:12,marginBottom:5,color:G.primary}}>{t.name}</div>
+      {(t.payments||[]).map(p=><div key={p.id} style={{display:"flex",gap:9,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",fontSize:12}}>
+        <span style={{color:G.muted,minWidth:72}}>{fmt(p.date)}</span>
+        <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}</span>
+        <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
+      </div>)}
+      {(t.payments||[]).length===0&&<p style={{fontSize:12,color:G.muted,marginBottom:6}}>Nenhum pagamento</p>}
+    </div>)}
+  </div>}
+
+  {/* ── NOTA FISCAL ── */}
+  {tab==="nf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🧾 Notas Fiscais</span>
+      <Btn ch="+ Nova NF" sm onClick={()=>{setNfEdit(null);setNff(blankNF);setNfModal(true);}}/>
+    </div>
+    {/* Summary */}
+    {patNFs.length>0&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:11}}>
+      {[
+        ["Total NFs",cur(patNFs.reduce((s,n)=>s+n.value,0)),G.primary],
+        ["Empresa",cur(patNFs.filter(n=>n.payer==="empresa").reduce((s,n)=>s+n.value,0)),G.blue],
+        ["Dentista",cur(patNFs.filter(n=>n.payer==="dentista").reduce((s,n)=>s+n.value,0)),G.purple],
+      ].map(([l,v,c])=><div key={l} style={{background:G.bg,borderRadius:10,padding:"10px 12px",textAlign:"center"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c,marginTop:2}}>{v}</div></div>)}
+    </div>}
+    {patNFs.length===0&&<div style={{background:G.bg,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhuma nota fiscal registrada</div>}
+    {patNFs.map(n=>{
+      const d=dents.find(x=>x.id===n.dentistId);
+      const statusC={pending:G.yellow,issued:G.success,cancelled:G.red};
+      const statusL={pending:"Pendente",issued:"Emitida",cancelled:"Cancelada"};
+      return <div key={n.id} style={{background:G.bg,borderRadius:12,padding:"13px 15px",border:`1px solid ${G.border}`,borderLeft:`4px solid ${n.payer==="empresa"?G.blue:G.purple}`}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8,marginBottom:8}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:14}}>{n.procedure}</div>
+            <div style={{fontSize:11,color:G.muted,marginTop:2}}>{fmt(n.date)}{n.number?` · NF ${n.number}`:""}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontWeight:700,fontSize:16,color:G.primary}}>{cur(n.value)}</div>
+            {n.tax>0&&<div style={{fontSize:11,color:G.muted}}>Impostos: {cur(n.tax)} · Líq: {cur(n.value-n.tax)}</div>}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginBottom:n.notes?8:0}}>
+          <span style={{background:n.payer==="empresa"?G.blue+"20":G.purple+"20",color:n.payer==="empresa"?G.blue:G.purple,borderRadius:12,padding:"2px 10px",fontSize:11,fontWeight:700}}>
+            {n.payer==="empresa"?"🏢 Empresa":"👨‍⚕️ Dentista"}
+          </span>
+          {n.payerName&&<span style={{fontSize:11,color:G.muted}}>{n.payerName}{n.payerCnpj?` · CNPJ: ${n.payerCnpj}`:""}</span>}
+          {d&&<span style={{fontSize:11,color:d.color,fontWeight:600}}>👨‍⚕️ {d.name}</span>}
+          <span style={{background:statusC[n.status]+"20",color:statusC[n.status],borderRadius:12,padding:"2px 10px",fontSize:11,fontWeight:700}}>{statusL[n.status]||"Pendente"}</span>
+        </div>
+        {n.notes&&<div style={{fontSize:12,color:G.muted,fontStyle:"italic",borderTop:`1px solid ${G.border}`,paddingTop:7,marginTop:4}}>{n.notes}</div>}
+        <div style={{display:"flex",gap:6,marginTop:8}}>
+          <Btn ch="✏️ Editar" v="g" sm onClick={()=>{setNfEdit(n);setNff({...n,value:String(n.value),tax:String(n.tax||""),dentistId:String(n.dentistId||"")});setNfModal(true);}}/>
+          <Btn ch="✕ Remover" v="r" sm onClick={()=>{if(window.confirm("Remover NF?"))setPats(prev=>prev.map(p=>p.id===pat.id?{...p,nfs:patNFs.filter(x=>x.id!==n.id)}:p));}}/>
+        </div>
+      </div>;
+    })}
+  </div>}
+</div>
+```
+
   </div>
 </div>
 
 {/* Add procedure to existing plan modal */}
 {addProcModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
   <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:480,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
       <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Adicionar Procedimento ao Plano</span>
@@ -762,6 +770,7 @@ return <>
 
 {/* NF modal */}
 {nfModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
   <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:580,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
       <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{nfEdit?"Editar Nota Fiscal":"Nova Nota Fiscal"}</span>
@@ -816,6 +825,7 @@ return <>
 </div>}
 
 {recModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
   <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:580,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
       <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{recEdit?"Editar Atendimento":"Registrar Atendimento"}</span>
@@ -870,6 +880,7 @@ return <>
 
 {/* Treatment modal - inline to fix state closure issue */}
 {treatModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
   <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
       <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Novo Plano de Tratamento</span>
@@ -930,8 +941,9 @@ return <>
   </div>
 </div>}
 
-{/* Budget modal -- inline render to avoid state closure bug */}
+{/* Budget modal - inline render to avoid state closure bug */}
 {budgModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
   <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
       <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Orçamento -- {pat.name}</span>
@@ -985,8 +997,9 @@ return <>
   </div>
 </div>}
 
-{/* Payment modal -- inline render to avoid state closure bug */}
+{/* Payment modal - inline render to avoid state closure bug */}
 {!!payModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
   <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
       <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Registrar Pagamento</span>
@@ -1080,7 +1093,7 @@ const obj={...f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,pa
 setAppts(prev=>edit?prev.map(a=>a.id===edit.id?obj:a):[...prev,obj]);
 const p=pats.find(x=>x.id===Number(f.patientId));
 const nome=p?.name||f.patientName||"";
-if(addLog)addLog("agenda",(edit?"Editou":"Criou")+" consulta de "+nome+" -- "+fmt(f.date)+" "+finalTime,nome);
+if(addLog)addLog("agenda",(edit?"Editou":"Criou")+" consulta de "+nome+" - "+fmt(f.date)+" "+finalTime,nome);
 setModal(false);setEdit(null);setF(blank);
 };
 const saveBlock=(date,time,dentistId)=>{
@@ -1092,40 +1105,41 @@ const chSt=(id,st)=>{
 setAppts(prev=>prev.map(a=>a.id===id?{...a,status:st}:a));
 const a=appts.find(x=>x.id===id);const p=pats.find(x=>x.id===(a&&a.patientId));
 const ST={confirmed:"Confirmou",pending:"Pendente",done:"Realizou",cancelled:"Cancelou",missed:"Faltou",rescheduled:"Desmarcou"};
-if(addLog&&a)addLog("agenda",(ST[st]||st)+" consulta de "+(p&&p.name||"paciente")+" -- "+fmt(a.date)+" "+a.time,p&&p.name);
+if(addLog&&a)addLog("agenda",(ST[st]||st)+" consulta de "+(p&&p.name||"paciente")+" - "+fmt(a.date)+" "+a.time,p&&p.name);
 };
 
 return (
+
 <div style={{display:"flex",flexDirection:"column",gap:10}} className="fi">
 
-  {showCal&&(
-    <div style={{position:"fixed",inset:0,zIndex:500}} onClick={()=>setShowCal(false)}>
-      <div style={{position:"absolute",top:60,left:"50%",transform:"translateX(-50%)",background:"#fff",borderRadius:14,boxShadow:"0 8px 32px rgba(0,0,0,.2)",padding:16,minWidth:290,zIndex:501}} onClick={e=>e.stopPropagation()}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-          <button onClick={()=>{if(calM===0){setCalM(11);setCalY(y=>y-1);}else setCalM(m=>m-1);}} style={{border:"none",background:"none",fontSize:20,cursor:"pointer",color:G.primary,fontWeight:700}}>{"<"}</button>
-          <span style={{fontWeight:700,fontSize:13}}>{MONTHS[calM]} {calY}</span>
-          <button onClick={()=>{if(calM===11){setCalM(0);setCalY(y=>y+1);}else setCalM(m=>m+1);}} style={{border:"none",background:"none",fontSize:20,cursor:"pointer",color:G.primary,fontWeight:700}}>{">"}</button>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
-          {["D","S","T","Q","Q","S","S"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,fontWeight:700,color:G.muted}}>{d}</div>)}
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
-          {Array.from({length:fd(calY,calM)}).map((_,i)=><div key={"e"+i}/>)}
-          {Array.from({length:dim(calY,calM)}).map((_,i)=>{
-            const ds=calY+"-"+String(calM+1).padStart(2,"0")+"-"+String(i+1).padStart(2,"0");
-            const isSel=ds===selDate;const isTd=ds===td;
-            const cnt=appts.filter(a=>a.date===ds).length;
-            return (
-              <div key={i} onClick={()=>{setSelDate(ds);setShowCal(false);}} style={{borderRadius:6,padding:"4px 2px",textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent"}}>
-                <div style={{fontSize:12,fontWeight:700,color:isSel?"#fff":isTd?G.primary:G.text}}>{i+1}</div>
-                {cnt>0&&<div style={{width:4,height:4,borderRadius:"50%",background:isSel?"rgba(255,255,255,.7)":G.primary,margin:"0 auto"}}/>}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  )}
+{showCal&&(
+<div style={{position:"fixed",inset:0,zIndex:500}} onClick={()=>setShowCal(false)}>
+<div style={{position:"absolute",top:60,left:"50%",transform:"translateX(-50%)",background:"#fff",borderRadius:14,boxShadow:"0 8px 32px rgba(0,0,0,.2)",padding:16,minWidth:290,zIndex:501}} onClick={e=>e.stopPropagation()}>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+<button onClick={()=>{if(calM===0){setCalM(11);setCalY(y=>y-1);}else setCalM(m=>m-1);}} style={{border:"none",background:"none",fontSize:20,cursor:"pointer",color:G.primary,fontWeight:700}}>{"<"}</button>
+<span style={{fontWeight:700,fontSize:13}}>{MONTHS[calM]} {calY}</span>
+<button onClick={()=>{if(calM===11){setCalM(0);setCalY(y=>y+1);}else setCalM(m=>m+1);}} style={{border:"none",background:"none",fontSize:20,cursor:"pointer",color:G.primary,fontWeight:700}}>{">"}</button>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
+{["D","S","T","Q","Q","S","S"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,fontWeight:700,color:G.muted}}>{d}</div>)}
+</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+{Array.from({length:fd(calY,calM)}).map((*,i)=><div key={"e"+i}/>)}
+{Array.from({length:dim(calY,calM)}).map((*,i)=>{
+const ds=calY+"-"+String(calM+1).padStart(2,"0")+"-"+String(i+1).padStart(2,"0");
+const isSel=ds===selDate;const isTd=ds===td;
+const cnt=appts.filter(a=>a.date===ds).length;
+return (
+<div key={i} onClick={()=>{setSelDate(ds);setShowCal(false);}} style={{borderRadius:6,padding:"4px 2px",textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent"}}>
+<div style={{fontSize:12,fontWeight:700,color:isSel?"#fff":isTd?G.primary:G.text}}>{i+1}</div>
+{cnt>0&&<div style={{width:4,height:4,borderRadius:"50%",background:isSel?"rgba(255,255,255,.7)":G.primary,margin:"0 auto"}}/>}
+</div>
+);
+})}
+</div>
+</div>
+</div>
+)}
 
   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
     <button onClick={()=>{setCalY(new Date().getFullYear());setCalM(new Date().getMonth());setShowCal(v=>!v);}} style={{background:showCal?G.primary:G.accent,border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",cursor:"pointer",fontSize:16,color:showCal?"#fff":"inherit"}}>{"📅"}</button>
@@ -1156,79 +1170,81 @@ return (
     })}
   </div>
 
-  {vd.length>1&&<div style={{display:"grid",gridTemplateColumns:"48px repeat("+vd.length+",1fr)",gap:2}}>
-    <div/>
-    {vd.map(d=><div key={d.id} style={{background:d.color,color:"#fff",borderRadius:7,padding:"5px 4px",textAlign:"center",fontSize:10,fontWeight:700}}>{d.name.split(" ").slice(0,2).join(" ")}</div>)}
+{vd.length>1&&<div style={{display:"grid",gridTemplateColumns:"48px repeat("+vd.length+",1fr)",gap:2}}>
+<div/>
+{vd.map(d=><div key={d.id} style={{background:d.color,color:"#fff",borderRadius:7,padding:"5px 4px",textAlign:"center",fontSize:10,fontWeight:700}}>{d.name.split(" ").slice(0,2).join(" ")}</div>)}
+
   </div>}
 
-  {vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:3}}>
-    {SLOTS.map(function(slot){
-      var d=vd[0];
-      var a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentistId===d.id;});
-      var p=a?pats.find(function(x){return x.id===a.patientId;}):null;
-      var selDay=new Date(selDate+"T12:00").getDay();
-      var isOff=(d.dias||[1,2,3,4,5]).indexOf(selDay)<0;
-      var alIni=(d.almoco&&d.almoco.ini)||"";var alFim=(d.almoco&&d.almoco.fim)||"";
-      var isAlm=alIni&&alFim&&slot>=alIni&&slot<alFim;
-      var isOut=slot<(d.entrada||"08:00")||slot>=(d.saida||"18:00");
-      var isBlocked=isOff||isAlm||isOut;
-      if(isBlocked&&!a)return(
-        <div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 8px",borderRadius:8,background:isOff?"#FFEBEE":isAlm?"#FFF8E1":"#F3E5F5",opacity:.6}}>
-          <span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
-          <span style={{fontSize:11,color:isOff?"#C62828":isAlm?"#E65100":"#6A1B9A",fontWeight:600}}>{isOff?"🚫 Folga":isAlm?"🍽️ Almoço":"⛔ Fechado"}</span>
-        </div>
-      );
-      // Slot ocupado por duração de consulta anterior
-      const isExtraSlot=appts.some(a2=>a2.date===selDate&&a2.dentistId===d.id&&(a2.extraSlots||[]).includes(slot));
-      if(isExtraSlot&&!a)return(
-        <div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#F3E5F5",border:"1px solid #CE93D8"}}>
-          <span style={{fontSize:11,color:"#6A1B9A",minWidth:38,fontWeight:600}}>{slot}</span>
-          <span style={{fontSize:11,color:"#6A1B9A"}}>⏱️ Em consulta</span>
-        </div>
-      );
-      if(!a)return(
-        <div key={slot} onClick={function(){if(isDent)return;setEdit(null);setF({...blank,date:selDate,time:slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer"}}>
-          <span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
-          {isDent
-            ?<span style={{fontSize:11,color:G.border}}>─────────</span>
-            :<span style={{fontSize:11,color:G.border,flex:1}}>{"+ agendar"}</span>}
-          {!isDent&&<button onClick={e=>{e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{marginLeft:"auto",background:"#FFEBEE",border:"1px solid #FFCDD2",borderRadius:6,padding:"2px 7px",fontSize:10,color:G.red,cursor:"pointer",fontWeight:700}} title="Bloquear horário">🔒</button>}
-        </div>
-      );
-      // Slot bloqueado
-      if(a&&a.blocked)return(
-        <div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
-          <span style={{fontSize:12,fontWeight:700,color:G.red,minWidth:38}}>{slot}</span>
-          <span style={{fontSize:12,fontWeight:700,color:G.red}}>🔒 {a.blockReason||"Bloqueado"}</span>
-          {!isDent&&<span style={{fontSize:10,color:G.muted,marginLeft:"auto"}}>toque p/ desbloquear</span>}
-        </div>
-      );
-      const isPartial=!a.patientId&&a.patientName;
-      var flags=[];
-      if(p&&p.obs)flags.push("⚠️ "+p.obs);
-      if(p&&p.allergy&&p.allergy!=="Nenhuma")flags.push("💊 "+p.allergy);
-      var anObj=p&&p.anamnese||{};
-      if(anObj.hypertension)flags.push("HAS");
-      if(anObj.diabetes)flags.push("Diabetes");
-      if(anObj.heartDisease)flags.push("Cardio");
-      return(
-        <div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:isPartial?"#FFEBEE":SC[a.status]+"15",border:"1.5px solid "+(isPartial?G.red:SC[a.status]),cursor:"pointer"}}>
-          <span style={{fontSize:12,fontWeight:700,color:isPartial?G.red:SC[a.status],minWidth:38}}>{slot}</span>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-              <span style={{fontWeight:700,fontSize:13,color:isPartial?G.red:G.text}}>{isPartial?a.patientName:(p&&p.name)}</span>
-              {isPartial&&<span style={{fontSize:10,background:G.red+"20",color:G.red,borderRadius:4,padding:"1px 5px",fontWeight:700}}>⚠ Parcial</span>}
-              {p&&p.phone&&!isPartial&&<span style={{fontSize:11,color:G.muted}}>{p.phone}</span>}
-              <span style={{fontSize:11,color:G.muted}}>{"· "+(a.procedureCustom||a.procedure)}</span>
-              <span style={{fontSize:10,fontWeight:700,color:isPartial?G.red:SC[a.status],background:(isPartial?G.red:SC[a.status])+"20",borderRadius:5,padding:"1px 6px"}}>{SL[a.status]}</span>
-            </div>
-            {flags.length>0&&<div style={{display:"flex",gap:4,marginTop:2,flexWrap:"wrap"}}>
-              {flags.map(function(f,i){return <span key={i} style={{fontSize:9,background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 5px",fontWeight:700}}>{f}</span>;})}
-            </div>}
-          </div>
-        </div>
-      );
-    })}
+{vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:3}}>
+{SLOTS.map(function(slot){
+var d=vd[0];
+var a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentistId===d.id;});
+var p=a?pats.find(function(x){return x.id===a.patientId;}):null;
+var selDay=new Date(selDate+"T12:00").getDay();
+var isOff=(d.dias||[1,2,3,4,5]).indexOf(selDay)<0;
+var alIni=(d.almoco&&d.almoco.ini)||"";var alFim=(d.almoco&&d.almoco.fim)||"";
+var isAlm=alIni&&alFim&&slot>=alIni&&slot<alFim;
+var isOut=slot<(d.entrada||"08:00")||slot>=(d.saida||"18:00");
+var isBlocked=isOff||isAlm||isOut;
+if(isBlocked&&!a)return(
+<div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 8px",borderRadius:8,background:isOff?"#FFEBEE":isAlm?"#FFF8E1":"#F3E5F5",opacity:.6}}>
+<span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
+<span style={{fontSize:11,color:isOff?"#C62828":isAlm?"#E65100":"#6A1B9A",fontWeight:600}}>{isOff?"🚫 Folga":isAlm?"🍽️ Almoço":"⛔ Fechado"}</span>
+</div>
+);
+// Slot ocupado por duração de consulta anterior
+const isExtraSlot=appts.some(a2=>a2.date===selDate&&a2.dentistId===d.id&&(a2.extraSlots||[]).includes(slot));
+if(isExtraSlot&&!a)return(
+<div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#F3E5F5",border:"1px solid #CE93D8"}}>
+<span style={{fontSize:11,color:"#6A1B9A",minWidth:38,fontWeight:600}}>{slot}</span>
+<span style={{fontSize:11,color:"#6A1B9A"}}>⏱️ Em consulta</span>
+</div>
+);
+if(!a)return(
+<div key={slot} onClick={function(){if(isDent)return;setEdit(null);setF({...blank,date:selDate,time:slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer"}}>
+<span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
+{isDent
+?<span style={{fontSize:11,color:G.border}}>─────────</span>
+:<span style={{fontSize:11,color:G.border,flex:1}}>{"+ agendar"}</span>}
+{!isDent&&<button onClick={e=>{e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{marginLeft:"auto",background:"#FFEBEE",border:"1px solid #FFCDD2",borderRadius:6,padding:"2px 7px",fontSize:10,color:G.red,cursor:"pointer",fontWeight:700}} title="Bloquear horário">🔒</button>}
+</div>
+);
+// Slot bloqueado
+if(a&&a.blocked)return(
+<div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
+<span style={{fontSize:12,fontWeight:700,color:G.red,minWidth:38}}>{slot}</span>
+<span style={{fontSize:12,fontWeight:700,color:G.red}}>🔒 {a.blockReason||"Bloqueado"}</span>
+{!isDent&&<span style={{fontSize:10,color:G.muted,marginLeft:"auto"}}>toque p/ desbloquear</span>}
+</div>
+);
+const isPartial=!a.patientId&&a.patientName;
+var flags=[];
+if(p&&p.obs)flags.push("⚠️ "+p.obs);
+if(p&&p.allergy&&p.allergy!=="Nenhuma")flags.push("💊 "+p.allergy);
+var anObj=p&&p.anamnese||{};
+if(anObj.hypertension)flags.push("HAS");
+if(anObj.diabetes)flags.push("Diabetes");
+if(anObj.heartDisease)flags.push("Cardio");
+return(
+<div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:isPartial?"#FFEBEE":SC[a.status]+"15",border:"1.5px solid "+(isPartial?G.red:SC[a.status]),cursor:"pointer"}}>
+<span style={{fontSize:12,fontWeight:700,color:isPartial?G.red:SC[a.status],minWidth:38}}>{slot}</span>
+<div style={{flex:1,minWidth:0}}>
+<div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+<span style={{fontWeight:700,fontSize:13,color:isPartial?G.red:G.text}}>{isPartial?a.patientName:(p&&p.name)}</span>
+{isPartial&&<span style={{fontSize:10,background:G.red+"20",color:G.red,borderRadius:4,padding:"1px 5px",fontWeight:700}}>⚠ Parcial</span>}
+{p&&p.phone&&!isPartial&&<span style={{fontSize:11,color:G.muted}}>{p.phone}</span>}
+<span style={{fontSize:11,color:G.muted}}>{"· "+(a.procedureCustom||a.procedure)}</span>
+<span style={{fontSize:10,fontWeight:700,color:isPartial?G.red:SC[a.status],background:(isPartial?G.red:SC[a.status])+"20",borderRadius:5,padding:"1px 6px"}}>{SL[a.status]}</span>
+</div>
+{flags.length>0&&<div style={{display:"flex",gap:4,marginTop:2,flexWrap:"wrap"}}>
+{flags.map(function(f,i){return <span key={i} style={{fontSize:9,background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 5px",fontWeight:700}}>{f}</span>;})}
+</div>}
+</div>
+</div>
+);
+})}
+
   </div>}
   {vd.length>1&&<div style={{overflowX:"auto"}}>
     <div style={{minWidth:vd.length>1?vd.length*130+55:250}}>
@@ -1284,151 +1300,152 @@ return (
     </div>
   </div>}
 
-  {showCancel&&(()=>{const a=showCancel;const p=pats.find(x=>x.id===a.patientId);return p&&<CancelWA appt={a} pat={p} onCancel={function(id){setAppts(function(prev){return prev.filter(function(x){return x.id!==id;});});}} onClose={function(){setShowCancel(null);setViewA(null);}}/>;})()}
-  {viewA&&(()=>{
-    const a=viewA;const p=pats.find(x=>x.id===a.patientId);const d=dents.find(x=>x.id===a.dentistId)||dents[0];
-    const hist=p?appts.filter(function(x){return x.patientId===p.id&&x.id!==a.id;}).sort(function(x,y){return y.date.localeCompare(x.date);}).slice(0,15):[];
-    const HCOR={"done":"#27AE60","confirmed":"#2196F3","pending":"#FF9800","cancelled":"#F44336","missed":"#9E9E9E"};
-    const HLBL={"done":"Realizada","confirmed":"Confirmada","pending":"Pendente","cancelled":"Cancelada","missed":"Faltou"};
-    return(
-      <Modal open close={function(){setViewA(null);setHistTab("info");}} title="Consulta" wide ch={
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{display:"flex",gap:3,marginBottom:4}}>
-            <button onClick={function(){setHistTab("info");}} style={{flex:1,border:"none",borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer",background:histTab==="info"?G.primary:"#eee",color:histTab==="info"?"#fff":G.muted}}>{"📋 Consulta"}</button>
-            <button onClick={function(){setHistTab("hist");}} style={{flex:1,border:"none",borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer",background:histTab==="hist"?G.primary:"#eee",color:histTab==="hist"?"#fff":G.muted}}>{"📅 Histórico ("+hist.length+")"}</button>
-          </div>
-          {histTab==="hist"&&<div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:340,overflowY:"auto"}}>
-            {hist.length===0&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>Nenhuma consulta anterior</div>}
-            {hist.map(function(h){var hd=dents.find(function(x){return x.id===h.dentistId;})||dents[0];var cor=HCOR[h.status]||G.muted;
-              return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 12px",borderLeft:"4px solid "+cor}}>
-                <div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:700,fontSize:13}}>{h.procedure}</div>
-                    <div style={{fontSize:11,color:G.muted,marginTop:2}}>{fmt(h.date)+" às "+h.time+" · "+hd.name}</div>
-                    {h.treatment&&<div style={{fontSize:11,color:G.muted}}>{"📝 "+h.treatment}</div>}
-                  </div>
-                  <span style={{fontSize:10,fontWeight:700,color:cor,background:cor+"20",borderRadius:6,padding:"2px 6px",whiteSpace:"nowrap"}}>{HLBL[h.status]||h.status}</span>
-                </div>
-              </div>;
-            })}
-          </div>}
-          {histTab==="info"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {p&&p.obs&&<div style={{background:G.yellow+"18",border:"2px solid "+G.yellow,borderRadius:10,padding:"8px 12px",fontWeight:700,color:G.yellow}}>{"⚠ "+p.obs}</div>}
-          <div style={{background:G.accent,borderRadius:10,padding:"10px 14px"}}>
-            <div style={{fontSize:15,fontWeight:700}}>{p&&p.name}</div>
-            <div style={{fontSize:12,color:G.muted}}>{"📁 "+(p&&p.folder)}</div>
-            {p&&p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600,marginTop:3}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-            {[["Data/Hora",fmt(a.date)+" · "+a.time],["Procedimento",a.procedure],["Dentista",d.name],["Status",SL[a.status]]].map(([k,v])=>(
-              <div key={k} style={{background:G.bg,borderRadius:8,padding:"6px 10px"}}>
-                <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{k}</div>
-                <div style={{fontWeight:600,fontSize:12}}>{v}</div>
-              </div>
-            ))}
-          </div>
-          {!isDent&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-            {Object.entries(SL).map(([k,l])=><button key={k} onClick={()=>chSt(a.id,k)} style={{border:"2px solid "+SC[k],background:a.status===k?SC[k]:"#fff",color:a.status===k?"#fff":SC[k],borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
-          </div>}
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" -- "+a.procedure+". Affonso Odontologia 🦷")}/>}
-            {!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" -- "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
-            {!isDent&&p&&p.phone&&<Btn ch="🔄 Paciente Cancelou" v="r" sm onClick={function(){chSt(a.id,"cancelled");wa(p.phone,"Olá, "+p.name+"! Entendemos que nao podera comparecer. Gostaria de remarcar? Responda SIM. Affonso Odontologia");setViewA(null);}}/>}
-            {!isDent&&<Btn ch="Editar" sm onClick={()=>{setEdit(a);setF({...a,patientId:String(a.patientId),dentistId:String(a.dentistId)});setViewA(null);setModal(true);}}/>}
-            {!isDent&&<Btn ch="Remover" v="r" sm onClick={()=>{if(window.confirm("Remover?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));setViewA(null);}}/> }
-            <Btn ch="Fechar" v="g" sm onClick={()=>setViewA(null)}/>
-          </div>
-          </div>}
-        </div>
-      }/>
-    );
-  })()}
-        
-  <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Agendamento":"Novo Agendamento"} wide ch={
-    <div style={{display:"flex",flexDirection:"column",gap:11}}>
-      <Sel lb="Dentista" val={String(f.dentistId)} set={upd("dentistId")} opts={dents.map(d=>({v:d.id,l:d.name}))}/>
-      {/* Paciente -- busca cadastrado OU nome manual */}
-      <div>
-        <div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",marginBottom:4}}>Paciente</div>
-        <div style={{display:"flex",gap:6,marginBottom:6}}>
-          <button onClick={()=>setF(p=>({...p,useManual:false,patientName:""}))} style={{flex:1,border:`2px solid ${!f.useManual?G.primary:G.border}`,background:!f.useManual?G.primary:"#fff",color:!f.useManual?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔍 Cadastrado</button>
-          <button onClick={()=>setF(p=>({...p,useManual:true,patientId:""}))} style={{flex:1,border:`2px solid ${f.useManual?G.red:G.border}`,background:f.useManual?G.red:"#fff",color:f.useManual?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Digitar nome</button>
-        </div>
-        {f.useManual
-          ?<div>
-            <Inp val={f.patientName||""} set={upd("patientName")} ph="Nome completo + telefone do paciente"/>
-            <div style={{background:"#FFF3E0",borderRadius:8,padding:"5px 9px",fontSize:11,color:"#E65100",marginTop:4}}>⚠️ Aparecerá em vermelho na agenda -- cadastro parcial</div>
-          </div>
-          :<div>
-            <PatSearch val={f.patientId} set={upd("patientId")} pats={pats}/>
-            {!f.patientId&&<div style={{fontSize:11,color:G.muted,marginTop:4}}>Não encontrou? Use <strong>"✏️ Digitar nome"</strong> acima</div>}
-          </div>
-        }
-      </div>
-      {/* Data e Horário */}
-      <R2 a={<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>} b={
-        <div style={{display:"flex",flexDirection:"column",gap:4}}>
-          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Horário</label>
-          <select value={f.time} onChange={e=>upd("time")(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 8px",fontSize:13,outline:"none",background:"#fff"}}>
-            {[{v:"",l:"Selecione..."},...SLOTS].map(o=><option key={o.v??o} value={o.v??o}>{o.l??o}</option>)}
-          </select>
-          <input value={f.timeCustom||""} onChange={e=>upd("timeCustom")(e.target.value)} placeholder="Horário personalizado ex: 09:15" style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"7px 8px",fontSize:12,outline:"none"}}/>
-        </div>
-      }/>
-      {/* Duração */}
-      <div style={{display:"flex",flexDirection:"column",gap:4}}>
-        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Duração da Consulta</label>
-        <select value={String(f.duration||30)} onChange={e=>{const d=Number(e.target.value);setF(p=>({...p,duration:d}));}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",background:"#fff"}}>
-          <option value="30">30 minutos</option>
-          <option value="60">1 hora</option>
-          <option value="90">1h 30min</option>
-          <option value="120">2 horas</option>
-          <option value="150">2h 30min</option>
-          <option value="180">3 horas</option>
-        </select>
-        {Number(f.duration||30)>30&&<div style={{background:G.accent,borderRadius:8,padding:"5px 9px",fontSize:11,color:G.primary}}>⏱️ Ocupa slots até: {(()=>{const t=f.timeCustom||f.time;if(!t)return "...";let [h,m]=t.split(":").map(Number);m+=Number(f.duration||30)-30;while(m>=60){m-=60;h++;}return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;})()}</div>}
-      </div>
-      {/* Procedimento com opção manual */}
-      <div style={{display:"flex",flexDirection:"column",gap:4}}>
-        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Procedimento</label>
-        <select value={f.procedure} onChange={e=>{upd("procedure")(e.target.value);const pr=procs.find(p=>p.name===e.target.value);if(pr&&!f.value)upd("value")(String(pr.price));}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 8px",fontSize:13,outline:"none",background:"#fff"}}>
-          <option value="">Selecione...</option>
-          <option value="Avaliação">Avaliação</option>
-          <option value="Retorno">Retorno</option>
-          <option value="Urgência">Urgência</option>
-          {procs.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
-        </select>
-        <input value={f.procedureCustom||""} onChange={e=>{upd("procedureCustom")(e.target.value);if(e.target.value)upd("procedure")(e.target.value);}} placeholder="Ou digite outro procedimento..." style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"7px 8px",fontSize:12,outline:"none"}}/>
-      </div>
-      <R2 a={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>} b={<Sel lb="Status" val={f.status} set={upd("status")} opts={Object.entries(SL).map(([v,l])=>({v,l}))}/>}/>
-      <Inp lb="Descrição do Tratamento" val={f.treatment} set={upd("treatment")} ph="Ex: Restauração dente 36"/>
-      <SC2 save={save} cancel={()=>setModal(false)}/>
-    </div>
-  }/>
-  {/* Modal de bloqueio de horário */}
-  {blockModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-    <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
-        <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>🔒 Bloquear Horário</span>
-        <button onClick={()=>setBlockModal(null)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
-      </div>
-      <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-        <div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.primary,fontWeight:600}}>{blockModal.time} -- {dents.find(d=>d.id===Number(blockModal.dentistId))?.name}</div>
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Motivo do bloqueio</label>
-          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:4}}>
-            {["Saída antecipada","Reunião","Almoço extra","Procedimento interno","Outro"].map(m=>(
-              <button key={m} onClick={()=>setBlockReason(m)} style={{border:`2px solid ${blockReason===m?G.red:G.border}`,background:blockReason===m?"#FFEBEE":"#fff",color:blockReason===m?G.red:G.muted,borderRadius:8,padding:"5px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{m}</button>
-            ))}
-          </div>
-          <input value={blockReason} onChange={e=>setBlockReason(e.target.value)} placeholder="Ou digite o motivo..." style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none"}}/>
-        </div>
-        <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
-          <button onClick={()=>setBlockModal(null)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
-          <button onClick={()=>saveBlock(blockModal.date,blockModal.time,blockModal.dentistId)} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>🔒 Bloquear</button>
-        </div>
-      </div>
-    </div>
+{showCancel&&(()=>{const a=showCancel;const p=pats.find(x=>x.id===a.patientId);return p&&<CancelWA appt={a} pat={p} onCancel={function(id){setAppts(function(prev){return prev.filter(function(x){return x.id!==id;});});}} onClose={function(){setShowCancel(null);setViewA(null);}}/>;})()}
+{viewA&&(()=>{
+const a=viewA;const p=pats.find(x=>x.id===a.patientId);const d=dents.find(x=>x.id===a.dentistId)||dents[0];
+const hist=p?appts.filter(function(x){return x.patientId===p.id&&x.id!==a.id;}).sort(function(x,y){return y.date.localeCompare(x.date);}).slice(0,15):[];
+const HCOR={"done":"#27AE60","confirmed":"#2196F3","pending":"#FF9800","cancelled":"#F44336","missed":"#9E9E9E"};
+const HLBL={"done":"Realizada","confirmed":"Confirmada","pending":"Pendente","cancelled":"Cancelada","missed":"Faltou"};
+return(
+<Modal open close={function(){setViewA(null);setHistTab("info");}} title="Consulta" wide ch={
+<div style={{display:"flex",flexDirection:"column",gap:10}}>
+<div style={{display:"flex",gap:3,marginBottom:4}}>
+<button onClick={function(){setHistTab("info");}} style={{flex:1,border:"none",borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer",background:histTab==="info"?G.primary:"#eee",color:histTab==="info"?"#fff":G.muted}}>{"📋 Consulta"}</button>
+<button onClick={function(){setHistTab("hist");}} style={{flex:1,border:"none",borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer",background:histTab==="hist"?G.primary:"#eee",color:histTab==="hist"?"#fff":G.muted}}>{"📅 Histórico ("+hist.length+")"}</button>
+</div>
+{histTab==="hist"&&<div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:340,overflowY:"auto"}}>
+{hist.length===0&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>Nenhuma consulta anterior</div>}
+{hist.map(function(h){var hd=dents.find(function(x){return x.id===h.dentistId;})||dents[0];var cor=HCOR[h.status]||G.muted;
+return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 12px",borderLeft:"4px solid "+cor}}>
+<div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}>
+<div style={{flex:1}}>
+<div style={{fontWeight:700,fontSize:13}}>{h.procedure}</div>
+<div style={{fontSize:11,color:G.muted,marginTop:2}}>{fmt(h.date)+" às "+h.time+" · "+hd.name}</div>
+{h.treatment&&<div style={{fontSize:11,color:G.muted}}>{"📝 "+h.treatment}</div>}
+</div>
+<span style={{fontSize:10,fontWeight:700,color:cor,background:cor+"20",borderRadius:6,padding:"2px 6px",whiteSpace:"nowrap"}}>{HLBL[h.status]||h.status}</span>
+</div>
+</div>;
+})}
+</div>}
+{histTab==="info"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+{p&&p.obs&&<div style={{background:G.yellow+"18",border:"2px solid "+G.yellow,borderRadius:10,padding:"8px 12px",fontWeight:700,color:G.yellow}}>{"⚠ "+p.obs}</div>}
+<div style={{background:G.accent,borderRadius:10,padding:"10px 14px"}}>
+<div style={{fontSize:15,fontWeight:700}}>{p&&p.name}</div>
+<div style={{fontSize:12,color:G.muted}}>{"📁 "+(p&&p.folder)}</div>
+{p&&p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600,marginTop:3}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+{[["Data/Hora",fmt(a.date)+" · "+a.time],["Procedimento",a.procedure],["Dentista",d.name],["Status",SL[a.status]]].map(([k,v])=>(
+<div key={k} style={{background:G.bg,borderRadius:8,padding:"6px 10px"}}>
+<div style={{fontSize:10,color:G.muted,fontWeight:700}}>{k}</div>
+<div style={{fontWeight:600,fontSize:12}}>{v}</div>
+</div>
+))}
+</div>
+{!isDent&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+{Object.entries(SL).map(([k,l])=><button key={k} onClick={()=>chSt(a.id,k)} style={{border:"2px solid "+SC[k],background:a.status===k?SC[k]:"#fff",color:a.status===k?"#fff":SC[k],borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
+</div>}
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
+{!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
+{!isDent&&p&&p.phone&&<Btn ch="🔄 Paciente Cancelou" v="r" sm onClick={function(){chSt(a.id,"cancelled");wa(p.phone,"Olá, "+p.name+"! Entendemos que nao podera comparecer. Gostaria de remarcar? Responda SIM. Affonso Odontologia");setViewA(null);}}/>}
+{!isDent&&<Btn ch="Editar" sm onClick={()=>{setEdit(a);setF({...a,patientId:String(a.patientId),dentistId:String(a.dentistId)});setViewA(null);setModal(true);}}/>}
+{!isDent&&<Btn ch="Remover" v="r" sm onClick={()=>{if(window.confirm("Remover?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));setViewA(null);}}/> }
+<Btn ch="Fechar" v="g" sm onClick={()=>setViewA(null)}/>
+</div>
+</div>}
+</div>
+}/>
+);
+})()}
+
+<Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Agendamento":"Novo Agendamento"} wide ch={
+<div style={{display:"flex",flexDirection:"column",gap:11}}>
+<Sel lb="Dentista" val={String(f.dentistId)} set={upd("dentistId")} opts={dents.map(d=>({v:d.id,l:d.name}))}/>
+{/* Paciente - busca cadastrado OU nome manual */}
+<div>
+<div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",marginBottom:4}}>Paciente</div>
+<div style={{display:"flex",gap:6,marginBottom:6}}>
+<button onClick={()=>setF(p=>({...p,useManual:false,patientName:""}))} style={{flex:1,border:`2px solid ${!f.useManual?G.primary:G.border}`,background:!f.useManual?G.primary:"#fff",color:!f.useManual?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔍 Cadastrado</button>
+<button onClick={()=>setF(p=>({...p,useManual:true,patientId:""}))} style={{flex:1,border:`2px solid ${f.useManual?G.red:G.border}`,background:f.useManual?G.red:"#fff",color:f.useManual?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Digitar nome</button>
+</div>
+{f.useManual
+?<div>
+<Inp val={f.patientName||""} set={upd("patientName")} ph="Nome completo + telefone do paciente"/>
+<div style={{background:"#FFF3E0",borderRadius:8,padding:"5px 9px",fontSize:11,color:"#E65100",marginTop:4}}>⚠️ Aparecerá em vermelho na agenda - cadastro parcial</div>
+</div>
+:<div>
+<PatSearch val={f.patientId} set={upd("patientId")} pats={pats}/>
+{!f.patientId&&<div style={{fontSize:11,color:G.muted,marginTop:4}}>Não encontrou? Use <strong>"✏️ Digitar nome"</strong> acima</div>}
+</div>
+}
+</div>
+{/* Data e Horário */}
+<R2 a={<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>} b={
+<div style={{display:"flex",flexDirection:"column",gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Horário</label>
+<select value={f.time} onChange={e=>upd("time")(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 8px",fontSize:13,outline:"none",background:"#fff"}}>
+{[{v:"",l:"Selecione..."},...SLOTS].map(o=><option key={o.v??o} value={o.v??o}>{o.l??o}</option>)}
+</select>
+<input value={f.timeCustom||""} onChange={e=>upd("timeCustom")(e.target.value)} placeholder="Horário personalizado ex: 09:15" style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"7px 8px",fontSize:12,outline:"none"}}/>
+</div>
+}/>
+{/* Duração */}
+<div style={{display:"flex",flexDirection:"column",gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Duração da Consulta</label>
+<select value={String(f.duration||30)} onChange={e=>{const d=Number(e.target.value);setF(p=>({...p,duration:d}));}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",background:"#fff"}}>
+<option value="30">30 minutos</option>
+<option value="60">1 hora</option>
+<option value="90">1h 30min</option>
+<option value="120">2 horas</option>
+<option value="150">2h 30min</option>
+<option value="180">3 horas</option>
+</select>
+{Number(f.duration||30)>30&&<div style={{background:G.accent,borderRadius:8,padding:"5px 9px",fontSize:11,color:G.primary}}>⏱️ Ocupa slots até: {(()=>{const t=f.timeCustom||f.time;if(!t)return "...";let [h,m]=t.split(":").map(Number);m+=Number(f.duration||30)-30;while(m>=60){m-=60;h++;}return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;})()}</div>}
+</div>
+{/* Procedimento com opção manual */}
+<div style={{display:"flex",flexDirection:"column",gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Procedimento</label>
+<select value={f.procedure} onChange={e=>{upd("procedure")(e.target.value);const pr=procs.find(p=>p.name===e.target.value);if(pr&&!f.value)upd("value")(String(pr.price));}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 8px",fontSize:13,outline:"none",background:"#fff"}}>
+<option value="">Selecione...</option>
+<option value="Avaliação">Avaliação</option>
+<option value="Retorno">Retorno</option>
+<option value="Urgência">Urgência</option>
+{procs.map(p=><option key={p.id} value={p.name}>{p.name}</option>)}
+</select>
+<input value={f.procedureCustom||""} onChange={e=>{upd("procedureCustom")(e.target.value);if(e.target.value)upd("procedure")(e.target.value);}} placeholder="Ou digite outro procedimento..." style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"7px 8px",fontSize:12,outline:"none"}}/>
+</div>
+<R2 a={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>} b={<Sel lb="Status" val={f.status} set={upd("status")} opts={Object.entries(SL).map(([v,l])=>({v,l}))}/>}/>
+<Inp lb="Descrição do Tratamento" val={f.treatment} set={upd("treatment")} ph="Ex: Restauração dente 36"/>
+<SC2 save={save} cancel={()=>setModal(false)}/>
+</div>
+}/>
+{/* Modal de bloqueio de horário */}
+{blockModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
+<span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>🔒 Bloquear Horário</span>
+<button onClick={()=>setBlockModal(null)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+</div>
+<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.primary,fontWeight:600}}>{blockModal.time} - {dents.find(d=>d.id===Number(blockModal.dentistId))?.name}</div>
+<div style={{display:"flex",flexDirection:"column",gap:6}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Motivo do bloqueio</label>
+<div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:4}}>
+{["Saída antecipada","Reunião","Almoço extra","Procedimento interno","Outro"].map(m=>(
+<button key={m} onClick={()=>setBlockReason(m)} style={{border:`2px solid ${blockReason===m?G.red:G.border}`,background:blockReason===m?"#FFEBEE":"#fff",color:blockReason===m?G.red:G.muted,borderRadius:8,padding:"5px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{m}</button>
+))}
+</div>
+<input value={blockReason} onChange={e=>setBlockReason(e.target.value)} placeholder="Ou digite o motivo..." style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none"}}/>
+</div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
+<button onClick={()=>setBlockModal(null)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+<button onClick={()=>saveBlock(blockModal.date,blockModal.time,blockModal.dentistId)} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>🔒 Bloquear</button>
+</div>
+</div>
+</div>
+
   </div>}
 </div>
 
@@ -1436,7 +1453,7 @@ return (
 }
 
 // ══════════════════════════════════════════════════════════
-// PACIENTES -- list with folder button
+// PACIENTES - list with folder button
 // ══════════════════════════════════════════════════════════
 function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog}){
 const [srch,setSrch]=useState("");
@@ -1448,6 +1465,7 @@ const ft=pats.filter(p=>p.name.toLowerCase().includes(srch.toLowerCase())||p.pho
 const savePat=()=>{if(!pf.name)return;const isNew=!ep;const obj={...pf,id:ep?ep.id:nid(pats)};setPats(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[...prev,obj]);if(addLog)addLog("paciente",(isNew?"Criou paciente: ":"Editou cadastro de ")+pf.name,pf.name);setPm(false);};
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Pacientes</h2>
 <Btn ch="+ Novo Paciente" onClick={()=>{setEp(null);setPf(b0);setPm(true);}}/>
@@ -1471,8 +1489,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 {openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 
-
 {dm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
 <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
 <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{ed?"Editar Dentista":"Novo Dentista"}</span>
@@ -1520,7 +1538,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 }
 
 // ══════════════════════════════════════════════════════════
-// PRÓTESES -- with editable proc types
+// PRÓTESES - with editable proc types
 // ══════════════════════════════════════════════════════════
 function Proteses({pros,setPros,pats,dents,labs,prosProcs,setProsProcs,user}){
 const [filt,setFilt]=useState("today");const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);
@@ -1534,6 +1552,7 @@ const save=()=>{if(!f.patientId||!f.labId)return alert("Informe paciente e labor
 const saveProc=()=>{if(!procForm.name)return;const obj={...procForm,id:editProc?editProc.id:nid(prosProcs)};setProsProcs(prev=>editProc?prev.map(p=>p.id===editProc.id?obj:p):[...prev,obj]);setProcModal(false);};
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Próteses</h2>
 <div style={{display:"flex",gap:7}}><Btn ch="⚙️ Procedimentos" v="g" sm onClick={()=>setProcModal(true)}/><Btn ch="+ Nova Prótese" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/></div>
@@ -1664,7 +1683,7 @@ setModal(false);
 }
 
 // ══════════════════════════════════════════════════════════
-// IMPLANTES -- Planilha mês a mês estilo Excel
+// IMPLANTES - Planilha mês a mês estilo Excel
 // ══════════════════════════════════════════════════════════
 function Implantes({impl,setImpl,pats}){
 const MES=["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
@@ -1717,6 +1736,7 @@ const emptyRows=Math.max(0,12-impl.length);
 
 return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi">
 {/* Header */}
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Controle de Implantes</h2>
 <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -1728,6 +1748,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 </div>
 
 {/* Month tabs */}
+
 <div style={{display:"flex",overflowX:"auto",borderBottom:`3px solid ${G.primary}`}}>
   {MES.map((m,i)=>{
     const tk=`${yr}-${String(i+1).padStart(2,"0")}`;
@@ -1749,6 +1770,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 </div>
 
 {/* Spreadsheet */}
+
 <div style={{background:"#fff",borderRadius:"0 0 12px 12px",boxShadow:"0 2px 8px rgba(0,0,0,.09)",overflow:"hidden"}}>
   {/* Legend */}
   <div style={{padding:"8px 16px",borderBottom:"1px solid #eee",background:"#fafcfb",display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
@@ -1820,6 +1842,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 
 {/* Add modal */}
 {addModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
   <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
       <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Adicionar à Planilha</span>
@@ -1846,7 +1869,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 }
 
 // ══════════════════════════════════════════════════════════
-// DESPESAS -- clinic + personal
+// DESPESAS - clinic + personal
 // ══════════════════════════════════════════════════════════
 function Despesas({expenses,setExpenses,user}){
 const [tab,setTab]=useState("clinic");
@@ -1872,6 +1895,7 @@ const remove=id=>{if(window.confirm("Remover?"))setExpenses(prev=>({...prev,[tab
 const togglePaid=id=>setExpenses(prev=>({...prev,[tab]:prev[tab].map(e=>e.id===id?{...e,paid:!e.paid}:e)}));
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Despesas</h2>
 <div style={{display:"flex",gap:8}}><Inp val={mo} set={setMo} type="month" style={{width:165}}/><Btn ch="+ Nova Despesa" onClick={()=>{setEdit(null);setF({...blank,cat:tab==="clinic"?"Aluguel":"Moradia"});setModal(true);}}/></div>
@@ -1935,6 +1959,7 @@ var [showEspModal,setShowEspModal]=useState(false);
 var esperaAtiva=(espera||[]).filter(function(e){return e.valido>=t3;});
 var esperaExp=(espera||[]).filter(function(e){return e.valido<t3;});
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <div style={{background:"#F3E5F5",border:"2px solid "+(esperaAtiva.length>0?"#7B1FA2":G.border),borderRadius:14,padding:"14px 16px"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:esperaAtiva.length>0?10:0}}>
 <div style={{fontWeight:700,fontSize:13,color:"#7B1FA2"}}>{"⏳ Lista de Espera ("+esperaAtiva.length+")"}</div>
@@ -1972,6 +1997,7 @@ return(
 {showEspModal&&<EsperaModal pats={pats} dents={dents} onSave={function(e){setEspera(function(prev){return[...prev,e];});setShowEspModal(false);}} onClose={function(){setShowEspModal(false);}}/>}
 
 {anivHoje.length>0&&<div style={{background:"#FFF8E1",border:"2px solid #FFD54F",borderRadius:14,padding:"14px 16px"}}>
+
   <div style={{fontWeight:700,fontSize:13,color:"#E65100",marginBottom:10}}>{"🎂 Aniversariantes hoje ("+anivHoje.length+")"}</div>
   {anivHoje.map(function(p){return(<div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #FFD54F"}}><div><div style={{fontWeight:600,fontSize:13}}>{p.name}</div><div style={{fontSize:11,color:"#E65100"}}>{(new Date(t2).getFullYear()-Number(p.dob.slice(0,4)))+" anos 🎉"}</div></div>{p.phone&&<button onClick={function(){sendWA2(p.phone,"Olá, "+p.name+"! 🎂 A equipe Affonso Odontologia deseja um feliz aniversário! Que seu dia seja muito especial! 🦷✨");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:10,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 WA"}</button>}</div>);})}
   <div style={{fontSize:11,color:"#E65100",marginTop:4}}>{"📅 Este mês: "+anivMes.length+" aniversariante(s)"}</div>
@@ -2043,6 +2069,7 @@ const byP=PAY.map(pt=>({pt,v:mr.filter(r=>r.payment===pt).reduce((s,r)=>s+r.paid
 const mx=Math.max(...byP.map(x=>x.v),1);
 const PC={"Dinheiro":G.success,"PIX":"#00B894","Cartão Crédito":G.blue,"Cartão Débito":"#6C5CE7","Convênio":G.muted,"Cheque":G.orange};
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Financeiro</h2>
 <div style={{display:"flex",gap:9}}><Inp val={mo} set={setMo} type="month" style={{width:160}}/><Sel val={dn} set={setDn} opts={[{v:"all",l:"Todos"},...dents.map(d=>({v:d.id,l:d.name}))]} style={{width:180}}/></div>
@@ -2075,7 +2102,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 }
 
 // ══════════════════════════════════════════════════════════
-// MSG TAB -- WhatsApp component (outside Relatorios to allow useState)
+// MSG TAB - WhatsApp component (outside Relatorios to allow useState)
 // ══════════════════════════════════════════════════════════
 function MsgTab({pats}){
 const NL="\n";
@@ -2087,12 +2114,12 @@ const DATAS=[
 {id:"pascoa",  label:"🐣 Páscoa",      msg:mk(["🐣 Feliz Páscoa! 🍫","","Olá, {nome}!","","Desejamos a você uma Páscoa cheia de paz, amor e razões para sorrir! 😊","","Lembre-se: depois dos chocolates, não esqueça da higiene bucal! 🦷😄","","Com carinho,","Dr. Diego Affonso e equipe"])},
 {id:"mae",    label:"💐 Dia das Mães", msgF:mk(["💐 Feliz Dia das Mães!","","Olá, {nome}!","","Neste dia tão especial, queremos te parabenizar por todo amor e dedicação que você oferece! Que seu sorriso ilumine sempre quem você ama. 😊🌸","","Com muito carinho,","Dr. Diego Affonso e equipe 🦷"]), msgM:mk(["💐 Feliz Dia das Mães!","","Olá, {nome}!","","Neste dia especial, desejamos que a mãe da sua vida seja muito celebrada! 💐😊","","Com carinho,","Dr. Diego Affonso e equipe 🦷"])},
 {id:"pai",    label:"👔 Dia dos Pais", msgM:mk(["👔 Feliz Dia dos Pais!","","Olá, {nome}!","","Neste dia especial, queremos te parabenizar por toda dedicação e amor que você oferece à sua família! 😊","","Com muito carinho,","Dr. Diego Affonso e equipe 🦷"]), msgF:mk(["👔 Feliz Dia dos Pais!","","Olá, {nome}!","","Neste dia especial, desejamos que o pai da sua vida seja muito celebrado! 👔😊","","Com carinho,","Dr. Diego Affonso e equipe 🦷"])},
-{id:"crianca",label:"👧 Dia das Crianças",msg:mk(["👧 Feliz Dia das Crianças! 🎈","","Olá, {nome}!","","Que o sorriso das crianças ilumine seu dia! 😁","","Cuide do sorrisinho dos pequenos -- uma boa saúde bucal começa cedo!","","Com carinho,","Dr. Diego Affonso e equipe 🦷"])},
+{id:"crianca",label:"👧 Dia das Crianças",msg:mk(["👧 Feliz Dia das Crianças! 🎈","","Olá, {nome}!","","Que o sorriso das crianças ilumine seu dia! 😁","","Cuide do sorrisinho dos pequenos - uma boa saúde bucal começa cedo!","","Com carinho,","Dr. Diego Affonso e equipe 🦷"])},
 ];
 const MSGS=[
 {id:"bday",     label:"🎂 Aniversário",       msg:mk(["🎂 Feliz Aniversário, {nome}! 🥳","","A equipe Affonso Odontologia deseja um dia incrível cheio de alegria e muitos sorrisos!","","Que este novo ano seja repleto de saúde e conquistas. 🌟","","Parabéns!","Dr. Diego Affonso e equipe 🦷🤍"])},
-{id:"fim",      label:"✅ Fim de Tratamento",  msg:mk(["Olá, {nome}! 😊","","Agradecemos imensamente pela confiança no nosso trabalho! 🦷✨","","Seu tratamento foi concluído com sucesso. Para manter os resultados, é fundamental a *manutenção semestral* -- uma consulta a cada 6 meses evita novos problemas.","","Já anote na agenda: seu próximo retorno é em *{mes_retorno}*. 📅","","Estamos sempre aqui para você!","Com carinho, Dr. Diego Affonso e equipe 🤍"])},
-{id:"semestral",label:"📅 Controle Semestral",msg:mk(["Olá, {nome}! 😊","","Estamos com saudades do seu sorriso! 🦷","","Já faz alguns meses desde sua última consulta. Que tal agendar seu controle semestral? É rápido e fundamental para manter sua saúde bucal em dia!","","Entre em contato -- ficaremos felizes em recebê-lo(a)! 😁","","Affonso Odontologia"])},
+{id:"fim",      label:"✅ Fim de Tratamento",  msg:mk(["Olá, {nome}! 😊","","Agradecemos imensamente pela confiança no nosso trabalho! 🦷✨","","Seu tratamento foi concluído com sucesso. Para manter os resultados, é fundamental a *manutenção semestral* - uma consulta a cada 6 meses evita novos problemas.","","Já anote na agenda: seu próximo retorno é em *{mes_retorno}*. 📅","","Estamos sempre aqui para você!","Com carinho, Dr. Diego Affonso e equipe 🤍"])},
+{id:"semestral",label:"📅 Controle Semestral",msg:mk(["Olá, {nome}! 😊","","Estamos com saudades do seu sorriso! 🦷","","Já faz alguns meses desde sua última consulta. Que tal agendar seu controle semestral? É rápido e fundamental para manter sua saúde bucal em dia!","","Entre em contato - ficaremos felizes em recebê-lo(a)! 😁","","Affonso Odontologia"])},
 {id:"retorno",  label:"⚠️ Retorno Tratamento",msg:mk(["Olá, {nome}! 😊","","Notamos que você está em tratamento conosco e ainda não remarcou sua próxima consulta. Que tal agendarmos? 😊","","Estamos aqui para você!","","Affonso Odontologia"])},
 ];
 
@@ -2159,6 +2186,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 {/* Preview Modal */}
 {preview&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+
   <div style={{background:"#fff",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:560,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 -8px 32px rgba(0,0,0,.2)"}}>
     {/* WA header */}
     <div style={{background:"#075E54",borderRadius:"20px 20px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
@@ -2202,6 +2230,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>}
 
 {/* Datas Especiais */}
+
 <div style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
   <div style={{fontWeight:700,fontSize:14,color:G.primary,marginBottom:4}}>🎊 Datas Especiais</div>
   <div style={{fontSize:12,color:G.muted,marginBottom:11}}>Clique em "Ver mensagem" para revisar e editar antes de enviar para cada paciente</div>
@@ -2226,6 +2255,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 {/* Aniversariantes hoje */}
 {bdayToday.length>0&&<div style={{background:G.gold+"15",border:`2px solid ${G.gold}`,borderRadius:13,padding:14}}>
+
   <div style={{fontWeight:700,fontSize:14,color:G.gold,marginBottom:10}}>🎂 Aniversariantes HOJE ({bdayToday.length})</div>
   {bdayToday.map(p=><div key={p.id} style={{display:"flex",gap:10,alignItems:"center",background:"#fff",borderRadius:9,padding:"9px 13px",marginBottom:6}}>
     <div style={{flex:1}}>
@@ -2240,6 +2270,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>}
 
 {/* Envio Personalizado */}
+
 <div style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
   <div style={{fontWeight:700,fontSize:14,color:G.primary,marginBottom:11}}>✉️ Envio Personalizado</div>
   {/* Template tabs */}
@@ -2333,6 +2364,7 @@ const tick=getTick(listId,pid);
 const d=dents.find(x=>x.id===recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0]?.dentistId)||dents[0];
 return <div style={{background:ticked?"#f0faf4":G.card,borderRadius:10,padding:"10px 13px",borderLeft:`4px solid ${ticked?G.success:badgeCol}`,display:"flex",gap:9,alignItems:"flex-start",boxShadow:"0 1px 4px rgba(0,0,0,.05)",transition:"all .2s",marginBottom:6}}>
 <button onClick={()=>doTick(listId,pid)} style={{width:24,height:24,borderRadius:"50%",border:`2px solid ${ticked?G.success:G.border}`,background:ticked?G.success:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:13,flexShrink:0,marginTop:1,transition:"all .2s"}}>{ticked?"✓":""}</button>
+
 <div style={{flex:1}}>
 <div style={{fontWeight:700,fontSize:13,textDecoration:ticked?"line-through":"none",color:ticked?G.muted:G.text}}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {p.folder}</span></div>
 {extra&&<div style={{fontSize:11,color:G.muted,marginTop:1}}>{extra}</div>}
@@ -2359,6 +2391,7 @@ const sections=[
 ];
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:9}}>
 {[["Aniv. semana",bdayWeek.length,G.gold],["Semestral",semestral.length,G.orange],["Sem retorno",semRetorno.length,G.red],["Novos mês",newPats.length,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"10px",textAlign:"center",borderTop:`3px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div></div>)}
 </div>
@@ -2433,27 +2466,27 @@ cf[m]+=liqPerInst*(d.commission||40)/100;
 // Procedimentos dados baixa no mês (planos de tratamento)
 const donedItems=[];
 treats.forEach(t=>{
-  t.items.forEach(it=>{
-    if((it.done||it.paid)&&it.doneDate&&it.doneDate.startsWith(mo)){
-      if(it.doneBy===d.name||(t.dentistId===d.id&&!it.doneBy)){
-        const pat=pats.find(p=>p.id===t.patientId);
-        // Find the payment method for this treat to apply card discount
-        const tPayments=t.payments||[];
-        const lastPay=tPayments[tPayments.length-1];
-        const payMethod=lastPay?.method||"Dinheiro";
-        const liqValue=calcNet(it.value,payMethod);
-        donedItems.push({...it,treatName:t.name,patName:pat?.name||"--",treatId:t.id,liqValue,payMethod});
-      }
-    }
-  });
+t.items.forEach(it=>{
+if((it.done||it.paid)&&it.doneDate&&it.doneDate.startsWith(mo)){
+if(it.doneBy===d.name||(t.dentistId===d.id&&!it.doneBy)){
+const pat=pats.find(p=>p.id===t.patientId);
+// Find the payment method for this treat to apply card discount
+const tPayments=t.payments||[];
+const lastPay=tPayments[tPayments.length-1];
+const payMethod=lastPay?.method||"Dinheiro";
+const liqValue=calcNet(it.value,payMethod);
+donedItems.push({...it,treatName:t.name,patName:pat?.name||"-",treatId:t.id,liqValue,payMethod});
+}
+}
+});
 });
 const doneLiq=donedItems.reduce((s,it)=>s+it.liqValue,0);
 const doneCom=doneLiq*(d.commission||40)/100;
 // Credit future from done items with card installments
 const doneCf={};
 donedItems.filter(it=>it.creditFuture).forEach(it=>{
-  if(!doneCf[mo])doneCf[mo]=0;
-  doneCf[mo]+=it.liqValue*(d.commission||40)/100;
+if(!doneCf[mo])doneCf[mo]=0;
+doneCf[mo]+=it.liqValue*(d.commission||40)/100;
 });
 const allCf={...cf};
 Object.entries(doneCf).forEach(([k,v])=>{allCf[k]=(allCf[k]||0)+v;});
@@ -2469,6 +2502,7 @@ const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["
 if(user.level>=3)TABS.push(["exp","Despesas"]);
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Relatórios</h2>
 <Inp val={mo} set={setMo} type="month" style={{width:165}}/>
@@ -2620,6 +2654,7 @@ const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
 const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
 const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note},...(s.movs||[])]}:s));setMv(null);};
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 <button onClick={function(){setStkTab("material");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="material"?"#fff":G.bg,color:stkTab==="material"?G.primary:G.muted,boxShadow:stkTab==="material"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"📦 Material"}</button>
 <button onClick={function(){setStkTab("implantes");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="implantes"?"#fff":G.bg,color:stkTab==="implantes"?G.primary:G.muted,boxShadow:stkTab==="implantes"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"🦷 Implantes"}</button>
@@ -2713,6 +2748,7 @@ const saveP=()=>{if(!pf.name)return;const obj={...pf,price:Number(pf.price),id:e
 const saveL=()=>{if(!lf.name)return alert("Informe o nome do laboratorio");const obj={...lf,id:el?el.id:nid(labs)};setLabs(prev=>el?prev.map(l=>l.id===el.id?obj:l):[...prev,obj]);setLm(false);};
 const SPECIALTIES=["Clinico Geral","Ortodontia","Implantodontia","Endodontia","Periodontia","Cirurgia","Odontopediatria","Protese","Dentistica","Radiologia","Outro"];
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
 <div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border,overflowX:"auto"}}>
 {[["users","Usuarios"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["log","Log"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
@@ -2892,70 +2928,71 @@ return novo;
 </div>}
 
 {tab==="log"&&
-    <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{background:G.accent,borderRadius:12,padding:"10px 14px",fontSize:12,color:G.primary}}>
-        {"📋 "+filtered.length+" registro(s) encontrado(s)"}
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <div>
-          <label style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Funcionário</label>
-          <select value={lfUser} onChange={function(e){setLfUser(e.target.value);}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:12,outline:"none",background:"#fff"}}>
-            <option value="all">Todos</option>
-            {uniqueUsers.map(function(u){return <option key={u} value={u}>{u}</option>;})}
-          </select>
-        </div>
-        <div>
-          <label style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Data</label>
-          <input type="date" value={lfData} onChange={function(e){setLfData(e.target.value);}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
-        </div>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        <div>
-          <label style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Paciente</label>
-          <input value={lfPat} onChange={function(e){setLfPat(e.target.value);}} placeholder="Nome do paciente..." style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
-        </div>
-        <div>
-          <label style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Tipo</label>
-          <select value={lfTipo} onChange={function(e){setLfTipo(e.target.value);}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:12,outline:"none",background:"#fff"}}>
-            {TIPOS_LOG.map(function(t){return <option key={t} value={t}>{TIPO_L_LOG[t]}</option>;})}
-          </select>
-        </div>
-      </div>
-      {(lfUser!=="all"||lfPat||lfData||lfTipo!=="all")&&<button onClick={function(){setLfUser("all");setLfPat("");setLfData("");setLfTipo("all");}} style={{background:"none",border:"1.5px solid "+G.border,borderRadius:8,padding:"6px",fontSize:12,cursor:"pointer",color:G.muted}}>{"✕ Limpar filtros"}</button>}
-      <div style={{display:"flex",flexDirection:"column",gap:6}}>
-        {filtered.length===0&&<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{"Nenhum registro encontrado"}</div>}
-        {filtered.map(function(l){
-          var dt=new Date(l.ts);
-          var dataStr=dt.toLocaleDateString("pt-BR");
-          var horaStr=dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
-          var TIPO_COR={agenda:"#2196F3",paciente:"#27AE60",financeiro:"#FF9800",estoque:"#9C27B0",protese:"#F44336",lembrete:"#00BCD4",remarcar:"#795548",admin:"#607D8B"};
-          var cor=TIPO_COR[l.tipo]||G.muted;
-          return(
-            <div key={l.id} style={{background:G.card,borderRadius:10,padding:"10px 12px",borderLeft:"3px solid "+cor,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:13,color:G.text}}>{l.desc}</div>
-                  {l.patName&&<div style={{fontSize:11,color:G.muted,marginTop:2}}>{"👤 "+l.patName}</div>}
-                </div>
-                <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontSize:10,background:cor+"20",color:cor,borderRadius:6,padding:"1px 6px",fontWeight:700,marginBottom:2}}>{TIPO_L_LOG[l.tipo]||l.tipo}</div>
-                  <div style={{fontSize:10,color:G.muted,fontWeight:600}}>{l.user}</div>
-                  <div style={{fontSize:10,color:G.muted}}>{dataStr+" "+horaStr}</div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{background:G.accent,borderRadius:12,padding:"10px 14px",fontSize:12,color:G.primary}}>
+{"📋 "+filtered.length+" registro(s) encontrado(s)"}
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+<div>
+<label style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Funcionário</label>
+<select value={lfUser} onChange={function(e){setLfUser(e.target.value);}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:12,outline:"none",background:"#fff"}}>
+<option value="all">Todos</option>
+{uniqueUsers.map(function(u){return <option key={u} value={u}>{u}</option>;})}
+</select>
+</div>
+<div>
+<label style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Data</label>
+<input type="date" value={lfData} onChange={function(e){setLfData(e.target.value);}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+</div>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+<div>
+<label style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Paciente</label>
+<input value={lfPat} onChange={function(e){setLfPat(e.target.value);}} placeholder="Nome do paciente..." style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+</div>
+<div>
+<label style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Tipo</label>
+<select value={lfTipo} onChange={function(e){setLfTipo(e.target.value);}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:12,outline:"none",background:"#fff"}}>
+{TIPOS_LOG.map(function(t){return <option key={t} value={t}>{TIPO_L_LOG[t]}</option>;})}
+</select>
+</div>
+</div>
+{(lfUser!=="all"||lfPat||lfData||lfTipo!=="all")&&<button onClick={function(){setLfUser("all");setLfPat("");setLfData("");setLfTipo("all");}} style={{background:"none",border:"1.5px solid "+G.border,borderRadius:8,padding:"6px",fontSize:12,cursor:"pointer",color:G.muted}}>{"✕ Limpar filtros"}</button>}
+<div style={{display:"flex",flexDirection:"column",gap:6}}>
+{filtered.length===0&&<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{"Nenhum registro encontrado"}</div>}
+{filtered.map(function(l){
+var dt=new Date(l.ts);
+var dataStr=dt.toLocaleDateString("pt-BR");
+var horaStr=dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+var TIPO_COR={agenda:"#2196F3",paciente:"#27AE60",financeiro:"#FF9800",estoque:"#9C27B0",protese:"#F44336",lembrete:"#00BCD4",remarcar:"#795548",admin:"#607D8B"};
+var cor=TIPO_COR[l.tipo]||G.muted;
+return(
+<div key={l.id} style={{background:G.card,borderRadius:10,padding:"10px 12px",borderLeft:"3px solid "+cor,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+<div style={{flex:1}}>
+<div style={{fontSize:13,color:G.text}}>{l.desc}</div>
+{l.patName&&<div style={{fontSize:11,color:G.muted,marginTop:2}}>{"👤 "+l.patName}</div>}
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontSize:10,background:cor+"20",color:cor,borderRadius:6,padding:"1px 6px",fontWeight:700,marginBottom:2}}>{TIPO_L_LOG[l.tipo]||l.tipo}</div>
+<div style={{fontSize:10,color:G.muted,fontWeight:600}}>{l.user}</div>
+<div style={{fontSize:10,color:G.muted}}>{dataStr+" "+horaStr}</div>
+</div>
+</div>
+</div>
+);
+})}
+</div>
+</div>
 
 }
 
 <Modal open={um} close={()=>setUm(false)} title={eu?"Editar Usuário":"Novo Usuário"} wide ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
-  <Inp lb="Nome completo" val={uf.name} set={fu("name")}/>
-  <R2 a={<Inp lb="Login" val={uf.login} set={fu("login")}/>} b={<Inp lb="Senha" type="password" val={uf.pass} set={fu("pass")}/>}/>
-  <R2 a={<Sel lb="Função" val={uf.role} set={fu("role")} opts={["Administrador","Dentista","Recepcionista","Assistente"]}/>} b={<Sel lb="Nível" val={String(uf.level)} set={v=>fu("level")(Number(v))} opts={[{v:1,l:"1 - Básico (Dentista)"},{v:2,l:"2 - Intermediário (Recepção)"},{v:3,l:"3 - Total (Admin)"}]}/>}/>
-  <Sel lb="Dentista vinculado" val={String(uf.dentistId)} set={fu("dentistId")} opts={[{v:"",l:"Nenhum"},...dents.map(d=>({v:d.id,l:d.name}))]}/>
+<Inp lb="Nome completo" val={uf.name} set={fu("name")}/>
+<R2 a={<Inp lb="Login" val={uf.login} set={fu("login")}/>} b={<Inp lb="Senha" type="password" val={uf.pass} set={fu("pass")}/>}/>
+<R2 a={<Sel lb="Função" val={uf.role} set={fu("role")} opts={["Administrador","Dentista","Recepcionista","Assistente"]}/>} b={<Sel lb="Nível" val={String(uf.level)} set={v=>fu("level")(Number(v))} opts={[{v:1,l:"1 - Básico (Dentista)"},{v:2,l:"2 - Intermediário (Recepção)"},{v:3,l:"3 - Total (Admin)"}]}/>}/>
+<Sel lb="Dentista vinculado" val={String(uf.dentistId)} set={fu("dentistId")} opts={[{v:"",l:"Nenhum"},...dents.map(d=>({v:d.id,l:d.name}))]}/>
+
   <div><div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Cor</div>
   <div style={{display:"flex",gap:7}}>{UCOLS.map(c=><button key={c} onClick={()=>fu("color")(c)} style={{width:26,height:26,borderRadius:"50%",background:c,border:`3px solid ${uf.color===c?"#000":"transparent"}`,cursor:"pointer"}}/>)}</div></div>
   <label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={uf.active} onChange={e=>fu("active")(e.target.checked)} style={{accentColor:G.primary}}/> Usuário ativo</label>
@@ -3005,6 +3042,7 @@ const ar=autoRems(pats,recs,appts);
 const urgent=[...ar,...rems.filter(r=>!r.done)].filter(r=>r.date<=t);
 const todayP=pros.filter(p=>p.due===t&&p.status==="waiting");
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div><div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div></div>
 {urgent.filter(r=>r.type==="surg").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.red+"15",border:`2px solid ${G.red}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🔴</span><span style={{fontWeight:700,color:G.red,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! Como está se sentindo após o procedimento de ontem? 😊`)}/>}</div>;})}
 {urgent.filter(r=>r.type==="bday").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.gold+"15",border:`2px solid ${G.gold}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🎂</span><span style={{fontWeight:700,color:G.gold,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 Parabéns" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! 🎂 Feliz aniversário da equipe Affonso Odontologia! 😊`)}/>}</div>;})}
@@ -3050,7 +3088,7 @@ return <div key={a.id} style={{borderBottom:`1px solid ${G.border}`,overflow:"hi
 }
 
 // ══════════════════════════════════════════════════════════
-// WA PREVIEW MODAL -- global, shown before sending
+// WA PREVIEW MODAL - global, shown before sending
 // ══════════════════════════════════════════════════════════
 function WaPreview({data,onClose}){
 if(!data)return null;
@@ -3059,6 +3097,7 @@ const n=(ph||"").replace(/\D/g,"");
 const url=`https://wa.me/${n.startsWith("55")?n:"55"+n}?text=${encodeURIComponent(msg)}`;
 const copy=()=>{ navigator.clipboard?.writeText(msg).then(()=>alert("Mensagem copiada!")).catch(()=>alert("Copie manualmente:\n\n"+msg)); };
 return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center",padding:"0 0 0 0"}}>
+
 <div style={{background:"#fff",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:560,boxShadow:"0 -8px 32px rgba(0,0,0,.18)",overflow:"hidden"}}>
 {/* Header */}
 <div style={{background:"#25D366",padding:"14px 18px",display:"flex",alignItems:"center",gap:12}}>
@@ -3105,7 +3144,7 @@ var MEDS_BASE=[
 {id:"nimes",cat:"Anti-inflamatório",name:"Nimesulida 100mg",pos:"1 comprimido de 12/12h por 3 dias após refeições",qty:"6 comprimidos"},
 {id:"dexa",cat:"Corticóide",name:"Dexametasona 4mg",pos:"1 comprimido ao dia por 3 dias",qty:"3 comprimidos"},
 {id:"predni",cat:"Corticóide",name:"Prednisona 20mg",pos:"1 comprimido ao dia por 5 dias",qty:"5 comprimidos"},
-{id:"clorex",cat:"Antisséptico",name:"Clorexidina 0,12% Bochecho",pos:"Bochechar 1 min de 12/12h por 7 dias -- Não engolir.",qty:"1 frasco"},
+{id:"clorex",cat:"Antisséptico",name:"Clorexidina 0,12% Bochecho",pos:"Bochechar 1 min de 12/12h por 7 dias - Não engolir.",qty:"1 frasco"},
 {id:"omepra",cat:"Protetor Gástrico",name:"Omeprazol 20mg",pos:"1 cápsula em jejum 30 min antes das refeições",qty:"10 cápsulas"},
 ];
 
@@ -3137,7 +3176,7 @@ var hoje=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:
 var meds_int=sel.filter(function(m){return m.cat!=="Antisséptico";});
 var meds_ext=sel.filter(function(m){return m.cat==="Antisséptico";});
 var data={
-paciente:pat&&pat.name||"--",
+paciente:pat&&pat.name||"-",
 dentista:dent&&dent.name||"Dr. Diego Affonso",
 cro:"CRO "+(dent&&dent.cro||"SP-72.278"),
 data:"São Paulo, "+hoje,
@@ -3151,37 +3190,38 @@ var a=document.createElement("a");a.href=recLink;a.target="_blank";a.rel="norefe
 document.body.appendChild(a);a.click();document.body.removeChild(a);
 };
 return (
+
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Receituário</h2>
 <Btn ch="+ Nova Medicação" sm onClick={function(){setAddMod(true);}}/>
 </div>
 
-  {addMod&&(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.2)"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid "+G.border}}>
-          <span style={{fontWeight:700,fontSize:16}}>Nova Medicação</span>
-          <button onClick={function(){setAddMod(false);}} style={{border:"none",background:"none",fontSize:22,cursor:"pointer",color:G.muted}}>{"×"}</button>
-        </div>
-        <div style={{padding:18,display:"flex",flexDirection:"column",gap:11}}>
-          <Inp lb="Nome *" val={mf.name} set={function(v){setMf(function(p){return{...p,name:v};});}} ph="Ex: Amoxicilina 500mg"/>
-          <Sel lb="Categoria" val={mf.cat} set={function(v){setMf(function(p){return{...p,cat:v};});}} opts={["Antibiótico","Anti-inflamatório","Analgésico","Corticóide","Antisséptico","Protetor Gástrico","Outros"].map(function(c){return{v:c,l:c};})}/>
-          <div style={{display:"flex",flexDirection:"column",gap:4}}>
-            <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Posologia *</label>
-            <textarea value={mf.pos} onChange={function(e){setMf(function(p){return{...p,pos:e.target.value};});}} rows={2} placeholder="Ex: 1 comprimido de 8/8h por 7 dias" style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"'DM Sans'"}}/>
-          </div>
-          <Inp lb="Quantidade" val={mf.qty} set={function(v){setMf(function(p){return{...p,qty:v};});}} ph="Ex: 21 comprimidos"/>
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid "+G.border}}>
-            <Btn ch="Cancelar" v="g" onClick={function(){setAddMod(false);}}/>
-            <Btn ch="Salvar" onClick={saveExtra}/>
-          </div>
-        </div>
-      </div>
-    </div>
-  )}
+{addMod&&(
+<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.2)"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid "+G.border}}>
+<span style={{fontWeight:700,fontSize:16}}>Nova Medicação</span>
+<button onClick={function(){setAddMod(false);}} style={{border:"none",background:"none",fontSize:22,cursor:"pointer",color:G.muted}}>{"×"}</button>
+</div>
+<div style={{padding:18,display:"flex",flexDirection:"column",gap:11}}>
+<Inp lb="Nome *" val={mf.name} set={function(v){setMf(function(p){return{...p,name:v};});}} ph="Ex: Amoxicilina 500mg"/>
+<Sel lb="Categoria" val={mf.cat} set={function(v){setMf(function(p){return{...p,cat:v};});}} opts={["Antibiótico","Anti-inflamatório","Analgésico","Corticóide","Antisséptico","Protetor Gástrico","Outros"].map(function(c){return{v:c,l:c};})}/>
+<div style={{display:"flex",flexDirection:"column",gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Posologia *</label>
+<textarea value={mf.pos} onChange={function(e){setMf(function(p){return{...p,pos:e.target.value};});}} rows={2} placeholder="Ex: 1 comprimido de 8/8h por 7 dias" style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"'DM Sans'"}}/>
+</div>
+<Inp lb="Quantidade" val={mf.qty} set={function(v){setMf(function(p){return{...p,qty:v};});}} ph="Ex: 21 comprimidos"/>
+<div style={{display:"flex",gap:8,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid "+G.border}}>
+<Btn ch="Cancelar" v="g" onClick={function(){setAddMod(false);}}/>
+<Btn ch="Salvar" onClick={saveExtra}/>
+</div>
+</div>
+</div>
+</div>
+)}
 
-  <R2 a={<PatSearch lb="Paciente" val={patId} set={setPatId} pats={pats}/>} b={<Sel lb="Dentista" val={dentId} set={setDentId} opts={dents.map(function(d){return{v:String(d.id),l:d.name};})}/>}/>
+<R2 a={<PatSearch lb="Paciente" val={patId} set={setPatId} pats={pats}/>} b={<Sel lb="Dentista" val={dentId} set={setDentId} opts={dents.map(function(d){return{v:String(d.id),l:d.name};})}/>}/>
 
   <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
     {cats.map(function(c){return(
@@ -3226,31 +3266,32 @@ return (
     <textarea value={obs} onChange={function(e){setObs(e.target.value);}} rows={2} placeholder="Orientações extras..." style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"'DM Sans'"}}/>
   </div>
 
-  {sel.length>0&&(
-    <div style={{background:G.accent,borderRadius:10,padding:"10px 14px"}}>
-      <div style={{fontWeight:700,fontSize:12,color:G.primary,marginBottom:5}}>{"Selecionados: "+sel.length}</div>
-      {sel.map(function(m){return <div key={m.id} style={{fontSize:12,color:G.text,marginBottom:2}}>{"• "+m.name}</div>;})}
-    </div>
-  )}
+{sel.length>0&&(
+<div style={{background:G.accent,borderRadius:10,padding:"10px 14px"}}>
+<div style={{fontWeight:700,fontSize:12,color:G.primary,marginBottom:5}}>{"Selecionados: "+sel.length}</div>
+{sel.map(function(m){return <div key={m.id} style={{fontSize:12,color:G.text,marginBottom:2}}>{"• "+m.name}</div>;})}
+</div>
+)}
 
-  {showPrint&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-    <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
-      <div style={{background:"#075E54",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
-        <span style={{fontSize:20}}>📋</span>
-        <div style={{flex:1,fontWeight:700,color:"#fff",fontSize:14}}>Enviar Receituário</div>
-        <button onClick={function(){setShowPrint(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>X</button>
-      </div>
-      <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-        <p style={{fontSize:13,color:"#555",margin:0}}>Abre o receituário formatado para imprimir ou salvar como PDF:</p>
-        <div style={{background:G.bg,borderRadius:10,padding:"10px 12px",fontSize:12,color:G.muted}}>
-          {sel.map(function(m,i){return <div key={m.id}>{"• "+m.name+" -- "+m.posEdit+(m.qtyEdit?" ("+m.qtyEdit+")":"")}</div>;})}
-        </div>
-        <button onClick={function(){doPrintWindow();setShowPrint(false);}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          {"🖨️ Abrir Receituário para Imprimir"}
-        </button>
-        <button onClick={function(){setShowPrint(false);}} style={{background:"none",border:"1.5px solid "+G.border,borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",color:G.muted}}>Cancelar</button>
-      </div>
-    </div>
+{showPrint&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
+<div style={{background:"#075E54",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
+<span style={{fontSize:20}}>📋</span>
+<div style={{flex:1,fontWeight:700,color:"#fff",fontSize:14}}>Enviar Receituário</div>
+<button onClick={function(){setShowPrint(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>X</button>
+</div>
+<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+<p style={{fontSize:13,color:"#555",margin:0}}>Abre o receituário formatado para imprimir ou salvar como PDF:</p>
+<div style={{background:G.bg,borderRadius:10,padding:"10px 12px",fontSize:12,color:G.muted}}>
+{sel.map(function(m,i){return <div key={m.id}>{"• "+m.name+" - "+m.posEdit+(m.qtyEdit?" ("+m.qtyEdit+")":"")}</div>;})}
+</div>
+<button onClick={function(){doPrintWindow();setShowPrint(false);}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+{"🖨️ Abrir Receituário para Imprimir"}
+</button>
+<button onClick={function(){setShowPrint(false);}} style={{background:"none",border:"1.5px solid "+G.border,borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",color:G.muted}}>Cancelar</button>
+</div>
+</div>
+
   </div>}
   <button onClick={doPrint} disabled={!sel.length&&!obs} style={{background:sel.length||obs?G.primary:"#ccc",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:sel.length||obs?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
     {"📋 Enviar para Secretária"}
@@ -3362,6 +3403,7 @@ var nm1=month===11?0:month+1; var ny1=month===11?year+1:year;
 var nm2=nm1===11?0:nm1+1;     var ny2=nm1===11?ny1+1:ny1;
 
 return (
+
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"💰 Recebimentos"}</h2>
@@ -3384,57 +3426,58 @@ return (
     );})}
   </div>
 
-  {missing.length>0&&(
-    <div style={{background:G.red+"12",border:"2px solid "+G.red,borderRadius:12,padding:"12px 14px"}}>
-      <div style={{fontWeight:700,color:G.red,fontSize:13,marginBottom:6}}>{"⚠ Falta de crédito -- "+missing.length+" procedimento(s) sem baixa:"}</div>
-      {missing.map(function(a){
-        var p=pats.find(function(x){return x.id===a.patientId;});
-        return(
-          <div key={a.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid "+G.red+"30"}}>
-            <span style={{color:G.red,fontWeight:600}}>{(p&&p.name||"--")+" -- "+a.procedure}</span>
-            <span style={{color:G.red,fontWeight:700}}>{"R$ "+Number(a.value).toFixed(2)}</span>
-          </div>
-        );
-      })}
-    </div>
-  )}
+{missing.length>0&&(
+<div style={{background:G.red+"12",border:"2px solid "+G.red,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontWeight:700,color:G.red,fontSize:13,marginBottom:6}}>{"⚠ Falta de crédito - "+missing.length+" procedimento(s) sem baixa:"}</div>
+{missing.map(function(a){
+var p=pats.find(function(x){return x.id===a.patientId;});
+return(
+<div key={a.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid "+G.red+"30"}}>
+<span style={{color:G.red,fontWeight:600}}>{(p&&p.name||"-")+" - "+a.procedure}</span>
+<span style={{color:G.red,fontWeight:700}}>{"R$ "+Number(a.value).toFixed(2)}</span>
+</div>
+);
+})}
+</div>
+)}
 
   <div style={{fontWeight:700,fontSize:13,color:G.text,borderBottom:"1px solid "+G.border,paddingBottom:6}}>
     {"Detalhamento -- "+MONTHS_FULL[month]+" "+year}
   </div>
 
-  {thisMonthItems.length===0&&(
-    <div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13}}>Nenhum recebimento neste mês</div>
-  )}
+{thisMonthItems.length===0&&(
+<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13}}>Nenhum recebimento neste mês</div>
+)}
 
-  {thisMonthItems.map(function(item,i){return(
-    <div key={i} style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.05)",borderLeft:"4px solid "+(item.isCard?G.blue:G.primary)}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:700,fontSize:13}}>{item.patName}</div>
-          <div style={{fontSize:12,color:G.muted,marginBottom:4}}>{item.proc}</div>
-          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-            <span style={{fontSize:11,color:G.muted}}>{"Proc: R$ "+item.origVal.toFixed(2)}</span>
-            {item.detail&&<span style={{fontSize:10,color:G.blue,display:"block",marginTop:2}}>{item.detail}</span>}
-            {item.isCard&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"-3,5% cartão"}</span>}
-            {item.totalInst>1&&<span style={{background:G.yellow+"20",color:G.yellow,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{item.inst+"x de "+item.totalInst+"x"}</span>}
-            <span style={{fontSize:11,color:G.muted}}>{"Baixa: "+fmt(item.date)}</span>
-          </div>
-        </div>
-        <div style={{textAlign:"right",flexShrink:0}}>
-          <div style={{fontSize:17,fontWeight:700,color:G.primary}}>{"R$ "+item.commVal.toFixed(2)}</div>
-          <div style={{fontSize:10,color:G.muted}}>{"40% comissão"}</div>
-        </div>
-      </div>
-    </div>
-  );})}
+{thisMonthItems.map(function(item,i){return(
+<div key={i} style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.05)",borderLeft:"4px solid "+(item.isCard?G.blue:G.primary)}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+<div style={{flex:1}}>
+<div style={{fontWeight:700,fontSize:13}}>{item.patName}</div>
+<div style={{fontSize:12,color:G.muted,marginBottom:4}}>{item.proc}</div>
+<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+<span style={{fontSize:11,color:G.muted}}>{"Proc: R$ "+item.origVal.toFixed(2)}</span>
+{item.detail&&<span style={{fontSize:10,color:G.blue,display:"block",marginTop:2}}>{item.detail}</span>}
+{item.isCard&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"-3,5% cartão"}</span>}
+{item.totalInst>1&&<span style={{background:G.yellow+"20",color:G.yellow,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{item.inst+"x de "+item.totalInst+"x"}</span>}
+<span style={{fontSize:11,color:G.muted}}>{"Baixa: "+fmt(item.date)}</span>
+</div>
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontSize:17,fontWeight:700,color:G.primary}}>{"R$ "+item.commVal.toFixed(2)}</div>
+<div style={{fontSize:10,color:G.muted}}>{"40% comissão"}</div>
+</div>
+</div>
+</div>
+);})}
 
-  {thisMonthItems.length>0&&(
-    <div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+MONTHS_FULL[month]}</span>
-      <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{"R$ "+totalMonth.toFixed(2)}</span>
-    </div>
-  )}
+{thisMonthItems.length>0&&(
+<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<span style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+MONTHS_FULL[month]}</span>
+<span style={{color:"#fff",fontWeight:700,fontSize:20}}>{"R$ "+totalMonth.toFixed(2)}</span>
+</div>
+)}
+
 </div>
 
 );
@@ -3447,6 +3490,7 @@ const msg="Ola, "+pat.name+"! 😊\n\nPara seu atendimento na Affonso Odontologi
 wa(pat.phone,msg);setSent(true);
 };
 return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
 <div style={{background:"#075E54",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"📋"}</span>
@@ -3492,6 +3536,7 @@ setResult(data.content&&data.content[0]&&data.content[0].text||"Não foi possív
 setLoading(false);
 };
 return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:460,maxHeight:"90vh",overflow:"auto"}}>
 <div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"🦷"}</span>
@@ -3519,6 +3564,7 @@ wa(pat.phone,"Olá, "+pat.name+"! Sua consulta de "+fmt(appt.date)+" às "+appt.
 setDone(true);
 };
 return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:380}}>
 <div style={{background:G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"❌"}</span>
@@ -3549,6 +3595,7 @@ var d=dents.find(function(x){return x.id===appt.dentistId;})||dents[0];
 var [motivo,setMotivo]=useState("");
 var [outro,setOutro]=useState("");
 return(
+
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
 <div style={{background:G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
@@ -3595,6 +3642,7 @@ marcarRem(appt.id);
 }
 function doWA(ph,msg){var a=document.createElement("a");a.href="https://wa.me/55"+ph.replace(/[^0-9]/g,"")+"?text="+encodeURIComponent(msg);a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);}
 return(
+
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 <button onClick={function(){setAba("pendentes");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:aba==="pendentes"?"#fff":G.bg,color:aba==="pendentes"?G.red:G.muted,boxShadow:aba==="pendentes"?"0 1px 4px rgba(0,0,0,.1)":"none",position:"relative"}}>
@@ -3682,6 +3730,7 @@ setDias([]);
 var pat=pats.find(function(p){return p.id===Number(patId);});
 var canSave=pat&&dentId&&proc&&valido&&slots.length>0;
 return(
+
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:480,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
 <div style={{background:"#7B1FA2",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
@@ -3766,6 +3815,7 @@ if(addLog){if(movF.tipo==="saida")addLog("estoque","Saida: "+entry.itemName+" pa
 setShowMov(false);setMovF({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
 };
 return(
+
 <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 {[["estoque","📦 Estoque"],["movs","Movimentacoes"],["relatorio","Relatorio"]].map(function(tb){return(
@@ -3924,6 +3974,7 @@ function Login({users,onLogin}){
 const [l,sl]=useState("");const [p,sp]=useState("");const [e,se]=useState("");
 const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});u?onLogin(u):se("Login ou senha inválidos");};
 return(
+
 <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1B5E4A 0%,#0a2e1e 60%,#051a10 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
 <div style={{width:"100%",maxWidth:380,display:"flex",flexDirection:"column",alignItems:"center"}}>
 <div style={{textAlign:"center",marginBottom:32}}>
@@ -4033,7 +4084,7 @@ finally{isSaving.current=false;saveTimer.current=null;}
 },2000);
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov]);
 
-// ── REALTIME desativado -- use F5 para sincronizar entre dispositivos ──
+// ── REALTIME desativado - use F5 para sincronizar entre dispositivos ──
 // (polling estava sobrescrevendo dados novos)
 
 if(!user)return <Login users={users} onLogin={setUser}/>;
@@ -4069,6 +4120,7 @@ const BOTTOM_NAV=[
 const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}`;
 
 return <>
+
 <style>{CSS+RESPONSIVE_CSS}</style>
 
 {saveStatus==="saving"&&<div style={{position:"fixed",bottom:80,right:16,background:"#FFF3E0",color:"#E65100",border:"1.5px solid #E65100",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>⏳ Salvando...</div>}
@@ -4099,7 +4151,8 @@ return <>
     </div>
   </div>
 
-  {/* Main content */}
+{/* Main content */}
+
   <div className="main-content" style={{flex:1,overflowY:"auto",minWidth:0}}>
     {/* Mobile top bar */}
     <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:G.primary,position:"sticky",top:0,zIndex:100}} className="mobile-topbar">
@@ -4128,8 +4181,8 @@ return <>
   </div>
 </div>
 
+{/* Bottom navigation bar - mobile only */}
 
-{/* Bottom navigation bar -- mobile only */}
 <div className="bottom-nav" style={{position:"fixed",bottom:0,left:0,right:0,background:"#fff",borderTop:`1.5px solid ${G.border}`,display:"flex",zIndex:400,boxShadow:"0 -2px 12px rgba(0,0,0,.08)"}}>
   {BOTTOM_NAV.map(n=>{
     if(n.id==="menu")return <button key="menu" onClick={()=>setSideOpen(true)} style={{flex:1,border:"none",background:"transparent",padding:"10px 0 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:2,cursor:"pointer",color:G.muted}}>
