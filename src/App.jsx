@@ -1124,8 +1124,8 @@ return (
 {["D","S","T","Q","Q","S","S"].map((d,i)=><div key={i} style={{textAlign:"center",fontSize:10,fontWeight:700,color:G.muted}}>{d}</div>)}
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
-{Array.from({length:fd(calY,calM)}).map((*,i)=><div key={"e"+i}/>)}
-{Array.from({length:dim(calY,calM)}).map((*,i)=>{
+{Array.from({length:fd(calY,calM)}).map((_,i)=><div key={"e"+i}/>)}
+{Array.from({length:dim(calY,calM)}).map((_,i)=>{
 const ds=calY+"-"+String(calM+1).padStart(2,"0")+"-"+String(i+1).padStart(2,"0");
 const isSel=ds===selDate;const isTd=ds===td;
 const cnt=appts.filter(a=>a.date===ds).length;
@@ -1461,6 +1461,11 @@ const [openFolder,setOpenFolder]=useState(null);
 const [pm,setPm]=useState(false);const [ep,setEp]=useState(null);
 const b0={name:"",dob:"",phone:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insurance:"",notes:"",folder:"",since:today(),rx:"",nf:"",obs:"",origem:"",genero:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}};
 const [pf,setPf]=useState(b0);const fp=k=>v=>setPf(p=>({...p,[k]:v}));
+const bd={name:"",specialty:"Clinico Geral",commission:40,cro:"",color:UCOLS[0],dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}};
+const [dm,setDm]=useState(false);
+const [ed,setEd]=useState(null);
+const [df,setDf]=useState(bd);
+const upDf=k=>v=>setDf(p=>({...p,[k]:v}));
 const ft=pats.filter(p=>p.name.toLowerCase().includes(srch.toLowerCase())||p.phone.includes(srch)||(p.folder||"").includes(srch)||(p.cpf||"").includes(srch));
 const savePat=()=>{if(!pf.name)return;const isNew=!ep;const obj={...pf,id:ep?ep.id:nid(pats)};setPats(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[...prev,obj]);if(addLog)addLog("paciente",(isNew?"Criou paciente: ":"Editou cadastro de ")+pf.name,pf.name);setPm(false);};
 
