@@ -105,15 +105,11 @@ const EXPENSE_CATS=["Aluguel","Água","Luz","Internet","Telefone","Salários","M
 const USERS0=[
 {id:1,name:"Dr. Diego Affonso",role:"Admin",level:3,login:"admin",pass:"1234",dentistId:1,color:UCOLS[0],active:true},
 {id:2,name:"Fernanda",role:"Recepcionista",level:2,login:"fernanda",pass:"1234",dentistId:null,color:UCOLS[1],active:true},
-{id:3,name:"Dra. Mariana Souza",role:"Dentista",level:1,login:"mariana",pass:"1234",dentistId:2,color:UCOLS[2],active:true},
+
 ];
 const DENTS0=[
-{id:1,name:"Dr. Diego Affonso",color:UCOLS[0],specialty:"Clínico Geral",commission:40,cro:"SP-72.278",
+{id:1,name:"Dr. Diego Affonso",color:UCOLS[0],specialty:"Clinico Geral",commission:40,cro:"SP-72.278",
 dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}},
-{id:2,name:"Dra. Mariana Souza",color:UCOLS[2],specialty:"Ortodontia",commission:40,cro:"SP-00000",
-dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}},
-{id:3,name:"Dr. Pedro Lima",color:UCOLS[3],specialty:"Implantodontia",commission:40,cro:"SP-00000",
-dias:[1,3,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}},
 ];
 const LABS0=[
 {id:1,name:"Lab Dental Souza",phone:"1133334444",contact:"João Souza"},
@@ -496,7 +492,6 @@ return <>
 {TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:tab===k?G.primary:"#f0f4f2",color:tab===k?"#fff":G.muted,borderRadius:"8px 8px 0 0",padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",transition:"all .15s",marginBottom:-2,borderBottom:tab===k?`2px solid ${G.primary}`:"none"}}>{l}</button>)}
 </div>
 
-```
     <div style={{padding:22}}>
       {/* ── FICHA ── */}
       {tab==="ficha"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -1026,7 +1021,6 @@ return <>
     </div>
   </div>
 </div>}
-```
 
 </>;
 }
@@ -1104,7 +1098,6 @@ if(addLog&&a)addLog("agenda",(ST[st]||st)+" consulta de "+(p&&p.name||"paciente"
 return (
 <div style={{display:"flex",flexDirection:"column",gap:10}} className="fi">
 
-```
   {showCal&&(
     <div style={{position:"fixed",inset:0,zIndex:500}} onClick={()=>setShowCal(false)}>
       <div style={{position:"absolute",top:60,left:"50%",transform:"translateX(-50%)",background:"#fff",borderRadius:14,boxShadow:"0 8px 32px rgba(0,0,0,.2)",padding:16,minWidth:290,zIndex:501}} onClick={e=>e.stopPropagation()}>
@@ -1438,7 +1431,6 @@ return (
     </div>
   </div>}
 </div>
-```
 
 );
 }
@@ -1477,7 +1469,6 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>
 </div>)}
 
-```
 {openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 
 
@@ -1524,7 +1515,6 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
   </div>
   <SC2 save={savePat} cancel={()=>setPm(false)}/>
 </div>}/>
-```
 
   </div>;
 }
@@ -1737,7 +1727,6 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 </div>
 </div>
 
-```
 {/* Month tabs */}
 <div style={{display:"flex",overflowX:"auto",borderBottom:`3px solid ${G.primary}`}}>
   {MES.map((m,i)=>{
@@ -1852,7 +1841,6 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
     </div>
   </div>
 </div>}
-```
 
   </div>;
 }
@@ -1983,7 +1971,6 @@ return(
 </div>
 {showEspModal&&<EsperaModal pats={pats} dents={dents} onSave={function(e){setEspera(function(prev){return[...prev,e];});setShowEspModal(false);}} onClose={function(){setShowEspModal(false);}}/>}
 
-```
 {anivHoje.length>0&&<div style={{background:"#FFF8E1",border:"2px solid #FFD54F",borderRadius:14,padding:"14px 16px"}}>
   <div style={{fontWeight:700,fontSize:13,color:"#E65100",marginBottom:10}}>{"🎂 Aniversariantes hoje ("+anivHoje.length+")"}</div>
   {anivHoje.map(function(p){return(<div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #FFD54F"}}><div><div style={{fontWeight:600,fontSize:13}}>{p.name}</div><div style={{fontSize:11,color:"#E65100"}}>{(new Date(t2).getFullYear()-Number(p.dob.slice(0,4)))+" anos 🎉"}</div></div>{p.phone&&<button onClick={function(){sendWA2(p.phone,"Olá, "+p.name+"! 🎂 A equipe Affonso Odontologia deseja um feliz aniversário! Que seu dia seja muito especial! 🦷✨");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:10,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 WA"}</button>}</div>);})}
@@ -2040,7 +2027,6 @@ return(
   <R2 a={<PatSearch lb="Paciente" val={f.patientId} set={upd("patientId")} pats={pats} optional/>} b={<Sel lb="Para funcionária" val={String(f.assignedUserId)} set={upd("assignedUserId")} opts={[{v:"",l:"Geral"},...users.map(u=>({v:u.id,l:u.name.split(" ")[0]}))]}/>}/>
   <SC2 save={save} cancel={()=>setModal(false)}/>
 </div>}/>
-```
 
   </div>;
 }
@@ -2171,7 +2157,6 @@ setPreview(null);
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
-```
 {/* Preview Modal */}
 {preview&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
   <div style={{background:"#fff",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:560,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 -8px 32px rgba(0,0,0,.2)"}}>
@@ -2294,7 +2279,6 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
     <span>Revisar e Enviar para {localAll?withPhone.length:localSel.length} paciente(s)</span>
   </button>
 </div>
-```
 
   </div>;
 }
@@ -2446,7 +2430,6 @@ cf[m]+=liqPerInst*(d.commission||40)/100;
 }
 });
 
-```
 // Procedimentos dados baixa no mês (planos de tratamento)
 const donedItems=[];
 treats.forEach(t=>{
@@ -2476,7 +2459,6 @@ const allCf={...cf};
 Object.entries(doneCf).forEach(([k,v])=>{allCf[k]=(allCf[k]||0)+v;});
 
 return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom};
-```
 
 });
 const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&p.sent.startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
@@ -2618,13 +2600,11 @@ return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14p
 </div>
 </div>}
 
-```
 {/* ── PACIENTES ── */}
 {tab==="pacs"&&<PacsTab pats={pats} recs={recs} treats={treats} appts={appts} dents={dents} mo={mo} user={user}/>}
 
 {/* ── WHATSAPP ── */}
 {tab==="msg"&&<MsgTab pats={pats} selMsg={selMsg} setSelMsg={setSelMsg} selPatsMsg={selPatsMsg} setSelPatsMsg={setSelPatsMsg} allSelMsg={allSelMsg} setAllSelMsg={setAllSelMsg}/>}
-```
 
   </div>;
 }
@@ -2911,7 +2891,6 @@ return novo;
 })}
 </div>}
 
-```
 {tab==="log"&&
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{background:G.accent,borderRadius:12,padding:"10px 14px",fontSize:12,color:G.primary}}>
@@ -3006,7 +2985,6 @@ return novo;
     </div>
   </div>
 </div>}
-```
 
   </div>;
 }
@@ -3179,7 +3157,6 @@ return (
 <Btn ch="+ Nova Medicação" sm onClick={function(){setAddMod(true);}}/>
 </div>
 
-```
   {addMod&&(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
       <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.2)"}}>
@@ -3279,7 +3256,6 @@ return (
     {"📋 Enviar para Secretária"}
   </button>
 </div>
-```
 
 );
 }
@@ -3392,7 +3368,6 @@ return (
 {!isDent&&<Sel lb="" val={selDent} set={setSelDent} opts={myDents.map(function(d){return{v:String(d.id),l:d.name};})}/>}
 </div>
 
-```
   <div style={{display:"flex",alignItems:"center",gap:8}}>
     <button onClick={prevMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{"<"}</button>
     <span style={{fontWeight:700,fontSize:16,flex:1,textAlign:"center"}}>{MONTHS_FULL[month]+" "+year}</span>
@@ -3461,7 +3436,6 @@ return (
     </div>
   )}
 </div>
-```
 
 );
 }
@@ -4097,7 +4071,6 @@ const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!impo
 return <>
 <style>{CSS+RESPONSIVE_CSS}</style>
 
-```
 {saveStatus==="saving"&&<div style={{position:"fixed",bottom:80,right:16,background:"#FFF3E0",color:"#E65100",border:"1.5px solid #E65100",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>⏳ Salvando...</div>}
 {saveStatus==="saved"&&<div style={{position:"fixed",bottom:80,right:16,background:"#E8F5E9",color:"#2E7D32",border:"1.5px solid #2E7D32",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>✅ Salvo!</div>}
 {saveStatus==="error"&&<div style={{position:"fixed",bottom:80,right:16,background:"#FFEBEE",color:"#C62828",border:"1.5px solid #C62828",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>❌ Erro ao salvar</div>}
@@ -4172,7 +4145,6 @@ return <>
     </button>;
   })}
 </div>
-```
 
 </>;
 }
