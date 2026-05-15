@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 
 const supabase={load:function(){return Promise.resolve(null);},save:function(d){return Promise.resolve();}};
+
 const G = {
 bg:"#EEF3F0",card:"#FFF",primary:"#1B5E4A",accent:"#E3EFE9",accentDark:"#A8D5C0",
 text:"#162420",muted:"#6B8880",red:"#C0392B",yellow:"#D68910",blue:"#1A5276",
@@ -506,7 +507,7 @@ return <>
     {pat.obs&&<div style={{background:G.yellow+"18",border:`2px solid ${G.yellow}`,borderRadius:10,padding:"9px 14px"}}><span style={{fontWeight:700,color:G.yellow}}>⚠ ALERGIA / OBS. IMPORTANTE</span><div style={{color:G.text,marginTop:4,fontSize:14}}>{pat.obs||pat.allergy}</div></div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
       {!editMode?<>
-        {[["NOME",pat.name],["IDADE",age(pat.dob)+" ("+fmt(pat.dob)+")"],["CPF",pat.cpf||"--"],["RG",pat.rg||"--"],["TELEFONE",user.level>=2?pat.phone:"••••••••••"],["E-MAIL",user.level>=2?(pat.email||"--"):"••••••••••"],["TIPO SANGUÍNEO",pat.blood||"--"],["PLANO",pat.insurance||"--"],["Nº DA FICHA",pat.folder],["Nº DO RX",pat.rx],["REF. NF",pat.nf||"--"],["ALERGIA",pat.allergy||"Nenhuma"],["COMO NOS CONHECEU",pat.origem||"Não informado"]].map(([k,v])=><div key={k} style={{background:G.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{k}</div><div style={{fontWeight:600,fontSize:13,color:k==="ALERGIA"&&v!=="Nenhuma"?G.red:G.text}}>{v}</div></div>)}
+        {[["NOME",pat.name],["IDADE",age(pat.dob)+" ("+fmt(pat.dob)+")"],["CPF",pat.cpf||"--"],["RG",pat.rg||"--"],["TELEFONE",user.level>=2?pat.phone:"**********"],["E-MAIL",user.level>=2?(pat.email||"--"):"**********"],["TIPO SANGUÍNEO",pat.blood||"--"],["PLANO",pat.insurance||"--"],["Nº DA FICHA",pat.folder],["Nº DO RX",pat.rx],["REF. NF",pat.nf||"--"],["ALERGIA",pat.allergy||"Nenhuma"],["COMO NOS CONHECEU",pat.origem||"Não informado"]].map(([k,v])=><div key={k} style={{background:G.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{k}</div><div style={{fontWeight:600,fontSize:13,color:k==="ALERGIA"&&v!=="Nenhuma"?G.red:G.text}}>{v}</div></div>)}
       </>:<>
         <Inp lb="Nome" val={pf.name} set={v=>setPf(p=>({...p,name:v}))}/>
         <DatePick lb="Nascimento" val={pf.dob} set={v=>setPf(p=>({...p,dob:v}))}/>
@@ -614,7 +615,7 @@ return <>
         <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
           <Bdg l={BSTATUS[b.status]} col={BCOLOR[b.status]} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(tot)}</span>
           {b.attach&&<Bdg l={`📎 ${b.attach}`} col={G.blue} sm/>}
-          <Btn ch="📱" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! Orçamento:\n${b.items.map(i=>`• ${i.d}: ${cur(i.v)}`).join("\n")}\nTotal: ${cur(tot)}`)}/> 
+          <Btn ch="📱" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! Orçamento:\n${b.items.map(i=>`* ${i.d}: ${cur(i.v)}`).join("\n")}\nTotal: ${cur(tot)}`)}/> 
           <Btn ch="Editar" v="g" sm onClick={()=>{setBudgEdit(b);setBf({...b,disc:b.disc||0});setBudgModal(true);}}/>
         </div>
       </div>
@@ -1477,12 +1478,12 @@ if(!pf.name)return;
 const isNew=!ep;
 if(isNew){
 const nm=normNome(pf.name);
-const fone=(pf.phone||"").replace(/\D/g,"");
-const cpf2=(pf.cpf||"").replace(/\D/g,"");
+const fone=(pf.phone||"").replace(/[^0-9]/g,"");
+const cpf2=(pf.cpf||"").replace(/[^0-9]/g,"");
 const sim=pats.filter(function(p){
 const pnm=normNome(p.name);
-const pf2=(p.phone||"").replace(/\D/g,"");
-const pc=(p.cpf||"").replace(/\D/g,"");
+const pf2=(p.phone||"").replace(/[^0-9]/g,"");
+const pc=(p.cpf||"").replace(/[^0-9]/g,"");
 const nomeP=nm.length>3&&(pnm.indexOf(nm)>=0||nm.indexOf(pnm)>=0||(nm.split(" ")[0]===pnm.split(" ")[0]&&nm.split(" ").slice(-1)[0]===pnm.split(" ").slice(-1)[0]));
 return nomeP||(fone.length>=8&&pf2===fone)||(cpf2.length>=11&&pc===cpf2);
 });
@@ -1513,7 +1514,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <div style={{width:42,height:42,borderRadius:"50%",background:G.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Cormorant Garamond'",fontSize:20,color:G.primary,flexShrink:0,cursor:"pointer"}} onClick={()=>setOpenFolder(p)}>{p.name[0]}</div>
 <div style={{flex:1,minWidth:0}}>
 <div style={{fontWeight:700,fontSize:13,cursor:"pointer"}} onClick={()=>setOpenFolder(p)}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {age(p.dob)} · Ficha: {p.folder||"--"}</span></div>
-<div style={{color:G.muted,fontSize:12}}>{user.level>=2?p.phone:"••••••••••"}</div>
+<div style={{color:G.muted,fontSize:12}}>{user.level>=2?p.phone:"**********"}</div>
 {p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
 {p.obs&&<div style={{background:G.red+"20",border:`1px solid ${G.red}`,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.red,marginTop:2,display:"inline-block"}}>⚠ {p.obs.slice(0,45)}</div>}
 {(p.allergy&&p.allergy!=="Nenhuma"&&!p.obs)&&<div style={{background:G.yellow+"20",border:`1px solid ${G.yellow}`,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.yellow,marginTop:2,display:"inline-block"}}>⚠ {p.allergy}</div>}
@@ -1527,12 +1528,11 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>)}
 
 {dupModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-
 <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{background:"#D68910",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>⚠️ Possível Duplicidade</div></div>
+<div style={{background:"#D68910",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>Possivel Duplicidade</div></div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-<div style={{fontSize:13}}>Paciente(s) com dados similares encontrado(s):</div>
-{dupModal.similares.map(function(p){return(<div key={p.id} style={{background:"#EEF3F0",borderRadius:10,padding:"10px 13px"}}><div style={{fontWeight:700,fontSize:13}}>{p.name}</div><div style={{fontSize:12,color:"#6B8880"}}>{p.folder?("Ficha: "+p.folder):""}{p.phone?(" · "+p.phone):""}</div></div>);})}
+<div style={{fontSize:13}}>Paciente(s) com dados similares:</div>
+{dupModal.similares.map(function(p){return(<div key={p.id} style={{background:"#EEF3F0",borderRadius:10,padding:"10px 13px"}}><div style={{fontWeight:700,fontSize:13}}>{p.name}</div><div style={{fontSize:12,color:"#6B8880"}}>{p.folder?"Ficha: "+p.folder:""}{p.phone?" - "+p.phone:""}</div></div>);})}
 <div style={{fontSize:12,color:"#6B8880"}}>Deseja cadastrar mesmo assim?</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid #D5E8DF"}}>
 <button onClick={()=>setDupModal(null)} style={{border:"1.5px solid #1B5E4A",background:"transparent",color:"#1B5E4A",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
@@ -1540,11 +1540,11 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div></div></div></div>}
 {delModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{background:"#C0392B",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>🗑️ Excluir Paciente</div></div>
+<div style={{background:"#C0392B",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>Excluir Paciente</div></div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
 <div style={{fontWeight:700,fontSize:14}}>{delModal.pat.name}</div>
-{delModal.temDados&&<div style={{background:"#FDECEA",border:"1.5px solid #C0392B",borderRadius:10,padding:"10px 13px",fontSize:13,color:"#C0392B",fontWeight:600}}>⚠️ Este paciente tem consultas e atendimentos. Todos os dados serão perdidos!</div>}
-<div style={{fontSize:13,color:"#6B8880"}}>Esta ação não pode ser desfeita.</div>
+{delModal.temDados&&<div style={{background:"#FDECEA",border:"1.5px solid #C0392B",borderRadius:10,padding:"10px 13px",fontSize:13,color:"#C0392B",fontWeight:600}}>Este paciente tem consultas e atendimentos. Todos os dados serao perdidos!</div>}
+<div style={{fontSize:13,color:"#6B8880"}}>Esta acao nao pode ser desfeita.</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid #D5E8DF"}}>
 <button onClick={()=>setDelModal(null)} style={{border:"1.5px solid #1B5E4A",background:"transparent",color:"#1B5E4A",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
 <button onClick={()=>{setPats(prev=>prev.filter(x=>x.id!==delModal.pat.id));setDelModal(null);}} style={{background:"#C0392B",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Excluir Permanentemente</button>
@@ -3334,7 +3334,7 @@ return (
 
 <div style={{background:G.accent,borderRadius:10,padding:"10px 14px"}}>
 <div style={{fontWeight:700,fontSize:12,color:G.primary,marginBottom:5}}>{"Selecionados: "+sel.length}</div>
-{sel.map(function(m){return <div key={m.id} style={{fontSize:12,color:G.text,marginBottom:2}}>{"• "+m.name}</div>;})}
+{sel.map(function(m){return <div key={m.id} style={{fontSize:12,color:G.text,marginBottom:2}}>{"* "+m.name}</div>;})}
 </div>
 )}
 
@@ -3349,7 +3349,7 @@ return (
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
 <p style={{fontSize:13,color:"#555",margin:0}}>Abre o receituário formatado para imprimir ou salvar como PDF:</p>
 <div style={{background:G.bg,borderRadius:10,padding:"10px 12px",fontSize:12,color:G.muted}}>
-{sel.map(function(m,i){return <div key={m.id}>{"• "+m.name+" - "+m.posEdit+(m.qtyEdit?" ("+m.qtyEdit+")":"")}</div>;})}
+{sel.map(function(m,i){return <div key={m.id}>{"* "+m.name+" - "+m.posEdit+(m.qtyEdit?" ("+m.qtyEdit+")":"")}</div>;})}
 </div>
 <button onClick={function(){doPrintWindow();setShowPrint(false);}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
 {"🖨️ Abrir Receituário para Imprimir"}
@@ -4131,7 +4131,7 @@ style={{width:"100%",background:"rgba(255,255,255,.1)",border:"1.5px solid rgba(
 <div>
 <label style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",textTransform:"uppercase",letterSpacing:"1px",display:"block",marginBottom:6}}>Senha</label>
 <input value={p} onChange={function(ev){sp(ev.target.value);}} onKeyDown={function(ev){if(ev.key==="Enter")go();}}
-type="password" placeholder="••••••••"
+type="password" placeholder="********"
 style={{width:"100%",background:"rgba(255,255,255,.1)",border:"1.5px solid rgba(255,255,255,.15)",borderRadius:10,padding:"12px 14px",fontSize:14,color:"#fff",outline:"none",boxSizing:"border-box"}}/>
 </div>
 {e&&<div style={{background:"rgba(244,67,54,.15)",border:"1px solid rgba(244,67,54,.3)",color:"#ff8a80",borderRadius:8,padding:"8px 12px",fontSize:12,textAlign:"center"}}>{e}</div>}
@@ -4221,8 +4221,41 @@ finally{isSaving.current=false;saveTimer.current=null;}
 },2000);
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov]);
 
-// ── REALTIME desativado - use F5 para sincronizar entre dispositivos ──
-// (polling estava sobrescrevendo dados novos)
+// ── REALTIME — polling a cada 20s ──
+useEffect(()=>{
+const poll=setInterval(async()=>{
+if(!initialized.current||isSaving.current||document.hidden)return;
+const data=await supabase.load();
+if(!data)return;
+const str=JSON.stringify(data);
+if(str===lastSaved.current)return;
+lastSaved.current=str;
+try{
+if(data.pats?.length)setPats(data.pats);
+if(data.appts?.length)setAppts(data.appts);
+if(data.recs?.length)setRecs(data.recs);
+if(data.treats?.length)setTreats(data.treats);
+if(data.pros?.length)setPros(data.pros);
+if(data.rems?.length)setRems(data.rems);
+if(data.budgets?.length)setBudgets(data.budgets);
+if(data.users?.length)setUsers(data.users);
+if(data.dents?.length)setDents(data.dents);
+if(data.perms)setPerms(data.perms);
+if(data.labs?.length)setLabs(data.labs);
+if(data.procs?.length)setProcs(data.procs);
+if(data.stock?.length)setStock(data.stock);
+if(data.impl?.length)setImpl(data.impl);
+if(data.expenses)setExpenses(data.expenses);
+if(data.logs?.length)setLogs(data.logs);
+if(data.remarcar?.length)setRemarcar(data.remarcar);
+if(data.espera?.length)setEspera(data.espera);
+if(data.prosProcs?.length)setProsProcs(data.prosProcs);
+if(data.implCat?.length)setImplCat(data.implCat);
+if(data.implMov?.length)setImplMov(data.implMov);
+}catch(err){}
+},20000);
+return()=>clearInterval(poll);
+},[]);
 
 if(!user)return <Login users={users} onLogin={setUser}/>;
 
