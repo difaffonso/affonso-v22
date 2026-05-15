@@ -1527,6 +1527,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>)}
 
 {dupModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
 <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
 <div style={{background:"#D68910",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>⚠️ Possível Duplicidade</div></div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
