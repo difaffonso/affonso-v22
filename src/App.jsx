@@ -1,6 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+const SUPA_URL = "https://ncfsepyzrqaljswjiuiv.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jZnNlcHl6cnFhbGpzd2ppdWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTg1NzYsImV4cCI6MjA5NDA5NDU3Nn0.j_7sctB2bP0zljxPbh3Q4I_MzEksgL8PO5QNdzbaJDM";
+const supabase={
+async load(){try{const r=await fetch(`${SUPA_URL}/rest/v1/clinic_data?id=eq.main&select=data`,{headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return rows[0].data;return null;}catch(e){return null;}},
+async save(data){try{await fetch(`${SUPA_URL}/rest/v1/clinic_data?id=eq.main`,{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":`Bearer ${SUPA_KEY}`,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});}catch(e){}}
+}; import { useState, useEffect, useRef } from "react";
 
-const supabase={load:function(){return Promise.resolve(null);},save:function(d){return Promise.resolve();}};
 const G = {
 bg:"#EEF3F0",card:"#FFF",primary:"#1B5E4A",accent:"#E3EFE9",accentDark:"#A8D5C0",
 text:"#162420",muted:"#6B8880",red:"#C0392B",yellow:"#D68910",blue:"#1A5276",
@@ -1110,7 +1114,6 @@ return (
 <div style={{display:"flex",flexDirection:"column",gap:10}} className="fi">
 
 {showCal&&(
-
 <div style={{position:"fixed",inset:0,zIndex:500}} onClick={()=>setShowCal(false)}>
 <div style={{position:"absolute",top:60,left:"50%",transform:"translateX(-50%)",background:"#fff",borderRadius:14,boxShadow:"0 8px 32px rgba(0,0,0,.2)",padding:16,minWidth:290,zIndex:501}} onClick={e=>e.stopPropagation()}>
 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
@@ -1169,7 +1172,6 @@ return (
   </div>
 
 {vd.length>1&&<div style={{display:"grid",gridTemplateColumns:"48px repeat("+vd.length+",1fr)",gap:2}}>
-
 <div/>
 {vd.map(d=><div key={d.id} style={{background:d.color,color:"#fff",borderRadius:7,padding:"5px 4px",textAlign:"center",fontSize:10,fontWeight:700}}>{d.name.split(" ").slice(0,2).join(" ")}</div>)}
 
@@ -1187,7 +1189,6 @@ var isAlm=alIni&&alFim&&slot>=alIni&&slot<alFim;
 var isOut=slot<(d.entrada||"08:00")||slot>=(d.saida||"18:00");
 var isBlocked=isOff||isAlm||isOut;
 if(isBlocked&&!a)return(
-
 <div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 8px",borderRadius:8,background:isOff?"#FFEBEE":isAlm?"#FFF8E1":"#F3E5F5",opacity:.6}}>
 <span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
 <span style={{fontSize:11,color:isOff?"#C62828":isAlm?"#E65100":"#6A1B9A",fontWeight:600}}>{isOff?"🚫 Folga":isAlm?"🍽️ Almoço":"⛔ Fechado"}</span>
@@ -1308,7 +1309,6 @@ const HCOR={"done":"#27AE60","confirmed":"#2196F3","pending":"#FF9800","cancelle
 const HLBL={"done":"Realizada","confirmed":"Confirmada","pending":"Pendente","cancelled":"Cancelada","missed":"Faltou"};
 return(
 <Modal open close={function(){setViewA(null);setHistTab("info");}} title="Consulta" wide ch={
-
 <div style={{display:"flex",flexDirection:"column",gap:10}}>
 <div style={{display:"flex",gap:3,marginBottom:4}}>
 <button onClick={function(){setHistTab("info");}} style={{flex:1,border:"none",borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer",background:histTab==="info"?G.primary:"#eee",color:histTab==="info"?"#fff":G.muted}}>{"📋 Consulta"}</button>
@@ -1362,7 +1362,6 @@ return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 1
 })()}
 
 <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Agendamento":"Novo Agendamento"} wide ch={
-
 <div style={{display:"flex",flexDirection:"column",gap:11}}>
 <Sel lb="Dentista" val={String(f.dentistId)} set={upd("dentistId")} opts={dents.map(d=>({v:d.id,l:d.name}))}/>
 {/* Paciente - busca cadastrado OU nome manual */}
@@ -1469,38 +1468,7 @@ const [ed,setEd]=useState(null);
 const [df,setDf]=useState(bd);
 const upDf=k=>v=>setDf(p=>({...p,[k]:v}));
 const ft=pats.filter(p=>p.name.toLowerCase().includes(srch.toLowerCase())||p.phone.includes(srch)||(p.folder||"").includes(srch)||(p.cpf||"").includes(srch));
-const normNome=function(s){return(s||"").toLowerCase().trim();};
-const [dupModal,setDupModal]=useState(null);
-const [delModal,setDelModal]=useState(null);
-const savePat=()=>{
-if(!pf.name)return;
-const isNew=!ep;
-if(isNew){
-const nm=normNome(pf.name);
-const fone=(pf.phone||"").replace(/\D/g,"");
-const cpf2=(pf.cpf||"").replace(/\D/g,"");
-const sim=pats.filter(function(p){
-const pnm=normNome(p.name);
-const pf2=(p.phone||"").replace(/\D/g,"");
-const pc=(p.cpf||"").replace(/\D/g,"");
-const nomeP=nm.length>3&&(pnm.indexOf(nm)>=0||nm.indexOf(pnm)>=0||(nm.split(" ")[0]===pnm.split(" ")[0]&&nm.split(" ").slice(-1)[0]===pnm.split(" ").slice(-1)[0]));
-return nomeP||(fone.length>=8&&pf2===fone)||(cpf2.length>=11&&pc===cpf2);
-});
-if(sim.length>0){
-setDupModal({similares:sim,onConfirm:function(){
-const obj2={...pf,id:nid(pats)};
-setPats(function(prev){return[...prev,obj2];});
-if(addLog)addLog("paciente","Criou paciente: "+pf.name,pf.name);
-setPm(false);setDupModal(null);
-}});
-return;
-}
-}
-const obj={...pf,id:ep?ep.id:nid(pats)};
-setPats(function(prev){return ep?prev.map(function(p){return p.id===ep.id?obj:p;}):[...prev,obj];});
-if(addLog)addLog("paciente",(isNew?"Criou paciente: ":"Editou cadastro de ")+pf.name,pf.name);
-setPm(false);
-};
+const savePat=()=>{if(!pf.name)return;const isNew=!ep;const obj={...pf,id:ep?ep.id:nid(pats)};setPats(prev=>ep?prev.map(p=>p.id===ep.id?obj:p):[...prev,obj]);if(addLog)addLog("paciente",(isNew?"Criou paciente: ":"Editou cadastro de ")+pf.name,pf.name);setPm(false);};
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
@@ -1522,32 +1490,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <Btn ch="📋 Prontuário" sm onClick={()=>setOpenFolder(p)}/>
 {user.level>=2&&<Btn ch="✏️" v="g" sm onClick={()=>{setEp(p);setPf({...p});setPm(true);}}/>}
 {p.phone&&user.level>=2&&<Btn ch="📱" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! 😊`)}/>}
-{user.level>=2&&<Btn ch="🗑️" v="r" sm onClick={()=>{const td=appts.some(a=>a.patientId===p.id)||recs.some(r=>r.patientId===p.id);setDelModal({pat:p,temDados:td});}}/>}
 </div>
 </div>)}
 
-{dupModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{background:"#D68910",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>⚠️ Possível Duplicidade</div></div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-<div style={{fontSize:13}}>Paciente(s) com dados similares encontrado(s):</div>
-{dupModal.similares.map(function(p){return(<div key={p.id} style={{background:"#EEF3F0",borderRadius:10,padding:"10px 13px"}}><div style={{fontWeight:700,fontSize:13}}>{p.name}</div><div style={{fontSize:12,color:"#6B8880"}}>{p.folder?("Ficha: "+p.folder):""}{p.phone?(" · "+p.phone):""}</div></div>);})}
-<div style={{fontSize:12,color:"#6B8880"}}>Deseja cadastrar mesmo assim?</div>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid #D5E8DF"}}>
-<button onClick={()=>setDupModal(null)} style={{border:"1.5px solid #1B5E4A",background:"transparent",color:"#1B5E4A",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
-<button onClick={dupModal.onConfirm} style={{background:"#D68910",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Cadastrar Mesmo Assim</button>
-</div></div></div></div>}
-{delModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{background:"#C0392B",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>🗑️ Excluir Paciente</div></div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-<div style={{fontWeight:700,fontSize:14}}>{delModal.pat.name}</div>
-{delModal.temDados&&<div style={{background:"#FDECEA",border:"1.5px solid #C0392B",borderRadius:10,padding:"10px 13px",fontSize:13,color:"#C0392B",fontWeight:600}}>⚠️ Este paciente tem consultas e atendimentos. Todos os dados serão perdidos!</div>}
-<div style={{fontSize:13,color:"#6B8880"}}>Esta ação não pode ser desfeita.</div>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid #D5E8DF"}}>
-<button onClick={()=>setDelModal(null)} style={{border:"1.5px solid #1B5E4A",background:"transparent",color:"#1B5E4A",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
-<button onClick={()=>{setPats(prev=>prev.filter(x=>x.id!==delModal.pat.id));setDelModal(null);}} style={{background:"#C0392B",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Excluir Permanentemente</button>
-</div></div></div></div>}
 {openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 
 {dm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -2989,7 +2934,6 @@ return novo;
 </div>}
 
 {tab==="log"&&
-
 <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{background:G.accent,borderRadius:12,padding:"10px 14px",fontSize:12,color:G.primary}}>
 {"📋 "+filtered.length+" registro(s) encontrado(s)"}
@@ -3260,7 +3204,6 @@ return (
 </div>
 
 {addMod&&(
-
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.2)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",borderBottom:"1px solid "+G.border}}>
@@ -3330,7 +3273,6 @@ return (
   </div>
 
 {sel.length>0&&(
-
 <div style={{background:G.accent,borderRadius:10,padding:"10px 14px"}}>
 <div style={{fontWeight:700,fontSize:12,color:G.primary,marginBottom:5}}>{"Selecionados: "+sel.length}</div>
 {sel.map(function(m){return <div key={m.id} style={{fontSize:12,color:G.text,marginBottom:2}}>{"• "+m.name}</div>;})}
@@ -3338,7 +3280,6 @@ return (
 )}
 
 {showPrint&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
 <div style={{background:"#075E54",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>📋</span>
@@ -3400,28 +3341,21 @@ var mapa={};
 var val=Number(p.value||0);
 var met=(p.method||"").toLowerCase();
 var inst=Math.max(1,Number(p.installments||p.inst||1));
-var isCredito=met.indexOf("credito")>=0||met.indexOf("cr\u00e9dito")>=0;
-var isDebito=met.indexOf("debito")>=0||met.indexOf("d\u00e9bito")>=0;
-var taxa=isCredito?0.035:isDebito?0.02:0;
-var liquido=val*(1-taxa);
+var isCredito=met.indexOf("credito")>=0||met.indexOf("crédito")>=0;
 var mesBase=p.date?p.date.slice(0,7):today().slice(0,7);
 if(isCredito){
-// credito: parcela 1 cai 30 dias apos = mes seguinte, parcela 2 = 2 meses, etc
-var parcela=liquido/inst;
+var parcela=val/inst;
 for(var i=1;i<=inst;i++){
 var mk=addMes(mesBase,i);
 mapa[mk]=(mapa[mk]||0)+parcela;
 }
 } else {
-// dinheiro/pix/debito: cai no mes seguinte
 var mk2=addMes(mesBase,1);
-mapa[mk2]=(mapa[mk2]||0)+liquido;
+mapa[mk2]=(mapa[mk2]||0)+val;
 }
 });
 return mapa;
 }
-
-// Saldo acumulado por mes (sobra passa para proximo)
 function getSaldoAcum(saldoMapa){
 var meses=Object.keys(saldoMapa).sort();
 if(meses.length===0)return {};
@@ -3468,6 +3402,11 @@ var saldoMapa=getSaldoMapa(payments);
 var saldoAcum=getSaldoAcum(saldoMapa);
 var mesesOrdenados=Object.keys(saldoAcum).sort();
 var taxaMedia=getTaxaMedia(payments);
+// Garantir que taxa seja exatamente 3.5% se so credito, 2% se so debito
+// Para exibicao correta
+var temCredito=payments.some(function(p){var m=(p.method||"").toLowerCase();return m.indexOf("credito")>=0||m.indexOf("crédito")>=0;});
+var temDebito=payments.some(function(p){var m=(p.method||"").toLowerCase();return m.indexOf("debito")>=0||m.indexOf("débito")>=0;});
+var taxaLabel=temCredito&&temDebito?"3.5%/2%":temCredito?"3.5%":temDebito?"2%":"";
 
 // Itens com baixa ordenados MAIOR VALOR PRIMEIRO
 var itensBaixa=(t.items||[])
@@ -3478,21 +3417,23 @@ var itensSemBaixa=(t.items||[]).filter(function(it){return !it.done&&!it.paid;})
 // saldoJaUsado = soma dos valores dos procedimentos ja liberados
 // Para cada item, o saldo acumulado precisa cobrir saldoJaUsado + valor deste item
 // Ou seja: saldoAcum[mes] >= saldoJaUsado + it.value
-var saldoJaUsado=0;
-
-itensBaixa.forEach(function(it){
-var needed=saldoJaUsado+it.value;
-var mesLiberado=null;
-for(var i=0;i<mesesOrdenados.length;i++){
-// saldo acumulado liquido precisa cobrir o valor BRUTO do procedimento
-if(saldoAcum[mesesOrdenados[i]]>=needed){
-mesLiberado=mesesOrdenados[i];
-break;
-}
-}
-if(mesLiberado){
-saldoJaUsado+=it.value;
-// Comissao = 40% do valor bruto do procedimento, descontada a taxa do cartao
+// LOGICA MES A MES:
+// Cada mes: saldo disponivel = entrada do mes + sobra do mes anterior
+// Tenta pagar do MAIOR para MENOR todos que couberem no mes
+// O que sobrar passa para o proximo mes
+var pendentesItens=itensBaixa.slice(); // copia ja ordenada maior->menor
+var saldoRestante=0;
+var mesInicio=mesesOrdenados.length>0?mesesOrdenados[0]:curMonth;
+var mesFim=addMes(mesInicio,60);
+var mesAtual=mesInicio;
+while(mesAtual<=mesFim&&pendentesItens.length>0){
+var entrada=saldoMapa[mesAtual]||0;
+var saldoMes=saldoRestante+entrada;
+var naoPagei=[];
+for(var ii=0;ii<pendentesItens.length;ii++){
+var it=pendentesItens[ii];
+if(saldoMes>=it.value){
+saldoMes-=it.value;
 var comissao=it.value*(1-taxaMedia)*COMM;
 allLiberated.push({
 patName:patName,
@@ -3500,24 +3441,47 @@ treatName:t.name||"Plano",
 proc:it.desc||"Procedimento",
 value:it.value,
 doneDate:it.doneDate||today(),
-mesLiberado:mesLiberado,
+mesLiberado:mesAtual,
+commVal:comissao,
+taxa:Math.round(taxaMedia*1000)/10,
+taxaLabel:taxaLabel,
+});
+} else {
+naoPagei.push(it);
+}
+}
+pendentesItens=naoPagei;
+saldoRestante=saldoMes;
+mesAtual=addMes(mesAtual,1);
+}
+// Itens que nao foram cobertos ainda
+pendentesItens.forEach(function(it){
+var falta=Math.max(0,it.value-saldoRestante);
+// Se falta=0, o saldo ja esta disponivel mas nao foi processado
+// isso pode ocorrer por limite do loop - liberar no mes atual
+if(falta<=0.01){
+// Tem saldo - liberar agora
+saldoRestante-=it.value;
+var comissao=it.value*(1-taxaMedia)*COMM;
+allLiberated.push({
+patName:patName,
+treatName:t.name||"Plano",
+proc:it.desc||"Procedimento",
+value:it.value,
+doneDate:it.doneDate||today(),
+mesLiberado:curMonth,
 commVal:comissao,
 taxa:Math.round(taxaMedia*1000)/10,
 });
 } else {
-// Calcular quanto falta para cobrir este procedimento
-var totalLiqDisp=Object.values(saldoMapa).reduce(function(s,v){return s+v;},0);
-var saldoLivreTotal=Math.max(0,totalLiqDisp-saldoJaUsado);
 pendentesExec.push({
 patName:patName,
 treatName:t.name||"Plano",
 proc:it.desc||"Procedimento",
 value:it.value,
-saldo:Math.min(saldoLivreTotal,it.value),
-falta:Math.max(0,it.value-saldoLivreTotal),
+saldo:Math.min(saldoRestante,it.value),
+falta:falta,
 });
-// Este procedimento nao foi coberto - saldo restante = 0 para os proximos
-saldoJaUsado+=it.value;
 }
 });
 
@@ -3597,7 +3561,7 @@ Nenhum recebimento liberado neste mes.
 <div style={{fontSize:12,color:G.muted,marginBottom:4}}>{item.treatName+" - "+item.proc}</div>
 <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
 <span style={{fontSize:11,color:G.muted}}>{"Proc: R$ "+item.value.toFixed(2)}</span>
-{item.taxa>0&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"-"+item.taxa+"% taxa"}</span>}
+{item.taxa>0&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"-"+(item.taxaLabel||item.taxa+"% taxa")}</span>}
 <span style={{fontSize:11,color:G.muted}}>{"Baixa: "+fmt(item.doneDate)}</span>
 <span style={{background:G.success+"20",color:G.success,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>100% pago</span>
 </div>
