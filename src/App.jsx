@@ -3532,6 +3532,13 @@ return (
 
 // ══════════════════════════════════════════════════════════
 // PAINEL RECEBIMENTOS DENTISTA
+// Regras:
+// 1. Dentista recebe 40% de comissao
+// 2. Taxa cartao credito: 3.5% sobre a COMISSAO do dentista
+// 3. Taxa cartao debito: 2% sobre a COMISSAO do dentista
+// 4. Liberacao: procedimento CONCLUIDO + 100% do valor pago pela clinica
+// 5. Amortizacao: pagamentos alocados do maior pro menor procedimento
+//    ate cobrir 100% - so libera no mes em que o 100% e atingido
 // ══════════════════════════════════════════════════════════
 function PainelDentista({appts,pats,dents,recs,treats,user}){
 var now=new Date();
@@ -3543,243 +3550,349 @@ var [selDent,setSelDent]=useState(String(myDents[0]&&myDents[0].id||""));
 var dent=dents.find(function(d){return d.id===Number(selDent);})||dents[0];
 var COMM=(dent&&dent.commission||40)/100;
 var MF=["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
 var prevMonth=function(){if(month===0){setMonth(11);setYear(function(y){return y-1;});}else setMonth(function(m){return m-1;});};
 var nextMonth=function(){if(month===11){setMonth(0);setYear(function(y){return y+1;});}else setMonth(function(m){return m+1;});};
 var curMonth=year+"-"+String(month+1).padStart(2,"0");
 
+// ── Helpers ──────────────────────────────────────────────
 function addMes(ym,n){
-var a=parseInt(ym.slice(0,4));
-var m=parseInt(ym.slice(5,7))-1+n;
-a+=Math.floor(m/12);
-m=((m%12)+12)%12;
-return a+"-"+String(m+1).padStart(2,"0");
+  var a=parseInt(ym.slice(0,4));
+  var m=parseInt(ym.slice(5,7))-1+n;
+  a+=Math.floor(m/12);
+  m=((m%12)+12)%12;
+  return a+"-"+String(m+1).padStart(2,"0");
 }
 
-// Monta mapa: mes -> valor liquido disponivel
-// Dinheiro/PIX/Debito -> mes seguinte
-// Credito Nx -> 1 parcela por mes a partir do mes seguinte (30 dias)
-function getSaldoMapa(payments){
-var mapa={};
-(payments||[]).forEach(function(p){
-var val=Number(p.value||0);
-var met=(p.method||"").toLowerCase();
-var inst=Math.max(1,Number(p.installments||p.inst||1));
-var isCredito=met.indexOf("credito")>=0||met.indexOf("cr\u00e9dito")>=0;
-var isDebito=met.indexOf("debito")>=0||met.indexOf("d\u00e9bito")>=0;
-var taxa=isCredito?0.035:isDebito?0.02:0;
-var liquido=val*(1-taxa);
-var mesBase=p.date?p.date.slice(0,7):today().slice(0,7);
-if(isCredito){
-// credito: parcela 1 cai 30 dias apos = mes seguinte, parcela 2 = 2 meses, etc
-var parcela=liquido/inst;
-for(var i=1;i<=inst;i++){
-var mk=addMes(mesBase,i);
-mapa[mk]=(mapa[mk]||0)+parcela;
-}
-} else {
-// dinheiro/pix/debito: cai no mes seguinte
-var mk2=addMes(mesBase,1);
-mapa[mk2]=(mapa[mk2]||0)+liquido;
-}
-});
-return mapa;
+// ── NUCLEO: calcular liberacoes por tratamento ──────────
+// Para cada tratamento do dentista:
+// 1. Pega todos os pagamentos recebidos e monta fluxo mensal de entradas
+// 2. Para cada procedimento CONCLUIDO, verifica quando 100% foi acumulado
+// 3. Calcula comissao com taxa proporcional ao metodo de pagamento
+function calcularLiberacoes(treat,dentist){
+  var results=[];
+  if(!treat||!treat.payments||!treat.items)return results;
+
+  // Pagamentos ordenados por data
+  var payments=[].concat(treat.payments).sort(function(a,b){
+    return (a.date||"").localeCompare(b.date||"");
+  });
+
+  if(payments.length===0)return results;
+
+  // Monta fluxo: para cada pagamento, gera entradas mensais
+  // Cartao credito Nx: divide em N parcelas mensais a partir do mes seguinte
+  // Dinheiro/PIX/Debito: entra no mesmo mes do pagamento
+  var fluxo=[]; // [{mes, valor, metodo}]
+  payments.forEach(function(p){
+    var val=Number(p.value||0);
+    var met=(p.method||"").toLowerCase();
+    var inst=Math.max(1,Number(p.inst||p.installments||1));
+    var isCredito=met.indexOf("credito")>=0||met.indexOf("crédito")>=0;
+    var isDebito=met.indexOf("debito")>=0||met.indexOf("débito")>=0;
+    var mesBase=p.date?p.date.slice(0,7):curMonth;
+
+    if(isCredito&&inst>1){
+      var parcela=val/inst;
+      for(var i=1;i<=inst;i++){
+        fluxo.push({mes:addMes(mesBase,i),valor:parcela,metodo:"credito"});
+      }
+    } else if(isCredito){
+      // credito 1x: entra mes seguinte
+      fluxo.push({mes:addMes(mesBase,1),valor:val,metodo:"credito"});
+    } else if(isDebito){
+      fluxo.push({mes:addMes(mesBase,1),valor:val,metodo:"debito"});
+    } else {
+      // dinheiro/pix: entra no mesmo mes
+      fluxo.push({mes:mesBase,valor:val,metodo:"dinheiro"});
+    }
+  });
+
+  // Ordena fluxo por mes
+  fluxo.sort(function(a,b){return a.mes.localeCompare(b.mes);});
+
+  // Procedimentos CONCLUIDOS ordenados do MAIOR para MENOR valor
+  var procsConcluidos=treat.items.filter(function(it){
+    return it.done||it.paid;
+  }).sort(function(a,b){return b.value-a.value;});
+
+  if(procsConcluidos.length===0)return results;
+
+  // ALGORITMO DE AMORTIZACAO
+  // Processa mes a mes, alocando saldo nos procedimentos (maior primeiro)
+  // Quando 100% de um procedimento e coberto -> libera comissao naquele mes
+  var saldoAcumulado=0;
+  var procsPendentes=procsConcluidos.map(function(it){
+    return {desc:it.desc,value:it.value,pago:0,liberado:false};
+  });
+
+  // Agrupa fluxo por mes
+  var meses={};
+  fluxo.forEach(function(f){
+    if(!meses[f.mes])meses[f.mes]={total:0,credito:0,debito:0,dinheiro:0};
+    meses[f.mes].total+=f.valor;
+    meses[f.mes][f.metodo]+=f.valor;
+  });
+
+  var mesOrdem=Object.keys(meses).sort();
+  if(mesOrdem.length===0)return results;
+
+  // Para cada mes com entrada
+  mesOrdem.forEach(function(mes){
+    var entradaMes=meses[mes].total;
+    var entradaCredito=meses[mes].credito;
+    var entradaDebito=meses[mes].debito;
+    var entradaDinheiro=meses[mes].dinheiro;
+
+    saldoAcumulado+=entradaMes;
+
+    // Tenta liberar procedimentos pendentes (maior primeiro)
+    procsPendentes.forEach(function(proc){
+      if(proc.liberado)return;
+
+      // Quanto ainda falta para este procedimento
+      var falta=proc.value-proc.pago;
+      if(falta<=0.001){
+        // Ja estava 100% pago mas nao foi liberado ainda -> libera agora
+        proc.liberado=true;
+        // Calcular proporcao de cada metodo no pagamento deste procedimento
+        var totalPago=proc.value;
+        var totalGeralPago=procsConcluidos.reduce(function(s,x){return s+x.value;},0);
+        var proporcao=totalGeralPago>0?totalPago/totalGeralPago:1;
+        // Credito proporcional ao procedimento
+        var credProc=Object.values(meses).reduce(function(s,m){return s+m.credito;},0)*proporcao;
+        var debProc=Object.values(meses).reduce(function(s,m){return s+m.debito;},0)*proporcao;
+        var comBruta=totalPago*COMM;
+        var taxaDesc=(credProc/totalPago)*comBruta*0.035+(debProc/totalPago)*comBruta*0.02;
+        var comLiq=comBruta-taxaDesc;
+        results.push({mes:mes,patName:pats.find(function(p){return p.id===treat.patientId;})||{name:"Paciente"},proc:proc.desc,value:proc.value,comBruta:comBruta,taxa:taxaDesc,comLiq:comLiq,status:"liberado"});
+        return;
+      }
+
+      if(saldoAcumulado>=proc.value&&saldoAcumulado>proc.pago){
+        // Tem saldo suficiente para cobrir este procedimento
+        var valorUsado=proc.value-proc.pago;
+        saldoAcumulado-=valorUsado;
+        proc.pago=proc.value;
+        proc.liberado=true;
+
+        // Proporcao de cada metodo de pagamento usado NESTE procedimento
+        // Aproximacao: proporcional ao total de cada metodo
+        var totalEntradas=fluxo.reduce(function(s,f){return s+f.valor;},0);
+        var totalCredito=fluxo.filter(function(f){return f.metodo==="credito";}).reduce(function(s,f){return s+f.valor;},0);
+        var totalDebito=fluxo.filter(function(f){return f.metodo==="debito";}).reduce(function(s,f){return s+f.valor;},0);
+        var propCred=totalEntradas>0?totalCredito/totalEntradas:0;
+        var propDeb=totalEntradas>0?totalDebito/totalEntradas:0;
+
+        var comBruta=proc.value*COMM;
+        // Taxa sobre a parte proporcional em credito/debito da COMISSAO
+        var taxaCred=comBruta*propCred*0.035;
+        var taxaDeb=comBruta*propDeb*0.02;
+        var comLiq=comBruta-taxaCred-taxaDeb;
+
+        var pat=pats.find(function(p){return p.id===treat.patientId;});
+        results.push({
+          mes:mes,
+          patName:pat?pat.name:"Paciente",
+          treatName:treat.name||"Tratamento",
+          proc:proc.desc,
+          value:proc.value,
+          comBruta:comBruta,
+          taxa:taxaCred+taxaDeb,
+          comLiq:comLiq,
+          status:"liberado"
+        });
+      } else if(saldoAcumulado>proc.pago){
+        // Saldo parcial - atualiza quanto ja foi pago mas nao libera
+        proc.pago=saldoAcumulado;
+      }
+    });
+  });
+
+  // Procedimentos pendentes (nao liberados ainda)
+  procsPendentes.forEach(function(proc){
+    if(!proc.liberado){
+      var pat=pats.find(function(p){return p.id===treat.patientId;});
+      results.push({
+        mes:null,
+        patName:pat?pat.name:"Paciente",
+        treatName:treat.name||"Tratamento",
+        proc:proc.desc,
+        value:proc.value,
+        pago:proc.pago,
+        comBruta:proc.value*COMM,
+        taxa:0,
+        comLiq:0,
+        status:"aguardando",
+        falta:proc.value-proc.pago
+      });
+    }
+  });
+
+  return results;
 }
 
-// Saldo acumulado por mes (sobra passa para proximo)
-function getSaldoAcum(saldoMapa){
-var meses=Object.keys(saldoMapa).sort();
-if(meses.length===0)return {};
-var mesInicio=meses[0];
-var mesFim=addMes(mesInicio,60);
-var acum=0;
-var resultado={};
-var m=mesInicio;
-while(m<=mesFim){
-acum+=(saldoMapa[m]||0);
-resultado[m]=acum;
-m=addMes(m,1);
-}
-return resultado;
-}
-
-// Calcula taxa media ponderada dos pagamentos (para desconto na comissao)
-function getTaxaMedia(payments){
-var totalBruto=(payments||[]).reduce(function(s,p){return s+Number(p.value||0);},0);
-if(totalBruto===0)return 0;
-var totalLiq=(payments||[]).reduce(function(s,p){
-var val=Number(p.value||0);
-var met=(p.method||"").toLowerCase();
-var isC=met.indexOf("credito")>=0||met.indexOf("cr\u00e9dito")>=0;
-var isD=met.indexOf("debito")>=0||met.indexOf("d\u00e9bito")>=0;
-var taxa=isC?0.035:isD?0.02:0;
-return s+val*(1-taxa);
-},0);
-return 1-(totalLiq/totalBruto);
-}
-
-var allLiberated=[];
-var pendentesExec=[];
-var semBaixaList=[];
+// ── Processa todos os tratamentos do dentista ──────────
+var todasLiberacoes=[];
+var todosAguardando=[];
 
 (treats||[]).filter(function(t){
-return Number(t.dentistId)===Number(selDent)||
-(t.items||[]).some(function(it){return it.doneBy&&dent&&it.doneBy===dent.name;});
+  return Number(t.dentistId)===Number(selDent)||
+    (t.items||[]).some(function(it){
+      return it.doneBy&&dent&&it.doneBy===dent.name;
+    });
 }).forEach(function(t){
-var pat=pats.find(function(p){return p.id===t.patientId;});
-var patName=pat&&pat.name||"Paciente";
-var payments=t.payments||[];
-var saldoMapa=getSaldoMapa(payments);
-var saldoAcum=getSaldoAcum(saldoMapa);
-var mesesOrdenados=Object.keys(saldoAcum).sort();
-var taxaMedia=getTaxaMedia(payments);
-
-// Itens com baixa ordenados MAIOR VALOR PRIMEIRO
-var itensBaixa=(t.items||[])
-.filter(function(it){return it.done||it.paid;})
-.sort(function(a,b){return b.value-a.value;});
-var itensSemBaixa=(t.items||[]).filter(function(it){return !it.done&&!it.paid;});
-
-// saldoJaUsado = soma dos valores dos procedimentos ja liberados
-// Para cada item, o saldo acumulado precisa cobrir saldoJaUsado + valor deste item
-// Ou seja: saldoAcum[mes] >= saldoJaUsado + it.value
-var saldoJaUsado=0;
-
-itensBaixa.forEach(function(it){
-var needed=saldoJaUsado+it.value;
-var mesLiberado=null;
-for(var i=0;i<mesesOrdenados.length;i++){
-// saldo acumulado liquido precisa cobrir o valor BRUTO do procedimento
-if(saldoAcum[mesesOrdenados[i]]>=needed){
-mesLiberado=mesesOrdenados[i];
-break;
-}
-}
-if(mesLiberado){
-saldoJaUsado+=it.value;
-// Comissao = 40% do valor bruto do procedimento, descontada a taxa do cartao
-var comissao=it.value*(1-taxaMedia)*COMM;
-allLiberated.push({
-patName:patName,
-treatName:t.name||"Plano",
-proc:it.desc||"Procedimento",
-value:it.value,
-doneDate:it.doneDate||today(),
-mesLiberado:mesLiberado,
-commVal:comissao,
-taxa:Math.round(taxaMedia*1000)/10,
-});
-} else {
-// Calcular quanto falta para cobrir este procedimento
-var totalLiqDisp=Object.values(saldoMapa).reduce(function(s,v){return s+v;},0);
-var saldoLivreTotal=Math.max(0,totalLiqDisp-saldoJaUsado);
-pendentesExec.push({
-patName:patName,
-treatName:t.name||"Plano",
-proc:it.desc||"Procedimento",
-value:it.value,
-saldo:Math.min(saldoLivreTotal,it.value),
-falta:Math.max(0,it.value-saldoLivreTotal),
-});
-// Este procedimento nao foi coberto - saldo restante = 0 para os proximos
-saldoJaUsado+=it.value;
-}
+  var libs=calcularLiberacoes(t,dent);
+  libs.forEach(function(l){
+    if(l.status==="liberado")todasLiberacoes.push(l);
+    else todosAguardando.push(l);
+  });
 });
 
-itensSemBaixa.forEach(function(it){
-semBaixaList.push({patName:patName,treatName:t.name||"Plano",proc:it.desc||"Procedimento",value:it.value});
-});
+// Sem baixa (procedimentos concluidos mas sem pagamento registrado)
+var semBaixa=[];
+(treats||[]).filter(function(t){return Number(t.dentistId)===Number(selDent);}).forEach(function(t){
+  (t.items||[]).forEach(function(it){
+    if((it.done||it.paid)&&(!t.payments||t.payments.length===0)){
+      var pat=pats.find(function(p){return p.id===t.patientId;});
+      semBaixa.push({patName:pat?pat.name:"Paciente",treatName:t.name||"",proc:it.desc,value:it.value});
+    }
+  });
 });
 
-var thisMonthItems=allLiberated.filter(function(x){return x.mesLiberado===curMonth;});
-var totalMonth=thisMonthItems.reduce(function(s,x){return s+x.commVal;},0);
-var getMonthTotal=function(y,m){
-var ms=y+"-"+String(m+1).padStart(2,"0");
-return allLiberated.filter(function(x){return x.mesLiberado===ms;}).reduce(function(s,x){return s+x.commVal;},0);
+// Cards: este mes, proximo, seguinte
+var getTotal=function(y,m){
+  var ms=y+"-"+String(m+1).padStart(2,"0");
+  return todasLiberacoes.filter(function(l){return l.mes===ms;}).reduce(function(s,l){return s+l.comLiq;},0);
 };
 var nm1=month===11?0:month+1;var ny1=month===11?year+1:year;
 var nm2=nm1===11?0:nm1+1;var ny2=nm1===11?ny1+1:ny1;
+var totalMes=getTotal(year,month);
+var thisMonthItems=todasLiberacoes.filter(function(l){return l.mes===curMonth;});
 
 return(
-
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
-<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Recebimentos</h2>
-{!isDent&&<Sel lb="" val={selDent} set={setSelDent} opts={myDents.map(function(d){return{v:String(d.id),l:d.name};})}/>}
-</div>
-<div style={{display:"flex",alignItems:"center",gap:8}}>
-<button onClick={prevMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{"<"}</button>
-<span style={{fontWeight:700,fontSize:16,flex:1,textAlign:"center"}}>{MF[month]+" "+year}</span>
-<button onClick={nextMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{">"}</button>
-</div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-{[[MF[month],totalMonth,"Este mes"],[MF[nm1],getMonthTotal(ny1,nm1),"Prox. mes"],[MF[nm2],getMonthTotal(ny2,nm2),"Mes seguinte"]].map(function(row){return(
-<div key={row[0]} style={{background:G.card,borderRadius:12,padding:"12px 8px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
-<div style={{fontSize:9,color:G.muted,fontWeight:700,textTransform:"uppercase"}}>{row[2]}</div>
-<div style={{fontSize:11,color:G.muted,marginBottom:2}}>{row[0]}</div>
-<div style={{fontSize:17,fontWeight:700,color:G.primary}}>{"R$ "+row[1].toFixed(2)}</div>
-</div>
-);})}
-</div>
-{pendentesExec.length>0&&(
-<div style={{background:G.orange+"15",border:"2px solid "+G.orange,borderRadius:12,padding:"12px 14px"}}>
-<div style={{fontWeight:700,color:G.orange,fontSize:13,marginBottom:6}}>{"Executado - aguardando saldo ("+pendentesExec.length+")"}</div>
-<div style={{fontSize:11,color:G.orange,marginBottom:8}}>Saldo insuficiente. Acumulando ate cobrir 100% do procedimento.</div>
-{pendentesExec.map(function(x,i){return(
-<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"6px 0",borderBottom:"1px solid "+G.orange+"30",gap:8}}>
-<div style={{flex:1}}>
-<div style={{fontWeight:700}}>{x.patName}</div>
-<div style={{color:G.muted}}>{x.treatName+" - "+x.proc}</div>
-<div style={{color:G.orange,fontWeight:600}}>{"Saldo: R$ "+x.saldo.toFixed(2)+" / Falta: R$ "+x.falta.toFixed(2)}</div>
-</div>
-<div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.orange}}>{"R$ "+x.value.toFixed(2)}</div></div>
-</div>
-);})}
-</div>
-)}
-{semBaixaList.length>0&&(
-<div style={{background:G.muted+"12",border:"2px solid "+G.border,borderRadius:12,padding:"12px 14px"}}>
-<div style={{fontWeight:700,color:G.muted,fontSize:13,marginBottom:6}}>{"Aguardando baixa ("+semBaixaList.length+")"}</div>
-{semBaixaList.map(function(x,i){return(
-<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"4px 0",borderBottom:"1px solid "+G.border}}>
-<div><span style={{fontWeight:700}}>{x.patName}</span><span style={{color:G.muted}}>{" - "+x.proc}</span></div>
-<span style={{fontWeight:700,color:G.muted}}>{"R$ "+x.value.toFixed(2)}</span>
-</div>
-);})}
-</div>
-)}
-<div style={{fontWeight:700,fontSize:13,color:G.text,borderBottom:"1px solid "+G.border,paddingBottom:6}}>{"Liberados - "+MF[month]+" "+year}</div>
-{thisMonthItems.length===0&&(
-<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>
-Nenhum recebimento liberado neste mes.
-<div style={{fontSize:11,marginTop:6}}>So aparece apos baixa dada e saldo liquido cobrir 100% do valor do procedimento.</div>
-</div>
-)}
-{thisMonthItems.map(function(item,i){return(
-<div key={i} style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.05)",borderLeft:"4px solid "+(item.taxa>0?G.blue:G.primary)}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-<div style={{flex:1}}>
-<div style={{fontWeight:700,fontSize:13}}>{item.patName}</div>
-<div style={{fontSize:12,color:G.muted,marginBottom:4}}>{item.treatName+" - "+item.proc}</div>
-<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-<span style={{fontSize:11,color:G.muted}}>{"Proc: R$ "+item.value.toFixed(2)}</span>
-{item.taxa>0&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"-"+item.taxa+"% taxa"}</span>}
-<span style={{fontSize:11,color:G.muted}}>{"Baixa: "+fmt(item.doneDate)}</span>
-<span style={{background:G.success+"20",color:G.success,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>100% pago</span>
-</div>
-</div>
-<div style={{textAlign:"right",flexShrink:0}}>
-<div style={{fontSize:17,fontWeight:700,color:G.primary}}>{"R$ "+item.commVal.toFixed(2)}</div>
-<div style={{fontSize:10,color:G.muted}}>{Math.round(COMM*100)+"% comissao"}</div>
-</div>
-</div>
-</div>
-);})}
-{thisMonthItems.length>0&&(
-<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<span style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+MF[month]}</span>
-<span style={{color:"#fff",fontWeight:700,fontSize:20}}>{"R$ "+totalMonth.toFixed(2)}</span>
-</div>
-)}
+  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+    <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Recebimentos</h2>
+    {!isDent&&<Sel lb="" val={selDent} set={setSelDent} opts={myDents.map(function(d){return{v:String(d.id),l:d.name};})}/>}
+  </div>
+
+  {/* Navigacao mes */}
+  <div style={{display:"flex",alignItems:"center",gap:8}}>
+    <button onClick={prevMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{"<"}</button>
+    <span style={{fontWeight:700,fontSize:16,flex:1,textAlign:"center"}}>{MF[month]+" "+year}</span>
+    <button onClick={nextMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{">"}</button>
+  </div>
+
+  {/* Cards previsao */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+    {[[MF[month],totalMes,"Este mes",year,month],[MF[nm1],getTotal(ny1,nm1),"Prox. mes",ny1,nm1],[MF[nm2],getTotal(ny2,nm2),"Mes seguinte",ny2,nm2]].map(function(row){
+      var isCur=row[3]===year&&row[4]===month;
+      return(
+        <div key={row[0]} style={{background:isCur?G.primary:G.card,borderRadius:12,padding:"12px 8px",textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+          <div style={{fontSize:9,color:isCur?"rgba(255,255,255,.7)":G.muted,fontWeight:700,textTransform:"uppercase"}}>{row[2]}</div>
+          <div style={{fontSize:11,color:isCur?"rgba(255,255,255,.8)":G.muted,marginBottom:3}}>{row[0]}</div>
+          <div style={{fontSize:17,fontWeight:700,color:isCur?"#fff":G.primary}}>{"R$ "+row[1].toFixed(2)}</div>
+        </div>
+      );
+    })}
+  </div>
+
+  {/* Sem pagamento registrado */}
+  {semBaixa.length>0&&(
+    <div style={{background:"#FFF3E0",border:"2px solid "+G.orange,borderRadius:12,padding:"12px 14px"}}>
+      <div style={{fontWeight:700,color:G.orange,fontSize:13,marginBottom:6}}>{"Sem pagamento registrado ("+semBaixa.length+")"}</div>
+      <div style={{fontSize:11,color:G.orange,marginBottom:8}}>Procedimentos concluidos mas sem pagamento no plano. Registre o pagamento para calcular a comissao.</div>
+      {semBaixa.map(function(x,i){return(
+        <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"5px 0",borderBottom:"1px solid "+G.orange+"40"}}>
+          <div><span style={{fontWeight:700}}>{x.patName}</span><span style={{color:G.muted}}>{" - "+x.proc}</span></div>
+          <span style={{fontWeight:700,color:G.orange}}>{"R$ "+x.value.toFixed(2)}</span>
+        </div>
+      );})}
+    </div>
+  )}
+
+  {/* Aguardando 100% */}
+  {todosAguardando.length>0&&(
+    <div style={{background:G.accent,border:"2px solid "+G.border,borderRadius:12,padding:"12px 14px"}}>
+      <div style={{fontWeight:700,color:G.primary,fontSize:13,marginBottom:6}}>{"Aguardando pagamento completo ("+todosAguardando.length+")"}</div>
+      <div style={{fontSize:11,color:G.muted,marginBottom:8}}>Sera liberado apenas quando 100% do procedimento for quitado pela clinica.</div>
+      {todosAguardando.map(function(x,i){
+        var perc=x.value>0?Math.round((x.pago||0)/x.value*100):0;
+        return(
+          <div key={i} style={{background:"#fff",borderRadius:9,padding:"10px 12px",marginBottom:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:13}}>{x.patName}</div>
+                <div style={{fontSize:11,color:G.muted}}>{x.treatName+" - "+x.proc}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontWeight:700,fontSize:13,color:G.primary}}>{"R$ "+x.value.toFixed(2)}</div>
+                <div style={{fontSize:10,color:G.muted}}>{"Comissao: R$ "+x.comBruta.toFixed(2)}</div>
+              </div>
+            </div>
+            {/* Barra de progresso */}
+            <div style={{background:G.border,borderRadius:4,height:6,marginBottom:3}}>
+              <div style={{background:G.yellow,height:6,borderRadius:4,width:perc+"%",transition:"width .4s"}}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:G.muted}}>
+              <span>{"Pago: R$ "+(x.pago||0).toFixed(2)}</span>
+              <span style={{color:G.red}}>{"Falta: R$ "+((x.falta)||0).toFixed(2)}</span>
+              <span style={{fontWeight:700}}>{perc+"%"}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  )}
+
+  {/* Titulo detalhamento */}
+  <div style={{fontWeight:700,fontSize:13,color:G.text,borderBottom:"1px solid "+G.border,paddingBottom:6}}>
+    {"Liberados - "+MF[month]+" "+year+" ("+thisMonthItems.length+")"}
+  </div>
+
+  {thisMonthItems.length===0&&(
+    <div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>
+      <div style={{fontSize:28,marginBottom:8}}>{"R$ 0"}</div>
+      <div>Nenhum procedimento liberado neste mes.</div>
+      <div style={{fontSize:11,marginTop:6}}>So aparece quando: procedimento concluido + 100% do valor pago pela clinica.</div>
+    </div>
+  )}
+
+  {/* Cards de cada liberacao */}
+  {thisMonthItems.map(function(item,i){
+    var temTaxa=item.taxa>0.01;
+    return(
+      <div key={i} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 2px 8px rgba(0,0,0,.05)",borderLeft:"4px solid "+(temTaxa?G.blue:G.success)}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:14}}>{item.patName}</div>
+            <div style={{fontSize:12,color:G.muted,marginTop:2}}>{(item.treatName||"")+" - "+item.proc}</div>
+            <div style={{display:"flex",gap:6,marginTop:5,flexWrap:"wrap"}}>
+              <span style={{fontSize:11,color:G.muted}}>{"Proc: R$ "+item.value.toFixed(2)}</span>
+              <span style={{fontSize:11,color:G.muted}}>{"Comissao bruta: R$ "+item.comBruta.toFixed(2)}</span>
+              {temTaxa&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"Taxa: -R$ "+item.taxa.toFixed(2)}</span>}
+            </div>
+          </div>
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <div style={{fontSize:18,fontWeight:800,color:G.primary}}>{"R$ "+item.comLiq.toFixed(2)}</div>
+            <div style={{fontSize:10,color:G.muted}}>{Math.round(COMM*100)+"% comissao"}</div>
+          </div>
+        </div>
+      </div>
+    );
+  })}
+
+  {/* Total do mes */}
+  {thisMonthItems.length>0&&(
+    <div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div>
+        <div style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+MF[month]}</div>
+        <div style={{color:"rgba(255,255,255,.7)",fontSize:11}}>{thisMonthItems.length+" procedimento(s) liberado(s)"}</div>
+      </div>
+      <span style={{color:"#fff",fontWeight:800,fontSize:22}}>{"R$ "+totalMes.toFixed(2)}</span>
+    </div>
+  )}
 </div>
 );
 }
