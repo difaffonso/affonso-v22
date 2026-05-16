@@ -2286,45 +2286,187 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 // FINANCEIRO
 // ══════════════════════════════════════════════════════════
 function Financeiro({recs,pats,dents,expenses}){
-const [mo,setMo]=useState(today().slice(0,7));const [dn,setDn]=useState("all");
-const mr=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0&&(dn==="all"||r.dentistId===Number(dn)));
-const raw=mr.reduce((s,r)=>s+r.paid,0);const liq=mr.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
-const clinicExp=(expenses.clinic||[]).filter(e=>e.date.startsWith(mo)).reduce((s,e)=>s+Number(e.value||0),0);
+const [modo,setModo]=useState("mensal"); // "mensal" | "diario"
+const [mo,setMo]=useState(today().slice(0,7));
+const [dia,setDia]=useState(today());
+const [dn,setDn]=useState("all");
+
+const PC={"Dinheiro":G.success,"PIX":"#00B894","Cartao Credito":G.blue,"Cartao Debito":"#6C5CE7","Convenio":G.muted,"Cheque":G.orange,"Cartão Crédito":G.blue,"Cartão Débito":"#6C5CE7","Convênio":G.muted};
+
+// Filtro de registros
+const mr=recs.filter(r=>{
+  if(!r.paid||r.paid<=0)return false;
+  if(dn!=="all"&&r.dentistId!==Number(dn))return false;
+  if(modo==="mensal")return r.date.startsWith(mo);
+  return r.date===dia;
+});
+
+const raw=mr.reduce((s,r)=>s+r.paid,0);
+const liq=mr.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
+const clinicExp=(expenses.clinic||[]).filter(e=>modo==="mensal"?e.date.startsWith(mo):e.date===dia).reduce((s,e)=>s+Number(e.value||0),0);
 const byP=PAY.map(pt=>({pt,v:mr.filter(r=>r.payment===pt).reduce((s,r)=>s+r.paid,0)})).filter(x=>x.v>0);
 const mx=Math.max(...byP.map(x=>x.v),1);
-const PC={"Dinheiro":G.success,"PIX":"#00B894","Cartão Crédito":G.blue,"Cartão Débito":"#6C5CE7","Convênio":G.muted,"Cheque":G.orange};
+
+// Para modo diario: navegar dia a dia
+const prevDia=()=>{const d=new Date(dia+"T12:00");d.setDate(d.getDate()-1);setDia(d.toISOString().split("T")[0]);};
+const nextDia=()=>{const d=new Date(dia+"T12:00");d.setDate(d.getDate()+1);setDia(d.toISOString().split("T")[0]);};
+
+// Para modo mensal: agrupar por dia
+const porDia={};
+if(modo==="mensal"){
+  mr.forEach(r=>{
+    if(!porDia[r.date])porDia[r.date]={raw:0,liq:0,recs:[]};
+    porDia[r.date].raw+=r.paid;
+    porDia[r.date].liq+=calcNet(r.paid,r.payment);
+    porDia[r.date].recs.push(r);
+  });
+}
+
+const [diaAberto,setDiaAberto]=useState(null);
+
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
+{/* Header */}
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Financeiro</h2>
-<div style={{display:"flex",gap:9}}><Inp val={mo} set={setMo} type="month" style={{width:160}}/><Sel val={dn} set={setDn} opts={[{v:"all",l:"Todos"},...dents.map(d=>({v:d.id,l:d.name}))]} style={{width:180}}/></div>
-</div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
-{[["Receita Bruta",raw,G.primary],["Receita Líquida",liq,G.success],["Despesas Clínica",clinicExp,G.red],["Resultado",liq-clinicExp,liq-clinicExp>=0?G.success:G.red]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:`4px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{cur(v)}</div></div>)}
-</div>
-<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-<div style={{fontWeight:700,marginBottom:12,fontSize:13}}>💳 Receita por Forma de Pagamento</div>
-{byP.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum recebimento</p>}
-{byP.map(({pt,v})=><div key={pt} style={{marginBottom:10}}>
-<div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{pt}</span><div style={{display:"flex",gap:9}}><span style={{fontSize:12,fontWeight:700}}>{cur(v)}</span>{(pt==="Cartão Crédito"||pt==="Cartão Débito")&&<span style={{fontSize:10,color:G.red}}>líq:{cur(calcNet(v,pt))}</span>}</div></div>
-<div style={{background:G.border,borderRadius:6,height:10}}><div style={{background:PC[pt]||G.muted,height:10,borderRadius:6,width:`${v/mx*100}%`,transition:"width .4s"}}/></div>
-</div>)}
-</div>
-<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-<div style={{fontWeight:700,marginBottom:11,fontSize:13}}>Detalhamento</div>
-{mr.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum recebimento</p>}
-{mr.sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{const p=pats.find(x=>x.id===r.patientId);const d=dents.find(x=>x.id===r.dentistId)||dents[0];return <div key={r.id} style={{display:"flex",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${G.border}`,gap:8,flexWrap:"wrap"}}>
-<span style={{color:G.muted,fontSize:11,minWidth:70}}>{fmt(r.date)}</span>
-<div style={{flex:1,minWidth:80}}><span style={{fontSize:12}}>{p?.name} -- {r.procedure}</span>{r.inst>1&&<span style={{fontSize:10,color:G.blue,fontWeight:700}}> {r.inst}x crédito</span>}</div>
-<span style={{fontSize:11,color:d.color,fontWeight:600}}>{d.name.split(" ")[0]}</span>
-<Bdg l={r.payment+(r.inst>1?" "+r.inst+"x":"")} col={PC[r.payment]||G.muted} sm/>
-<span style={{fontWeight:700,fontSize:12}}>{cur(r.paid)}</span>
-{(r.payment==="Cartão Crédito"||r.payment==="Cartão Débito")&&<span style={{fontSize:10,color:G.red}}>→{cur(calcNet(r.paid,r.payment))}</span>}
-</div>;})}
+  <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Financeiro</h2>
+  <Sel val={dn} set={setDn} opts={[{v:"all",l:"Todos"},...dents.map(d=>({v:d.id,l:d.name}))]} style={{width:180}}/>
 </div>
 
-  </div>;
+{/* Toggle mensal/diario */}
+<div style={{display:"flex",gap:0,background:G.bg,borderRadius:10,padding:3}}>
+  {[["mensal","📅 Mensal"],["diario","📆 Diário"]].map(([k,l])=>(
+    <button key={k} onClick={()=>setModo(k)} style={{flex:1,border:"none",borderRadius:8,padding:"9px 4px",fontSize:13,fontWeight:700,cursor:"pointer",background:modo===k?G.primary:G.bg,color:modo===k?"#fff":G.muted,transition:"all .15s"}}>{l}</button>
+  ))}
+</div>
+
+{/* Seletor de periodo */}
+{modo==="mensal"&&(
+  <Inp val={mo} set={setMo} type="month" style={{width:"100%"}}/>
+)}
+{modo==="diario"&&(
+  <div style={{display:"flex",alignItems:"center",gap:8}}>
+    <button onClick={prevDia} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"7px 13px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{"<"}</button>
+    <input type="date" value={dia} onChange={e=>setDia(e.target.value)} style={{flex:1,border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",textAlign:"center"}}/>
+    <button onClick={nextDia} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"7px 13px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{">"}</button>
+    <button onClick={()=>setDia(today())} style={{border:"1.5px solid "+G.border,background:dia===today()?G.primary:"#fff",color:dia===today()?"#fff":G.primary,borderRadius:8,padding:"7px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>Hoje</button>
+  </div>
+)}
+
+{/* Cards resumo */}
+<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
+  {[["Receita Bruta",raw,G.primary],["Receita Líquida",liq,G.success],["Despesas",clinicExp,G.red],["Resultado",liq-clinicExp,liq-clinicExp>=0?G.success:G.red]].map(([l,v,c])=>(
+    <div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+      <div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{cur(v)}</div>
+    </div>
+  ))}
+</div>
+
+{/* Por forma de pagamento */}
+{byP.length>0&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+  <div style={{fontWeight:700,marginBottom:11,fontSize:13}}>Por Forma de Pagamento</div>
+  {byP.map(({pt,v})=><div key={pt} style={{marginBottom:10}}>
+    <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+      <span style={{fontSize:12,fontWeight:600}}>{pt}</span>
+      <div style={{display:"flex",gap:9}}>
+        <span style={{fontSize:12,fontWeight:700}}>{cur(v)}</span>
+        {(pt==="Cartão Crédito"||pt==="Cartão Débito")&&<span style={{fontSize:10,color:G.red}}>líq:{cur(calcNet(v,pt))}</span>}
+      </div>
+    </div>
+    <div style={{background:G.border,borderRadius:6,height:8}}><div style={{background:PC[pt]||G.muted,height:8,borderRadius:6,width:(v/mx*100)+"%",transition:"width .4s"}}/></div>
+  </div>)}
+</div>}
+
+{/* MODO MENSAL: lista agrupada por dia */}
+{modo==="mensal"&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+  <div style={{fontWeight:700,marginBottom:11,fontSize:13}}>{"Dias com recebimento ("+Object.keys(porDia).length+")"}</div>
+  {Object.keys(porDia).length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum recebimento neste mês</p>}
+  {Object.keys(porDia).sort((a,b)=>b.localeCompare(a)).map(d=>{
+    const info=porDia[d];
+    const aberto=diaAberto===d;
+    return <div key={d} style={{borderBottom:"1px solid "+G.border,marginBottom:2}}>
+      <div onClick={()=>setDiaAberto(aberto?null:d)} style={{display:"flex",alignItems:"center",padding:"9px 4px",cursor:"pointer",gap:10}}>
+        <span style={{fontSize:12,color:G.muted,minWidth:85}}>{fmt(d)}</span>
+        <span style={{flex:1,fontSize:12,color:G.muted}}>{info.recs.length+" atend."}</span>
+        <span style={{fontWeight:700,fontSize:13,color:G.primary}}>{cur(info.raw)}</span>
+        {info.raw!==info.liq&&<span style={{fontSize:11,color:G.muted}}>({cur(info.liq)})</span>}
+        <span style={{color:G.muted,fontSize:14}}>{aberto?"v":">"}</span>
+      </div>
+      {aberto&&<div style={{paddingBottom:8,paddingLeft:4}}>
+        {info.recs.map(r=>{
+          const p=pats.find(x=>x.id===r.patientId);
+          const den=dents.find(x=>x.id===r.dentistId)||dents[0];
+          return <div key={r.id} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 0",borderTop:"1px solid "+G.border,flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:80}}>
+              <span style={{fontSize:12,fontWeight:600}}>{p?.name||"—"}</span>
+              <span style={{fontSize:11,color:G.muted}}>{" - "+r.procedure}</span>
+            </div>
+            <span style={{fontSize:11,color:den.color,fontWeight:600}}>{den.name.split(" ")[0]}</span>
+            <Bdg l={r.payment} col={PC[r.payment]||G.muted} sm/>
+            {r.inst>1&&<Bdg l={r.inst+"x"} col={G.blue} sm/>}
+            <span style={{fontWeight:700,fontSize:12}}>{cur(r.paid)}</span>
+            {(r.payment==="Cartão Crédito"||r.payment==="Cartão Débito")&&<span style={{fontSize:10,color:G.red}}>→{cur(calcNet(r.paid,r.payment))}</span>}
+          </div>;
+        })}
+        <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:5,paddingTop:5,borderTop:"1px solid "+G.border}}>
+          <span style={{fontSize:11,color:G.muted}}>Bruto: {cur(info.raw)}</span>
+          <span style={{fontSize:11,fontWeight:700,color:G.success}}>Líq: {cur(info.liq)}</span>
+        </div>
+      </div>}
+    </div>;
+  })}
+  {/* Total mensal */}
+  {Object.keys(porDia).length>0&&<div style={{display:"flex",justifyContent:"space-between",marginTop:10,paddingTop:10,borderTop:"2px solid "+G.border}}>
+    <span style={{fontWeight:700,fontSize:13}}>Total do mês</span>
+    <div style={{textAlign:"right"}}>
+      <div style={{fontWeight:700,fontSize:15,color:G.primary}}>{cur(raw)}</div>
+      <div style={{fontSize:11,color:G.muted}}>líq: {cur(liq)}</div>
+    </div>
+  </div>}
+</div>}
+
+{/* MODO DIARIO: lista detalhada do dia */}
+{modo==="diario"&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+  <div style={{fontWeight:700,marginBottom:11,fontSize:13}}>{"Atendimentos - "+fmt(dia)+" ("+mr.length+")"}</div>
+  {mr.length===0&&<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13}}>
+    <div style={{fontSize:28,marginBottom:6}}>0</div>
+    Nenhum recebimento neste dia
+  </div>}
+  {mr.sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{
+    const p=pats.find(x=>x.id===r.patientId);
+    const d=dents.find(x=>x.id===r.dentistId)||dents[0];
+    return <div key={r.id} style={{padding:"10px 0",borderBottom:"1px solid "+G.border}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,fontSize:13}}>{p?.name||"—"}</div>
+          <div style={{fontSize:12,color:G.muted,marginTop:1}}>{r.procedure}</div>
+          <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{fontSize:11,color:d.color,fontWeight:600}}>{d.name.split(" ")[0]}</span>
+            <Bdg l={r.payment} col={PC[r.payment]||G.muted} sm/>
+            {r.inst>1&&<Bdg l={r.inst+"x crédito"} col={G.blue} sm/>}
+          </div>
+        </div>
+        <div style={{textAlign:"right",flexShrink:0}}>
+          <div style={{fontWeight:700,fontSize:15,color:G.primary}}>{cur(r.paid)}</div>
+          {(r.payment==="Cartão Crédito"||r.payment==="Cartão Débito")&&(
+            <div style={{fontSize:11,color:G.muted}}>líq: {cur(calcNet(r.paid,r.payment))}</div>
+          )}
+        </div>
+      </div>
+    </div>;
+  })}
+  {mr.length>0&&<div style={{display:"flex",justifyContent:"space-between",marginTop:12,paddingTop:10,borderTop:"2px solid "+G.border}}>
+    <span style={{fontWeight:700,fontSize:14}}>Total do dia</span>
+    <div style={{textAlign:"right"}}>
+      <div style={{fontWeight:800,fontSize:18,color:G.primary}}>{cur(raw)}</div>
+      <div style={{fontSize:11,color:G.muted}}>líq: {cur(liq)}</div>
+    </div>
+  </div>}
+</div>}
+
+</div>;
 }
+
 
 // ══════════════════════════════════════════════════════════
 // MSG TAB - WhatsApp component (outside Relatorios to allow useState)
