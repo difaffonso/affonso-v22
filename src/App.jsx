@@ -455,6 +455,7 @@ const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","�
 // NF (Nota Fiscal) state
 const [nfModal,setNfModal]=useState(false);
 const [nfEdit,setNfEdit]=useState(null);
+const [confirmDel,setConfirmDel]=useState(null); // {type,id,label}
 const blankNF={date:today(),number:"",payer:"empresa",payerName:"",payerCnpj:"",dentistId:"",procedure:"",value:"",tax:"",notes:"",status:"pending"};
 const [nff,setNff]=useState(blankNF);
 const patNFs=(pat.nfs||[]);
@@ -657,6 +658,7 @@ return <>
       {r.rx&&<div style={{fontSize:12,color:G.primary,marginTop:2}}>💊 {r.rx}</div>}
       {r.instM?.length>0&&<div style={{fontSize:11,color:G.blue,marginTop:3}}>💳 Crédito: {r.instM.map(m=>`${m.slice(5)}/${m.slice(0,4)}`).join(", ")}</div>}
       <Btn ch="Editar" v="g" sm style={{marginTop:7}} onClick={()=>{setRecEdit(r);setRf({...r,dentistId:String(r.dentistId)});setRecModal(true);}}/>
+        {user.level>=3&&<Btn ch="Excluir" v="r" sm style={{marginTop:7}} onClick={()=>setConfirmDel({type:"rec",id:r.id,label:"Atendimento de "+r.procedure+" em "+fmt(r.date)})}/>}
     </div>;})}
   </div>}
 
@@ -674,6 +676,7 @@ return <>
       {r.inst>1&&<Bdg l={`${r.inst}x`} col={G.blue} sm/>}
       <span style={{fontWeight:700,color:G.success,fontSize:12}}>{cur(r.paid)}</span>
       <span style={{fontSize:11,color:G.muted}}>líq: {cur(calcNet(r.paid,r.payment))}</span>
+      {user.level>=3&&<button onClick={()=>setConfirmDel({type:"rec",id:r.id,label:"Pagamento de "+cur(r.paid)+" em "+fmt(r.date)})} style={{background:G.red,color:"#fff",border:"none",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>Excluir</button>}
     </div>)}
     <Div lb="Pagamentos de Planos de Tratamento"/>
     {patTreats.map(t=><div key={t.id}>
@@ -994,6 +997,28 @@ return <>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:6,paddingTop:12,borderTop:`1px solid ${G.border}`}}>
         <button onClick={()=>setBudgModal(false)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={saveBudg} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Salvar Orçamento</button>
+      </div>
+    </div>
+  </div>
+</div>}
+
+{/* Confirm delete modal */}
+{confirmDel&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:360,boxShadow:"0 16px 48px rgba(0,0,0,.25)"}}>
+    <div style={{background:G.red,borderRadius:"16px 16px 0 0",padding:"13px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <span style={{fontWeight:700,color:"#fff",fontSize:14}}>Confirmar Exclusao</span>
+      <button onClick={()=>setConfirmDel(null)} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"4px 9px",fontSize:16}}>X</button>
+    </div>
+    <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{fontSize:13,color:G.text}}>Deseja excluir:</div>
+      <div style={{background:"#FFEBEE",borderRadius:8,padding:"10px 13px",fontSize:13,fontWeight:700,color:G.red}}>{confirmDel.label}</div>
+      <div style={{fontSize:12,color:G.muted}}>Esta acao nao pode ser desfeita.</div>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid "+G.border}}>
+        <button onClick={()=>setConfirmDel(null)} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={()=>{
+          if(confirmDel.type==="rec")setRecs(prev=>prev.filter(x=>x.id!==confirmDel.id));
+          setConfirmDel(null);
+        }} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Excluir</button>
       </div>
     </div>
   </div>
@@ -2285,7 +2310,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 // ══════════════════════════════════════════════════════════
 // FINANCEIRO
 // ══════════════════════════════════════════════════════════
-function Financeiro({recs,pats,dents,expenses}){
+function Financeiro({recs,setRecs,pats,dents,expenses,user}){
 const [modo,setModo]=useState("mensal"); // "mensal" | "diario"
 const [mo,setMo]=useState(today().slice(0,7));
 const [dia,setDia]=useState(today());
@@ -2406,6 +2431,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
             {r.inst>1&&<Bdg l={r.inst+"x"} col={G.blue} sm/>}
             <span style={{fontWeight:700,fontSize:12}}>{cur(r.paid)}</span>
             {(r.payment==="Cartão Crédito"||r.payment==="Cartão Débito")&&<span style={{fontSize:10,color:G.red}}>→{cur(calcNet(r.paid,r.payment))}</span>}
+          {user.level>=3&&<button onClick={()=>{if(window.confirm("Excluir este pagamento?"))setRecs(prev=>prev.filter(x=>x.id!==r.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Excluir</button>}
           </div>;
         })}
         <div style={{display:"flex",justifyContent:"flex-end",gap:10,marginTop:5,paddingTop:5,borderTop:"1px solid "+G.border}}>
@@ -2453,6 +2479,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
           )}
         </div>
       </div>
+      {user?.level>=3&&<button onClick={()=>{if(window.confirm("Excluir pagamento de "+cur(r.paid)+"?"))setRecs(prev=>prev.filter(x=>x.id!==r.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer",marginTop:6}}>Excluir</button>}
     </div>;
   })}
   {mr.length>0&&<div style={{display:"flex",justifyContent:"space-between",marginTop:12,paddingTop:10,borderTop:"2px solid "+G.border}}>
@@ -4790,7 +4817,7 @@ return <>
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
-      {view==="fin"&&<Financeiro recs={recs} pats={pats} dents={dents} expenses={expenses}/>}
+      {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} user={user}/>}
       {view==="desp"&&<Despesas expenses={expenses} setExpenses={setExpenses} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
