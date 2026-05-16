@@ -384,7 +384,7 @@ const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:Number(rf.
 setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
 setRecModal(false);
 };
-const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,id:nid(treats)}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
+const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:user.dentistId||dents[0]?.id||1,id:nid(treats)}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
 const addTItem=()=>{
 if(!tni.d&&!tni.procId)return alert("Selecione um procedimento");
 if(!tni.v)return alert("Informe o valor");
@@ -412,7 +412,7 @@ const totalItems=treat.items.reduce((s,i)=>s+i.value,0);
 // If payments are via cartão parcelado, credit may be future
 const hasInstallment=payments.some(p=>p.installments>1||(p.method==="Cartão Crédito"&&p.installmentMonths?.length>1));
 setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==idx?it:{
-...it,done:true,doneDate:today(),doneBy:user.name,
+...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,
 creditFuture:hasInstallment,
 })}));
 } else {
@@ -3739,7 +3739,8 @@ var todosAguardando=[];
 (treats||[]).filter(function(t){
   return Number(t.dentistId)===Number(selDent)||
     (t.items||[]).some(function(it){
-      return it.doneBy&&dent&&it.doneBy===dent.name;
+      return (it.doneByDentistId&&Number(it.doneByDentistId)===Number(selDent))||
+             (it.doneBy&&dent&&it.doneBy===dent.name);
     });
 }).forEach(function(t){
   var libs=calcularLiberacoes(t,dent);
