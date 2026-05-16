@@ -91,9 +91,31 @@ const CSS=`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garam
 const PAY=["Dinheiro","PIX","Cartão Crédito","Cartão Débito","Convênio","Cheque"];
 const SL={confirmed:"Confirmado",pending:"Pendente",done:"Realizado",cancelled:"Cancelado",missed:"Faltou",rescheduled:"Desmarcado"};
 // Colors exactly like the photo: confirmed=green, pending=orange, cancelled=red, rescheduled=grey, missed=orange-red
-const SC={confirmed:"#2E7D4F",pending:"#E07B20",done:"#6B8880",cancelled:"#C0392B",missed:"#C0392B",rescheduled:"#7F8C8D"};
-// Background colors for cards (light tint)
-const SC_BG={confirmed:"#E8F5EE",pending:"#FEF3E2",done:"#F2F4F3",cancelled:"#FDECEA",missed:"#FDECEA",rescheduled:"#F2F3F4"};
+// Status colors - cada um bem distinto visualmente
+// confirmed=azul (vai vir), pending=laranja (aguardando), done=verde (realizado)
+// cancelled=vermelho (cancelado), missed=roxo (faltou), rescheduled=cinza (desmarcado)
+const SC={
+  confirmed:"#1565C0",   // Azul vivo - confirmado, vai vir
+  pending:"#E65100",     // Laranja forte - pendente, aguardando
+  done:"#2E7D32",        // Verde escuro - realizado/concluido
+  cancelled:"#C62828",   // Vermelho - cancelado
+  missed:"#6A1B9A",      // Roxo - faltou
+  rescheduled:"#37474F", // Cinza escuro - desmarcado
+  blocked:"#B71C1C",     // Vermelho escuro - bloqueado
+};
+const SC_BG={
+  confirmed:"#E3F2FD",   // Azul claro
+  pending:"#FFF3E0",     // Laranja claro
+  done:"#E8F5E9",        // Verde claro
+  cancelled:"#FFEBEE",   // Vermelho claro
+  missed:"#F3E5F5",      // Roxo claro
+  rescheduled:"#ECEFF1", // Cinza claro
+  blocked:"#FFCDD2",     // Vermelho muito claro
+};
+// Emojis de status para identificacao rapida
+const SC_ICON={
+  confirmed:"✅",pending:"⏳",done:"✔️",cancelled:"❌",missed:"🚫",rescheduled:"🔄",blocked:"🔒"
+};
 const PROS_T=["Coroa Metalocerâmica","Coroa Zircônia","Coroa Porcelana","PPR","PPF","Prótese Total","Faceta","Inlay/Onlay","Implante (coroa)","Protocolo","Outro"];
 const PROS_SL={waiting:"Aguardando",returned:"Retornou",placed:"Instalada",remake:"Refazer"};
 const PROS_SC={waiting:G.yellow,returned:G.blue,placed:G.success,remake:G.red};
@@ -1181,6 +1203,14 @@ return (
     <div style={{flex:1}}/>
     <Btn ch="+ Agendamento" onClick={()=>{setEdit(null);setF({...blank,date:selDate});setModal(true);}}/>
   </div>
+  {/* Legenda de cores */}
+  <div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"6px 2px"}}>
+    {Object.entries(SL).map(([k,l])=>(
+      <span key={k} style={{display:"inline-flex",alignItems:"center",gap:4,background:SC_BG[k],border:"1.5px solid "+SC[k],borderRadius:20,padding:"3px 9px",fontSize:10,fontWeight:700,color:SC[k]}}>
+        {SC_ICON[k]} {l}
+      </span>
+    ))}
+  </div>
 
   <div style={{display:"grid",gridTemplateColumns:"48px repeat(7,1fr)",gap:2}}>
     <div/>
@@ -1206,8 +1236,12 @@ return (
   </div>}
 
 {vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:3}}>
-{SLOTS.map(function(slot){
+{(()=>{
+// Inclui horarios personalizados dos agendamentos do dia
 var d=vd[0];
+var customTimes=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&!SLOTS.includes(x.time);}).map(function(x){return x.time;});
+var allSlots=[...new Set([...SLOTS,...customTimes])].sort();
+return allSlots.map(function(slot){
 var a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentistId===d.id;});
 var p=a?pats.find(function(x){return x.id===a.patientId;}):null;
 var selDay=new Date(selDate+"T12:00").getDay();
@@ -1256,16 +1290,21 @@ var anObj=p&&p.anamnese||{};
 if(anObj.hypertension)flags.push("HAS");
 if(anObj.diabetes)flags.push("Diabetes");
 if(anObj.heartDisease)flags.push("Cardio");
+// Card visual aprimorado por status
+var cardBg=isPartial?"#FFEBEE":SC_BG[a.status]||SC[a.status]+"15";
+var cardBorder=isPartial?G.red:SC[a.status];
+var cardBorderWidth=a.status==="pending"?"3px":"1.5px"; // pendente tem borda mais grossa
+var isPending=a.status==="pending";
 return(
-<div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:isPartial?"#FFEBEE":SC[a.status]+"15",border:"1.5px solid "+(isPartial?G.red:SC[a.status]),cursor:"pointer"}}>
+<div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"center",gap:8,padding:isPending?"9px 10px":"7px 10px",borderRadius:10,background:cardBg,border:cardBorderWidth+" solid "+cardBorder,cursor:"pointer",boxShadow:isPending?"0 2px 8px rgba(230,81,0,.2)":a.status==="confirmed"?"0 2px 6px rgba(21,101,192,.15)":"none"}}>
 <span style={{fontSize:12,fontWeight:700,color:isPartial?G.red:SC[a.status],minWidth:38}}>{slot}</span>
 <div style={{flex:1,minWidth:0}}>
 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
 <span style={{fontWeight:700,fontSize:13,color:isPartial?G.red:G.text}}>{isPartial?a.patientName:(p&&p.name)}</span>
 {isPartial&&<span style={{fontSize:10,background:G.red+"20",color:G.red,borderRadius:4,padding:"1px 5px",fontWeight:700}}>⚠ Parcial</span>}
 {p&&p.phone&&!isPartial&&<span style={{fontSize:11,color:G.muted}}>{p.phone}</span>}
-<span style={{fontSize:11,color:G.muted}}>{"· "+(a.procedureCustom||a.procedure)}</span>
-<span style={{fontSize:10,fontWeight:700,color:isPartial?G.red:SC[a.status],background:(isPartial?G.red:SC[a.status])+"20",borderRadius:5,padding:"1px 6px"}}>{SL[a.status]}</span>
+<span style={{fontSize:12,fontWeight:700,color:SC[a.status],background:SC_BG[a.status],borderRadius:6,padding:"1px 7px"}}>{a.procedureCustom||a.procedure}</span>
+<span style={{fontSize:10,fontWeight:700,color:isPartial?G.red:SC[a.status],background:(isPartial?G.red:SC[a.status])+"25",borderRadius:5,padding:"2px 7px"}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
 </div>
 {flags.length>0&&<div style={{display:"flex",gap:4,marginTop:2,flexWrap:"wrap"}}>
 {flags.map(function(f,i){return <span key={i} style={{fontSize:9,background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 5px",fontWeight:700}}>{f}</span>;})}
@@ -1273,7 +1312,7 @@ return(
 </div>
 </div>
 );
-})}
+});})()}
 
   </div>}
   {vd.length>1&&<div style={{overflowX:"auto"}}>
@@ -1290,10 +1329,10 @@ return(
               const CONDS=[["hypertension","HAS"],["diabetes","Diabetes"],["heartDisease","Cardio"],["bleeding","Coagulação"],["osteoporosis","Osteoporose"],["kidneyDisease","Renal"],["liverDisease","Hepática"],["thyroid","Tireóide"],["epilepsy","Epilepsia"],["cancer","Câncer"],["pregnant","Gestante"],["smoking","Tabagismo"]];
               const healthFlags=[p&&p.obs&&("⚠ "+p.obs),p&&p.allergy&&p.allergy!=="Nenhuma"&&("💊 "+p.allergy),an.allergicMeds&&("💊 Alergia Med: "+an.allergicMeds),...CONDS.filter(([k])=>an[k]).map(([,l])=>l)].filter(Boolean);
               if(a&&p)return(
-                <div key={d.id} onClick={()=>setViewA(a)} style={{background:SC[a.status]+"18",border:"2px solid "+SC[a.status],borderRadius:8,padding:"5px 8px",cursor:"pointer",minHeight:48}}>
+                <div key={d.id} onClick={()=>setViewA(a)} style={{background:SC_BG[a.status]||SC[a.status]+"18",border:"2px solid "+SC[a.status],borderRadius:8,padding:"5px 8px",cursor:"pointer",minHeight:48,boxShadow:a.status==="pending"?"0 2px 6px rgba(230,81,0,.2)":a.status==="confirmed"?"0 2px 6px rgba(21,101,192,.15)":"none"}}>
                   <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
                     <span style={{fontWeight:700,fontSize:11,color:SC[a.status],flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
-                    <Bdg l={SL[a.status]} col={SC[a.status]} sm/>
+                    <Bdg l={(SC_ICON[a.status]||"")+" "+SL[a.status]} col={SC[a.status]} sm/>
                   </div>
                   <div style={{fontSize:10,color:G.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.procedure}</div>
                   {healthFlags.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:2,marginTop:2}}>{healthFlags.map(function(f,i){return <span key={i} style={{fontSize:8,background:f.startsWith("⚠")?G.red+"20":f.startsWith("💊")?G.yellow+"20":G.blue+"15",color:f.startsWith("⚠")?G.red:f.startsWith("💊")?G.yellow:G.blue,borderRadius:3,padding:"1px 4px",fontWeight:700}}>{f}</span>;})}</div>}
@@ -1375,7 +1414,7 @@ return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 1
 ))}
 </div>
 {!isDent&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-{Object.entries(SL).map(([k,l])=><button key={k} onClick={()=>chSt(a.id,k)} style={{border:"2px solid "+SC[k],background:a.status===k?SC[k]:"#fff",color:a.status===k?"#fff":SC[k],borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
+{Object.entries(SL).map(([k,l])=><button key={k} onClick={()=>chSt(a.id,k)} style={{border:"2px solid "+SC[k],background:a.status===k?SC[k]:SC_BG[k]||"#fff",color:a.status===k?"#fff":SC[k],borderRadius:20,padding:"5px 11px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{(SC_ICON[k]||"")+" "+l}</button>)}
 </div>}
 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
 {!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
@@ -3464,9 +3503,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 const an=p?.anamnese||{};
 const hasAlert=p?.obs||(p?.allergy&&p.allergy!=="Nenhuma")||an.hypertension||an.diabetes||an.heartDisease||an.allergicMeds;
 return <div key={a.id} style={{borderBottom:`1px solid ${G.border}`,overflow:"hidden"}}>
-<div style={{background:SC[a.status]+"15",padding:"3px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<span style={{fontSize:9,fontWeight:700,color:SC[a.status],textTransform:"uppercase"}}>{SL[a.status]}</span>
-<span style={{fontWeight:700,color:SC[a.status],fontSize:13}}>{a.time}</span>
+<div style={{background:SC[a.status],padding:"3px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"0 0 0 0"}}>
+<span style={{fontSize:9,fontWeight:700,color:"#fff",textTransform:"uppercase"}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
+<span style={{fontWeight:700,color:"#fff",fontSize:13}}>{a.time}</span>
 </div>
 <div style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 10px",flexWrap:"wrap"}}>
 <div style={{flex:1,minWidth:90}}>
