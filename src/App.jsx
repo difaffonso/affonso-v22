@@ -2001,128 +2001,286 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // LEMBRETES
 // ══════════════════════════════════════════════════════════
 function Lembretes({rems,setRems,pats,recs,appts,users,espera,setEspera,dents,user}){
-const [filt,setFilt]=useState("pending");const [uf,setUf]=useState("all");
-const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);
-const b0={title:"",desc:"",date:today(),priority:"medium",done:false,patientId:"",assignedUserId:""};
-const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
-const isDentist=user?.level===1;
-const myDentId=user?.dentistId;
-const visibleAppts=isDentist?appts.filter(a=>a.dentistId===myDentId):appts;
-const ar=autoRems(pats,recs,visibleAppts);
-const all=[...ar,...rems];
-const allFiltered=isDentist
-?all.filter(r=>r.assignedUserId===myDentId||(!r.assignedUserId&&r.auto&&recs.find(rec=>rec.patientId===r.patientId&&rec.dentistId===myDentId)))
-:all;
-const flt=allFiltered.filter(r=>{const sok=filt==="all"?true:filt==="pending"?!r.done:r.done;const uok=uf==="all"?true:String(r.assignedUserId)===uf;return sok&&uok;}).sort((a,b)=>a.date.localeCompare(b.date));
 const t=today();
-const save=()=>{if(!f.title)return;const obj={...f,patientId:f.patientId?Number(f.patientId):null,assignedUserId:f.assignedUserId?Number(f.assignedUserId):null,id:edit?edit.id:nid(rems)};setRems(prev=>edit?prev.map(r=>r.id===edit.id?obj:r):[...prev,obj]);setModal(false);};
-const tog=id=>{if(typeof id==="string")return;setRems(prev=>prev.map(r=>r.id===id?{...r,done:!r.done}:r));};
-const rm=id=>{if(typeof id==="string")return;if(window.confirm("Remover?"))setRems(prev=>prev.filter(r=>r.id!==id));};
-const TI={bday:"🎂",semi:"📅",surg:"🔴",miss:"📵",conf:"📲"};
-const PRIO={high:"Alta",medium:"Média",low:"Baixa"};const PRIOC={high:G.red,medium:G.yellow,low:G.primary};
-const t2=today();const todayMD=t2.slice(5);const anivHoje=pats.filter(function(p){return p.dob&&p.dob.slice(5)===todayMD;});const anivMes=pats.filter(function(p){return p.dob&&p.dob.slice(5,7)===t2.slice(5,7);});const PCIR2=["Exodontia","Extracao","Implante","Cirurgia","Enxerto","Sinus","Gengivoplastia","Apicectomia","Frenectomia","Biopsia"];const yst2=new Date(new Date(t2)-86400000).toISOString().split("T")[0];const posCir2=appts.filter(function(a){return a.date===yst2&&(a.status==="done"||a.status==="confirmed")&&PCIR2.some(function(p){return a.procedure&&a.procedure.toLowerCase().indexOf(p.toLowerCase())>=0;});}).map(function(a){return{a:a,p:pats.find(function(x){return x.id===a.patientId;})};}).filter(function(x){return x.p;});const semAtras2=pats.filter(function(p){var uc=appts.filter(function(a){return a.patientId===p.id&&(a.status==="done"||a.status==="confirmed");}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000)>=180:!!p.since;});var sendWA2=async function(ph,msg){var sent=await WA_API(ph,msg);if(!sent){var a=document.createElement("a");a.href="https://wa.me/55"+ph.replace(/[^0-9]/g,"")+"?text="+encodeURIComponent(msg);a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);}};
-var t3=today();
-var [showEspModal,setShowEspModal]=useState(false);
-var esperaAtiva=(espera||[]).filter(function(e){return e.valido>=t3;});
-var esperaExp=(espera||[]).filter(function(e){return e.valido<t3;});
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+const isDentist=user?.level===1;
+const myUserId=user?.id;
 
-<div style={{background:"#F3E5F5",border:"2px solid "+(esperaAtiva.length>0?"#7B1FA2":G.border),borderRadius:14,padding:"14px 16px"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:esperaAtiva.length>0?10:0}}>
-<div style={{fontWeight:700,fontSize:13,color:"#7B1FA2"}}>{"⏳ Lista de Espera ("+esperaAtiva.length+")"}</div>
-<button onClick={function(){setShowEspModal(true);}} style={{background:"#7B1FA2",color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"+ Novo"}</button>
-</div>
-{esperaAtiva.length===0&&<div style={{fontSize:12,color:G.muted,marginTop:8}}>{"Nenhum paciente aguardando. Clique em + Novo para adicionar."}</div>}
-{esperaAtiva.map(function(e){
-var diasNome=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
-var amanha=new Date(new Date(t3+"T12:00").getTime()+86400000).toISOString().split("T")[0];
-var vencHoje=e.valido===t3;
-var vencAmanha=e.valido===amanha;
-return(
-<div key={e.id} style={{background:"#fff",borderRadius:12,padding:"10px 12px",marginBottom:8,border:"1.5px solid "+(vencHoje?"#F44336":vencAmanha?"#FF9800":"#E1BEE7")}}>
-<div style={{display:"flex",justifyContent:"space-between",gap:8}}>
-<div style={{flex:1}}>
-<div style={{fontWeight:700,fontSize:13}}>{e.patName}</div>
-<div style={{fontSize:11,color:G.muted}}>{e.proc+" · "+e.dentName+" · "+e.tempo+"min"}</div>
-<div style={{display:"flex",flexWrap:"wrap",gap:3,marginTop:4}}>
-{e.slots.map(function(s,i){return(
-<span key={i} style={{background:"#EDE7F6",borderRadius:6,padding:"2px 6px",color:"#7B1FA2",fontWeight:600,fontSize:10}}>
-{s.dias.map(function(d){return diasNome[d];}).join("/")+": "+s.ini+"-"+s.fim}
-</span>
-);})}
-</div>
-<div style={{fontSize:11,fontWeight:600,marginTop:4,color:vencHoje?"#F44336":vencAmanha?"#FF9800":"#7B1FA2"}}>
-{vencHoje?"⚠️ Vence HOJE!":vencAmanha?"⚠️ Vence amanhã!":"Válido até "+fmt(e.valido)}
-</div>
-</div>
-<button onClick={function(){setEspera(function(prev){return prev.filter(function(x){return x.id!==e.id;});});}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:18,flexShrink:0,alignSelf:"flex-start"}}>{"✕"}</button>
-</div>
-</div>
-);
-})}
-</div>
-{showEspModal&&<EsperaModal pats={pats} dents={dents} onSave={function(e){setEspera(function(prev){return[...prev,e];});setShowEspModal(false);}} onClose={function(){setShowEspModal(false);}}/>}
+// Retorno Semestral state
+const [semTab,setSemTab]=useState(false);
+const [semTicks,setSemTicks]=useState({});
+const [semMotivoModal,setSemMotivoModal]=useState(null);
+const [semMotivoText,setSemMotivoText]=useState('');
+const MOTIVOS_SEM=['Agendado','Ja marcou em outro lugar','Nao quer agendar agora','Sem resposta','Outro'];
 
-{anivHoje.length>0&&<div style={{background:"#FFF8E1",border:"2px solid #FFD54F",borderRadius:14,padding:"14px 16px"}}>
+// Lista de Espera state
+const [showEspModal,setShowEspModal]=useState(false);
+const [espMotivoModal,setEspMotivoModal]=useState(null);
+const [espMotivoText,setEspMotivoText]=useState('');
 
-  <div style={{fontWeight:700,fontSize:13,color:"#E65100",marginBottom:10}}>{"🎂 Aniversariantes hoje ("+anivHoje.length+")"}</div>
-  {anivHoje.map(function(p){return(<div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #FFD54F"}}><div><div style={{fontWeight:600,fontSize:13}}>{p.name}</div><div style={{fontSize:11,color:"#E65100"}}>{(new Date(t2).getFullYear()-Number(p.dob.slice(0,4)))+" anos 🎉"}</div></div>{p.phone&&<button onClick={function(){sendWA2(p.phone,"Olá, "+p.name+"! 🎂 A equipe Affonso Odontologia deseja um feliz aniversário! Que seu dia seja muito especial! 🦷✨");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:10,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 WA"}</button>}</div>);})}
-  <div style={{fontSize:11,color:"#E65100",marginTop:4}}>{"📅 Este mês: "+anivMes.length+" aniversariante(s)"}</div>
-</div>}
-{posCir2.length>0&&<div style={{background:"#EDE7F6",border:"2px solid #9FA8DA",borderRadius:14,padding:"14px 16px"}}>
-  <div style={{fontWeight:700,fontSize:13,color:"#283593",marginBottom:10}}>{"🏥 Pós-Cirúrgico ("+posCir2.length+")"}</div>
-  {posCir2.map(function(x){return(<div key={x.a.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #C5CAE9"}}><div><div style={{fontWeight:600,fontSize:13}}>{x.p.name}</div><div style={{fontSize:11,color:"#5C6BC0"}}>{x.a.procedure}</div></div>{x.p.phone&&<button onClick={function(){sendWA2(x.p.phone,"Olá, "+x.p.name+"! 😊 Como está após o procedimento de ontem ("+x.a.procedure+")? Se tiver dúvidas entre em contato. Affonso Odontologia 🦷");}} style={{background:"#5C6BC0",color:"#fff",border:"none",borderRadius:10,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 WA"}</button>}</div>);})}
-</div>}
-{semAtras2.length>0&&<div style={{background:"#E8F5E9",border:"2px solid #A5D6A7",borderRadius:14,padding:"14px 16px"}}>
-  <div style={{fontWeight:700,fontSize:13,color:"#2E7D32",marginBottom:10}}>{"📅 Retorno Semestral ("+semAtras2.length+")"}</div>
-  {semAtras2.slice(0,5).map(function(p){var uc=appts.filter(function(a){return a.patientId===p.id&&(a.status==="done"||a.status==="confirmed");}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];var dias=uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000):null;return(<div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #A5D6A7"}}><div><div style={{fontWeight:600,fontSize:13}}>{p.name}</div><div style={{fontSize:11,color:"#388E3C"}}>{dias?dias+" dias sem consulta":"Nunca consultou"}</div></div>{p.phone&&<button onClick={function(){sendWA2(p.phone,"Olá, "+p.name+"! 😊 Já faz um tempo desde sua última consulta. Que tal agendar sua revisão semestral? Responda SIM! Affonso Odontologia 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:10,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 WA"}</button>}</div>);})}
-  {semAtras2.length>5&&<div style={{fontSize:11,color:"#388E3C"}}>{"+ "+(semAtras2.length-5)+" mais"}</div>}
-</div>}
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-  <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Lembretes</h2>
-  <Btn ch="+ Novo Lembrete" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/>
-</div>
-<div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-  {[["pending","Pendentes"],["done","Concluídos"],["all","Todos"]].map(([k,l])=><button key={k} onClick={()=>setFilt(k)} style={{border:"none",background:filt===k?G.primary:G.card,color:filt===k?"#fff":G.muted,borderRadius:20,padding:"5px 13px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
-  <div style={{marginLeft:6,display:"flex",gap:4,flexWrap:"wrap"}}>
-    <button onClick={()=>setUf("all")} style={{border:`2px solid ${uf==="all"?G.muted:G.border}`,background:uf==="all"?G.muted:"#fff",color:uf==="all"?"#fff":G.muted,borderRadius:20,padding:"4px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Todos</button>
-    {users.map(u=><button key={u.id} onClick={()=>setUf(String(u.id))} style={{border:`2px solid ${uf===String(u.id)?u.color:G.border}`,background:uf===String(u.id)?u.color:"#fff",color:uf===String(u.id)?"#fff":u.color,borderRadius:20,padding:"4px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{u.name.split(" ")[0]}</button>)}
+// Lembretes state
+const [filt,setFilt]=useState('pending');
+const [modal,setModal]=useState(false);
+const [edit,setEdit]=useState(null);
+const [remMotivoModal,setRemMotivoModal]=useState(null);
+const [remMotivoText,setRemMotivoText]=useState('');
+const b0={title:'',desc:'',date:today(),priority:'medium',done:false,patientId:'',assignedUserId:''};
+const [f,setF]=useState(b0);
+const upd=k=>v=>setF(p=>({...p,[k]:v}));
+
+// Calculos
+const t2=today();
+const todayMD=t2.slice(5);
+const anivHoje=pats.filter(p=>p.dob&&p.dob.slice(5)===todayMD);
+const anivMes=pats.filter(p=>p.dob&&p.dob.slice(5,7)===t2.slice(5,7));
+const PCIR2=['Exodontia','Extracao','Implante','Cirurgia','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia'];
+const yst2=new Date(new Date(t2)-86400000).toISOString().split('T')[0];
+const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>a.procedure&&a.procedure.toLowerCase().includes(p.toLowerCase()))).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
+const semAtras2=pats.filter(p=>{
+  const uc=appts.filter(a=>a.patientId===p.id&&(a.status==='done'||a.status==='confirmed')).sort((a,b)=>b.date.localeCompare(a.date))[0];
+  return uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000)>=180:!!p.since;
+});
+const sendWA2=async(ph,msg)=>{
+  const sent=await WA_API(ph,msg);
+  if(!sent){const a=document.createElement('a');a.href='https://wa.me/55'+ph.replace(/[^0-9]/g,'')+'?text='+encodeURIComponent(msg);a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);}
+};
+
+// Espera
+const t3=today();
+const esperaAtiva=(espera||[]).filter(e=>e.valido>=t3);
+
+// Lembretes visiveis por nivel de usuario
+const remsFiltered=rems.filter(r=>{
+  const visivel=user.level>=2?true:(!r.assignedUserId||r.assignedUserId===myUserId);
+  if(!visivel)return false;
+  if(filt==='pending')return !r.done;
+  if(filt==='done')return r.done;
+  return true;
+}).sort((a,b)=>a.date.localeCompare(b.date));
+
+const save=()=>{if(!f.title)return;const obj={...f,patientId:f.patientId?Number(f.patientId):null,assignedUserId:f.assignedUserId?Number(f.assignedUserId):null,id:edit?edit.id:nid(rems)};setRems(prev=>edit?prev.map(r=>r.id===edit.id?obj:r):[...prev,obj]);setModal(false);setEdit(null);setF(b0);};
+const tog=id=>{if(typeof id==='string')return;setRems(prev=>prev.map(r=>r.id===id?{...r,done:!r.done}:r));};
+const rm=id=>{if(typeof id==='string')return;setRems(prev=>prev.filter(r=>r.id!==id));};
+const PRIO={high:'Alta',medium:'Media',low:'Baixa'};
+const PRIOC={high:G.red,medium:G.yellow,low:G.primary};
+
+// Semestral
+const semTick=(patId)=>{setSemMotivoModal(patId);setSemMotivoText('');};
+const confirmSemTick=(patId,motivo)=>{setSemTicks(p=>({...p,[patId]:{done:true,motivo,date:today(),by:user.name}}));setSemMotivoModal(null);};
+const pendSem=semAtras2.filter(p=>!semTicks[p.id]?.done);
+const doneSem=semAtras2.filter(p=>semTicks[p.id]?.done);
+
+return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi">
+
+{/* LISTA DE ESPERA */}
+<div style={{background:'#F3E5F5',border:'2px solid '+(esperaAtiva.length>0?'#7B1FA2':G.border),borderRadius:14,padding:'14px 16px'}}>
+  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:esperaAtiva.length>0?10:0}}>
+    <div style={{fontWeight:700,fontSize:13,color:'#7B1FA2'}}>{'Lista de Espera ('+esperaAtiva.length+')'}</div>
+    <button onClick={()=>setShowEspModal(true)} style={{background:'#7B1FA2',color:'#fff',border:'none',borderRadius:8,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>+ Novo</button>
   </div>
+  {esperaAtiva.length===0&&<div style={{fontSize:12,color:G.muted,marginTop:6}}>Nenhum paciente aguardando.</div>}
+  {esperaAtiva.map(e=>{
+    const diasNome=['Dom','Seg','Ter','Qua','Qui','Sex','Sab'];
+    const amanha=new Date(new Date(t3+'T12:00').getTime()+86400000).toISOString().split('T')[0];
+    const vencHoje=e.valido===t3;const vencAmanha=e.valido===amanha;
+    return <div key={e.id} style={{background:'#fff',borderRadius:12,padding:'11px 13px',marginBottom:8,border:'1.5px solid '+(vencHoje?G.red:vencAmanha?G.yellow:'#E1BEE7')}}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start'}}>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,fontSize:13}}>{e.patName}</div>
+          <div style={{fontSize:11,color:G.muted,marginTop:2}}>{e.proc+' - '+e.dentName+' - '+e.tempo+'min'}</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:5}}>
+            {e.slots.map((s,i)=><span key={i} style={{background:'#EDE7F6',borderRadius:6,padding:'2px 7px',color:'#7B1FA2',fontWeight:600,fontSize:10}}>{s.dias.map(d=>diasNome[d]).join('/')+': '+s.ini+'-'+s.fim}</span>)}
+          </div>
+          <div style={{fontSize:11,fontWeight:600,marginTop:5,color:vencHoje?G.red:vencAmanha?G.yellow:'#7B1FA2'}}>{vencHoje?'Vence HOJE!':vencAmanha?'Vence amanha!':'Valido ate '+fmt(e.valido)}</div>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:5,alignItems:'flex-end',flexShrink:0}}>
+          {e.patPhone&&<button onClick={()=>sendWA2(e.patPhone,'Ola, '+e.patName+'! Temos um horario disponivel para '+e.proc+'. Affonso Odontologia.')} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:8,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>WA</button>}
+          <button onClick={()=>{setEspMotivoModal(e.id);setEspMotivoText('');}} style={{background:G.red,color:'#fff',border:'none',borderRadius:8,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Remover</button>
+        </div>
+      </div>
+    </div>;
+  })}
 </div>
-<div style={{display:"flex",flexDirection:"column",gap:7}}>
-  {flt.length===0&&<div style={{background:G.card,borderRadius:12,padding:"20px",textAlign:"center",color:G.muted,fontSize:13}}>Nenhum lembrete</div>}
-  {flt.map(r=>{const p=r.patientId?pats.find(x=>x.id===r.patientId):null;const au=r.assignedUserId?users.find(u=>u.id===r.assignedUserId):null;const late=!r.done&&r.date<t;const isA=r.auto||r.type;
-  return <div key={r.id} style={{background:r.done?G.bg:G.card,borderRadius:12,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",gap:10,alignItems:"flex-start",opacity:r.done?.6:1,borderLeft:"4px solid "+(au?au.color:PRIOC[r.priority||"medium"])}}>
-    <div onClick={()=>tog(r.id)} style={{display:"flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",border:"2px solid "+(r.done?G.success:au?au.color:PRIOC[r.priority||"medium"]),background:r.done?G.success:"transparent",cursor:"pointer",flexShrink:0,marginTop:2,transition:"all .15s"}}>
-      {r.done&&<span style={{color:"#fff",fontSize:12,fontWeight:700}}>✓</span>}
+
+{/* Modal remover espera */}
+{espMotivoModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+  <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:420,boxShadow:'0 16px 48px rgba(0,0,0,.2)'}}>
+    <div style={{background:G.red,borderRadius:'16px 16px 0 0',padding:'13px 18px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <span style={{fontWeight:700,color:'#fff',fontSize:14}}>Motivo da Remocao</span>
+      <button onClick={()=>setEspMotivoModal(null)} style={{border:'none',background:'rgba(255,255,255,.2)',borderRadius:8,color:'#fff',cursor:'pointer',padding:'4px 9px'}}>X</button>
     </div>
-    <div style={{flex:1}}>
-      <div style={{fontWeight:700,fontSize:13,textDecoration:r.done?"line-through":"none"}}>{r.title}</div>
-      {r.desc&&<div style={{fontSize:12,color:G.muted,marginTop:1}}>{r.desc}</div>}
-      <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap",alignItems:"center"}}>
-        {isA?<Bdg l="Auto" col={G.blue} sm/>:<Bdg l={PRIO[r.priority||"medium"]} col={PRIOC[r.priority||"medium"]} sm/>}
-        <span style={{fontSize:11,color:late?G.red:G.muted,fontWeight:late?700:400}}>📅 {fmt(r.date)}{late?" -- ATRASADO":""}</span>
-        {p&&<span style={{fontSize:11,color:G.muted}}>👤 {p.name}</span>}
-        {au&&<span style={{fontSize:11,fontWeight:700,color:au.color}}>👩‍💼 {au.name.split(" ")[0]}</span>}
+    <div style={{padding:18,display:'flex',flexDirection:'column',gap:9}}>
+      {['Agendou','Desistiu','Sem resposta','Fora do perfil','Outro'].map(m=><button key={m} onClick={()=>setEspMotivoText(m)} style={{border:'2px solid '+(espMotivoText===m?G.red:G.border),background:espMotivoText===m?'#FFEBEE':'#fff',borderRadius:10,padding:'9px 12px',fontSize:13,cursor:'pointer',textAlign:'left',fontWeight:espMotivoText===m?700:400,color:espMotivoText===m?G.red:G.text}}>{espMotivoText===m?'- ':''}{m}</button>)}
+      <textarea value={espMotivoText} onChange={e=>setEspMotivoText(e.target.value)} rows={2} placeholder="Ou descreva..." style={{border:'1.5px solid '+G.border,borderRadius:8,padding:'8px 11px',fontSize:13,outline:'none',resize:'none',fontFamily:"'DM Sans'"}}/>
+      <div style={{display:'flex',gap:9,justifyContent:'flex-end',paddingTop:8,borderTop:'1px solid '+G.border}}>
+        <button onClick={()=>setEspMotivoModal(null)} style={{border:'1.5px solid '+G.primary,background:'transparent',color:G.primary,borderRadius:8,padding:'8px 15px',fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={()=>{if(!espMotivoText.trim())return alert('Informe o motivo');setEspera(prev=>prev.filter(x=>x.id!==espMotivoModal));setEspMotivoModal(null);}} style={{background:G.red,color:'#fff',border:'none',borderRadius:8,padding:'9px 18px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Confirmar</button>
       </div>
     </div>
-    <div style={{display:"flex",gap:4,flexDirection:"column",alignItems:"flex-end"}}>
-      {p?.phone&&!r.done&&<Btn ch="📱" v="w" sm onClick={()=>wa(p.phone,r.type==="bday"?`Olá ${p.name}! 🎂 Feliz aniversário da Affonso Odontologia! 😊`:`Olá ${p.name}! 😊 ${r.desc||r.title}`)}/>}
-      {!isA&&<Btn ch="Editar" v="g" sm onClick={()=>{setEdit(r);setF({...r,patientId:String(r.patientId||""),assignedUserId:String(r.assignedUserId||"")});setModal(true);}}/>}
-      {!isA&&<Btn ch="✕" v="r" sm onClick={()=>rm(r.id)}/>}
+  </div>
+</div>}
+
+{/* ANIVERSARIANTES */}
+{anivHoje.length>0&&<div style={{background:'#FFF8E1',border:'2px solid #FFD54F',borderRadius:14,padding:'14px 16px'}}>
+  <div style={{fontWeight:700,fontSize:13,color:'#E65100',marginBottom:10}}>{'Aniversariantes hoje ('+anivHoje.length+')'}</div>
+  {anivHoje.map(p=><div key={p.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #FFD54F'}}>
+    <div><div style={{fontWeight:600,fontSize:13}}>{p.name}</div><div style={{fontSize:11,color:'#E65100'}}>{(new Date(t2).getFullYear()-Number(p.dob.slice(0,4)))+' anos'}</div></div>
+    {p.phone&&<button onClick={()=>sendWA2(p.phone,'Ola, '+p.name+'! A equipe Affonso Odontologia deseja um feliz aniversario! Affonso Odontologia')} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}
+  </div>)}
+  <div style={{fontSize:11,color:'#E65100',marginTop:4}}>{'Este mes: '+anivMes.length+' aniversariante(s)'}</div>
+</div>}
+
+{/* POS-CIRURGICO */}
+{posCir2.length>0&&<div style={{background:'#EDE7F6',border:'2px solid #9FA8DA',borderRadius:14,padding:'14px 16px'}}>
+  <div style={{fontWeight:700,fontSize:13,color:'#283593',marginBottom:10}}>{'Pos-Cirurgico ('+posCir2.length+')'}</div>
+  {posCir2.map(x=><div key={x.a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #C5CAE9'}}>
+    <div><div style={{fontWeight:600,fontSize:13}}>{x.p.name}</div><div style={{fontSize:11,color:'#5C6BC0'}}>{x.a.procedure}</div></div>
+    {x.p.phone&&<button onClick={()=>sendWA2(x.p.phone,'Ola, '+x.p.name+'! Como esta apos o procedimento de ontem? Affonso Odontologia')} style={{background:'#5C6BC0',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}
+  </div>)}
+</div>}
+
+{/* RETORNO SEMESTRAL - aba expansivel */}
+<div style={{background:'#E8F5E9',border:'2px solid #A5D6A7',borderRadius:14,overflow:'hidden'}}>
+  <button onClick={()=>setSemTab(v=>!v)} style={{width:'100%',background:'none',border:'none',padding:'13px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
+    <div style={{display:'flex',alignItems:'center',gap:10}}>
+      <span style={{fontWeight:700,fontSize:13,color:'#2E7D32'}}>{'Retorno Semestral ('+semAtras2.length+')'}</span>
+      <span style={{fontSize:11,background:'#C8E6C9',color:'#2E7D32',borderRadius:20,padding:'2px 8px',fontWeight:700}}>{doneSem.length+'/'+semAtras2.length+' ok'}</span>
     </div>
-  </div>;})}
+    <span style={{color:'#2E7D32',fontSize:18,fontWeight:700,transition:'transform .2s',transform:semTab?'rotate(90deg)':'rotate(0deg)'}}>{'>'}</span>
+  </button>
+  {semTab&&<div style={{padding:'0 14px 14px'}}>
+    <div style={{background:'#C8E6C9',borderRadius:4,height:5,marginBottom:12}}>
+      <div style={{background:'#2E7D32',height:5,borderRadius:4,width:(semAtras2.length?doneSem.length/semAtras2.length*100:0)+'%',transition:'width .4s'}}/>
+    </div>
+    {pendSem.length===0&&<div style={{textAlign:'center',padding:14,color:G.success,fontSize:13,fontWeight:700}}>Todos resolvidos!</div>}
+    {pendSem.map(p=>{
+      const uc=appts.filter(a=>a.patientId===p.id&&(a.status==='done'||a.status==='confirmed')).sort((a,b)=>b.date.localeCompare(a.date))[0];
+      const dias=uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000):null;
+      return <div key={p.id} style={{background:'#fff',borderRadius:10,padding:'10px 12px',marginBottom:7,border:'1px solid #A5D6A7',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
+          <div style={{fontSize:11,color:G.muted}}>{dias?dias+' dias sem consulta':'Nunca consultou'}</div>
+        </div>
+        <div style={{display:'flex',gap:5,flexShrink:0}}>
+          {p.phone&&<button onClick={()=>sendWA2(p.phone,'Ola, '+p.name+'! Ja faz um tempo desde sua ultima consulta. Que tal agendar sua revisao semestral? Affonso Odontologia')} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:8,padding:'5px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>WA</button>}
+          <button onClick={()=>semTick(p.id)} style={{background:G.primary,color:'#fff',border:'none',borderRadius:8,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Marcar</button>
+        </div>
+      </div>;
+    })}
+    {doneSem.length>0&&<>
+      <div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:'uppercase',margin:'10px 0 6px'}}>Resolvidos ({doneSem.length})</div>
+      {doneSem.map(p=>{
+        const tick=semTicks[p.id];
+        return <div key={p.id} style={{background:'#f0faf4',borderRadius:9,padding:'8px 11px',marginBottom:5,border:'1px solid #A5D6A7',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+          <div>
+            <span style={{fontSize:12,fontWeight:600,textDecoration:'line-through',color:G.muted}}>{p.name}</span>
+            <div style={{fontSize:10,color:G.success,marginTop:1}}>{(tick?.motivo||'')+' - '+(tick?.by||'')+' '+fmt(tick?.date)}</div>
+          </div>
+          <button onClick={()=>setSemTicks(prev=>({...prev,[p.id]:undefined}))} style={{background:'none',border:'1px solid '+G.border,borderRadius:6,padding:'2px 8px',fontSize:10,color:G.muted,cursor:'pointer'}}>Desfazer</button>
+        </div>;
+      })}
+    </>}
+  </div>}
 </div>
-<Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Lembrete":"Novo Lembrete"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
-  <Inp lb="Título" val={f.title} set={upd("title")}/>
-  <Txt lb="Descrição" val={f.desc} set={upd("desc")} rows={2}/>
-  <R2 a={<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>} b={<Sel lb="Prioridade" val={f.priority} set={upd("priority")} opts={Object.entries(PRIO).map(([v,l])=>({v,l}))}/>}/>
-  <R2 a={<PatSearch lb="Paciente" val={f.patientId} set={upd("patientId")} pats={pats} optional/>} b={<Sel lb="Para funcionária" val={String(f.assignedUserId)} set={upd("assignedUserId")} opts={[{v:"",l:"Geral"},...users.map(u=>({v:u.id,l:u.name.split(" ")[0]}))]}/>}/>
-  <SC2 save={save} cancel={()=>setModal(false)}/>
+
+{/* Modal motivo semestral */}
+{semMotivoModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+  <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:420,boxShadow:'0 16px 48px rgba(0,0,0,.2)'}}>
+    <div style={{background:G.primary,borderRadius:'16px 16px 0 0',padding:'13px 18px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <span style={{fontWeight:700,color:'#fff',fontSize:14}}>{'Marcar - '+pats.find(p=>p.id===semMotivoModal)?.name}</span>
+      <button onClick={()=>setSemMotivoModal(null)} style={{border:'none',background:'rgba(255,255,255,.2)',borderRadius:8,color:'#fff',cursor:'pointer',padding:'4px 9px'}}>X</button>
+    </div>
+    <div style={{padding:18,display:'flex',flexDirection:'column',gap:9}}>
+      <div style={{fontSize:12,color:G.muted,fontWeight:600}}>O que foi feito?</div>
+      {MOTIVOS_SEM.map(m=><button key={m} onClick={()=>setSemMotivoText(m)} style={{border:'2px solid '+(semMotivoText===m?G.primary:G.border),background:semMotivoText===m?G.accent:'#fff',borderRadius:10,padding:'9px 12px',fontSize:13,cursor:'pointer',textAlign:'left',fontWeight:semMotivoText===m?700:400,color:semMotivoText===m?G.primary:G.text}}>{semMotivoText===m?'- ':''}{m}</button>)}
+      <textarea value={semMotivoText} onChange={e=>setSemMotivoText(e.target.value)} rows={2} placeholder="Ou descreva..." style={{border:'1.5px solid '+G.border,borderRadius:8,padding:'8px 11px',fontSize:13,outline:'none',resize:'none',fontFamily:"'DM Sans'"}}/>
+      <div style={{display:'flex',gap:9,justifyContent:'flex-end',paddingTop:8,borderTop:'1px solid '+G.border}}>
+        <button onClick={()=>setSemMotivoModal(null)} style={{border:'1.5px solid '+G.primary,background:'transparent',color:G.primary,borderRadius:8,padding:'8px 15px',fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={()=>{if(!semMotivoText.trim())return alert('Informe o motivo');confirmSemTick(semMotivoModal,semMotivoText);}} style={{background:G.primary,color:'#fff',border:'none',borderRadius:8,padding:'9px 18px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>}
+
+{/* LEMBRETES MANUAIS */}
+<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
+  <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Lembretes</h2>
+  <Btn ch="+ Novo" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/>
+</div>
+
+<div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+  {[['pending','Pendentes'],['done','Concluidos'],['all','Todos']].map(([k,l])=><button key={k} onClick={()=>setFilt(k)} style={{border:'none',background:filt===k?G.primary:G.card,color:filt===k?'#fff':G.muted,borderRadius:20,padding:'5px 13px',fontSize:11,fontWeight:700,cursor:'pointer',boxShadow:'0 1px 3px rgba(0,0,0,.08)'}}>{l}</button>)}
+</div>
+
+{user.level<2&&<div style={{background:G.accent,borderRadius:8,padding:'7px 12px',fontSize:11,color:G.primary}}>Voce ve apenas lembretes gerais e os direcionados a voce.</div>}
+
+<div style={{display:'flex',flexDirection:'column',gap:7}}>
+  {remsFiltered.length===0&&<div style={{background:G.card,borderRadius:12,padding:20,textAlign:'center',color:G.muted,fontSize:13}}>Nenhum lembrete</div>}
+  {remsFiltered.map(r=>{
+    const p=r.patientId?pats.find(x=>x.id===r.patientId):null;
+    const au=r.assignedUserId?users.find(u=>u.id===r.assignedUserId):null;
+    const late=!r.done&&r.date<t;
+    return <div key={r.id} style={{background:r.done?G.bg:G.card,borderRadius:12,padding:'11px 14px',boxShadow:'0 1px 4px rgba(0,0,0,.07)',display:'flex',gap:10,alignItems:'flex-start',opacity:r.done?.65:1,borderLeft:'4px solid '+(r.done?G.border:au?au.color:PRIOC[r.priority||'medium'])}}>
+      <div onClick={()=>tog(r.id)} style={{display:'flex',alignItems:'center',justifyContent:'center',width:22,height:22,borderRadius:'50%',border:'2px solid '+(r.done?G.success:PRIOC[r.priority||'medium']),background:r.done?G.success:'transparent',cursor:'pointer',flexShrink:0,marginTop:2,transition:'all .15s'}}>
+        {r.done&&<span style={{color:'#fff',fontSize:11,fontWeight:700}}>v</span>}
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:700,fontSize:13,textDecoration:r.done?'line-through':'none',color:r.done?G.muted:G.text}}>{r.title}</div>
+        {r.desc&&<div style={{fontSize:12,color:G.muted,marginTop:1}}>{r.desc}</div>}
+        <div style={{display:'flex',gap:5,marginTop:4,flexWrap:'wrap',alignItems:'center'}}>
+          <Bdg l={PRIO[r.priority||'medium']} col={PRIOC[r.priority||'medium']} sm/>
+          <span style={{fontSize:11,color:late?G.red:G.muted,fontWeight:late?700:400}}>{fmt(r.date)}{late?' - ATRASADO':''}</span>
+          {p&&<span style={{fontSize:11,color:G.muted}}>{p.name}</span>}
+          {au?<Bdg l={au.name.split(' ')[0]} col={au.color} sm/>:<Bdg l="Geral" col={G.blue} sm/>}
+        </div>
+      </div>
+      <div style={{display:'flex',gap:4,flexDirection:'column',alignItems:'flex-end',flexShrink:0}}>
+        {p?.phone&&!r.done&&<button onClick={()=>wa(p.phone,'Ola '+p.name+'! '+(r.desc||r.title))} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:6,padding:'4px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>WA</button>}
+        <button onClick={()=>{setEdit(r);setF({...r,patientId:String(r.patientId||''),assignedUserId:String(r.assignedUserId||'')});setModal(true);}} style={{background:'transparent',border:'1.5px solid '+G.primary,color:G.primary,borderRadius:6,padding:'4px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Editar</button>
+        <button onClick={()=>{setRemMotivoModal(r.id);setRemMotivoText('');}} style={{background:G.red,color:'#fff',border:'none',borderRadius:6,padding:'4px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Apagar</button>
+      </div>
+    </div>;
+  })}
+</div>
+
+{/* Modal apagar lembrete */}
+{remMotivoModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+  <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:420,boxShadow:'0 16px 48px rgba(0,0,0,.2)'}}>
+    <div style={{background:G.red,borderRadius:'16px 16px 0 0',padding:'13px 18px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <span style={{fontWeight:700,color:'#fff',fontSize:14}}>Apagar Lembrete</span>
+      <button onClick={()=>setRemMotivoModal(null)} style={{border:'none',background:'rgba(255,255,255,.2)',borderRadius:8,color:'#fff',cursor:'pointer',padding:'4px 9px'}}>X</button>
+    </div>
+    <div style={{padding:18,display:'flex',flexDirection:'column',gap:9}}>
+      {['Resolvido','Nao e mais necessario','Criado por engano','Outro'].map(m=><button key={m} onClick={()=>setRemMotivoText(m)} style={{border:'2px solid '+(remMotivoText===m?G.red:G.border),background:remMotivoText===m?'#FFEBEE':'#fff',borderRadius:10,padding:'9px 12px',fontSize:13,cursor:'pointer',textAlign:'left',fontWeight:remMotivoText===m?700:400,color:remMotivoText===m?G.red:G.text}}>{m}</button>)}
+      <textarea value={remMotivoText} onChange={e=>setRemMotivoText(e.target.value)} rows={2} placeholder="Ou descreva o motivo..." style={{border:'1.5px solid '+G.border,borderRadius:8,padding:'8px 11px',fontSize:13,outline:'none',resize:'none',fontFamily:"'DM Sans'"}}/>
+      <div style={{display:'flex',gap:9,justifyContent:'flex-end',paddingTop:8,borderTop:'1px solid '+G.border}}>
+        <button onClick={()=>setRemMotivoModal(null)} style={{border:'1.5px solid '+G.primary,background:'transparent',color:G.primary,borderRadius:8,padding:'8px 15px',fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={()=>{if(!remMotivoText.trim())return alert('Informe o motivo');rm(remMotivoModal);setRemMotivoModal(null);}} style={{background:G.red,color:'#fff',border:'none',borderRadius:8,padding:'9px 18px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>}
+
+{/* Modal novo/editar lembrete */}
+<Modal open={modal} close={()=>{setModal(false);setEdit(null);setF(b0);}} title={edit?'Editar Lembrete':'Novo Lembrete'} ch={<div style={{display:'flex',flexDirection:'column',gap:11}}>
+  <Inp lb="Titulo" val={f.title} set={upd('title')}/>
+  <Txt lb="Descricao" val={f.desc} set={upd('desc')} rows={2}/>
+  <R2 a={<Inp lb="Data" val={f.date} set={upd('date')} type="date"/>} b={<Sel lb="Prioridade" val={f.priority} set={upd('priority')} opts={Object.entries(PRIO).map(([v,l])=>({v,l}))}/>}/>
+  <PatSearch lb="Paciente (opcional)" val={f.patientId} set={upd('patientId')} pats={pats} optional/>
+  <div style={{display:'flex',flexDirection:'column',gap:4}}>
+    <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:'uppercase',letterSpacing:'.4px'}}>Visivel para</label>
+    <select value={String(f.assignedUserId)} onChange={e=>upd('assignedUserId')(e.target.value)} style={{border:'1.5px solid '+G.border,borderRadius:8,padding:'9px 12px',fontSize:14,outline:'none',background:'#fff'}}>
+      <option value="">Todos (geral)</option>
+      {users.filter(u=>u.active).map(u=><option key={u.id} value={String(u.id)}>{u.name.split(' ')[0]+' ('+u.role+')'}</option>)}
+    </select>
+  </div>
+  <SC2 save={save} cancel={()=>{setModal(false);setEdit(null);setF(b0);}}/>
 </div>}/>
 
-  </div>;
+{showEspModal&&<EsperaModal pats={pats} dents={dents} onSave={e=>{setEspera(prev=>[...prev,e]);setShowEspModal(false);}} onClose={()=>setShowEspModal(false)}/>}
+
+</div>;
 }
+
 
 // ══════════════════════════════════════════════════════════
 // FINANCEIRO
@@ -3852,7 +4010,7 @@ style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"10px",fontSize:1
 
 function EsperaModal({pats,dents,onSave,onClose}){
 var [patId,setPatId]=useState("");
-var [dentId,setDentId]=useState("");
+var [dentId,setDentId]=useState(dents&&dents[0]?String(dents[0].id):"");
 var [proc,setProc]=useState("");
 var [tempo,setTempo]=useState("60");
 var [valido,setValido]=useState("");
@@ -3866,12 +4024,12 @@ var togDia=function(d){
 setDias(function(prev){return prev.indexOf(d)>=0?prev.filter(function(x){return x!==d;}):[...prev,d].sort();});
 };
 var addSlot=function(){
-if(dias.length===0){alert("Selecione pelo menos um dia");return;}
+if(dias.length===0){alert("Selecione pelo menos um dia para adicionar");return;}
 setSlots(function(prev){return[...prev,{dias:[...dias],ini:horaIni,fim:horaFim}];});
 setDias([]);
 };
 var pat=pats.find(function(p){return p.id===Number(patId);});
-var canSave=pat&&dentId&&proc&&valido&&slots.length>0;
+var canSave=pat&&proc&&valido;
 return(
 
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto"}}>
@@ -3916,7 +4074,7 @@ return(
 </div>
 );})}
 </div>
-<button onClick={function(){if(!canSave)return;onSave({id:Date.now(),patientId:Number(patId),patName:pat.name,dentId:Number(dentId),dentName:(dents.find(function(d){return d.id===Number(dentId);})||{name:""}).name,proc:proc,tempo:Number(tempo),valido:valido,slots:slots,criado:today()});onClose();}}
+<button onClick={function(){if(!canSave)return;onSave({id:Date.now(),patientId:Number(patId),patName:pat.name,patPhone:pat.phone||"",dentId:Number(dentId),dentName:(dents.find(function(d){return d.id===Number(dentId);})||{name:""}).name,proc:proc,tempo:Number(tempo),valido:valido,slots:slots,criado:today()});onClose();}}
 disabled={!canSave} style={{background:canSave?"#7B1FA2":"#ccc",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:canSave?"pointer":"not-allowed"}}>
 {"Adicionar à Lista de Espera"}
 </button>
