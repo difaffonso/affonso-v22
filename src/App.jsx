@@ -1361,7 +1361,7 @@ return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:
 </div>;
 })}
 </div>:null;
-return <React.Fragment>{_slots}{_cancelled}</React.Fragment>;
+return [_slots, _cancelled];
 })()}
 
   </div>}
@@ -1377,7 +1377,7 @@ return <React.Fragment>{_slots}{_cancelled}</React.Fragment>;
               const p=a?pats.find(x=>x.id===a.patientId):null;
               const an=p&&p.anamnese||{};
               const CONDS=[["hypertension","HAS"],["diabetes","Diabetes"],["heartDisease","Cardio"],["bleeding","Coagulação"],["osteoporosis","Osteoporose"],["kidneyDisease","Renal"],["liverDisease","Hepática"],["thyroid","Tireóide"],["epilepsy","Epilepsia"],["cancer","Câncer"],["pregnant","Gestante"],["smoking","Tabagismo"]];
-              const healthFlags=[p&&p.obs&&("⚠ "+p.obs),p&&p.allergy&&p.allergy!=="Nenhuma"&&("💊 "+p.allergy),an.allergicMeds&&("💊 Alergia Med: "+an.allergicMeds),...CONDS.filter(([k])=>an[k]).map(([,l])=>l)].filter(Boolean);
+              const healthFlags=[p&&p.obs&&("⚠ "+p.obs),p&&p.allergy&&p.allergy!=="Nenhuma"&&("💊 "+p.allergy),an.allergicMeds&&("💊 Alergia Med: "+an.allergicMeds)].concat(CONDS.filter(function(c){return an[c[0]];}).map(function(c){return c[1];})).filter(Boolean);
               if(a&&p)return(
                 <div key={d.id} onClick={()=>setViewA(a)} style={{background:SC_BG[a.status]||SC[a.status]+"18",border:"2px solid "+SC[a.status],borderRadius:8,padding:"5px 8px",cursor:"pointer",minHeight:48,boxShadow:a.status==="pending"?"0 2px 6px rgba(230,81,0,.2)":a.status==="confirmed"?"0 2px 6px rgba(21,101,192,.15)":"none"}}>
                   <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
