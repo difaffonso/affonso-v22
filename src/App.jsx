@@ -322,7 +322,7 @@ const t=today(),y=yest(),tm=tom();const out=[];
 pats.forEach(p=>{
 if(isBday(p.dob))out.push({id:`b${p.id}`,title:`🎂 Aniversário -- ${p.name}`,desc:"Hoje é aniversário! Enviar parabéns.",date:t,priority:"medium",done:false,patientId:p.id,type:"bday"});
 const lr=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
-if(lr&&mo6(lr.date)<=t)out.push({id:`s${p.id}`,title:`📅 Semestral -- ${p.name}`,desc:`Último atend: ${fmt(lr.date)}`,date:t,priority:"medium",done:false,patientId:p.id,type:"semi"});
+if(lr&&lr.paid>0&&mo6(lr.date)<=t)out.push({id:`s${p.id}`,title:`📅 Semestral -- ${p.name}`,desc:`Último atend: ${fmt(lr.date)}`,date:t,priority:"medium",done:false,patientId:p.id,type:"semi"});
 const surg=recs.find(r=>r.patientId===p.id&&r.procedure==="Cirurgia"&&r.date===y);
 if(surg)out.push({id:`c${p.id}`,title:`🔴 Pós-Cirurgia -- ${p.name}`,desc:`Cirurgia ontem (D.${surg.tooth}).`,date:t,priority:"high",done:false,patientId:p.id,type:"surg"});
 });
@@ -2217,9 +2217,16 @@ const anivMes=pats.filter(p=>p.dob&&p.dob.slice(5,7)===t2.slice(5,7));
 const PCIR2=['Exodontia','Extracao','Implante','Cirurgia','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia'];
 const yst2=new Date(new Date(t2)-86400000).toISOString().split('T')[0];
 const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>a.procedure&&a.procedure.toLowerCase().includes(p.toLowerCase()))&&(!isDentist||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
-const semAtras2=pats.filter(p=>{
-const uc=appts.filter(a=>a.patientId===p.id&&(a.status==='done'||a.status==='confirmed')).sort((a,b)=>b.date.localeCompare(a.date))[0];
-return uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000)>=180:!!p.since;
+const semAtras2=pats.filter(function(p){
+  // Use recs (atendimentos com baixa registrada) as source of truth
+  var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+  if(!lastRec)return false; // never attended = don't show yet
+  // Show when today >= lastRec date + 6 months
+  var lastDate=new Date(lastRec.date+"T12:00");
+  var sixMonths=new Date(lastDate);
+  sixMonths.setMonth(sixMonths.getMonth()+6);
+  var today2=new Date(t2+"T12:00");
+  return today2>=sixMonths;
 });
 const sendWA2=async(ph,msg)=>{
 const sent=await WA_API(ph,msg);
@@ -2340,12 +2347,16 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
     </div>
     {pendSem.length===0&&<div style={{textAlign:'center',padding:14,color:G.success,fontSize:13,fontWeight:700}}>Todos resolvidos!</div>}
     {pendSem.map(p=>{
-      const uc=appts.filter(a=>a.patientId===p.id&&(a.status==='done'||a.status==='confirmed')).sort((a,b)=>b.date.localeCompare(a.date))[0];
-      const dias=uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000):null;
+      const lastRec=recs.filter(r=>r.patientId===p.id&&r.paid>0).sort((a,b)=>b.date.localeCompare(a.date))[0];
+      const dias=lastRec?Math.floor((new Date(t2)-new Date(lastRec.date+"T12:00"))/86400000):null;
+      const sixMonthsDate=lastRec?mo6(lastRec.date):null;
+      const mesesPassados=lastRec?Math.floor(dias/30):null;
       return <div key={p.id} style={{background:'#fff',borderRadius:10,padding:'10px 12px',marginBottom:7,border:'1px solid #A5D6A7',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontWeight:700,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
-          <div style={{fontSize:11,color:G.muted}}>{dias?dias+' dias sem consulta':'Nunca consultou'}</div>
+          <div style={{fontSize:11,color:G.muted}}>Última consulta: <strong>{lastRec?fmt(lastRec.date):'—'}</strong></div>
+          <div style={{fontSize:11,color:G.orange,fontWeight:600}}>{dias?('⏰ '+mesesPassados+' meses atrás ('+dias+' dias)'):''}</div>
+          {sixMonthsDate&&<div style={{fontSize:10,color:G.muted}}>Semestral venceu em: {fmt(sixMonthsDate)}</div>}
         </div>
         <div style={{display:'flex',gap:5,flexShrink:0}}>
           {p.phone&&<button onClick={()=>sendWA2(p.phone,'Ola, '+p.name+'! Ja faz um tempo desde sua ultima consulta. Que tal agendar sua revisao semestral? Affonso Odontologia')} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:8,padding:'5px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>WA</button>}
@@ -2890,10 +2901,13 @@ function PacsTab({pats,recs,treats,appts,dents,mo,user}){
 
 const bdayWeek=pats.filter(p=>p.dob&&p.dob.slice(5)>=t.slice(5)&&p.dob.slice(5)<=weekEndStr.slice(5));
 const bdayMonth=pats.filter(p=>p.dob&&p.dob.slice(5,7)===thisMonth);
-const semestral=pats.filter(p=>{
-const last=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
-if(!last)return false;
-return mo6(last.date)<=t;
+const semestral=pats.filter(function(p){
+  // Only recs with payment (confirmed attendance)
+  var last=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+  if(!last)return false; // no record = don't show
+  // Show on the exact day that completes 6 months
+  var sixMonthsAfter=mo6(last.date);
+  return sixMonthsAfter<=t;
 });
 const emTrat=treats.filter(t2=>t2.items.some(it=>!it.done));
 const semRetorno=emTrat.filter(t2=>{
