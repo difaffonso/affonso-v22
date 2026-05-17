@@ -91,12 +91,21 @@ const CSS=`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garam
 const PAY_BASE=["Dinheiro","PIX","Cartão Crédito","Cartão Débito","Convênio","Cheque"];
 const PAY=PAY_BASE; // backward compat
 // Build dynamic payment options including dentist Pix/Card
+// Get short display name for dentist, skipping titles Dr/Dra
+const dentShortName=function(d){
+  var parts=d.name.split(" ");
+  // Skip Dr., Dra., Dr prefix
+  var skip=["dr.","dra.","dr","dra"];
+  var real=parts.filter(function(p){return skip.indexOf(p.toLowerCase())<0;});
+  // Return first real name (e.g. "Diego") - if only one part, use it
+  return real[0]||parts[parts.length-1]||d.name;
+};
 const mkPayOpts=function(dents){
   var extras=[];
   dents.forEach(function(d){
-    var firstName=d.name.split(" ")[0];
-    extras.push("Pix "+firstName);
-    extras.push("Cartão "+firstName);
+    var sn=dentShortName(d);
+    extras.push("Pix "+sn);
+    extras.push("Cartão "+sn);
   });
   return PAY_BASE.concat(extras);
 };
@@ -105,8 +114,8 @@ const getDentFromPayment=function(payment,dents){
   if(!payment)return null;
   var p=payment.toLowerCase();
   return dents.find(function(d){
-    var fn=d.name.split(" ")[0].toLowerCase();
-    return p.indexOf(fn)>=0&&(p.startsWith("pix ")||p.startsWith("cartão ")||p.startsWith("cartao "));
+    var sn=dentShortName(d).toLowerCase();
+    return p.indexOf(sn)>=0&&(p.startsWith("pix ")||p.startsWith("cartão ")||p.startsWith("cartao "));
   })||null;
 };
 const SL={confirmed:"Confirmado",pending:"Pendente",done:"Realizado",cancelled:"Cancelado",missed:"Faltou",rescheduled:"Desmarcado"};
@@ -910,13 +919,30 @@ return <>
         <div style={{display:"flex",flexDirection:"column",gap:4}}>
           <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Pagamento</label>
           <select value={rf.payment} onChange={e=>upR("payment")(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
-            {PAY.map(o=><option key={o} value={o}>{o}</option>)}
+            <optgroup label="— Clínica —">
+              {PAY_BASE.map(function(o){return <option key={o} value={o}>{o}</option>;})}
+            </optgroup>
+            <optgroup label="— Direto ao Dentista —">
+              {dents.map(function(d){var sn=dentShortName(d);return [
+                <option key={"pix"+d.id} value={"Pix "+sn}>{"💚 Pix "+sn}</option>,
+                <option key={"card"+d.id} value={"Cartão "+sn}>{"💳 Cartão "+sn}</option>
+              ];})}
+            </optgroup>
           </select>
         </div>
       </div>
       {rf.payment==="Cartão Crédito"&&<Inp lb="Nº de Parcelas" val={String(rf.inst)} set={upR("inst")} type="number" min="1" max="24"/>}
       {rf.payment==="Cartão Crédito"&&Number(rf.inst)>1&&<div style={{background:G.accent,borderRadius:8,padding:"7px 12px",fontSize:12,color:G.blue}}>💳 Crédito futuro: {genM(rf.date,Number(rf.inst)).map(m=>`${m.slice(5)}/${m.slice(0,4)}`).join(", ")}</div>}
-      {Number(rf.paid)>0&&<div style={{background:G.accent,borderRadius:8,padding:"7px 12px",fontSize:13}}>Valor líquido: <strong>{cur(calcNet(Number(rf.paid),rf.payment))}</strong>{rf.payment==="Cartão Crédito"&&<span style={{color:G.red}}> (-3,5%)</span>}{rf.payment==="Cartão Débito"&&<span style={{color:G.red}}> (-2%)</span>}</div>}
+      {(function(){
+  var dp=getDentFromPayment(rf.payment,dents);
+  if(!dp)return null;
+  return <div style={{background:dp.color+"15",border:"2px solid "+dp.color,borderRadius:8,padding:"7px 12px",fontSize:12,display:"flex",alignItems:"center",gap:8}}>
+    <div style={{width:24,height:24,borderRadius:"50%",background:dp.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:11,flexShrink:0}}>{dp.name[0]}</div>
+    <span style={{fontWeight:700,color:dp.color}}>{"Pagamento direto: "+dp.name}</span>
+    <span style={{fontSize:10,color:dp.color,marginLeft:"auto"}}>Taxa 0%</span>
+  </div>;
+})()}
+{Number(rf.paid)>0&&<div style={{background:G.accent,borderRadius:8,padding:"7px 12px",fontSize:13}}>Valor líquido: <strong>{cur(calcNet(Number(rf.paid),rf.payment))}</strong>{rf.payment==="Cartão Crédito"&&<span style={{color:G.red}}> (-3,5%)</span>}{rf.payment==="Cartão Débito"&&<span style={{color:G.red}}> (-2%)</span>}</div>}
       <label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,cursor:"pointer",background:rf.closed?G.success+"15":G.bg,borderRadius:8,padding:"9px 12px",border:`1.5px solid ${rf.closed?G.success:G.border}`}}>
         <input type="checkbox" checked={rf.closed} onChange={e=>upR("closed")(e.target.checked)} style={{accentColor:G.success,width:16,height:16}}/>
         <strong style={{color:rf.closed?G.success:G.text}}>✓ Confirmar baixa financeira</strong>
@@ -1087,10 +1113,28 @@ return <>
       <div style={{display:"flex",flexDirection:"column",gap:4}}>
         <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Forma de Pagamento</label>
         <select value={payForm.method} onChange={e=>setPayForm(p=>({...p,method:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
-          {mkPayOpts(dents).map(o=><option key={o} value={o}>{o}</option>)}
+          <option value="">Selecione...</option>
+          <optgroup label="— Clínica —">
+            {PAY_BASE.map(function(o){return <option key={o} value={o}>{o}</option>;})}
+          </optgroup>
+          <optgroup label="— Direto ao Dentista —">
+            {dents.map(function(d){var sn=dentShortName(d);return [
+              <option key={"pix"+d.id} value={"Pix "+sn}>💚 Pix {sn}</option>,
+              <option key={"card"+d.id} value={"Cartão "+sn}>💳 Cartão {sn}</option>
+            ];})}
+          </optgroup>
         </select>
       </div>
-      {(payForm.method==="Cartão Crédito"||payForm.method==="Cartão Débito")&&Number(payForm.value)>0&&(
+      {(function(){
+  var dp=getDentFromPayment(payForm.method,dents);
+  if(!dp)return null;
+  return <div style={{background:dp.color+"15",border:"2px solid "+dp.color,borderRadius:8,padding:"7px 12px",fontSize:12,display:"flex",alignItems:"center",gap:8}}>
+    <div style={{width:24,height:24,borderRadius:"50%",background:dp.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:11,flexShrink:0}}>{dp.name[0]}</div>
+    <span style={{fontWeight:700,color:dp.color}}>{"Pagamento direto: "+dp.name}</span>
+    <span style={{fontSize:10,color:dp.color,marginLeft:"auto"}}>Taxa 0%</span>
+  </div>;
+})()}
+{(payForm.method==="Cartão Crédito"||payForm.method==="Cartão Débito")&&Number(payForm.value)>0&&(
         <div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.blue}}>
           💳 Valor líquido: <strong>{cur(calcNet(Number(payForm.value),payForm.method))}</strong>
           <span style={{color:G.muted}}>{payForm.method==="Cartão Crédito"?" (-3,5%)":" (-2%)"}</span>
@@ -4815,9 +4859,9 @@ var dent=dents.find(function(d){return d.id===selDentId;})||dents[0];
 // All recs that are direct dentist payments (Pix X or Cartão X)
 var isDentPay=function(payment,d){
   if(!payment||!d)return false;
-  var fn=d.name.split(" ")[0].toLowerCase();
+  var sn=dentShortName(d).toLowerCase();
   var p=payment.toLowerCase();
-  return (p.startsWith("pix ")||p.startsWith("cartão ")||p.startsWith("cartao "))&&p.indexOf(fn)>=0;
+  return (p.startsWith("pix ")||p.startsWith("cartão ")||p.startsWith("cartao "))&&p.indexOf(sn)>=0;
 };
 
 // Recs for selected dentist
