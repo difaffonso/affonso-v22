@@ -1962,7 +1962,8 @@ var MONTHS_ORDER=(function(){
 })();
 // Add any months from IMPL_DATA not in window
 var allDataMes=[...new Set(IMPL_DATA.map(function(r){return r.mes;}))];
-allDataMes.forEach(function(m){if(MONTHS_ORDER.indexOf(m)<0)MONTHS_ORDER.unshift(m);});
+// Append old months that have data AFTER the window (for historical access)
+allDataMes.forEach(function(m){if(MONTHS_ORDER.indexOf(m)<0)MONTHS_ORDER.push(m);});
 const ST_COLOR={pending:G.red,scheduled:G.success,done:"#111",info:G.blue};
 const ST_LABEL={pending:"Não marcado",scheduled:"Marcado",done:"Finalizado",info:"Info"};
 const ST_BG={pending:"#FFEBEE",scheduled:"#E8F5E9",done:"#F5F5F5",info:"#E3F2FD"};
@@ -1971,6 +1972,8 @@ const curMes=(()=>{const m=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set
 const [selMes,setSelMes]=useState(MONTHS_ORDER.includes(curMes)?curMes:MONTHS_ORDER[MONTHS_ORDER.length-1]);
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(now.getFullYear());
+const [showAdd,setShowAdd]=useState(false);
+const [addForm,setAddForm]=useState({paciente:"",cirurgia:"",protese:"",controle:"",obs:"",data:"",mes:curMes,status:"pending"});
 const [filtSt,setFiltSt]=useState('all');
 const [srch,setSrch]=useState('');
 const [editRow,setEditRow]=useState(null);
@@ -1996,6 +1999,7 @@ const done=rows.filter(function(r){return r.status==='done';}).length;
 return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi">
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
     <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Controle de Implantes</h2>
+    <button onClick={function(){setShowAdd(true);setAddForm({paciente:"",cirurgia:"",protese:"",controle:"",obs:"",data:"",mes:selMes,status:"pending"});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"+ Paciente"}</button>
   </div>
 
   {/* Legenda */}
@@ -2106,6 +2110,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
               <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",color:r.controle?G.text:G.muted,fontSize:11,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.controle||"—"}</td>
               <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",color:G.muted,fontSize:10,whiteSpace:"nowrap"}}>{r.data||"—"}</td>
               <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",color:G.muted,fontSize:10,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.obs||"—"}</td>
+            <td style={{padding:"4px 8px",borderBottom:"1px solid #eee",textAlign:"center"}} onClick={function(e){e.stopPropagation();}}><button onClick={function(e){e.stopPropagation();setImplRows(function(prev){return prev.filter(function(x){return x.id!==r.id;});});}} style={{border:"none",background:"none",color:"#ccc",cursor:"pointer",fontSize:15,fontWeight:700}}>{"✕"}</button></td>
             </tr>;
           })}
         </tbody>
@@ -2156,6 +2161,54 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
       </div>
     </div>
   </div>}
+{showAdd&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+    <div style={{background:G.primary,borderRadius:"16px 16px 0 0",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span style={{fontWeight:700,color:"#fff",fontSize:15}}>{"+ Novo Paciente"}</span>
+      <button onClick={function(){setShowAdd(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
+    </div>
+    <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Paciente *</label>
+        <input value={addForm.paciente} onChange={function(e){setAddForm(function(p){return{...p,paciente:e.target.value};});}} placeholder="Nome completo" style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none"}}/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Mês</label>
+          <select value={addForm.mes} onChange={function(e){setAddForm(function(p){return{...p,mes:e.target.value};});}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none",background:"#fff"}}>
+            {MONTHS_ORDER.map(function(m){return <option key={m} value={m}>{m}</option>;})}
+          </select>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Data</label>
+          <input type="date" value={addForm.data} onChange={function(e){setAddForm(function(p){return{...p,data:e.target.value};});}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none"}}/>
+        </div>
+      </div>
+      {[["Cirurgia","cirurgia"],["Prótese","protese"],["Controle","controle"],["OBS","obs"]].map(function(pair){
+        return <div key={pair[1]} style={{display:"flex",flexDirection:"column",gap:4}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{pair[0]}</label>
+          <input value={addForm[pair[1]]||""} onChange={function(e){var k=pair[1];setAddForm(function(p){var n={...p};n[k]=e.target.value;return n;});}} placeholder={"Ex: Enxerto, Implante, Prótese..."} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none"}}/>
+        </div>;
+      })}
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Status</label>
+        <div style={{display:"flex",gap:6}}>{["pending","scheduled","done"].map(function(s){return <button key={s} onClick={function(){setAddForm(function(p){return{...p,status:s};});}} style={{flex:1,border:"2px solid "+(addForm.status===s?ST_COLOR[s]:G.border),background:addForm.status===s?ST_COLOR[s]:"#fff",color:addForm.status===s?"#fff":ST_COLOR[s],borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{ST_LABEL[s]}</button>;})}
+        </div>
+      </div>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:10,borderTop:"1px solid "+G.border}}>
+        <button onClick={function(){setShowAdd(false);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={function(){
+          if(!addForm.paciente.trim()){alert("Informe o nome do paciente");return;}
+          var newId=implRows.length>0?Math.max.apply(null,implRows.map(function(r){return r.id;}))+1:1;
+          setImplRows(function(prev){return[...prev,{...addForm,id:newId,mes:addForm.mes||selMes}];});
+          setSelMes(addForm.mes||selMes);
+          setShowAdd(false);
+        }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"+ Adicionar"}</button>
+      </div>
+    </div>
+  </div>
+</div>}
+
 </div>;
 }
 
