@@ -1678,6 +1678,8 @@ const b0={name:"",dob:"",phone:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insu
 const [pf,setPf]=useState(b0);const fp=k=>v=>setPf(p=>({...p,[k]:v}));
 const bd={name:"",specialty:"Clinico Geral",commission:40,cro:"",color:UCOLS[0],dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}};
 const [dm,setDm]=useState(false);
+const [bkpDone,setBkpDone]=useState(false);
+const [restoreDone,setRestoreDone]=useState("");
 const [ed,setEd]=useState(null);
 const [df,setDf]=useState(bd);
 const upDf=k=>v=>setDf(p=>({...p,[k]:v}));
@@ -3377,7 +3379,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════════════════════════
-function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user}){
+function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl}){
 const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
 const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
 const TIPO_L_LOG={all:"Todos",agenda:"Agenda",paciente:"Paciente",financeiro:"Financeiro",estoque:"Estoque",protese:"Protese",lembrete:"Lembrete",remarcar:"Remarcar",admin:"Admin"};
@@ -3390,6 +3392,8 @@ return true;
 });
 const uniqueUsers=[...new Set((logs||[]).map(function(l){return l.user;}))];
 const [um,setUm]=useState(false);const [pm,setPm]=useState(false);const [lm,setLm]=useState(false);const [dm,setDm]=useState(false);
+const [bkpDone,setBkpDone]=useState(false);
+const [restoreDone,setRestoreDone]=useState("");
 const [eu,setEu]=useState(null);const [ep,setEp]=useState(null);const [el,setEl]=useState(null);const [ed,setEd]=useState(null);
 const b0={name:"",role:"Recepcionista",level:2,login:"",pass:"",dentistId:"",color:UCOLS[0],active:true,criaDentista:false};
 const bp={name:"",price:0};const bl={name:"",contact:"",phone:""};
@@ -3426,7 +3430,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
 <div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border,overflowX:"auto"}}>
-{[["users","Usuarios"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["log","Log"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
+{[["users","Usuarios"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
 {tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
 <div style={{background:G.accent,borderRadius:10,padding:"9px 12px",fontSize:12,color:G.primary}}>
@@ -3660,6 +3664,84 @@ return(
 </div>
 
 }
+
+{tab==="backup"&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
+  <div style={{background:G.accent,borderRadius:12,padding:"12px 16px",fontSize:13,color:G.primary,lineHeight:1.6}}>
+    <strong>💾 Backup Manual</strong><br/>
+    Baixa um arquivo <code>{"backup-affonso-YYYY-MM-DD.json"}</code> com todos os dados da clínica. Guarde em local seguro como proteção extra.
+  </div>
+  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+    <button onClick={function(){
+      var bkp={version:"V41",exportDate:new Date().toISOString(),pats:pats,appts:appts,recs:recs,treats:treats,budgets:budgets,pros:pros,rems:rems,dents:dents,users:users,labs:labs,procs:procs,stock:stock,expenses:expenses,impl:impl,logs:(logs||[]).slice(0,200)};
+      var json=JSON.stringify(bkp,null,2);
+      try{
+        var blob=new Blob([json],{type:"application/json"});
+        var url=URL.createObjectURL(blob);
+        var a=document.createElement("a");
+        a.href=url;a.download="backup-affonso-"+new Date().toISOString().slice(0,10)+".json";
+        document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+      }catch(e){
+        if(navigator.clipboard){navigator.clipboard.writeText(json);}
+        else{var w=window.open("","_blank");if(w){w.document.write("<pre>"+json+"</pre>");w.document.close();}}
+      }
+      setBkpDone(true);
+    }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+      {"⬇️ Baixar Backup JSON"}
+    </button>
+    {bkpDone&&<div style={{background:"#E8F5E9",border:"1.5px solid #A5D6A7",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#2E7D32",textAlign:"center"}}>{"✅ Backup gerado! Arquivo salvo na pasta Downloads."}</div>}
+  </div>
+
+  <div style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:12,padding:"14px 16px",display:"flex",flexDirection:"column",gap:10}}>
+    <div style={{fontWeight:700,fontSize:14,color:G.primary}}>{"📂 Restaurar Backup"}</div>
+    <div style={{fontSize:12,color:G.muted,lineHeight:1.6}}>
+      {"Selecione um arquivo .json de backup para restaurar todos os dados. "}
+      <strong style={{color:G.red}}>{"⚠️ Atenção: substituirá todos os dados atuais."}</strong>
+    </div>
+    <input type="file" accept=".json" id="restore-input" style={{display:"none"}}
+      onChange={function(e){
+        var file=e.target.files&&e.target.files[0];
+        if(!file)return;
+        var reader=new FileReader();
+        reader.onload=function(ev){
+          try{
+            var d=JSON.parse(ev.target.result);
+            if(!d.pats||!d.dents){setRestoreDone("ERRO");return;}
+            if(d.pats)setPats(d.pats);
+            if(d.appts)setAppts(d.appts);
+            if(d.recs)setRecs(d.recs);
+            if(d.treats)setTreats(d.treats);
+            if(d.budgets)setBudgets(d.budgets);
+            if(d.pros)setPros(d.pros);
+            if(d.rems)setRems(d.rems);
+            if(d.dents)setDents(d.dents);
+            if(d.users)setUsers(d.users);
+            if(d.labs)setLabs(d.labs);
+            if(d.procs)setProcs(d.procs);
+            if(d.stock)setStock(d.stock);
+            if(d.expenses)setExpenses(d.expenses);
+            if(d.impl)setImpl(d.impl);
+            setBkpDone(false);
+            setRestoreDone(d.exportDate.slice(0,10));
+          }catch(err){
+            setRestoreDone("ERRO");
+          }
+        };
+        reader.readAsText(file);
+        e.target.value="";
+      }}
+    />
+    {restoreDone&&restoreDone!=="ERRO"&&<div style={{background:"#E8F5E9",border:"1.5px solid #A5D6A7",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#2E7D32",textAlign:"center"}}>{"✅ Restaurado! Backup de "+restoreDone}</div>}
+    {restoreDone==="ERRO"&&<div style={{background:"#FFEBEE",border:"1.5px solid #EF9A9A",borderRadius:10,padding:"10px 14px",fontSize:13,color:G.red,textAlign:"center"}}>{"❌ Arquivo inválido. Use um backup gerado por este sistema."}</div>}
+    <button onClick={function(){document.getElementById("restore-input").click();}}
+      style={{background:"#E65100",color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+      {"📂 Selecionar Arquivo de Backup"}
+    </button>
+  </div>
+
+  <div style={{background:"#FFF8E1",border:"1.5px solid #FFD54F",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#795548"}}>
+    ⏰ <strong>Recomendado:</strong> fazer backup toda sexta-feira antes de fechar o sistema.
+  </div>
+</div>}
 
 <Modal open={um} close={()=>setUm(false)} title={eu?"Editar Usuário":"Novo Usuário"} wide ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
 <Inp lb="Nome completo" val={uf.name} set={fu("name")}/>
@@ -5374,7 +5456,7 @@ return <>
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista appts={appts} pats={pats} dents={dents} recs={recs} treats={treats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
-    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user}/>}
+    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl}/>}
     </div>
   </div>
 </div>
