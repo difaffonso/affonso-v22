@@ -95,26 +95,26 @@ const SL={confirmed:"Confirmado",pending:"Pendente",done:"Realizado",cancelled:"
 // confirmed=azul (vai vir), pending=laranja (aguardando), done=verde (realizado)
 // cancelled=vermelho (cancelado), missed=roxo (faltou), rescheduled=cinza (desmarcado)
 const SC={
-  confirmed:"#1565C0",   // Azul vivo - confirmado, vai vir
-  pending:"#E65100",     // Laranja forte - pendente, aguardando
-  done:"#2E7D32",        // Verde escuro - realizado/concluido
-  cancelled:"#C62828",   // Vermelho - cancelado
-  missed:"#6A1B9A",      // Roxo - faltou
-  rescheduled:"#37474F", // Cinza escuro - desmarcado
-  blocked:"#B71C1C",     // Vermelho escuro - bloqueado
+confirmed:"#1565C0",   // Azul vivo - confirmado, vai vir
+pending:"#E65100",     // Laranja forte - pendente, aguardando
+done:"#2E7D32",        // Verde escuro - realizado/concluido
+cancelled:"#C62828",   // Vermelho - cancelado
+missed:"#6A1B9A",      // Roxo - faltou
+rescheduled:"#37474F", // Cinza escuro - desmarcado
+blocked:"#B71C1C",     // Vermelho escuro - bloqueado
 };
 const SC_BG={
-  confirmed:"#E3F2FD",   // Azul claro
-  pending:"#FFF3E0",     // Laranja claro
-  done:"#E8F5E9",        // Verde claro
-  cancelled:"#FFEBEE",   // Vermelho claro
-  missed:"#F3E5F5",      // Roxo claro
-  rescheduled:"#ECEFF1", // Cinza claro
-  blocked:"#FFCDD2",     // Vermelho muito claro
+confirmed:"#E3F2FD",   // Azul claro
+pending:"#FFF3E0",     // Laranja claro
+done:"#E8F5E9",        // Verde claro
+cancelled:"#FFEBEE",   // Vermelho claro
+missed:"#F3E5F5",      // Roxo claro
+rescheduled:"#ECEFF1", // Cinza claro
+blocked:"#FFCDD2",     // Vermelho muito claro
 };
 // Emojis de status para identificacao rapida
 const SC_ICON={
-  confirmed:"✅",pending:"⏳",done:"✔️",cancelled:"❌",missed:"🚫",rescheduled:"🔄",blocked:"🔒"
+confirmed:"✅",pending:"⏳",done:"✔️",cancelled:"❌",missed:"🚫",rescheduled:"🔄",blocked:"🔒"
 };
 const PROS_T=["Coroa Metalocerâmica","Coroa Zircônia","Coroa Porcelana","PPR","PPF","Prótese Total","Faceta","Inlay/Onlay","Implante (coroa)","Protocolo","Outro"];
 const PROS_SL={waiting:"Aguardando",returned:"Retornou",placed:"Instalada",remake:"Refazer"};
@@ -1026,6 +1026,7 @@ return <>
 
 {/* Confirm delete modal */}
 {confirmDel&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+
   <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:360,boxShadow:"0 16px 48px rgba(0,0,0,.25)"}}>
     <div style={{background:G.red,borderRadius:"16px 16px 0 0",padding:"13px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
       <span style={{fontWeight:700,color:"#fff",fontSize:14}}>Confirmar Exclusao</span>
@@ -1203,6 +1204,28 @@ return (
     <div style={{flex:1}}/>
     <Btn ch="+ Agendamento" onClick={()=>{setEdit(null);setF({...blank,date:selDate});setModal(true);}}/>
   </div>
+  {/* Banner desmarcados/cancelados futuros */}
+  {(function(){
+    var td2=today();
+    var livres=appts.filter(function(a){return (a.status==="rescheduled"||a.status==="cancelled")&&a.date>=td2&&(!isDent||a.dentistId===user.dentistId);});
+    if(!livres.length)return null;
+    return <div style={{background:"#FFF8E1",border:"2px solid #FFC107",borderRadius:12,padding:"10px 14px",marginBottom:4}}>
+      <div style={{fontWeight:700,fontSize:12,color:"#E65100",marginBottom:8}}>{"🔔 "+livres.length+" horário(s) liberado(s) — disponível para reagendar"}</div>
+      {livres.sort(function(a,b){return a.date.localeCompare(b.date)||a.time.localeCompare(b.time);}).map(function(a){
+        var p=pats.find(function(x){return x.id===a.patientId;});
+        var d=dents.find(function(x){return x.id===a.dentistId;})||dents[0];
+        return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:"#fff",borderRadius:8,marginBottom:5,border:"1px solid #FFE082",flexWrap:"wrap"}}>
+          <span style={{fontSize:11,fontWeight:700,color:"#E65100",minWidth:70}}>{fmt(a.date)}</span>
+          <span style={{fontSize:12,fontWeight:700,color:"#E65100",minWidth:38}}>{a.time}</span>
+          <span style={{flex:1,fontSize:12,fontWeight:600}}>{p&&p.name||a.patientName||"—"}</span>
+          <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
+          <span style={{background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
+          {!isDent&&<button onClick={function(){setEdit(a);setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId)}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
+        </div>;
+      })}
+    </div>;
+  })()}
+
   {/* Legenda de cores */}
   <div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"6px 2px"}}>
     {Object.entries(SL).map(([k,l])=>(
@@ -1241,7 +1264,7 @@ return (
 var d=vd[0];
 var customTimes=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&!SLOTS.includes(x.time);}).map(function(x){return x.time;});
 var allSlots=[...new Set([...SLOTS,...customTimes])].sort();
-return allSlots.map(function(slot){
+var _slots=allSlots.map(function(slot){
 var a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentistId===d.id;});
 var p=a?pats.find(function(x){return x.id===a.patientId;}):null;
 var selDay=new Date(selDate+"T12:00").getDay();
@@ -1258,7 +1281,7 @@ if(isBlocked&&!a)return(
 </div>
 );
 // Slot ocupado por duração de consulta anterior
-const isExtraSlot=appts.some(a2=>a2.date===selDate&&a2.dentistId===d.id&&(a2.extraSlots||[]).includes(slot));
+const isExtraSlot=appts.some(a2=>a2.date===selDate&&a2.dentistId===d.id&&(a2.extraSlots||[]).includes(slot)&&a2.status!=="cancelled"&&a2.status!=="rescheduled");
 if(isExtraSlot&&!a)return(
 <div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#F3E5F5",border:"1px solid #CE93D8"}}>
 <span style={{fontSize:11,color:"#6A1B9A",minWidth:38,fontWeight:600}}>{slot}</span>
@@ -1282,6 +1305,17 @@ if(a&&a.blocked)return(
 {!isDent&&<span style={{fontSize:10,color:G.muted,marginLeft:"auto"}}>toque p/ desbloquear</span>}
 </div>
 );
+// Cancelado/desmarcado: libera o horário visualmente
+if(a.status==="cancelled"||a.status==="rescheduled"){
+return(
+<div key={slot} onClick={function(){if(isDent)return;setEdit(null);setF({...blank,date:selDate,time:slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer"}}>
+<span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
+<span style={{fontSize:11,color:G.border,flex:1}}>{isDent?"":"+ agendar"}</span>
+{!isDent&&<span style={{fontSize:10,background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+(p&&p.name||"—")}</span>}
+{!isDent&&<button onClick={e=>{e.stopPropagation();setEdit(a);setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId)}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
+</div>
+);
+}
 const isPartial=!a.patientId&&a.patientName;
 var flags=[];
 if(p&&p.obs)flags.push("⚠️ "+p.obs);
@@ -1312,7 +1346,23 @@ return(
 </div>
 </div>
 );
-});})()}
+});
+var doCancelados=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&(x.status==="cancelled"||x.status==="rescheduled");});
+var _cancelled=doCancelados.length>0?<div style={{marginTop:8,background:"#FFEBEE",border:"2px solid "+SC.cancelled,borderRadius:12,padding:"10px 14px"}}>
+<div style={{fontWeight:700,fontSize:12,color:SC.cancelled,marginBottom:8}}>{"❌ "+doCancelados.length+" cancelado(s)/desmarcado(s) — horário liberado"}</div>
+{doCancelados.map(function(a){
+var p=pats.find(function(x){return x.id===a.patientId;});
+return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:"#fff",borderRadius:8,marginBottom:4,border:"1px solid #FFCDD2",flexWrap:"wrap"}}>
+<span style={{fontSize:12,fontWeight:700,color:SC[a.status],minWidth:38}}>{a.time}</span>
+<span style={{flex:1,fontSize:12,fontWeight:600}}>{p&&p.name||"—"}</span>
+<span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
+<span style={{background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
+{!isDent&&<button onClick={function(){setEdit(a);setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId)}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
+</div>;
+})}
+</div>:null;
+return <React.Fragment>{_slots}{_cancelled}</React.Fragment>;
+})()}
 
   </div>}
   {vd.length>1&&<div style={{overflowX:"auto"}}>
@@ -2100,12 +2150,12 @@ const PCIR2=['Exodontia','Extracao','Implante','Cirurgia','Enxerto','Sinus','Gen
 const yst2=new Date(new Date(t2)-86400000).toISOString().split('T')[0];
 const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>a.procedure&&a.procedure.toLowerCase().includes(p.toLowerCase()))).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
 const semAtras2=pats.filter(p=>{
-  const uc=appts.filter(a=>a.patientId===p.id&&(a.status==='done'||a.status==='confirmed')).sort((a,b)=>b.date.localeCompare(a.date))[0];
-  return uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000)>=180:!!p.since;
+const uc=appts.filter(a=>a.patientId===p.id&&(a.status==='done'||a.status==='confirmed')).sort((a,b)=>b.date.localeCompare(a.date))[0];
+return uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000)>=180:!!p.since;
 });
 const sendWA2=async(ph,msg)=>{
-  const sent=await WA_API(ph,msg);
-  if(!sent){const a=document.createElement('a');a.href='https://wa.me/55'+ph.replace(/[^0-9]/g,'')+'?text='+encodeURIComponent(msg);a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);}
+const sent=await WA_API(ph,msg);
+if(!sent){const a=document.createElement('a');a.href='https://wa.me/55'+ph.replace(/[^0-9]/g,'')+'?text='+encodeURIComponent(msg);a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);}
 };
 
 // Espera
@@ -2114,11 +2164,11 @@ const esperaAtiva=(espera||[]).filter(e=>e.valido>=t3);
 
 // Lembretes visiveis por nivel de usuario
 const remsFiltered=rems.filter(r=>{
-  const visivel=user.level>=2?true:(!r.assignedUserId||r.assignedUserId===myUserId);
-  if(!visivel)return false;
-  if(filt==='pending')return !r.done;
-  if(filt==='done')return r.done;
-  return true;
+const visivel=user.level>=2?true:(!r.assignedUserId||r.assignedUserId===myUserId);
+if(!visivel)return false;
+if(filt==='pending')return !r.done;
+if(filt==='done')return r.done;
+return true;
 }).sort((a,b)=>a.date.localeCompare(b.date));
 
 const save=()=>{if(!f.title)return;const obj={...f,patientId:f.patientId?Number(f.patientId):null,assignedUserId:f.assignedUserId?Number(f.assignedUserId):null,id:edit?edit.id:nid(rems)};setRems(prev=>edit?prev.map(r=>r.id===edit.id?obj:r):[...prev,obj]);setModal(false);setEdit(null);setF(b0);};
@@ -2136,6 +2186,7 @@ const doneSem=semAtras2.filter(p=>semTicks[p.id]?.done);
 return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi">
 
 {/* LISTA DE ESPERA */}
+
 <div style={{background:'#F3E5F5',border:'2px solid '+(esperaAtiva.length>0?'#7B1FA2':G.border),borderRadius:14,padding:'14px 16px'}}>
   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:esperaAtiva.length>0?10:0}}>
     <div style={{fontWeight:700,fontSize:13,color:'#7B1FA2'}}>{'Lista de Espera ('+esperaAtiva.length+')'}</div>
@@ -2167,6 +2218,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 
 {/* Modal remover espera */}
 {espMotivoModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+
   <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:420,boxShadow:'0 16px 48px rgba(0,0,0,.2)'}}>
     <div style={{background:G.red,borderRadius:'16px 16px 0 0',padding:'13px 18px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <span style={{fontWeight:700,color:'#fff',fontSize:14}}>Motivo da Remocao</span>
@@ -2185,6 +2237,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 
 {/* ANIVERSARIANTES */}
 {anivHoje.length>0&&<div style={{background:'#FFF8E1',border:'2px solid #FFD54F',borderRadius:14,padding:'14px 16px'}}>
+
   <div style={{fontWeight:700,fontSize:13,color:'#E65100',marginBottom:10}}>{'Aniversariantes hoje ('+anivHoje.length+')'}</div>
   {anivHoje.map(p=><div key={p.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #FFD54F'}}>
     <div><div style={{fontWeight:600,fontSize:13}}>{p.name}</div><div style={{fontSize:11,color:'#E65100'}}>{(new Date(t2).getFullYear()-Number(p.dob.slice(0,4)))+' anos'}</div></div>
@@ -2195,6 +2248,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 
 {/* POS-CIRURGICO */}
 {posCir2.length>0&&<div style={{background:'#EDE7F6',border:'2px solid #9FA8DA',borderRadius:14,padding:'14px 16px'}}>
+
   <div style={{fontWeight:700,fontSize:13,color:'#283593',marginBottom:10}}>{'Pos-Cirurgico ('+posCir2.length+')'}</div>
   {posCir2.map(x=><div key={x.a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #C5CAE9'}}>
     <div><div style={{fontWeight:600,fontSize:13}}>{x.p.name}</div><div style={{fontSize:11,color:'#5C6BC0'}}>{x.a.procedure}</div></div>
@@ -2203,6 +2257,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 </div>}
 
 {/* RETORNO SEMESTRAL - aba expansivel */}
+
 <div style={{background:'#E8F5E9',border:'2px solid #A5D6A7',borderRadius:14,overflow:'hidden'}}>
   <button onClick={()=>setSemTab(v=>!v)} style={{width:'100%',background:'none',border:'none',padding:'13px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
     <div style={{display:'flex',alignItems:'center',gap:10}}>
@@ -2248,6 +2303,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 
 {/* Modal motivo semestral */}
 {semMotivoModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+
   <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:420,boxShadow:'0 16px 48px rgba(0,0,0,.2)'}}>
     <div style={{background:G.primary,borderRadius:'16px 16px 0 0',padding:'13px 18px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <span style={{fontWeight:700,color:'#fff',fontSize:14}}>{'Marcar - '+pats.find(p=>p.id===semMotivoModal)?.name}</span>
@@ -2266,6 +2322,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 </div>}
 
 {/* LEMBRETES MANUAIS */}
+
 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10}}>
   <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Lembretes</h2>
   <Btn ch="+ Novo" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/>
@@ -2308,6 +2365,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 
 {/* Modal apagar lembrete */}
 {remMotivoModal&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+
   <div style={{background:'#fff',borderRadius:16,width:'100%',maxWidth:420,boxShadow:'0 16px 48px rgba(0,0,0,.2)'}}>
     <div style={{background:G.red,borderRadius:'16px 16px 0 0',padding:'13px 18px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <span style={{fontWeight:700,color:'#fff',fontSize:14}}>Apagar Lembrete</span>
@@ -2326,10 +2384,11 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 
 {/* Modal novo/editar lembrete */}
 <Modal open={modal} close={()=>{setModal(false);setEdit(null);setF(b0);}} title={edit?'Editar Lembrete':'Novo Lembrete'} ch={<div style={{display:'flex',flexDirection:'column',gap:11}}>
-  <Inp lb="Titulo" val={f.title} set={upd('title')}/>
-  <Txt lb="Descricao" val={f.desc} set={upd('desc')} rows={2}/>
-  <R2 a={<Inp lb="Data" val={f.date} set={upd('date')} type="date"/>} b={<Sel lb="Prioridade" val={f.priority} set={upd('priority')} opts={Object.entries(PRIO).map(([v,l])=>({v,l}))}/>}/>
-  <PatSearch lb="Paciente (opcional)" val={f.patientId} set={upd('patientId')} pats={pats} optional/>
+<Inp lb="Titulo" val={f.title} set={upd('title')}/>
+<Txt lb="Descricao" val={f.desc} set={upd('desc')} rows={2}/>
+<R2 a={<Inp lb="Data" val={f.date} set={upd('date')} type="date"/>} b={<Sel lb="Prioridade" val={f.priority} set={upd('priority')} opts={Object.entries(PRIO).map(([v,l])=>({v,l}))}/>}/>
+<PatSearch lb="Paciente (opcional)" val={f.patientId} set={upd('patientId')} pats={pats} optional/>
+
   <div style={{display:'flex',flexDirection:'column',gap:4}}>
     <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:'uppercase',letterSpacing:'.4px'}}>Visivel para</label>
     <select value={String(f.assignedUserId)} onChange={e=>upd('assignedUserId')(e.target.value)} style={{border:'1.5px solid '+G.border,borderRadius:8,padding:'9px 12px',fontSize:14,outline:'none',background:'#fff'}}>
@@ -2345,7 +2404,6 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 </div>;
 }
 
-
 // ══════════════════════════════════════════════════════════
 // FINANCEIRO
 // ══════════════════════════════════════════════════════════
@@ -2359,10 +2417,10 @@ const PC={"Dinheiro":G.success,"PIX":"#00B894","Cartao Credito":G.blue,"Cartao D
 
 // Filtro de registros
 const mr=recs.filter(r=>{
-  if(!r.paid||r.paid<=0)return false;
-  if(dn!=="all"&&r.dentistId!==Number(dn))return false;
-  if(modo==="mensal")return r.date.startsWith(mo);
-  return r.date===dia;
+if(!r.paid||r.paid<=0)return false;
+if(dn!=="all"&&r.dentistId!==Number(dn))return false;
+if(modo==="mensal")return r.date.startsWith(mo);
+return r.date===dia;
 });
 
 const raw=mr.reduce((s,r)=>s+r.paid,0);
@@ -2378,12 +2436,12 @@ const nextDia=()=>{const d=new Date(dia+"T12:00");d.setDate(d.getDate()+1);setDi
 // Para modo mensal: agrupar por dia
 const porDia={};
 if(modo==="mensal"){
-  mr.forEach(r=>{
-    if(!porDia[r.date])porDia[r.date]={raw:0,liq:0,recs:[]};
-    porDia[r.date].raw+=r.paid;
-    porDia[r.date].liq+=calcNet(r.paid,r.payment);
-    porDia[r.date].recs.push(r);
-  });
+mr.forEach(r=>{
+if(!porDia[r.date])porDia[r.date]={raw:0,liq:0,recs:[]};
+porDia[r.date].raw+=r.paid;
+porDia[r.date].liq+=calcNet(r.paid,r.payment);
+porDia[r.date].recs.push(r);
+});
 }
 
 const [diaAberto,setDiaAberto]=useState(null);
@@ -2391,12 +2449,14 @@ const [diaAberto,setDiaAberto]=useState(null);
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
 {/* Header */}
+
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
   <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Financeiro</h2>
   <Sel val={dn} set={setDn} opts={[{v:"all",l:"Todos"},...dents.map(d=>({v:d.id,l:d.name}))]} style={{width:180}}/>
 </div>
 
 {/* Toggle mensal/diario */}
+
 <div style={{display:"flex",gap:0,background:G.bg,borderRadius:10,padding:3}}>
   {[["mensal","📅 Mensal"],["diario","📆 Diário"]].map(([k,l])=>(
     <button key={k} onClick={()=>setModo(k)} style={{flex:1,border:"none",borderRadius:8,padding:"9px 4px",fontSize:13,fontWeight:700,cursor:"pointer",background:modo===k?G.primary:G.bg,color:modo===k?"#fff":G.muted,transition:"all .15s"}}>{l}</button>
@@ -2405,9 +2465,10 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 {/* Seletor de periodo */}
 {modo==="mensal"&&(
-  <Inp val={mo} set={setMo} type="month" style={{width:"100%"}}/>
+<Inp val={mo} set={setMo} type="month" style={{width:"100%"}}/>
 )}
 {modo==="diario"&&(
+
   <div style={{display:"flex",alignItems:"center",gap:8}}>
     <button onClick={prevDia} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"7px 13px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{"<"}</button>
     <input type="date" value={dia} onChange={e=>setDia(e.target.value)} style={{flex:1,border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",textAlign:"center"}}/>
@@ -2417,6 +2478,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 )}
 
 {/* Cards resumo */}
+
 <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
   {[["Receita Bruta",raw,G.primary],["Receita Líquida",liq,G.success],["Despesas",clinicExp,G.red],["Resultado",liq-clinicExp,liq-clinicExp>=0?G.success:G.red]].map(([l,v,c])=>(
     <div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
@@ -2428,6 +2490,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 {/* Por forma de pagamento */}
 {byP.length>0&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+
   <div style={{fontWeight:700,marginBottom:11,fontSize:13}}>Por Forma de Pagamento</div>
   {byP.map(({pt,v})=><div key={pt} style={{marginBottom:10}}>
     <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
@@ -2443,6 +2506,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 {/* MODO MENSAL: lista agrupada por dia */}
 {modo==="mensal"&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+
   <div style={{fontWeight:700,marginBottom:11,fontSize:13}}>{"Dias com recebimento ("+Object.keys(porDia).length+")"}</div>
   {Object.keys(porDia).length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum recebimento neste mês</p>}
   {Object.keys(porDia).sort((a,b)=>b.localeCompare(a)).map(d=>{
@@ -2462,7 +2526,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
           const den=dents.find(x=>x.id===r.dentistId)||dents[0];
           return <div key={r.id} style={{display:"flex",alignItems:"center",gap:7,padding:"5px 0",borderTop:"1px solid "+G.border,flexWrap:"wrap"}}>
             <div style={{flex:1,minWidth:80}}>
-              <span style={{fontSize:12,fontWeight:600}}>{p?.name||"—"}</span>
+              <span style={{fontSize:12,fontWeight:600}}>{p?.name||"--"}</span>
               <span style={{fontSize:11,color:G.muted}}>{" - "+r.procedure}</span>
             </div>
             <span style={{fontSize:11,color:den.color,fontWeight:600}}>{den.name.split(" ")[0]}</span>
@@ -2492,6 +2556,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 {/* MODO DIARIO: lista detalhada do dia */}
 {modo==="diario"&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+
   <div style={{fontWeight:700,marginBottom:11,fontSize:13}}>{"Atendimentos - "+fmt(dia)+" ("+mr.length+")"}</div>
   {mr.length===0&&<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13}}>
     <div style={{fontSize:28,marginBottom:6}}>0</div>
@@ -2503,7 +2568,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
     return <div key={r.id} style={{padding:"10px 0",borderBottom:"1px solid "+G.border}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
         <div style={{flex:1}}>
-          <div style={{fontWeight:700,fontSize:13}}>{p?.name||"—"}</div>
+          <div style={{fontWeight:700,fontSize:13}}>{p?.name||"--"}</div>
           <div style={{fontSize:12,color:G.muted,marginTop:1}}>{r.procedure}</div>
           <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap",alignItems:"center"}}>
             <span style={{fontSize:11,color:d.color,fontWeight:600}}>{d.name.split(" ")[0]}</span>
@@ -2532,7 +2597,6 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 </div>;
 }
-
 
 // ══════════════════════════════════════════════════════════
 // MSG TAB - WhatsApp component (outside Relatorios to allow useState)
@@ -3828,11 +3892,11 @@ var curMonth=year+"-"+String(month+1).padStart(2,"0");
 
 // ── Helpers ──────────────────────────────────────────────
 function addMes(ym,n){
-  var a=parseInt(ym.slice(0,4));
-  var m=parseInt(ym.slice(5,7))-1+n;
-  a+=Math.floor(m/12);
-  m=((m%12)+12)%12;
-  return a+"-"+String(m+1).padStart(2,"0");
+var a=parseInt(ym.slice(0,4));
+var m=parseInt(ym.slice(5,7))-1+n;
+a+=Math.floor(m/12);
+m=((m%12)+12)%12;
+return a+"-"+String(m+1).padStart(2,"0");
 }
 
 // ── NUCLEO: calcular liberacoes por tratamento ──────────
@@ -3841,166 +3905,172 @@ function addMes(ym,n){
 // 2. Para cada procedimento CONCLUIDO, verifica quando 100% foi acumulado
 // 3. Calcula comissao com taxa proporcional ao metodo de pagamento
 function calcularLiberacoes(treat,dentist){
-  var results=[];
-  if(!treat||!treat.payments||!treat.items)return results;
+var results=[];
+if(!treat||!treat.payments||!treat.items)return results;
 
-  // Pagamentos ordenados por data
-  var payments=[].concat(treat.payments).sort(function(a,b){
-    return (a.date||"").localeCompare(b.date||"");
-  });
+// Pagamentos ordenados por data
+var payments=[].concat(treat.payments).sort(function(a,b){
+return (a.date||"").localeCompare(b.date||"");
+});
 
-  if(payments.length===0)return results;
+if(payments.length===0)return results;
 
-  // Monta fluxo: para cada pagamento, gera entradas mensais
-  // Cartao credito Nx: divide em N parcelas mensais a partir do mes seguinte
-  // Dinheiro/PIX/Debito: entra no mesmo mes do pagamento
-  var fluxo=[]; // [{mes, valor, metodo}]
-  payments.forEach(function(p){
-    var val=Number(p.value||0);
-    var met=(p.method||"").toLowerCase();
-    var inst=Math.max(1,Number(p.inst||p.installments||1));
-    var isCredito=met.indexOf("credito")>=0||met.indexOf("crédito")>=0;
-    var isDebito=met.indexOf("debito")>=0||met.indexOf("débito")>=0;
-    var mesBase=p.date?p.date.slice(0,7):curMonth;
+// Monta fluxo: para cada pagamento, gera entradas mensais
+// Cartao credito Nx: divide em N parcelas mensais a partir do mes seguinte
+// Dinheiro/PIX/Debito: entra no mesmo mes do pagamento
+var fluxo=[]; // [{mes, valor, metodo}]
+payments.forEach(function(p){
+var val=Number(p.value||0);
+var met=(p.method||"").toLowerCase();
+var inst=Math.max(1,Number(p.inst||p.installments||1));
+var isCredito=met.indexOf("credito")>=0||met.indexOf("crédito")>=0;
+var isDebito=met.indexOf("debito")>=0||met.indexOf("débito")>=0;
+var mesBase=p.date?p.date.slice(0,7):curMonth;
 
-    if(isCredito&&inst>1){
-      var parcela=val/inst;
-      for(var i=1;i<=inst;i++){
-        fluxo.push({mes:addMes(mesBase,i),valor:parcela,metodo:"credito"});
-      }
-    } else if(isCredito){
-      // credito 1x: entra mes seguinte
-      fluxo.push({mes:addMes(mesBase,1),valor:val,metodo:"credito"});
-    } else if(isDebito){
-      fluxo.push({mes:addMes(mesBase,1),valor:val,metodo:"debito"});
-    } else {
-      // dinheiro/pix: entra no mesmo mes
-      fluxo.push({mes:mesBase,valor:val,metodo:"dinheiro"});
-    }
-  });
+```
+if(isCredito&&inst>1){
+  var parcela=val/inst;
+  for(var i=1;i<=inst;i++){
+    fluxo.push({mes:addMes(mesBase,i),valor:parcela,metodo:"credito"});
+  }
+} else if(isCredito){
+  // credito 1x: entra mes seguinte
+  fluxo.push({mes:addMes(mesBase,1),valor:val,metodo:"credito"});
+} else if(isDebito){
+  fluxo.push({mes:addMes(mesBase,1),valor:val,metodo:"debito"});
+} else {
+  // dinheiro/pix: entra no mesmo mes
+  fluxo.push({mes:mesBase,valor:val,metodo:"dinheiro"});
+}
+```
 
-  // Ordena fluxo por mes
-  fluxo.sort(function(a,b){return a.mes.localeCompare(b.mes);});
+});
 
-  // Procedimentos CONCLUIDOS ordenados do MAIOR para MENOR valor
-  var procsConcluidos=treat.items.filter(function(it){
-    return it.done||it.paid;
-  }).sort(function(a,b){return b.value-a.value;});
+// Ordena fluxo por mes
+fluxo.sort(function(a,b){return a.mes.localeCompare(b.mes);});
 
-  if(procsConcluidos.length===0)return results;
+// Procedimentos CONCLUIDOS ordenados do MAIOR para MENOR valor
+var procsConcluidos=treat.items.filter(function(it){
+return it.done||it.paid;
+}).sort(function(a,b){return b.value-a.value;});
 
-  // ALGORITMO DE AMORTIZACAO
-  // Processa mes a mes, alocando saldo nos procedimentos (maior primeiro)
-  // Quando 100% de um procedimento e coberto -> libera comissao naquele mes
-  var saldoAcumulado=0;
-  var procsPendentes=procsConcluidos.map(function(it){
-    return {desc:it.desc,value:it.value,pago:0,liberado:false};
-  });
+if(procsConcluidos.length===0)return results;
 
-  // Agrupa fluxo por mes
-  var meses={};
-  fluxo.forEach(function(f){
-    if(!meses[f.mes])meses[f.mes]={total:0,credito:0,debito:0,dinheiro:0};
-    meses[f.mes].total+=f.valor;
-    meses[f.mes][f.metodo]+=f.valor;
-  });
+// ALGORITMO DE AMORTIZACAO
+// Processa mes a mes, alocando saldo nos procedimentos (maior primeiro)
+// Quando 100% de um procedimento e coberto -> libera comissao naquele mes
+var saldoAcumulado=0;
+var procsPendentes=procsConcluidos.map(function(it){
+return {desc:it.desc,value:it.value,pago:0,liberado:false};
+});
 
-  var mesOrdem=Object.keys(meses).sort();
-  if(mesOrdem.length===0)return results;
+// Agrupa fluxo por mes
+var meses={};
+fluxo.forEach(function(f){
+if(!meses[f.mes])meses[f.mes]={total:0,credito:0,debito:0,dinheiro:0};
+meses[f.mes].total+=f.valor;
+meses[f.mes][f.metodo]+=f.valor;
+});
 
-  // Para cada mes com entrada
-  mesOrdem.forEach(function(mes){
-    var entradaMes=meses[mes].total;
-    var entradaCredito=meses[mes].credito;
-    var entradaDebito=meses[mes].debito;
-    var entradaDinheiro=meses[mes].dinheiro;
+var mesOrdem=Object.keys(meses).sort();
+if(mesOrdem.length===0)return results;
 
-    saldoAcumulado+=entradaMes;
+// Para cada mes com entrada
+mesOrdem.forEach(function(mes){
+var entradaMes=meses[mes].total;
+var entradaCredito=meses[mes].credito;
+var entradaDebito=meses[mes].debito;
+var entradaDinheiro=meses[mes].dinheiro;
 
-    // Tenta liberar procedimentos pendentes (maior primeiro)
-    procsPendentes.forEach(function(proc){
-      if(proc.liberado)return;
+```
+saldoAcumulado+=entradaMes;
 
-      // Quanto ainda falta para este procedimento
-      var falta=proc.value-proc.pago;
-      if(falta<=0.001){
-        // Ja estava 100% pago mas nao foi liberado ainda -> libera agora
-        proc.liberado=true;
-        // Calcular proporcao de cada metodo no pagamento deste procedimento
-        var totalPago=proc.value;
-        var totalGeralPago=procsConcluidos.reduce(function(s,x){return s+x.value;},0);
-        var proporcao=totalGeralPago>0?totalPago/totalGeralPago:1;
-        // Credito proporcional ao procedimento
-        var credProc=Object.values(meses).reduce(function(s,m){return s+m.credito;},0)*proporcao;
-        var debProc=Object.values(meses).reduce(function(s,m){return s+m.debito;},0)*proporcao;
-        var comBruta=totalPago*COMM;
-        var taxaDesc=(credProc/totalPago)*comBruta*0.035+(debProc/totalPago)*comBruta*0.02;
-        var comLiq=comBruta-taxaDesc;
-        results.push({mes:mes,patName:pats.find(function(p){return p.id===treat.patientId;})||{name:"Paciente"},proc:proc.desc,value:proc.value,comBruta:comBruta,taxa:taxaDesc,comLiq:comLiq,status:"liberado"});
-        return;
-      }
+// Tenta liberar procedimentos pendentes (maior primeiro)
+procsPendentes.forEach(function(proc){
+  if(proc.liberado)return;
 
-      if(saldoAcumulado>=proc.value&&saldoAcumulado>proc.pago){
-        // Tem saldo suficiente para cobrir este procedimento
-        var valorUsado=proc.value-proc.pago;
-        saldoAcumulado-=valorUsado;
-        proc.pago=proc.value;
-        proc.liberado=true;
+  // Quanto ainda falta para este procedimento
+  var falta=proc.value-proc.pago;
+  if(falta<=0.001){
+    // Ja estava 100% pago mas nao foi liberado ainda -> libera agora
+    proc.liberado=true;
+    // Calcular proporcao de cada metodo no pagamento deste procedimento
+    var totalPago=proc.value;
+    var totalGeralPago=procsConcluidos.reduce(function(s,x){return s+x.value;},0);
+    var proporcao=totalGeralPago>0?totalPago/totalGeralPago:1;
+    // Credito proporcional ao procedimento
+    var credProc=Object.values(meses).reduce(function(s,m){return s+m.credito;},0)*proporcao;
+    var debProc=Object.values(meses).reduce(function(s,m){return s+m.debito;},0)*proporcao;
+    var comBruta=totalPago*COMM;
+    var taxaDesc=(credProc/totalPago)*comBruta*0.035+(debProc/totalPago)*comBruta*0.02;
+    var comLiq=comBruta-taxaDesc;
+    results.push({mes:mes,patName:pats.find(function(p){return p.id===treat.patientId;})||{name:"Paciente"},proc:proc.desc,value:proc.value,comBruta:comBruta,taxa:taxaDesc,comLiq:comLiq,status:"liberado"});
+    return;
+  }
 
-        // Proporcao de cada metodo de pagamento usado NESTE procedimento
-        // Aproximacao: proporcional ao total de cada metodo
-        var totalEntradas=fluxo.reduce(function(s,f){return s+f.valor;},0);
-        var totalCredito=fluxo.filter(function(f){return f.metodo==="credito";}).reduce(function(s,f){return s+f.valor;},0);
-        var totalDebito=fluxo.filter(function(f){return f.metodo==="debito";}).reduce(function(s,f){return s+f.valor;},0);
-        var propCred=totalEntradas>0?totalCredito/totalEntradas:0;
-        var propDeb=totalEntradas>0?totalDebito/totalEntradas:0;
+  if(saldoAcumulado>=proc.value&&saldoAcumulado>proc.pago){
+    // Tem saldo suficiente para cobrir este procedimento
+    var valorUsado=proc.value-proc.pago;
+    saldoAcumulado-=valorUsado;
+    proc.pago=proc.value;
+    proc.liberado=true;
 
-        var comBruta=proc.value*COMM;
-        // Taxa sobre a parte proporcional em credito/debito da COMISSAO
-        var taxaCred=comBruta*propCred*0.035;
-        var taxaDeb=comBruta*propDeb*0.02;
-        var comLiq=comBruta-taxaCred-taxaDeb;
+    // Proporcao de cada metodo de pagamento usado NESTE procedimento
+    // Aproximacao: proporcional ao total de cada metodo
+    var totalEntradas=fluxo.reduce(function(s,f){return s+f.valor;},0);
+    var totalCredito=fluxo.filter(function(f){return f.metodo==="credito";}).reduce(function(s,f){return s+f.valor;},0);
+    var totalDebito=fluxo.filter(function(f){return f.metodo==="debito";}).reduce(function(s,f){return s+f.valor;},0);
+    var propCred=totalEntradas>0?totalCredito/totalEntradas:0;
+    var propDeb=totalEntradas>0?totalDebito/totalEntradas:0;
 
-        var pat=pats.find(function(p){return p.id===treat.patientId;});
-        results.push({
-          mes:mes,
-          patName:pat?pat.name:"Paciente",
-          treatName:treat.name||"Tratamento",
-          proc:proc.desc,
-          value:proc.value,
-          comBruta:comBruta,
-          taxa:taxaCred+taxaDeb,
-          comLiq:comLiq,
-          status:"liberado"
-        });
-      } else if(saldoAcumulado>proc.pago){
-        // Saldo parcial - atualiza quanto ja foi pago mas nao libera
-        proc.pago=saldoAcumulado;
-      }
+    var comBruta=proc.value*COMM;
+    // Taxa sobre a parte proporcional em credito/debito da COMISSAO
+    var taxaCred=comBruta*propCred*0.035;
+    var taxaDeb=comBruta*propDeb*0.02;
+    var comLiq=comBruta-taxaCred-taxaDeb;
+
+    var pat=pats.find(function(p){return p.id===treat.patientId;});
+    results.push({
+      mes:mes,
+      patName:pat?pat.name:"Paciente",
+      treatName:treat.name||"Tratamento",
+      proc:proc.desc,
+      value:proc.value,
+      comBruta:comBruta,
+      taxa:taxaCred+taxaDeb,
+      comLiq:comLiq,
+      status:"liberado"
     });
-  });
+  } else if(saldoAcumulado>proc.pago){
+    // Saldo parcial - atualiza quanto ja foi pago mas nao libera
+    proc.pago=saldoAcumulado;
+  }
+});
+```
 
-  // Procedimentos pendentes (nao liberados ainda)
-  procsPendentes.forEach(function(proc){
-    if(!proc.liberado){
-      var pat=pats.find(function(p){return p.id===treat.patientId;});
-      results.push({
-        mes:null,
-        patName:pat?pat.name:"Paciente",
-        treatName:treat.name||"Tratamento",
-        proc:proc.desc,
-        value:proc.value,
-        pago:proc.pago,
-        comBruta:proc.value*COMM,
-        taxa:0,
-        comLiq:0,
-        status:"aguardando",
-        falta:proc.value-proc.pago
-      });
-    }
-  });
+});
 
-  return results;
+// Procedimentos pendentes (nao liberados ainda)
+procsPendentes.forEach(function(proc){
+if(!proc.liberado){
+var pat=pats.find(function(p){return p.id===treat.patientId;});
+results.push({
+mes:null,
+patName:pat?pat.name:"Paciente",
+treatName:treat.name||"Tratamento",
+proc:proc.desc,
+value:proc.value,
+pago:proc.pago,
+comBruta:proc.value*COMM,
+taxa:0,
+comLiq:0,
+status:"aguardando",
+falta:proc.value-proc.pago
+});
+}
+});
+
+return results;
 }
 
 // ── Processa todos os tratamentos do dentista ──────────
@@ -4008,34 +4078,34 @@ var todasLiberacoes=[];
 var todosAguardando=[];
 
 (treats||[]).filter(function(t){
-  return Number(t.dentistId)===Number(selDent)||
-    (t.items||[]).some(function(it){
-      return (it.doneByDentistId&&Number(it.doneByDentistId)===Number(selDent))||
-             (it.doneBy&&dent&&it.doneBy===dent.name);
-    });
+return Number(t.dentistId)===Number(selDent)||
+(t.items||[]).some(function(it){
+return (it.doneByDentistId&&Number(it.doneByDentistId)===Number(selDent))||
+(it.doneBy&&dent&&it.doneBy===dent.name);
+});
 }).forEach(function(t){
-  var libs=calcularLiberacoes(t,dent);
-  libs.forEach(function(l){
-    if(l.status==="liberado")todasLiberacoes.push(l);
-    else todosAguardando.push(l);
-  });
+var libs=calcularLiberacoes(t,dent);
+libs.forEach(function(l){
+if(l.status==="liberado")todasLiberacoes.push(l);
+else todosAguardando.push(l);
+});
 });
 
 // Sem baixa (procedimentos concluidos mas sem pagamento registrado)
 var semBaixa=[];
 (treats||[]).filter(function(t){return Number(t.dentistId)===Number(selDent);}).forEach(function(t){
-  (t.items||[]).forEach(function(it){
-    if((it.done||it.paid)&&(!t.payments||t.payments.length===0)){
-      var pat=pats.find(function(p){return p.id===t.patientId;});
-      semBaixa.push({patName:pat?pat.name:"Paciente",treatName:t.name||"",proc:it.desc,value:it.value});
-    }
-  });
+(t.items||[]).forEach(function(it){
+if((it.done||it.paid)&&(!t.payments||t.payments.length===0)){
+var pat=pats.find(function(p){return p.id===t.patientId;});
+semBaixa.push({patName:pat?pat.name:"Paciente",treatName:t.name||"",proc:it.desc,value:it.value});
+}
+});
 });
 
 // Cards: este mes, proximo, seguinte
 var getTotal=function(y,m){
-  var ms=y+"-"+String(m+1).padStart(2,"0");
-  return todasLiberacoes.filter(function(l){return l.mes===ms;}).reduce(function(s,l){return s+l.comLiq;},0);
+var ms=y+"-"+String(m+1).padStart(2,"0");
+return todasLiberacoes.filter(function(l){return l.mes===ms;}).reduce(function(s,l){return s+l.comLiq;},0);
 };
 var nm1=month===11?0:month+1;var ny1=month===11?year+1:year;
 var nm2=nm1===11?0:nm1+1;var ny2=nm1===11?ny1+1:ny1;
@@ -4043,20 +4113,23 @@ var totalMes=getTotal(year,month);
 var thisMonthItems=todasLiberacoes.filter(function(l){return l.mes===curMonth;});
 
 return(
+
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
     <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Recebimentos</h2>
     {!isDent&&<Sel lb="" val={selDent} set={setSelDent} opts={myDents.map(function(d){return{v:String(d.id),l:d.name};})}/>}
   </div>
 
-  {/* Navigacao mes */}
+{/* Navigacao mes */}
+
   <div style={{display:"flex",alignItems:"center",gap:8}}>
     <button onClick={prevMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{"<"}</button>
     <span style={{fontWeight:700,fontSize:16,flex:1,textAlign:"center"}}>{MF[month]+" "+year}</span>
     <button onClick={nextMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{">"}</button>
   </div>
 
-  {/* Cards previsao */}
+{/* Cards previsao */}
+
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
     {[[MF[month],totalMes,"Este mes",year,month],[MF[nm1],getTotal(ny1,nm1),"Prox. mes",ny1,nm1],[MF[nm2],getTotal(ny2,nm2),"Mes seguinte",ny2,nm2]].map(function(row){
       var isCur=row[3]===year&&row[4]===month;
@@ -4070,101 +4143,103 @@ return(
     })}
   </div>
 
-  {/* Sem pagamento registrado */}
-  {semBaixa.length>0&&(
-    <div style={{background:"#FFF3E0",border:"2px solid "+G.orange,borderRadius:12,padding:"12px 14px"}}>
-      <div style={{fontWeight:700,color:G.orange,fontSize:13,marginBottom:6}}>{"Sem pagamento registrado ("+semBaixa.length+")"}</div>
-      <div style={{fontSize:11,color:G.orange,marginBottom:8}}>Procedimentos concluidos mas sem pagamento no plano. Registre o pagamento para calcular a comissao.</div>
-      {semBaixa.map(function(x,i){return(
-        <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"5px 0",borderBottom:"1px solid "+G.orange+"40"}}>
-          <div><span style={{fontWeight:700}}>{x.patName}</span><span style={{color:G.muted}}>{" - "+x.proc}</span></div>
-          <span style={{fontWeight:700,color:G.orange}}>{"R$ "+x.value.toFixed(2)}</span>
-        </div>
-      );})}
-    </div>
-  )}
+{/* Sem pagamento registrado */}
+{semBaixa.length>0&&(
+<div style={{background:"#FFF3E0",border:"2px solid "+G.orange,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontWeight:700,color:G.orange,fontSize:13,marginBottom:6}}>{"Sem pagamento registrado ("+semBaixa.length+")"}</div>
+<div style={{fontSize:11,color:G.orange,marginBottom:8}}>Procedimentos concluidos mas sem pagamento no plano. Registre o pagamento para calcular a comissao.</div>
+{semBaixa.map(function(x,i){return(
+<div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"5px 0",borderBottom:"1px solid "+G.orange+"40"}}>
+<div><span style={{fontWeight:700}}>{x.patName}</span><span style={{color:G.muted}}>{" - "+x.proc}</span></div>
+<span style={{fontWeight:700,color:G.orange}}>{"R$ "+x.value.toFixed(2)}</span>
+</div>
+);})}
+</div>
+)}
 
-  {/* Aguardando 100% */}
-  {todosAguardando.length>0&&(
-    <div style={{background:G.accent,border:"2px solid "+G.border,borderRadius:12,padding:"12px 14px"}}>
-      <div style={{fontWeight:700,color:G.primary,fontSize:13,marginBottom:6}}>{"Aguardando pagamento completo ("+todosAguardando.length+")"}</div>
-      <div style={{fontSize:11,color:G.muted,marginBottom:8}}>Sera liberado apenas quando 100% do procedimento for quitado pela clinica.</div>
-      {todosAguardando.map(function(x,i){
-        var perc=x.value>0?Math.round((x.pago||0)/x.value*100):0;
-        return(
-          <div key={i} style={{background:"#fff",borderRadius:9,padding:"10px 12px",marginBottom:6}}>
-            <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-              <div>
-                <div style={{fontWeight:700,fontSize:13}}>{x.patName}</div>
-                <div style={{fontSize:11,color:G.muted}}>{x.treatName+" - "+x.proc}</div>
-              </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{fontWeight:700,fontSize:13,color:G.primary}}>{"R$ "+x.value.toFixed(2)}</div>
-                <div style={{fontSize:10,color:G.muted}}>{"Comissao: R$ "+x.comBruta.toFixed(2)}</div>
-              </div>
-            </div>
-            {/* Barra de progresso */}
-            <div style={{background:G.border,borderRadius:4,height:6,marginBottom:3}}>
-              <div style={{background:G.yellow,height:6,borderRadius:4,width:perc+"%",transition:"width .4s"}}/>
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:G.muted}}>
-              <span>{"Pago: R$ "+(x.pago||0).toFixed(2)}</span>
-              <span style={{color:G.red}}>{"Falta: R$ "+((x.falta)||0).toFixed(2)}</span>
-              <span style={{fontWeight:700}}>{perc+"%"}</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  )}
+{/* Aguardando 100% */}
+{todosAguardando.length>0&&(
+<div style={{background:G.accent,border:"2px solid "+G.border,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontWeight:700,color:G.primary,fontSize:13,marginBottom:6}}>{"Aguardando pagamento completo ("+todosAguardando.length+")"}</div>
+<div style={{fontSize:11,color:G.muted,marginBottom:8}}>Sera liberado apenas quando 100% do procedimento for quitado pela clinica.</div>
+{todosAguardando.map(function(x,i){
+var perc=x.value>0?Math.round((x.pago||0)/x.value*100):0;
+return(
+<div key={i} style={{background:"#fff",borderRadius:9,padding:"10px 12px",marginBottom:6}}>
+<div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+<div>
+<div style={{fontWeight:700,fontSize:13}}>{x.patName}</div>
+<div style={{fontSize:11,color:G.muted}}>{x.treatName+" - "+x.proc}</div>
+</div>
+<div style={{textAlign:"right"}}>
+<div style={{fontWeight:700,fontSize:13,color:G.primary}}>{"R$ "+x.value.toFixed(2)}</div>
+<div style={{fontSize:10,color:G.muted}}>{"Comissao: R$ "+x.comBruta.toFixed(2)}</div>
+</div>
+</div>
+{/* Barra de progresso */}
+<div style={{background:G.border,borderRadius:4,height:6,marginBottom:3}}>
+<div style={{background:G.yellow,height:6,borderRadius:4,width:perc+"%",transition:"width .4s"}}/>
+</div>
+<div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:G.muted}}>
+<span>{"Pago: R$ "+(x.pago||0).toFixed(2)}</span>
+<span style={{color:G.red}}>{"Falta: R$ "+((x.falta)||0).toFixed(2)}</span>
+<span style={{fontWeight:700}}>{perc+"%"}</span>
+</div>
+</div>
+);
+})}
+</div>
+)}
 
-  {/* Titulo detalhamento */}
+{/* Titulo detalhamento */}
+
   <div style={{fontWeight:700,fontSize:13,color:G.text,borderBottom:"1px solid "+G.border,paddingBottom:6}}>
     {"Liberados - "+MF[month]+" "+year+" ("+thisMonthItems.length+")"}
   </div>
 
-  {thisMonthItems.length===0&&(
-    <div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>
-      <div style={{fontSize:28,marginBottom:8}}>{"R$ 0"}</div>
-      <div>Nenhum procedimento liberado neste mes.</div>
-      <div style={{fontSize:11,marginTop:6}}>So aparece quando: procedimento concluido + 100% do valor pago pela clinica.</div>
-    </div>
-  )}
+{thisMonthItems.length===0&&(
+<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>
+<div style={{fontSize:28,marginBottom:8}}>{"R$ 0"}</div>
+<div>Nenhum procedimento liberado neste mes.</div>
+<div style={{fontSize:11,marginTop:6}}>So aparece quando: procedimento concluido + 100% do valor pago pela clinica.</div>
+</div>
+)}
 
-  {/* Cards de cada liberacao */}
-  {thisMonthItems.map(function(item,i){
-    var temTaxa=item.taxa>0.01;
-    return(
-      <div key={i} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 2px 8px rgba(0,0,0,.05)",borderLeft:"4px solid "+(temTaxa?G.blue:G.success)}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-          <div style={{flex:1}}>
-            <div style={{fontWeight:700,fontSize:14}}>{item.patName}</div>
-            <div style={{fontSize:12,color:G.muted,marginTop:2}}>{(item.treatName||"")+" - "+item.proc}</div>
-            <div style={{display:"flex",gap:6,marginTop:5,flexWrap:"wrap"}}>
-              <span style={{fontSize:11,color:G.muted}}>{"Proc: R$ "+item.value.toFixed(2)}</span>
-              <span style={{fontSize:11,color:G.muted}}>{"Comissao bruta: R$ "+item.comBruta.toFixed(2)}</span>
-              {temTaxa&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"Taxa: -R$ "+item.taxa.toFixed(2)}</span>}
-            </div>
-          </div>
-          <div style={{textAlign:"right",flexShrink:0}}>
-            <div style={{fontSize:18,fontWeight:800,color:G.primary}}>{"R$ "+item.comLiq.toFixed(2)}</div>
-            <div style={{fontSize:10,color:G.muted}}>{Math.round(COMM*100)+"% comissao"}</div>
-          </div>
-        </div>
-      </div>
-    );
-  })}
+{/* Cards de cada liberacao */}
+{thisMonthItems.map(function(item,i){
+var temTaxa=item.taxa>0.01;
+return(
+<div key={i} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 2px 8px rgba(0,0,0,.05)",borderLeft:"4px solid "+(temTaxa?G.blue:G.success)}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+<div style={{flex:1}}>
+<div style={{fontWeight:700,fontSize:14}}>{item.patName}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2}}>{(item.treatName||"")+" - "+item.proc}</div>
+<div style={{display:"flex",gap:6,marginTop:5,flexWrap:"wrap"}}>
+<span style={{fontSize:11,color:G.muted}}>{"Proc: R$ "+item.value.toFixed(2)}</span>
+<span style={{fontSize:11,color:G.muted}}>{"Comissao bruta: R$ "+item.comBruta.toFixed(2)}</span>
+{temTaxa&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"Taxa: -R$ "+item.taxa.toFixed(2)}</span>}
+</div>
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontSize:18,fontWeight:800,color:G.primary}}>{"R$ "+item.comLiq.toFixed(2)}</div>
+<div style={{fontSize:10,color:G.muted}}>{Math.round(COMM*100)+"% comissao"}</div>
+</div>
+</div>
+</div>
+);
+})}
 
-  {/* Total do mes */}
-  {thisMonthItems.length>0&&(
-    <div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <div>
-        <div style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+MF[month]}</div>
-        <div style={{color:"rgba(255,255,255,.7)",fontSize:11}}>{thisMonthItems.length+" procedimento(s) liberado(s)"}</div>
-      </div>
-      <span style={{color:"#fff",fontWeight:800,fontSize:22}}>{"R$ "+totalMes.toFixed(2)}</span>
-    </div>
-  )}
+{/* Total do mes */}
+{thisMonthItems.length>0&&(
+<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div>
+<div style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+MF[month]}</div>
+<div style={{color:"rgba(255,255,255,.7)",fontSize:11}}>{thisMonthItems.length+" procedimento(s) liberado(s)"}</div>
+</div>
+<span style={{color:"#fff",fontWeight:800,fontSize:22}}>{"R$ "+totalMes.toFixed(2)}</span>
+</div>
+)}
+
 </div>
 );
 }
