@@ -3813,25 +3813,13 @@ setExtra(function(prev){return[...prev,{...mf,id:"x_"+Date.now()}];});
 setAddMod(false);setMf({name:"",cat:"Outros",pos:"",qty:""});
 };
 var [showPrint,setShowPrint]=useState(false);
-var doPrint=function(){setShowPrint(true);};
-var doPrintWindow=function(){
-var hoje=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
-var meds_int=sel.filter(function(m){return m.cat!=="Antisséptico";});
-var meds_ext=sel.filter(function(m){return m.cat==="Antisséptico";});
-var data={
-paciente:pat&&pat.name||"-",
-dentista:dent&&dent.name||"Dr. Diego Affonso",
-cro:"CRO "+(dent&&dent.cro||"SP-72.278"),
-data:"São Paulo, "+hoje,
-meds_int:meds_int.map(function(m){return{nome:m.name,qty:m.qtyEdit,pos:m.posEdit};}),
-meds_ext:meds_ext.map(function(m){return{nome:m.name,qty:m.qtyEdit,pos:m.posEdit};}),
-obs:obs||""
+
+var doPrint=function(){
+  if(!sel.length&&!obs){return;}
+  setShowPrint(true);
 };
-var hash=encodeURIComponent(JSON.stringify(data));
-var recLink="https://claude.ai/public/artifacts/1e3017aa-bd82-493d-929f-1a624a9c6445#"+hash;
-var a=document.createElement("a");a.href=recLink;a.target="_blank";a.rel="noreferrer";
-document.body.appendChild(a);a.click();document.body.removeChild(a);
-};
+
+
 return (
 
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -3918,27 +3906,80 @@ return (
 </div>
 )}
 
-{showPrint&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-
-<div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
-<div style={{background:"#075E54",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
-<span style={{fontSize:20}}>📋</span>
-<div style={{flex:1,fontWeight:700,color:"#fff",fontSize:14}}>Enviar Receituário</div>
-<button onClick={function(){setShowPrint(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>X</button>
+{showPrint&&(function(){
+var hoje=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
+var meds_int=sel.filter(function(m){return m.cat!=="Antisséptico";});
+var meds_ext=sel.filter(function(m){return m.cat==="Antisséptico";});
+var nomePac=pat&&pat.name||"—";
+var nomeDent=dent&&dent.name||"Dr. Diego Affonso";
+var croDent="CRO "+(dent&&dent.cro||"SP-72.278");
+return(
+<div style={{position:"fixed",inset:0,zIndex:9999,background:"#f5f0e8",overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px"}}>
+  {/* Print styles injected */}
+  <style dangerouslySetInnerHTML={{__html:"@media print{.no-print{display:none!important}.print-page{box-shadow:none!important;max-width:100%!important}}"}}/>
+  {/* Action buttons - hidden on print */}
+  <div className="no-print" style={{display:"flex",gap:12,marginBottom:20,width:"100%",maxWidth:520}}>
+    <button onClick={function(){setShowPrint(false);}} style={{flex:1,padding:"12px",border:"1.5px solid #ccc",borderRadius:10,background:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>← Voltar</button>
+    <button onClick={function(){window.print();}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir / Salvar PDF</button>
+  </div>
+  {/* Receipt page */}
+  <div className="print-page" style={{background:"#fff",maxWidth:520,width:"100%",padding:40,borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)"}}>
+    {/* Header */}
+    <div style={{textAlign:"center",marginBottom:24}}>
+      <div style={{fontSize:11,letterSpacing:3,color:"#8B6914",textTransform:"uppercase",marginBottom:4}}>Affonso Odontologia</div>
+      <div style={{fontSize:10,letterSpacing:2,color:"#999",textTransform:"uppercase"}}>Clínica Especializada</div>
+      <hr style={{border:"1px solid #C9A84C",margin:"12px 0"}}/>
+    </div>
+    {/* Patient */}
+    <div style={{marginBottom:20,fontSize:14}}>
+      <span style={{color:"#666"}}>Para: </span>
+      <strong>{nomePac}</strong>
+    </div>
+    {/* Uso Interno */}
+    {meds_int.length>0&&<>
+      <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"#8B6914",marginBottom:12,textTransform:"uppercase"}}>USO INTERNO</div>
+      <hr style={{border:".5px solid #C9A84C",marginBottom:16}}/>
+      {meds_int.map(function(m,i){return(
+        <div key={m.id} style={{marginBottom:18}}>
+          <div style={{display:"flex",gap:8,alignItems:"baseline"}}>
+            <span style={{fontSize:13,fontWeight:700,color:"#8B6914",minWidth:20}}>{i+1}.</span>
+            <div>
+              <span style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
+              {m.qtyEdit&&<span style={{fontSize:12,color:"#888",marginLeft:8}}>— {m.qtyEdit}</span>}
+              <div style={{fontSize:13,color:"#444",marginTop:4,lineHeight:1.5}}>{m.posEdit}</div>
+            </div>
+          </div>
+        </div>
+      );})}
+    </>}
+    {/* Uso Externo */}
+    {meds_ext.length>0&&<>
+      <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"#8B6914",margin:"16px 0 12px",textTransform:"uppercase"}}>USO EXTERNO</div>
+      <hr style={{border:".5px solid #C9A84C",marginBottom:16}}/>
+      {meds_ext.map(function(m,i){return(
+        <div key={m.id} style={{marginBottom:18}}>
+          <div style={{display:"flex",gap:8,alignItems:"baseline"}}>
+            <span style={{fontSize:13,fontWeight:700,color:"#8B6914",minWidth:20}}>{i+1}.</span>
+            <div>
+              <span style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
+              {m.qtyEdit&&<span style={{fontSize:12,color:"#888",marginLeft:8}}>— {m.qtyEdit}</span>}
+              <div style={{fontSize:13,color:"#444",marginTop:4,lineHeight:1.5}}>{m.posEdit}</div>
+            </div>
+          </div>
+        </div>
+      );})}
+    </>}
+    {/* Obs */}
+    {obs&&<div style={{background:"#f9f6ef",borderLeft:"3px solid #C9A84C",padding:"10px 14px",marginTop:12,fontSize:13,color:"#555"}}>{obs}</div>}
+    {/* Footer */}
+    <div style={{marginTop:40,textAlign:"center",borderTop:"1px solid #eee",paddingTop:20}}>
+      <div style={{fontSize:13,fontWeight:700,color:"#333"}}>{nomeDent}</div>
+      <div style={{fontSize:11,color:"#888",marginTop:3}}>{croDent}</div>
+      <div style={{fontSize:11,color:"#888",marginTop:6}}>{"São Paulo, "+hoje}</div>
+    </div>
+  </div>
 </div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-<p style={{fontSize:13,color:"#555",margin:0}}>Abre o receituário formatado para imprimir ou salvar como PDF:</p>
-<div style={{background:G.bg,borderRadius:10,padding:"10px 12px",fontSize:12,color:G.muted}}>
-{sel.map(function(m,i){return <div key={m.id}>{"• "+m.name+" - "+m.posEdit+(m.qtyEdit?" ("+m.qtyEdit+")":"")}</div>;})}
-</div>
-<button onClick={function(){doPrintWindow();setShowPrint(false);}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-{"🖨️ Abrir Receituário para Imprimir"}
-</button>
-<button onClick={function(){setShowPrint(false);}} style={{background:"none",border:"1.5px solid "+G.border,borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",color:G.muted}}>Cancelar</button>
-</div>
-</div>
-
-  </div>}
+);})()}
   <button onClick={doPrint} disabled={!sel.length&&!obs} style={{background:sel.length||obs?G.primary:"#ccc",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:sel.length||obs?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
     {"📋 Enviar para Secretária"}
   </button>
