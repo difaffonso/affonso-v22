@@ -2148,7 +2148,7 @@ const anivHoje=pats.filter(p=>p.dob&&p.dob.slice(5)===todayMD);
 const anivMes=pats.filter(p=>p.dob&&p.dob.slice(5,7)===t2.slice(5,7));
 const PCIR2=['Exodontia','Extracao','Implante','Cirurgia','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia'];
 const yst2=new Date(new Date(t2)-86400000).toISOString().split('T')[0];
-const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>a.procedure&&a.procedure.toLowerCase().includes(p.toLowerCase()))).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
+const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>a.procedure&&a.procedure.toLowerCase().includes(p.toLowerCase()))&&(!isDentist||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
 const semAtras2=pats.filter(p=>{
 const uc=appts.filter(a=>a.patientId===p.id&&(a.status==='done'||a.status==='confirmed')).sort((a,b)=>b.date.localeCompare(a.date))[0];
 return uc?Math.floor((new Date(t2)-new Date(uc.date))/86400000)>=180:!!p.since;
@@ -4848,14 +4848,17 @@ finally{isSaving.current=false;saveTimer.current=null;}
 // ── REALTIME desativado - use F5 para sincronizar entre dispositivos ──
 // (polling estava sobrescrevendo dados novos)
 
-if(!user)return <Login users={users} onLogin={setUser}/>;
+if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>;
 
 const ar=autoRems(pats,recs,appts);
-const remBadge=[...ar,...rems.filter(r=>!r.done)].filter(r=>r.date<=today()).length;
+const remBadge=(user.level===1
+  ?rems.filter(r=>!r.done&&(r.assignedUserId===user.id||!r.assignedUserId)&&r.date<=today())
+  :[...ar,...rems.filter(r=>!r.done&&r.date<=today())]
+).length;
 const prosBadge=pros.filter(p=>p.due===today()&&p.status==="waiting").length;
 
 const ALL_NAV=[
-{id:"dash",l:"🏠 Visão Geral",lv:1},{id:"agenda",l:"📅 Agenda",lv:1},
+{id:"dash",l:"🏠 Visão Geral",lv:3},{id:"agenda",l:"📅 Agenda",lv:1},
 {id:"pacs",l:"👥 Pacientes",lv:1},{id:"remarcar",l:"🔄 Remarcar",lv:2},{id:"pros",l:"🏥 Próteses",lv:2,b:prosBadge},
 {id:"impl",l:"🔩 Implantes",lv:2},{id:"lems",l:"📌 Lembretes",lv:1,b:remBadge},
 {id:"fin",l:"💰 Financeiro",lv:3},{id:"rel",l:"📊 Relatórios",lv:2},
@@ -4872,11 +4875,9 @@ setSideOpen(false); // close menu on mobile after navigation
 const cp={pats,dents,procs,user,addLog:function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}};
 
 // Bottom nav shortcuts (most used)
-const BOTTOM_NAV=[
-{id:"dash",icon:"🏠"},{id:"agenda",icon:"📅"},
-{id:"dash",icon:"🏠"},{id:"agenda",icon:"📅"},
-{id:"pacs",icon:"👥"},{id:"remarcar",icon:"🔄"},{id:"lems",icon:"📌",b:remBadge},
-];
+const BOTTOM_NAV=user.level>=3
+?[{id:"dash",icon:"🏠"},{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"lems",icon:"📌",b:remBadge},{id:"adm",icon:"⚙️"}]
+:[{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"remarcar",icon:"🔄"},{id:"lems",icon:"📌",b:remBadge},{id:"rec",icon:"📋"}];
 
 const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}`;
 
@@ -4924,7 +4925,7 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px"}}>
-      {view==="dash"&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user}/>}
       {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
