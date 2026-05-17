@@ -1764,25 +1764,6 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div></div></div></div>}
 {openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 
-{dm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-
-<div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
-<span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{ed?"Editar Dentista":"Novo Dentista"}</span>
-<button onClick={()=>setDm(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>x</button>
-</div>
-<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-<Inp lb="Nome completo *" val={df.name} set={upDf("name")} ph="Ex: Dra. Juliana Santos"/>
-<R2 a={<div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Especialidade</label><select value={df.specialty||"Clinico Geral"} onChange={e=>upDf("specialty")(e.target.value)} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",background:"#fff"}}>{["Clinico Geral","Ortodontia","Implantodontia","Endodontia","Periodontia","Cirurgia","Odontopediatria","Protese","Dentistica","Radiologia","Outro"].map(s=><option key={s} value={s}>{s}</option>)}</select></div>} b={<Inp lb="CRO" val={df.cro||""} set={upDf("cro")} ph="SP-00000"/>}/>
-<Inp lb="Comissao (%)" val={String(df.commission||40)} set={upDf("commission")} type="number" ph="40"/>
-<div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Cor na Agenda</label><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{UCOLS.map(c=><button key={c} onClick={()=>upDf("color")(c)} style={{width:28,height:28,borderRadius:"50%",background:c,border:"3px solid "+(df.color===c?"#000":"transparent"),cursor:"pointer"}}/>)}</div></div>
-<div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:6,paddingTop:12,borderTop:"1px solid "+G.border}}>
-<button onClick={()=>setDm(false)} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
-<button onClick={()=>{if(!df.name)return alert("Informe o nome");const obj={...df,commission:Number(df.commission||40),id:ed?ed.id:nid(dents)};setDents(prev=>ed?prev.map(d=>d.id===ed.id?obj:d):[...prev,obj]);if(ed)setUsers(prev=>prev.map(u=>u.dentistId===ed.id?{...u,name:df.name,color:df.color}:u));setDm(false);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Salvar Dentista</button>
-</div>
-</div>
-</div>
-</div>}
 <Modal open={pm} close={()=>setPm(false)} title={ep?"Editar Paciente":"Novo Paciente"} wide ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
   <Inp lb="Nome completo *" val={pf.name} set={fp("name")}/>
   <R2 a={<Inp lb="Nº da Ficha" val={pf.folder} set={fp("folder")} ph="F-0001"/>} b={<Inp lb="Nº do RX" val={pf.rx} set={fp("rx")} ph="RX-2024-001"/>}/>
@@ -1808,6 +1789,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
   </div>
   <SC2 save={savePat} cancel={()=>setPm(false)}/>
 </div>}/>
+
 
   </div>;
 }
@@ -1961,187 +1943,173 @@ setModal(false);
 // IMPLANTES - Planilha mês a mês estilo Excel
 // ══════════════════════════════════════════════════════════
 function Implantes({impl,setImpl,pats}){
-const MES=["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
-const SERVICES=["Exo","Enxerto","Implante","Prótese","Controle","Manutenção","Outro"];
-// Status cycle: pending -> scheduled -> done -> pending
-const STATUS={pending:"pending",scheduled:"scheduled",done:"done"};
-const ST_COLOR={pending:G.red,scheduled:G.success,done:"#111111"};
-const ST_LABEL={pending:"Não agendado",scheduled:"Agendado",done:"Finalizado"};
-const ST_NEXT={pending:"scheduled",scheduled:"done",done:"pending"};
+const IMPL_DATA=[{"id": 1, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ALMIR ROGERIO DOS SANTOS", "cirurgia": "ENXERTO LADO DIREITO", "protese": "", "controle": "", "data": "2025-01-17", "obs": "JUNHO", "extra": "", "status": "pending"}, {"id": 2, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ELIZANGELA TORRES", "cirurgia": "IMPLANTE ( olhar comentario )", "protese": "", "controle": "", "data": "2024-11-12", "obs": "DIEGO", "extra": "MSG 27/01", "status": "pending"}, {"id": 3, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ZILDA MENDES DOS SANTOS", "cirurgia": "IMPLANTE $$$", "protese": "Pac ia fazer cirurgia nas vistas ligar após dia 10", "controle": "", "data": "", "obs": "DIEGO 21-11-24", "extra": "MSG 27/01 ligar", "status": "pending"}, {"id": 4, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "SIMONE DOS SANTOS BARBOSA", "cirurgia": "EXERTO LADO ESQUERDO", "protese": "não vai fazer agora", "controle": "", "data": "2024-11-22", "obs": "DIEGO", "extra": "MSG 13/02 , NÃO CONSEGUE AGENDAR AGORA", "status": "info"}, {"id": 5, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "FABIANA SILVA OLIVEIRA", "cirurgia": "IMPLANTE (OLHAR COMENTÁRIO)", "protese": "DOIDINHA , IA PAGAR VALOR TOTAL E DESISTIU", "controle": "", "data": "2024-11-26", "obs": "DIEGO 26-11-24", "extra": "PAC DA PPR QUE PEDIU PARA MOLDAR DEPOIS DESISTIU", "status": "pending"}, {"id": 6, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "LUCIANO OLIVEIRA MARTINS", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2024-11-26", "obs": "JUNHO", "extra": "", "status": "pending"}, {"id": 7, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ADELRIZIA DIAS DE SOUZA", "cirurgia": "ENXERTO SUP ESQUERDO", "protese": "", "controle": "", "data": "2025-01-17", "obs": "JUNHO", "extra": "", "status": "pending"}, {"id": 8, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ROBERTO DIAS", "cirurgia": "", "protese": "REABERTURA$$", "controle": "CTTO FINAL DE JANEIRO PEDIR PAN", "data": "2024-12-03", "obs": "MARCIO", "extra": "", "status": "pending"}, {"id": 9, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "CASSIA RIZZI", "cirurgia": "IMPLANTE $$$", "protese": "PROTOCOLO$$$", "controle": "", "data": "2024-12-03", "obs": "MARCIO", "extra": "", "status": "pending"}, {"id": 10, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "MARIA JOSÉ SOARES DE OLIVEIRA", "cirurgia": "IMPLANTE INF $$$", "protese": "", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 11, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "DOUGLAS BATISTA ALMENDRO", "cirurgia": "", "protese": "", "controle": "IMPLANTE", "data": "2024-08-08", "obs": "DR PEDIU RETORNO EM  6 MESES", "extra": "MSG 07/02", "status": "pending"}, {"id": 12, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "DEIVE", "cirurgia": "ENXERTO", "protese": "", "controle": "", "data": "", "obs": "JUNHO", "extra": "", "status": "pending"}, {"id": 13, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "MARISTELA ROSA DE CARVALHO", "cirurgia": "", "protese": "PROTESE $$$", "controle": "final de fevereiro", "data": "2024-10-24", "obs": "Dr Marcio está conversando com a paciente", "extra": "", "status": "pending"}, {"id": 14, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "TEREZINHA  AMORIM DA  COSTA", "cirurgia": "", "protese": "PROTESE PAGO", "controle": "", "data": "2024-10-29", "obs": "", "extra": "", "status": "pending"}, {"id": 15, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "MARIA JOSÉ SOARES DE OLIVEIRA", "cirurgia": "IMPLANTE SUP $$$", "protese": "", "controle": "", "data": "2024-10-11", "obs": "PEDIDO TOMO 22/01", "extra": "", "status": "pending"}, {"id": 16, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "ADELRIZIA DIAS DE SOUZA", "cirurgia": "IMPLANTE INF (PAGO)", "protese": "", "controle": "", "data": "2024-12-06", "obs": "LEVOU PEDIDO PAN 12/01", "extra": "", "status": "pending"}, {"id": 17, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "MARIA RODRIGUES DE MOURA", "cirurgia": "IMPLANTE $$$", "protese": "PEDIR TOMO", "controle": "", "data": "2024-12-12", "obs": "MSG 07/02 ( Está sem dinheiro ,vai retornar )", "extra": "", "status": "info"}, {"id": 18, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "KATIA APARECIDA CANDIDO", "cirurgia": "ENXERTO", "protese": "ia fazer em janeiro , mas deisou para fevereiro vai esta de ferias", "controle": "", "data": "", "obs": "ABRIL", "extra": "", "status": "pending"}, {"id": 19, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2024-09-06", "obs": "", "extra": "", "status": "pending"}, {"id": 20, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "KIMY TIAGO  LOPES", "cirurgia": "IMPLANTE", "protese": "A partir do dia 15/03", "controle": "", "data": "2025-01-10", "obs": "Levou pedido tomo 13/02", "extra": "msg para saber se fez 04/04", "status": "pending"}, {"id": 21, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "KATIA SILVA SANTOS", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-01-16", "obs": "JÁ LEVOU PEDIDO DE TOMO", "extra": "", "status": "pending"}, {"id": 22, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "ALMIR ROGERIO DOS SANTOS", "cirurgia": "IMPLANTE ESQUERDO SUPERIOR", "protese": "", "controle": "", "data": "2023-11-17", "obs": "DR MARCIO", "extra": "", "status": "pending"}, {"id": 23, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "PAULO HENRIQUE DA SILVA BARROS", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-02-25", "obs": "PEDIDO TOMO 25/02", "extra": "", "status": "pending"}, {"id": 24, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "EDNA TEIXEIRA", "cirurgia": "IMPLANTE INF", "protese": "", "controle": "", "data": "2024-08-09", "obs": "RET EM 6MESES COM A TOMO E DR ALEXANDRE REAVALIAR", "extra": "paciente levou pedido tomo", "status": "pending"}, {"id": 25, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "MARIA ISABEL SANTIAGO", "cirurgia": "IMPLANTE", "protese": "REPETIR IMPLANTE", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 26, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "EMERSON NOGUEIRA", "cirurgia": "", "protese": "PROTESE", "controle": "2025-01-01 00:00:00", "data": "2024-11-06", "obs": "msg para retirar pan 21/03", "extra": "ira repetir implante em maio", "status": "pending"}, {"id": 27, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "KATIA APARECIDA CANDIDO MOTA", "cirurgia": "IMPLANTE", "protese": "", "controle": "FINAL DE ABRIL", "data": "2025-02-05", "obs": "levou pedido tomo 18/02", "extra": "", "status": "info"}, {"id": 28, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "RENATA CORDEIRO MENDES", "cirurgia": "IMPLANTE", "protese": "", "controle": "FINAL DE ABRIL", "data": "", "obs": "msg p retirar tomo 30/04", "extra": "", "status": "pending"}, {"id": 29, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "DANIEL MAESTRELLO VIRGULINO", "cirurgia": "IMPLANTE", "protese": "", "controle": "FINAL DE ABRIL", "data": "", "obs": "msg p retirar tomo 30/04", "extra": "", "status": "pending"}, {"id": 30, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "VICENCIA  SOBRINHA DE SOUZA", "cirurgia": "IMPLANTE SUP", "protese": "", "controle": "", "data": "2024-09-06", "obs": "FALAR COM A JOANA", "extra": "", "status": "pending"}, {"id": 31, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "CESAR AUGUSTO BEZERRA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-01-29", "obs": "JÁ LEVOU PEDIDO DE TOMO", "extra": "2025-01-29 00:00:00", "status": "info"}, {"id": 32, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "IZABEL CRISRINA MOREIRA", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "2024-12-13", "obs": "PEDIR PAN", "extra": "msg vir retirar pedido pan 30/04", "status": "pending"}, {"id": 33, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "SIMONE DOS SANTOS BARBOSA", "cirurgia": "IMPLANTE LADO DIREITO", "protese": "ESTA SEM DINHEIRO NO MOMENTO ( ENTRAR EM CTTO)", "controle": "", "data": "2024-11-22", "obs": "DIEGO", "extra": "msg para ret tomo 30/04", "status": "info"}, {"id": 34, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "ROSANGELA DA SILVA SANTANA", "cirurgia": "", "protese": "protese", "controle": "", "data": "", "obs": "ret maio", "extra": "msg para retirar pan  30/04", "status": "pending"}, {"id": 35, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "ADELRIZIA  DIAS DE SOUZA", "cirurgia": "IMPLANTE sup", "protese": "", "controle": "", "data": "2025-05-23", "obs": "PEDIR TOMO", "extra": "msg para retirar  tomo 30/04", "status": "pending"}, {"id": 36, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "MARIA JOSÉ SOARES DE OLIVEIRA", "cirurgia": "", "protese": "PROTESE( IMPLANTE INF )", "controle": "", "data": "2025-01-22", "obs": "", "extra": "msg para retirar pan  30/04", "status": "scheduled"}, {"id": 37, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "OSVALDO MARTINS MIRANDA", "cirurgia": "IMPALNTE  marcado 06-06", "protese": "", "controle": "", "data": "2025-03-07", "obs": "AVALIACAO DA JU", "extra": "", "status": "pending"}, {"id": 38, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "IMPLANTE INF", "protese": "final de maio", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 39, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "EDNA TEIXEIRA", "cirurgia": "ENXERTO SUP MARCADO DIA 30", "protese": "", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 40, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "EVELIN DA SILVA FERREIRA", "cirurgia": "ENXERTO SUP", "protese": "", "controle": "", "data": "2025-04-07", "obs": "LEVOU PEDIDO pAN 07/04 FAZER COMEÇO DE MAIO", "extra": "msg 30/04 para já fazer a pan", "status": "pending"}, {"id": 41, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "ARLETE LEITE CAMBOIM", "cirurgia": "IMPLANTE", "protese": "FINAL DE MAIO", "controle": "", "data": "2025-04-08", "obs": "", "extra": "", "status": "pending"}, {"id": 42, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "GABRIELLA BARROS SANTOS", "cirurgia": "IMPLANTE SUP", "protese": "", "controle": "", "data": "2025-04-09", "obs": "LEVOU TOMO LIGAR COMEÇO DE MAIO VÊ SE FEZ", "extra": "liguei ninguem atendeu 30/04 msg whtas 30/04", "status": "pending"}, {"id": 43, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "SANDRA REGINA ALVES", "protese": "SANDRA REGINA ALVES", "controle": "SANDRA REGINA ALVES", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 44, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "VILMA DOS SANTOS ANALFIO", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-04-11", "obs": "Pac estava marcada 11/04 p/ fazer a cirurgia, não veio ( Se confundio com o horario) vai viajar deixou p fazer em Junho ( CIRURGIA 30/05)", "extra": "fez a tomo", "status": "pending"}, {"id": 45, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "IZABEL CRISTINA MOREIRA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-05-20", "obs": "", "extra": "", "status": "pending"}, {"id": 46, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "LUCIANO OLIVEIRA MARTINS", "cirurgia": "", "protese": "protese", "controle": "", "data": "2024-01-22", "obs": "pedir Pan msg  26-05", "extra": "", "status": "pending"}, {"id": 47, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "ALMIR ROGERIO", "cirurgia": "IMPLANTE SUP", "protese": "", "controle": "", "data": "2025-01-17", "obs": "agendado 08/07 p/ conversar", "extra": "", "status": "pending"}, {"id": 48, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "MARIA JOSE SOARES DE OLIVIERA", "cirurgia": "", "protese": "PROTESE SUP", "controle": "", "data": "2025-02-26", "obs": "", "extra": "", "status": "pending"}, {"id": 49, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "EMERSON NOGUEIRA", "cirurgia": "", "protese": "implante inf", "controle": "", "data": "2025-06-06", "obs": "repetição", "extra": "", "status": "pending"}, {"id": 50, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "OSVALDO MARTINS DE MIRANDA", "cirurgia": "IMPLANTE INF", "protese": "", "controle": "", "data": "2025-06-06", "obs": "", "extra": "", "status": "pending"}, {"id": 51, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "HELENA CRISTINA RIBEIRO EPINDOLA", "cirurgia": "REMOÇÃO IMPLANTE", "protese": "", "controle": "", "data": "2025-06-23", "obs": "", "extra": "", "status": "pending"}, {"id": 52, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "DEIVISON SANGREGORIO", "cirurgia": "", "protese": "PROTESE PAGO", "controle": "", "data": "2024-11-29", "obs": "ENTRAR EM CTTO FINAL DE MARCÇO", "extra": "msg retirar pedido pan 21/03", "status": "pending"}, {"id": 53, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "THAIS APARECIDA NERES", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "", "obs": "OLHAR COMENTARIO", "extra": "MSG 30/04 , VAI FAZER 02/05", "status": "pending"}, {"id": 54, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "ADELRIZIA  DIAS DE SOUZA", "cirurgia": "", "protese": "PROTESE INF", "controle": "", "data": "2025-03-12", "obs": "", "extra": "PEDIR PAN", "status": "pending"}, {"id": 55, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "MARIA ISABEL DELILA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-07-18", "obs": "", "extra": "JÁ FEZ TOMO", "status": "pending"}, {"id": 56, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "ZELIA IMACULADA DE OLIVEIRA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-05-23", "obs": "", "extra": "mandar msg 27/07 msg 06/08", "status": "pending"}, {"id": 57, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "DEIVE", "cirurgia": "IMPLANTE  $$$$", "protese": "", "controle": "", "data": "2025-02-07", "obs": "TOMO msg 26-05", "extra": "msg 24/07", "status": "pending"}, {"id": 58, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "MARIA GEISA DE ARAUJO LIMA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-07-01", "obs": "LEVOU PEDIDO TOMO", "extra": "MARCADO 31/07", "status": "pending"}, {"id": 59, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "PAULO HENRIQUE", "cirurgia": "implante", "protese": "", "controle": "", "data": "2025-07-04", "obs": "", "extra": "", "status": "pending"}, {"id": 60, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "ALMIR ROGERIO", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-07-12", "obs": "", "extra": "", "status": "pending"}, {"id": 61, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "ALBERTINA   OLIVEIRA DA SILVA", "cirurgia": "ENXERTO $$$$", "protese": "", "controle": "", "data": "2025-07-18", "obs": "", "extra": "", "status": "pending"}, {"id": 62, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "DANIEL LASAGNO", "cirurgia": "ENXERTO", "protese": "", "controle": "", "data": "2025-07-18", "obs": "LEVOU PEDIDO TOMO", "extra": "", "status": "pending"}, {"id": 63, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "MARILDA  DA CRUZ CARVALHO", "cirurgia": "", "protese": "", "controle": "controle", "data": "2025-02-17", "obs": "LEVOU PEDIDO PAN 22/08 ( passou 10/09)", "extra": "", "status": "pending"}, {"id": 64, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "SILEIDE QUERINO DE ARAUJO", "cirurgia": "ENXERTO + IMPLANTE SUP", "protese": "", "controle": "", "data": "", "obs": "JÁ FEZ A TOMO", "extra": "", "status": "pending"}, {"id": 65, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "MARIA PEREIRA DOS SANTOS", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-08-01", "obs": "", "extra": "", "status": "pending"}, {"id": 66, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "SOLANGE MARIA DA SILVA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "", "obs": "TOMO OK", "extra": "", "status": "pending"}, {"id": 67, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "LUCCAS RIBEIRO COSTA", "cirurgia": "EXO", "protese": "", "controle": "", "data": "18/08/", "obs": "", "extra": "", "status": "pending"}, {"id": 68, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "", "protese": "PROTOCOLO", "controle": "", "data": "2025-03-18", "obs": "", "extra": "", "status": "pending"}, {"id": 69, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "EDNA TEIXEIRA", "cirurgia": "", "protese": "PROTESE INF", "controle": "", "data": "2025-03-28", "obs": "LEVOU PEDIDO PAN 13-06  (((  MSG11/09)))", "extra": "", "status": "pending"}, {"id": 70, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "", "protese": "PROTESE INF", "controle": "", "data": "2025-05-10", "obs": "PEDIR PAN E AVALIAR", "extra": "", "status": "pending"}, {"id": 71, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "ADELRIZIA  DIAS DE SOUZA", "cirurgia": "", "protese": "PRÓTESE SUP", "controle": "", "data": "2025-05-23", "obs": "FINAL DO MES , NÃO PRECISA PAN", "extra": "", "status": "pending"}, {"id": 72, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "ROBERTA JECIRA B GIAGOMINI", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-08-22", "obs": "LEVOU PEDIDO TOMO  ((( FEZ A TOMO  DIA 10/09)) agendada 26/09", "extra": "", "status": "pending"}, {"id": 73, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "ROSENY GOMES", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 74, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "MARIA DA LUZ MARCELINO", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "", "obs": "AGENDADA 01/10", "extra": "", "status": "pending"}, {"id": 75, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "EMERSON NOGUEIRA", "cirurgia": "", "protese": "prótese", "controle": "", "data": "2025-06-06", "obs": "pedir pan  msg 01/10", "extra": "", "status": "pending"}, {"id": 76, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "OSVALDO MARTINS DE MIRANDA", "cirurgia": "", "protese": "PROTESE INF", "controle": "", "data": "2025-06-06", "obs": "pedir pan  msg 01/10 retirou pan 07/10", "extra": "", "status": "pending"}, {"id": 77, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "JULIO CESAR GOMES", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-07-29", "obs": "PEDIR TOMO DR VAI CONVERSAR 03/10", "extra": "", "status": "pending"}, {"id": 78, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "VILMA DOS SANTOS", "cirurgia": "", "protese": "SUP E INF", "controle": "", "data": "2025-05-30", "obs": "PEDIR PAN   ((( MSG 11/09) RETIROU PAN 30/09", "extra": "", "status": "pending"}, {"id": 79, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "ELISETE HIROMI MURAKAMI", "cirurgia": "ENXERTO $$", "protese": "", "controle": "", "data": "2025-10-10", "obs": "REALIZOU A TOMO 10/10", "extra": "", "status": "pending"}, {"id": 80, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "JOAO PAULO BERNARDO DE MOURA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-10-31", "obs": "", "extra": "", "status": "pending"}, {"id": 81, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "MARIA ISABEL DELILA", "cirurgia": "PROTESE", "protese": "", "controle": "", "data": "2025-07-18", "obs": "PEDIR PAN", "extra": "", "status": "scheduled"}, {"id": 82, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "PAULO HENRIQUE", "cirurgia": "PRÓTESE", "protese": "", "controle": "", "data": "2025-07-18", "obs": "PEDIR PAN  ( LEVOU PEDIDO PAN  08/10", "extra": "", "status": "scheduled"}, {"id": 83, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "MARIA GEYSA ( MARCIO)", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-07-31", "obs": "levou pedido tomo 07/01", "extra": "", "status": "pending"}, {"id": 84, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "ROSENY GOMES", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "2025-09-16", "obs": "FINAL DE NOV PEDIR PAN", "extra": "MSG 24/11", "status": "scheduled"}, {"id": 85, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "IZABEL CRISTINA MOREIRA", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "2025-05-20", "obs": "PEDIR PAN ((MSG 11/09))) Só vai fazer em Novembro", "extra": "", "status": "scheduled"}, {"id": 86, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "ZILDA MENDES DOS SANTOS", "cirurgia": "iMPLANTE", "protese": "", "controle": "", "data": "2025-10-27", "obs": "", "extra": "", "status": "pending"}, {"id": 87, "mes": "Dez/25", "mesKey": "DEZEMBRO25", "paciente": "MARIA PEREIRA DOS SANTOS", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "2025-08-08", "obs": "PEDIR PAN  ( OSSO MACIO TALVEZ 6 MESES) msg 02/12", "extra": "", "status": "scheduled"}, {"id": 88, "mes": "Dez/25", "mesKey": "DEZEMBRO25", "paciente": "SILEIDE QUERINO DE ARAUJO", "cirurgia": "", "protese": "PROTESE", "controle": "", "data": "", "obs": "PEDIR PAN  msg 02/12", "extra": "", "status": "scheduled"}, {"id": 89, "mes": "Dez/25", "mesKey": "DEZEMBRO25", "paciente": "IRINEIA DE AMORIM", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "ABRIL", "obs": "TOMO OK AGENDADA 03/12", "extra": "", "status": "pending"}, {"id": 90, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "KATIA AP CANDIDO MOTA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "JULHO", "obs": "NÃO FORMOU OSSO VAI RET NO BUCO QUE FEZ", "extra": "", "status": "info"}, {"id": 91, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "MARIA DA LUZ MARCELINO", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "2025-10-01", "obs": "PEDIR PAN  msg 05/01 msg 15/01", "extra": "", "status": "scheduled"}, {"id": 92, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "FABIO DE ALMEIDA LISBOA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "", "obs": "MARCAR CONSULTA C DR PARA REVALIAR O CASO", "extra": "DR CONVERSAR SOBRE A POSSIBIIDADE DE FAZER", "status": "pending"}, {"id": 93, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "SHIRLEY MOREIRA DA SILVA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-11-27", "obs": "PEDIR TOMO msg 05/01 msg  06/01", "extra": "", "status": "pending"}, {"id": 94, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "PAULO HENRIQUE", "cirurgia": "", "protese": "PROTESE/ CLAREAMENTO", "controle": "", "data": "2025-12-11", "obs": "APÓS REMOÇÃO APARELHO/ CLAREAMENTO", "extra": "", "status": "scheduled"}, {"id": 95, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "ALBERTINA DE OLIVEIRA DA SILVA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-07-18", "obs": "LEVOU PEDIDO TOMO", "extra": "já fez", "status": "pending"}, {"id": 96, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "MARINALVA SOARES DA SILVA", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "2025-09-17", "obs": "AGENDADA 16/01", "extra": "fez 24/11", "status": "pending"}, {"id": 97, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "DANIEL LASAGNO", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "2025-07-18", "obs": "FEZ TOMO msg 05/01 para agendar", "extra": "", "status": "pending"}, {"id": 98, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "CLEBER AUGUSTO DA SILVIERA", "cirurgia": "EXO + enxerto", "protese": "", "controle": "", "data": "2026-01-05", "obs": "LEVOU PEDIDO TOMO", "extra": "", "status": "pending"}, {"id": 99, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "FERNANDO JUSTO DE SOUZA", "cirurgia": "EXO + OSSO", "protese": "", "controle": "", "data": "2026-01-12", "obs": "RETORNO 12/03 levou pedido tomo 22/01", "extra": "", "status": "pending"}, {"id": 100, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "PATRICIA COSTA SILVA", "cirurgia": "EXO P IMPLANTE", "protese": "", "controle": "", "data": "2025-11-06", "obs": "não me atende", "extra": "", "status": "pending"}, {"id": 101, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "LUCIANO OLIVEIRA MARTINS", "cirurgia": "", "protese": "", "controle": "CONTROLE", "data": "2025-11-27", "obs": "PEDIR PAN msg 25/03", "extra": "", "status": "pending"}, {"id": 102, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "PALOMA DE JESUS", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-09", "obs": "JA LEVOU O PEDIDO TOMO PERGUNTAR a partir  23/02 SE JA FEZ não quer fazer", "extra": "", "status": "info"}, {"id": 103, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "EDNA TEIXEIRA", "cirurgia": "IMPLANTE SUP", "protese": "", "controle": "", "data": "2025-05-30", "obs": "AGENDADA 16/01", "extra": "", "status": "pending"}, {"id": 104, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "RENATO RODRIGUES CORDEIRO", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-21", "obs": "LEVOU PEDIDO TOMO  msg 26/02", "extra": "", "status": "pending"}, {"id": 105, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "RENATO RODRIGUES CORDEIRO", "cirurgia": "", "protese": "", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 106, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "EDNA DE OLIVEIRA FERREIRA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-07-18", "obs": "2026-02-27 00:00:00", "extra": "ENTRAR EM CTTO 15/01 msg 15/01", "status": "pending"}, {"id": 107, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "ZILDA MENDES DOS SANTOS", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "2025-11-14", "obs": "PEDIR PAN", "extra": "msg 23/02", "status": "scheduled"}, {"id": 108, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "ALMIR ROGERIO", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "2025-11-19", "obs": "PEDIR PAN", "extra": "msg 24/03 , 25/3 n atende", "status": "pending"}, {"id": 109, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "LUCCAS RIBEIRO COSTA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-08-11", "obs": "LEVOU PEDIDO TOMO 03/10", "extra": "não atende", "status": "pending"}, {"id": 110, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "ROBETA JECIRA", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "SETEMBRO", "obs": "PEDIR PAN  msg 05/01", "extra": "vai fazr depois do clareamento", "status": "pending"}, {"id": 111, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "SOLANGE MARIA DA SILVA", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "", "obs": "ENVIEI PEDIDO PAN 02/02", "extra": "vai fazer final do mês não atende", "status": "pending"}, {"id": 112, "mes": "Abr/26", "mesKey": "ABRIL 26", "paciente": "IRINEIA DE AMORIM", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "2025-12-03", "obs": "PEDIR PAN msg 25/03", "extra": "ligação 02/04 , msg 07/04/ 29/04", "status": "pending"}, {"id": 113, "mes": "Abr/26", "mesKey": "ABRIL 26", "paciente": "MARIA ALICE PEREIRA  LOPES", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "28/01 FEZ EXO", "obs": "PEDIR TOMO", "extra": "ligação 02/04 msg 07/04 29/04", "status": "pending"}, {"id": 114, "mes": "Abr/26", "mesKey": "ABRIL 26", "paciente": "CLEBER AUGUSTO DA SILVIERA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-28", "obs": "levou pedido tomo 05/02", "extra": "marcado 17/06", "status": "pending"}, {"id": 115, "mes": "Abr/26", "mesKey": "ABRIL 26", "paciente": "ElIZABETE PEREIRA DA SILVA", "cirurgia": "IMPLANTE$$", "protese": "", "controle": "", "data": "15/04", "obs": "", "extra": "", "status": "pending"}, {"id": 116, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "MARINALVA SOARES DA SILVA", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "2026-01-16", "obs": "PEDIR PAN  ( entregar o termo )", "extra": "AGENDADA 20/05", "status": "pending"}, {"id": 117, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "DANIEL LASAGNO", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "2026-01-21", "obs": "PEDIR PAN ( entregar o termo )", "extra": "enviado pedido pan 13/05", "status": "pending"}, {"id": 118, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "FERNANDO JUSTO DE SOUZA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-12", "obs": "PEDIR TOMO", "extra": "msg 23/02 levou pedido tomo pac com cancer irá fazer em maio", "status": "pending"}, {"id": 119, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "SANDRA REGINA ALVES", "cirurgia": "", "protese": "", "controle": "CONTROLE", "data": "2025-12-17", "obs": "LEVOU PAN MARCAR C A JU", "extra": "", "status": "pending"}, {"id": 120, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "LUCIANA MARQUES FERREIRA", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "26/12", "obs": "msg 13/05", "extra": "MARCADO 28/05", "status": "scheduled"}, {"id": 121, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "ERONILDE APARECIDA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-29", "obs": "PEDIR TOMO", "extra": "", "status": "pending"}, {"id": 122, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "EDNA DE OLIVEIRA FERREIRA", "cirurgia": "", "protese": "protese", "controle": "", "data": "2026-02-27", "obs": "2026-02-27 00:00:00", "extra": "pedir pan  ( entregar o termo )", "status": "pending"}, {"id": 123, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "JOAO PAULO BERNARDO", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "2025-10-31", "obs": "levou pedido pan 06/03", "extra": "", "status": "pending"}, {"id": 124, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "ElIZABETE PEREIRA DA SILVA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "15/04", "obs": "não fez a cirurgia pedir tomo", "extra": "", "status": "pending"}, {"id": 125, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "FRANSUELDO ALVES", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "20/04", "obs": "LEVOU PED TOMO", "extra": "", "status": "pending"}, {"id": 126, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "ROSANIA JOSE DA SILVA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "24/04", "obs": "PEDIR TOMO", "extra": "", "status": "pending"}, {"id": 127, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "NEUSA MARIA DOS REIS SILVA", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "29/04", "obs": "PEDIR TOMO", "extra": "", "status": "pending"}, {"id": 128, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "ANDREA SILVESTRE DELA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-06-06", "obs": "PEDIR PAN", "extra": "", "status": "pending"}, {"id": 129, "mes": "Jul/26", "mesKey": "JULHO 26", "paciente": "EDNA TEIXEIRA", "cirurgia": "", "protese": "PROTESE", "controle": "", "data": "2026-02-06", "obs": "levou pan 20/02", "extra": "", "status": "pending"}, {"id": 130, "mes": "Jul/26", "mesKey": "JULHO 26", "paciente": "RENATO RODRIGUES CORDEIRO", "cirurgia": "", "protese": "PROTESE", "controle": "", "data": "28/03", "obs": "PEDIR PAN", "extra": "", "status": "pending"}, {"id": 131, "mes": "Jul/26", "mesKey": "JULHO 26", "paciente": "ANTONIA BATISTA DAS NEVES", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "20/04", "obs": "LEVOU PEDIDO TOMO", "extra": "", "status": "pending"}, {"id": 132, "mes": "Ago/26", "mesKey": "AGOSTO 26", "paciente": "ELIZETE NAKAMURA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2026-07-11", "obs": "LEVOU PEDIDO TOMO E PAN 07/04", "extra": "msg 13/05", "status": "pending"}];
+
+const MONTHS_ORDER=['Jan/25','Fev/25','Mar/25','Abr/25','Mai/25','Jun/25','Jul/25','Ago/25','Set/25','Out/25','Nov/25','Dez/25','Jan/26','Fev/26','Mar/26','Abr/26','Mai/26','Jun/26','Jul/26','Ago/26'];
+const ST_COLOR={pending:G.red,scheduled:G.success,done:"#111",info:G.blue};
+const ST_LABEL={pending:"Não marcado",scheduled:"Marcado",done:"Finalizado",info:"Info"};
+const ST_BG={pending:"#FFEBEE",scheduled:"#E8F5E9",done:"#F5F5F5",info:"#E3F2FD"};
 
 const now=new Date();
-const [yr,setYr]=useState(now.getFullYear());
-const [mo,setMo]=useState(now.getMonth());
-const [addModal,setAddModal]=useState(false);
-const [newPat,setNewPat]=useState({patientId:"",service:"Implante"});
+const curMes=(()=>{const m=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][now.getMonth()];const y=String(now.getFullYear()).slice(2);return m+'/'+y;})();
+const [selMes,setSelMes]=useState(MONTHS_ORDER.includes(curMes)?curMes:MONTHS_ORDER[MONTHS_ORDER.length-1]);
+const [filtSt,setFiltSt]=useState('all');
+const [srch,setSrch]=useState('');
+const [editRow,setEditRow]=useState(null);
+const [editForm,setEditForm]=useState(null);
 
-const mk=`${yr}-${String(mo+1).padStart(2,"0")}`;
+const rows=IMPL_DATA.filter(function(r){
+  if(r.mes!==selMes)return false;
+  if(filtSt!=='all'&&r.status!==filtSt)return false;
+  if(srch&&r.paciente.toLowerCase().indexOf(srch.toLowerCase())<0&&
+     (r.cirurgia+r.protese+r.obs).toLowerCase().indexOf(srch.toLowerCase())<0)return false;
+  return true;
+});
 
-// Get all entries for this month
-const getEntry=(impId)=>{
-const imp=impl.find(x=>x.id===impId);
-return (imp?.months||{})[mk]||{service:"",status:"pending"};
-};
+const counts=MONTHS_ORDER.reduce(function(acc,m){
+  acc[m]=IMPL_DATA.filter(function(r){return r.mes===m;}).length;
+  return acc;
+},{});
 
-const setEntry=(impId,field,val)=>{
-setImpl(prev=>prev.map(x=>{
-if(x.id!==impId)return x;
-const months={...(x.months||{})};
-months[mk]={...(months[mk]||{service:"",status:"pending"}),[field]:val};
-return {...x,months};
-}));
-};
-
-const cycleStatus=(impId)=>{
-const entry=getEntry(impId);
-const cur=entry.status||"pending";
-setEntry(impId,"status",ST_NEXT[cur]);
-};
-
-const hasDat=(tk)=>impl.some(x=>Object.keys((x.months||{})[tk]||{}).length>0);
-
-const saveNew=()=>{
-if(!newPat.patientId){alert("Selecione o paciente");return;}
-const id=nid(impl);
-setImpl(prev=>[...prev,{id,patientId:Number(newPat.patientId),months:{[mk]:{service:newPat.service,status:"pending"}}}]);
-setAddModal(false);setNewPat({patientId:"",service:"Implante"});
-};
-
-const emptyRows=Math.max(0,12-impl.length);
+const pending=rows.filter(function(r){return r.status==='pending';}).length;
+const scheduled=rows.filter(function(r){return r.status==='scheduled';}).length;
+const done=rows.filter(function(r){return r.status==='done';}).length;
 
 return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi">
-{/* Header */}
-
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Controle de Implantes</h2>
-<div style={{display:"flex",gap:8,alignItems:"center"}}>
-<button onClick={()=>setYr(y=>y-1)} style={{border:"none",background:G.accent,borderRadius:6,padding:"5px 13px",cursor:"pointer",fontSize:17,color:G.primary,fontWeight:700}}>‹</button>
-<span style={{fontFamily:"'Cormorant Garamond'",fontSize:18,fontWeight:700,minWidth:48,textAlign:"center"}}>{yr}</span>
-<button onClick={()=>setYr(y=>y+1)} style={{border:"none",background:G.accent,borderRadius:6,padding:"5px 13px",cursor:"pointer",fontSize:17,color:G.primary,fontWeight:700}}>›</button>
-<Btn ch="+ Adicionar" onClick={()=>{setNewPat({patientId:"",service:"Implante"});setAddModal(true);}}/>
-</div>
-</div>
-
-{/* Month tabs */}
-
-<div style={{display:"flex",overflowX:"auto",borderBottom:`3px solid ${G.primary}`}}>
-  {MES.map((m,i)=>{
-    const tk=`${yr}-${String(i+1).padStart(2,"0")}`;
-    const sel=i===mo;
-    const has=hasDat(tk);
-    const isNow=tk===`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
-    return <button key={tk} onClick={()=>setMo(i)} style={{
-      flex:"none",border:"none",
-      background:sel?G.primary:isNow?"#e8f5ee":"#f0f4f2",
-      color:sel?"#fff":has?G.primary:G.muted,
-      padding:"9px 14px",fontSize:11,fontWeight:700,cursor:"pointer",
-      borderRadius:"6px 6px 0 0",marginRight:2,whiteSpace:"nowrap",
-      outline:isNow&&!sel?`2px solid ${G.primary}`:undefined,outlineOffset:-2
-    }}>
-      {m} {String(yr).slice(2)}
-      {has&&!sel&&<span style={{display:"inline-block",marginLeft:4,width:6,height:6,borderRadius:"50%",background:G.primary,verticalAlign:"middle"}}/>}
-    </button>;
-  })}
-</div>
-
-{/* Spreadsheet */}
-
-<div style={{background:"#fff",borderRadius:"0 0 12px 12px",boxShadow:"0 2px 8px rgba(0,0,0,.09)",overflow:"hidden"}}>
-  {/* Legend */}
-  <div style={{padding:"8px 16px",borderBottom:"1px solid #eee",background:"#fafcfb",display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
-    <span style={{fontSize:11,fontWeight:700,color:G.muted}}>Status (clique para alternar):</span>
-    {Object.entries(ST_LABEL).map(([k,l])=>(
-      <span key={k} style={{fontSize:11,fontWeight:700,color:ST_COLOR[k]}}>● {l}</span>
-    ))}
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+    <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Controle de Implantes</h2>
   </div>
-  <div style={{overflowX:"auto"}}>
-    <table style={{borderCollapse:"collapse",width:"100%",fontSize:12}}>
-      <thead>
-        <tr>
-          <th style={{padding:"9px 16px",textAlign:"left",fontWeight:700,fontSize:11,color:G.red,borderBottom:"2px solid #e0e0e0",borderRight:"1px solid #eee",minWidth:200,background:"#fafafa"}}>PACIENTE</th>
-          <th style={{padding:"9px 16px",textAlign:"left",fontWeight:700,fontSize:11,color:G.red,borderBottom:"2px solid #e0e0e0",borderRight:"1px solid #eee",minWidth:140,background:"#fafafa"}}>SERVIÇO</th>
-          <th style={{padding:"9px 16px",textAlign:"center",fontWeight:700,fontSize:11,color:G.red,borderBottom:"2px solid #e0e0e0",borderRight:"1px solid #eee",minWidth:160,background:"#fafafa"}}>STATUS</th>
-          <th style={{padding:"9px 8px",textAlign:"center",fontSize:10,color:"#ccc",borderBottom:"2px solid #e0e0e0",background:"#fafafa",minWidth:36}}>✕</th>
-        </tr>
-      </thead>
-      <tbody>
-        {impl.map((imp,ri)=>{
-          const pat=pats.find(x=>x.id===imp.patientId);
-          const entry=getEntry(imp.id);
-          const status=entry.status||"pending";
-          const service=entry.service||"--";
-          const color=ST_COLOR[status];
-          const bg=ri%2===0?"#ffffff":"#f9fdf9";
-          return <tr key={imp.id} style={{background:bg}}>
-            {/* Patient name -- always red bold like photo */}
-            <td style={{padding:"10px 16px",borderBottom:"1px solid #eee",borderRight:"1px solid #eee",fontWeight:700,fontSize:12,color:G.red}}>
-              {(pat?.name||"--").toUpperCase()}
-            </td>
-            {/* Service -- editable */}
-            <td style={{padding:0,borderBottom:"1px solid #eee",borderRight:"1px solid #eee",fontWeight:700,fontSize:12,color}}>
-              <select value={service==="--"?"":service} onChange={e=>setEntry(imp.id,"service",e.target.value)}
-                style={{width:"100%",border:"none",background:"transparent",padding:"10px 16px",fontSize:12,fontWeight:700,color,outline:"none",cursor:"pointer",appearance:"none",WebkitAppearance:"none"}}>
-                <option value="">-- selecione --</option>
-                {SERVICES.map(s=><option key={s} value={s}>{s}</option>)}
-              </select>
-            </td>
-            {/* Status -- click to cycle */}
-            <td style={{padding:"8px 12px",borderBottom:"1px solid #eee",borderRight:"1px solid #eee",textAlign:"center",cursor:"pointer"}}
-              onClick={()=>cycleStatus(imp.id)}>
-              <div style={{display:"inline-flex",alignItems:"center",gap:8,background:color+"15",border:`2px solid ${color}`,borderRadius:20,padding:"5px 14px",userSelect:"none"}}>
-                <span style={{width:8,height:8,borderRadius:"50%",background:color,display:"inline-block",flexShrink:0}}/>
-                <span style={{fontWeight:700,fontSize:11,color}}>{ST_LABEL[status]}</span>
-              </div>
-            </td>
-            <td style={{padding:"4px 8px",textAlign:"center",borderBottom:"1px solid #eee",background:bg}}>
-              <button onClick={()=>{if(window.confirm("Remover?"))setImpl(prev=>prev.filter(x=>x.id!==imp.id));}}
-                style={{border:"none",background:"none",color:"#ccc",cursor:"pointer",fontSize:15,lineHeight:1}}
-                onMouseEnter={e=>e.target.style.color=G.red}
-                onMouseLeave={e=>e.target.style.color="#ccc"}>✕</button>
-            </td>
-          </tr>;
-        })}
-        {/* Empty rows */}
-        {Array.from({length:emptyRows}).map((_,i)=>(
-          <tr key={`e${i}`} style={{background:(impl.length+i)%2===0?"#fff":"#f9fdf9"}}>
-            <td style={{padding:"10px 16px",borderBottom:"1px solid #eee",borderRight:"1px solid #eee",color:"#dedede",fontSize:11}}>{impl.length+i+1}</td>
-            <td style={{borderBottom:"1px solid #eee",borderRight:"1px solid #eee"}}/>
-            <td style={{borderBottom:"1px solid #eee",borderRight:"1px solid #eee"}}/>
-            <td style={{borderBottom:"1px solid #eee"}}/>
+
+  {/* Legenda */}
+  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+    {Object.entries(ST_LABEL).map(function([k,l]){
+      return <div key={k} style={{display:"flex",alignItems:"center",gap:5,background:ST_BG[k],borderRadius:20,padding:"4px 12px",border:"1.5px solid "+ST_COLOR[k]}}>
+        <div style={{width:8,height:8,borderRadius:"50%",background:ST_COLOR[k]}}/>
+        <span style={{fontSize:11,fontWeight:700,color:ST_COLOR[k]}}>{l}</span>
+      </div>;
+    })}
+  </div>
+
+  {/* Meses tabs */}
+  <div style={{display:"flex",overflowX:"auto",borderBottom:"3px solid "+G.primary,marginBottom:12}}>
+    {MONTHS_ORDER.map(function(m){
+      var sel=m===selMes;
+      var cnt=counts[m]||0;
+      return <button key={m} onClick={function(){setSelMes(m);}} style={{
+        flex:"none",border:"none",
+        background:sel?G.primary:"#f0f4f2",
+        color:sel?"#fff":cnt>0?G.primary:G.muted,
+        padding:"8px 12px",fontSize:10,fontWeight:700,cursor:"pointer",
+        borderRadius:"6px 6px 0 0",marginRight:2,whiteSpace:"nowrap",
+        outline:m===curMes&&!sel?"2px solid "+G.primary:undefined,outlineOffset:-2
+      }}>
+        {m} {cnt>0&&!sel&&<span style={{background:G.primary,color:"#fff",borderRadius:10,padding:"0 4px",fontSize:8,marginLeft:2}}>{cnt}</span>}
+        {sel&&<span style={{background:"rgba(255,255,255,.3)",color:"#fff",borderRadius:10,padding:"0 4px",fontSize:8,marginLeft:2}}>{cnt}</span>}
+      </button>;
+    })}
+  </div>
+
+  {/* Resumo */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+    {[["🔴 Não marcado",pending,G.red],["🟢 Marcado",scheduled,G.success],["⚫ Finalizado",done,"#333"]].map(function([l,v,c]){
+      return <div key={l} style={{background:"#fff",borderRadius:10,padding:"8px 10px",textAlign:"center",borderTop:"3px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+        <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div>
+        <div style={{fontSize:9,color:G.muted,fontWeight:700}}>{l}</div>
+      </div>;
+    })}
+  </div>
+
+  {/* Filtros */}
+  <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+    <input value={srch} onChange={function(e){setSrch(e.target.value);}} placeholder="🔍 Buscar paciente..."
+      style={{flex:1,minWidth:120,border:"1.5px solid "+G.border,borderRadius:8,padding:"6px 10px",fontSize:12,outline:"none"}}/>
+    {['all','pending','scheduled','done'].map(function(s){
+      return <button key={s} onClick={function(){setFiltSt(s);}} style={{
+        border:"2px solid "+(filtSt===s?(s==='all'?G.primary:ST_COLOR[s]):G.border),
+        background:filtSt===s?(s==='all'?G.primary:ST_COLOR[s]):"#fff",
+        color:filtSt===s?"#fff":(s==='all'?G.muted:ST_COLOR[s]),
+        borderRadius:20,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer"
+      }}>{s==='all'?"Todos":ST_LABEL[s]}</button>;
+    })}
+  </div>
+
+  {/* Tabela */}
+  <div style={{background:"#fff",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,.08)",overflow:"hidden"}}>
+    <div style={{overflowX:"auto"}}>
+      <table style={{borderCollapse:"collapse",width:"100%",fontSize:12}}>
+        <thead>
+          <tr style={{background:"#fafafa"}}>
+            {["PACIENTE","CIRURGIA","PRÓTESE","CONTROLE","DATA","OBS"].map(function(h){
+              return <th key={h} style={{padding:"8px 10px",textAlign:"left",fontWeight:700,fontSize:10,color:G.red,borderBottom:"2px solid #e0e0e0",whiteSpace:"nowrap"}}>{h}</th>;
+            })}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-{/* Add modal */}
-{addModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-
-  <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
-      <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Adicionar à Planilha</span>
-      <button onClick={()=>setAddModal(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
-    </div>
-    <div style={{padding:20,display:"flex",flexDirection:"column",gap:14}}>
-      <PatSearch lb="Paciente" val={newPat.patientId} set={v=>setNewPat(p=>({...p,patientId:v}))} pats={pats.filter(p=>!impl.find(x=>x.patientId===p.id))}/>
-      <div style={{display:"flex",flexDirection:"column",gap:4}}>
-        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Serviço</label>
-        <select value={newPat.service} onChange={e=>setNewPat(p=>({...p,service:e.target.value}))}
-          style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",background:"#fff"}}>
-          {SERVICES.map(s=><option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
-      <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
-        <button onClick={()=>setAddModal(false)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
-        <button onClick={saveNew} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Adicionar</button>
-      </div>
+        </thead>
+        <tbody>
+          {rows.length===0&&<tr><td colSpan={6} style={{textAlign:"center",padding:30,color:G.muted,fontSize:13}}>Nenhum registro neste mês</td></tr>}
+          {rows.map(function(r,ri){
+            var bg=ri%2===0?"#fff":"#f9fdf9";
+            var c=ST_COLOR[r.status];
+            return <tr key={r.id} style={{background:bg,cursor:"pointer"}} onClick={function(){setEditRow(r);setEditForm({...r});}}>
+              <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",fontWeight:700,color:c,fontSize:11,whiteSpace:"nowrap",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis"}}>
+                <div style={{display:"flex",alignItems:"center",gap:5}}>
+                  <div style={{width:7,height:7,borderRadius:"50%",background:c,flexShrink:0}}/>
+                  {r.paciente}
+                </div>
+              </td>
+              <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",color:r.cirurgia?G.text:G.muted,fontSize:11,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.cirurgia||"—"}</td>
+              <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",color:r.protese?G.text:G.muted,fontSize:11,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.protese||"—"}</td>
+              <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",color:r.controle?G.text:G.muted,fontSize:11,maxWidth:100,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.controle||"—"}</td>
+              <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",color:G.muted,fontSize:10,whiteSpace:"nowrap"}}>{r.data||"—"}</td>
+              <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",color:G.muted,fontSize:10,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.obs||"—"}</td>
+            </tr>;
+          })}
+        </tbody>
+      </table>
     </div>
   </div>
-</div>}
 
-  </div>;
+  {/* Modal de detalhe/edição */}
+  {editRow&&editForm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:500,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+      <div style={{background:ST_COLOR[editForm.status],borderRadius:"16px 16px 0 0",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{fontWeight:700,color:"#fff",fontSize:14}}>{editRow.paciente}</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,.8)"}}>{editRow.mes}</div>
+        </div>
+        <button onClick={function(){setEditRow(null);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
+      </div>
+      <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
+        {/* Status */}
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:G.muted,marginBottom:6,textTransform:"uppercase"}}>Status</div>
+          <div style={{display:"flex",gap:6}}>
+            {['pending','scheduled','done'].map(function(s){
+              return <button key={s} onClick={function(){setEditForm(function(p){return {...p,status:s};});}} style={{
+                flex:1,border:"2px solid "+(editForm.status===s?ST_COLOR[s]:G.border),
+                background:editForm.status===s?ST_COLOR[s]:"#fff",
+                color:editForm.status===s?"#fff":ST_COLOR[s],
+                borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer"
+              }}>{ST_LABEL[s]}</button>;
+            })}
+          </div>
+        </div>
+        {/* Info fields */}
+        {[["Cirurgia","cirurgia"],["Prótese","protese"],["Controle","controle"],["OBS","obs"]].map(function([lb,k]){
+          return <div key={k} style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{lb}</label>
+            <textarea value={editForm[k]||""} onChange={function(e){setEditForm(function(p){var n={...p};n[k]=e.target.value;return n;});}}
+              rows={2} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"'DM Sans'"}}/>
+          </div>;
+        })}
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid "+G.border}}>
+          <button onClick={function(){setEditRow(null);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>}
+</div>;
 }
+
 
 // ══════════════════════════════════════════════════════════
 // DESPESAS - clinic + personal
@@ -2456,7 +2424,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
           <Bdg l={PRIO[r.priority||'medium']} col={PRIOC[r.priority||'medium']} sm/>
           <span style={{fontSize:11,color:late?G.red:G.muted,fontWeight:late?700:400}}>{fmt(r.date)}{late?' - ATRASADO':''}</span>
           {p&&<span style={{fontSize:11,color:G.muted}}>{p.name}</span>}
-          {au?<Bdg l={au.name.split(' ')[0]} col={au.color} sm/>:<Bdg l="Geral" col={G.blue} sm/>}
+          {au?<Bdg l={(function(){var sk=['dr.','dra.','dr','dra'];var pts=au.name.split(' ');var r=pts.filter(function(p){return sk.indexOf(p.toLowerCase())<0;});return r[0]||pts[0];})()} col={au.color} sm/>:<Bdg l="Geral" col={G.blue} sm/>}
         </div>
       </div>
       <div style={{display:'flex',gap:4,flexDirection:'column',alignItems:'flex-end',flexShrink:0}}>
@@ -2498,7 +2466,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
     <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:'uppercase',letterSpacing:'.4px'}}>Visivel para</label>
     <select value={String(f.assignedUserId)} onChange={e=>upd('assignedUserId')(e.target.value)} style={{border:'1.5px solid '+G.border,borderRadius:8,padding:'9px 12px',fontSize:14,outline:'none',background:'#fff'}}>
       <option value="">Todos (geral)</option>
-      {users.filter(u=>u.active).map(u=><option key={u.id} value={String(u.id)}>{u.name.split(' ')[0]+' ('+u.role+')'}</option>)}
+      {users.filter(u=>u.active).map(u=><option key={u.id} value={String(u.id)}>{(function(){var sk=['dr.','dra.','dr','dra'];var pts=u.name.split(' ');var r=pts.filter(function(p){return sk.indexOf(p.toLowerCase())<0;});return (r[0]||pts[0])+' ('+u.role+')';})() }</option>)}
     </select>
   </div>
   <SC2 save={save} cancel={()=>{setModal(false);setEdit(null);setF(b0);}}/>
@@ -3398,10 +3366,8 @@ return <div key={d.id} style={{background:G.card,borderRadius:12,padding:"12px 1
 <div style={{display:"flex",gap:5}}>
 <Btn ch="Editar" v="g" sm onClick={()=>{setEd(d);setDf({...d,commission:d.commission||40});setDm(true);}}/>
 <Btn ch="X" v="r" sm onClick={()=>{
-const lu=users.find(u=>u.dentistId===d.id);
-if(lu&&!window.confirm("Remover dentista "+d.name+"? O login "+lu.login+" sera mantido."))return;
-if(!lu&&!window.confirm("Remover "+d.name+" da agenda e horarios?"))return;
 setDents(prev=>prev.filter(x=>x.id!==d.id));
+const lu=users.find(u=>u.dentistId===d.id);
 if(lu)setUsers(prev=>prev.map(u=>u.dentistId===d.id?{...u,dentistId:null}:u));
 }}/>
 </div>
@@ -3624,6 +3590,34 @@ return(
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
         <button onClick={()=>setLm(false)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={saveL} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>💾 Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>}
+
+{dm&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
+      <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{ed?"Editar Dentista":"Novo Dentista"}</span>
+      <button onClick={()=>setDm(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>{"x"}</button>
+    </div>
+    <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+      <Inp lb="Nome completo" val={df.name} set={upDf("name")} ph="Dr. Nome Sobrenome"/>
+      <R2 a={<Inp lb="Especialidade" val={df.specialty} set={upDf("specialty")} ph="Clinico Geral"/>}
+          b={<Inp lb="CRO" val={df.cro} set={upDf("cro")} ph="SP-00000"/>}/>
+      <R2 a={<Inp lb="Comissao (%)" val={String(df.commission||40)} set={upDf("commission")} type="number" ph="40"/>}
+          b={<div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Cor</label>
+            <div style={{display:"flex",gap:6}}>{UCOLS.map(c=><button key={c} onClick={()=>setDf(p=>({...p,color:c}))} style={{width:26,height:26,borderRadius:"50%",background:c,border:"3px solid "+(df.color===c?"#000":"transparent"),cursor:"pointer"}}/>)}</div>
+          </div>}/>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid "+G.border}}>
+        <button onClick={()=>setDm(false)} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={()=>{
+          if(!df.name)return alert("Informe o nome");
+          var obj=Object.assign({},df,{commission:Number(df.commission)||40,id:ed?ed.id:nid(dents)});
+          setDents(prev=>ed?prev.map(d=>d.id===ed.id?obj:d):[...prev,obj]);
+          setDm(false);setEd(null);setDf(bd);
+        }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Salvar"}</button>
       </div>
     </div>
   </div>
@@ -5153,7 +5147,39 @@ finally{isSaving.current=false;saveTimer.current=null;}
 // ── REALTIME desativado - use F5 para sincronizar entre dispositivos ──
 // (polling estava sobrescrevendo dados novos)
 
-if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>;
+if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>
+
+// Bloqueio de horário para nível 2 (Recepção/Secretaria)
+if(user.level===2){
+  var now=new Date();
+  var dow=now.getDay(); // 0=Dom, 1=Seg...6=Sab
+  var hm=now.getHours()*60+now.getMinutes();
+  var seg_sex=dow>=1&&dow<=5;
+  var sabado=dow===6;
+  var dentro=(seg_sex&&hm>=480&&hm<1200)||(sabado&&hm>=480&&hm<780);
+  if(!dentro){
+    var proxMsg=sabado&&hm>=780?"Segunda-feira às 08:00":dow===0?"Segunda-feira às 08:00":hm<480?"hoje às 08:00":"Segunda-feira às 08:00";
+    return(
+      <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1B5E4A,#0a2e1e)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+        <div style={{background:"rgba(255,255,255,.08)",borderRadius:20,padding:"36px 28px",maxWidth:360,width:"100%",textAlign:"center",border:"1px solid rgba(255,255,255,.12)"}}>
+          <div style={{fontSize:52,marginBottom:16}}>🔒</div>
+          <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:"#fff",marginBottom:8}}>Fora do Horário</div>
+          <div style={{fontSize:14,color:"rgba(255,255,255,.7)",marginBottom:20,lineHeight:1.6}}>
+            O sistema está disponível:<br/>
+            <strong style={{color:"#fff"}}>Seg–Sex: 08:00 às 20:00</strong><br/>
+            <strong style={{color:"#fff"}}>Sábado: 08:00 às 13:00</strong>
+          </div>
+          <div style={{background:"rgba(255,255,255,.1)",borderRadius:10,padding:"10px 16px",fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:24}}>
+            Próximo acesso: <strong style={{color:"#fff"}}>{proxMsg}</strong>
+          </div>
+          <button onClick={()=>setUser(null)} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            🚪 Sair
+          </button>
+        </div>
+      </div>
+    );
+  }
+};
 
 const ar=autoRems(pats,recs,appts);
 const remBadge=(user.level===1
