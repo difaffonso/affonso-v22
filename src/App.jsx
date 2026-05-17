@@ -88,7 +88,27 @@ const ANAM_LINK="https://claude.ai/public/artifacts/134f3434-6997-4396-ab62-3d37
 const UCOLS=["#1B5E4A","#6C3483","#1A5276","#CA6F1E","#C0392B","#148F77","#D68910"];
 const CSS=`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@400;600;700&display=swap'); *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'DM Sans',sans-serif;background:${G.bg};color:${G.text};} ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-thumb{background:${G.accentDark};border-radius:3px;} input,select,textarea,button{font-family:'DM Sans',sans-serif;} @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}} .fi{animation:fi .2s ease}`;
 
-const PAY=["Dinheiro","PIX","Cartão Crédito","Cartão Débito","Convênio","Cheque"];
+const PAY_BASE=["Dinheiro","PIX","Cartão Crédito","Cartão Débito","Convênio","Cheque"];
+const PAY=PAY_BASE; // backward compat
+// Build dynamic payment options including dentist Pix/Card
+const mkPayOpts=function(dents){
+  var extras=[];
+  dents.forEach(function(d){
+    var firstName=d.name.split(" ")[0];
+    extras.push("Pix "+firstName);
+    extras.push("Cartão "+firstName);
+  });
+  return PAY_BASE.concat(extras);
+};
+// Helper: detect if payment is a dentist direct payment and which dentist
+const getDentFromPayment=function(payment,dents){
+  if(!payment)return null;
+  var p=payment.toLowerCase();
+  return dents.find(function(d){
+    var fn=d.name.split(" ")[0].toLowerCase();
+    return p.indexOf(fn)>=0&&(p.startsWith("pix ")||p.startsWith("cartão ")||p.startsWith("cartao "));
+  })||null;
+};
 const SL={confirmed:"Confirmado",pending:"Pendente",done:"Realizado",cancelled:"Cancelado",missed:"Faltou",rescheduled:"Desmarcado"};
 // Colors exactly like the photo: confirmed=green, pending=orange, cancelled=red, rescheduled=grey, missed=orange-red
 // Status colors - cada um bem distinto visualmente
@@ -193,6 +213,10 @@ personal:[
 {id:2,date:"2026-04-15",cat:"Alimentação",desc:"Supermercado",value:650,paid:true},
 ]
 };
+
+const PIXRECS0=[
+  {id:1,dentistId:1,patientId:1,date:"2026-04-10",value:500,method:"PIX",procedure:"Clareamento",note:"Pix direto Dr Diego",installments:1},
+];
 
 // ── Helpers ────────────────────────────────────────────────
 const fmt=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR"):"-";
@@ -1063,7 +1087,7 @@ return <>
       <div style={{display:"flex",flexDirection:"column",gap:4}}>
         <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Forma de Pagamento</label>
         <select value={payForm.method} onChange={e=>setPayForm(p=>({...p,method:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
-          {PAY.map(o=><option key={o} value={o}>{o}</option>)}
+          {mkPayOpts(dents).map(o=><option key={o} value={o}>{o}</option>)}
         </select>
       </div>
       {(payForm.method==="Cartão Crédito"||payForm.method==="Cartão Débito")&&Number(payForm.value)>0&&(
@@ -4775,6 +4799,154 @@ Entrar
 // ══════════════════════════════════════════════════════════
 // APP ROOT
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// PIX DENTISTAS
+// ══════════════════════════════════════════════════════════
+function PixDentistas({recs,setRecs,dents,pats,user}){
+var isAdmin=user.level>=2;
+var myDent=dents.find(function(d){return d.id===user.dentistId;});
+
+// Admin/recepção vê seletor; dentista vai direto para o próprio
+var [selDentId,setSelDentId]=useState(
+  isAdmin?(dents[0]&&dents[0].id||null):user.dentistId
+);
+var dent=dents.find(function(d){return d.id===selDentId;})||dents[0];
+
+// All recs that are direct dentist payments (Pix X or Cartão X)
+var isDentPay=function(payment,d){
+  if(!payment||!d)return false;
+  var fn=d.name.split(" ")[0].toLowerCase();
+  var p=payment.toLowerCase();
+  return (p.startsWith("pix ")||p.startsWith("cartão ")||p.startsWith("cartao "))&&p.indexOf(fn)>=0;
+};
+
+// Recs for selected dentist
+var dentRecs=recs.filter(function(r){return isDentPay(r.payment,dent);}).sort(function(a,b){return b.date.localeCompare(a.date);});
+
+// Group by month
+var byMonth={};
+dentRecs.forEach(function(r){
+  var mo=r.date.slice(0,7);
+  if(!byMonth[mo]){byMonth[mo]={pix:0,card:0,dinheiro:0,total:0,recs:[]};}
+  var p=(r.payment||"").toLowerCase();
+  var v=Number(r.value||r.paid||0);
+  if(p.startsWith("pix"))byMonth[mo].pix+=v;
+  else if(p.startsWith("cart"))byMonth[mo].card+=v;
+  else byMonth[mo].dinheiro+=v;
+  byMonth[mo].total+=v;
+  byMonth[mo].recs.push(r);
+});
+var months=Object.keys(byMonth).sort(function(a,b){return b.localeCompare(a);});
+var totalGeral=dentRecs.reduce(function(s,r){return s+Number(r.value||r.paid||0);},0);
+var [openMonth,setOpenMonth]=useState(null);
+
+// Grand total per method
+var totalPix=dentRecs.filter(function(r){return (r.payment||"").toLowerCase().startsWith("pix");}).reduce(function(s,r){return s+Number(r.value||r.paid||0);},0);
+var totalCard=dentRecs.filter(function(r){var p=(r.payment||"").toLowerCase();return p.startsWith("cart");}).reduce(function(s,r){return s+Number(r.value||r.paid||0);},0);
+
+var MONTHS_PT=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
+  {/* Header */}
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+    <div>
+      <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>💸 Pix Dentistas</h2>
+      <div style={{fontSize:12,color:G.muted,marginTop:2}}>Pagamentos diretos ao profissional</div>
+    </div>
+  </div>
+
+  {/* Dentist tabs - admin sees all, dentist sees only self */}
+  {isAdmin
+    ?<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+      {dents.map(function(d){
+        var dRecs=recs.filter(function(r){return isDentPay(r.payment,d);});
+        var dTotal=dRecs.reduce(function(s,r){return s+Number(r.value||r.paid||0);},0);
+        var isSel=d.id===selDentId;
+        return <button key={d.id} onClick={function(){setSelDentId(d.id);setOpenMonth(null);}}
+          style={{border:"2px solid "+(isSel?d.color:G.border),background:isSel?d.color:"#fff",color:isSel?"#fff":G.muted,borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,cursor:"pointer",textAlign:"left",minWidth:120}}>
+          <div style={{fontSize:13,fontWeight:700}}>{d.name.split(" ")[0]}</div>
+          <div style={{fontSize:11,opacity:.8,marginTop:2}}>{cur(dTotal)}</div>
+        </button>;
+      })}
+    </div>
+    :<div style={{background:G.accent,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
+      <div style={{width:38,height:38,borderRadius:"50%",background:dent&&dent.color||G.primary,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:16,flexShrink:0}}>{dent&&dent.name[0]}</div>
+      <div><div style={{fontWeight:700,fontSize:14}}>{dent&&dent.name}</div><div style={{fontSize:11,color:G.muted}}>Seus recebimentos diretos</div></div>
+    </div>
+  }
+
+  {/* Summary */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
+    {[["Total Geral",totalGeral,G.primary],["PIX",totalPix,"#00B894"],["Cartão",totalCard,G.blue]].map(function(item){return(
+      <div key={item[0]} style={{background:G.card,borderRadius:10,padding:"10px 12px",textAlign:"center",borderTop:"3px solid "+item[2],boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+        <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{item[0]}</div>
+        <div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:item[2],fontWeight:700,marginTop:3}}>{cur(item[1])}</div>
+      </div>
+    );})}
+  </div>
+
+  {/* Month accordion */}
+  {months.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13}}>
+    <div style={{fontSize:28,marginBottom:8}}>💸</div>
+    Nenhum lançamento encontrado.<br/>
+    <span style={{fontSize:11}}>Registre pagamentos como "Pix {dent&&dent.name.split(" ")[0]}" ou "Cartão {dent&&dent.name.split(" ")[0]}" nos atendimentos.</span>
+  </div>}
+
+  {months.map(function(mk){
+    var info=byMonth[mk];
+    var parts=mk.split("-");
+    var mLabel=MONTHS_PT[Number(parts[1])-1]+" "+parts[0];
+    var isOpen=openMonth===mk;
+    return <div key={mk} style={{background:G.card,borderRadius:12,boxShadow:"0 1px 5px rgba(0,0,0,.07)",overflow:"hidden",border:"1px solid "+G.border}}>
+      {/* Month row */}
+      <div onClick={function(){setOpenMonth(isOpen?null:mk);}} style={{display:"flex",alignItems:"center",gap:10,padding:"13px 16px",cursor:"pointer",background:isOpen?G.accent:"#fff",borderBottom:isOpen?"1px solid "+G.border:"none"}}>
+        <span style={{flex:1,fontWeight:700,fontSize:14,color:G.primary}}>{mLabel}</span>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+          {info.pix>0&&<span style={{fontSize:11,background:"#00B89420",color:"#00B894",borderRadius:10,padding:"2px 8px",fontWeight:700}}>PIX {cur(info.pix)}</span>}
+          {info.card>0&&<span style={{fontSize:11,background:G.blue+"20",color:G.blue,borderRadius:10,padding:"2px 8px",fontWeight:700}}>Cartão {cur(info.card)}</span>}
+          <span style={{fontWeight:800,fontSize:15,color:G.primary,minWidth:85,textAlign:"right"}}>{cur(info.total)}</span>
+        </div>
+        <span style={{color:G.muted,fontSize:13,marginLeft:4}}>{isOpen?"▲":"▼"}</span>
+      </div>
+      {/* Expanded rows */}
+      {isOpen&&<div>
+        {/* Table header */}
+        <div style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr 90px",gap:8,padding:"7px 16px",background:"#f8fbf9",borderBottom:"1px solid "+G.border}}>
+          {["Data","Paciente","Procedimento","Valor"].map(function(h){return <span key={h} style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{h}</span>;})}
+        </div>
+        {info.recs.sort(function(a,b){return a.date.localeCompare(b.date);}).map(function(r){
+          var pat=pats.find(function(p){return p.id===r.patientId;});
+          var isPix=(r.payment||"").toLowerCase().startsWith("pix");
+          return <div key={r.id} style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr 90px",gap:8,padding:"9px 16px",borderBottom:"1px solid "+G.border,alignItems:"center"}}>
+            <span style={{fontSize:12,color:G.muted}}>{fmt(r.date)}</span>
+            <span style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{pat&&pat.name||"—"}</span>
+            <div>
+              <div style={{fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.procedure||"—"}</div>
+              <span style={{fontSize:10,background:isPix?"#00B89420":G.blue+"20",color:isPix?"#00B894":G.blue,borderRadius:8,padding:"1px 6px",fontWeight:700}}>{r.payment}</span>
+            </div>
+            <span style={{fontSize:13,fontWeight:800,color:G.primary,textAlign:"right"}}>{cur(r.value||r.paid||0)}</span>
+          </div>;
+        })}
+        {/* Month total */}
+        <div style={{display:"flex",justifyContent:"flex-end",gap:16,padding:"10px 16px",background:G.accent,borderTop:"1px solid "+G.border}}>
+          <span style={{fontSize:12,color:G.muted}}>{info.recs.length} lançamento(s)</span>
+          <span style={{fontWeight:800,fontSize:15,color:G.primary}}>Total: {cur(info.total)}</span>
+        </div>
+      </div>}
+    </div>;
+  })}
+
+  {/* Accumulated total */}
+  {months.length>1&&<div style={{background:G.primary,borderRadius:12,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{dent&&dent.name.split(" ")[0]} · {months.length} meses</span>
+    <span style={{color:"#fff",fontWeight:800,fontSize:20}}>{cur(totalGeral)}</span>
+  </div>}
+
+</div>;
+}
+
+
 export default function App(){
 const [user,setUser]=useState(null);const [view,setView]=useState("dash");
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
@@ -4861,7 +5033,7 @@ const ALL_NAV=[
 {id:"dash",l:"🏠 Visão Geral",lv:3},{id:"agenda",l:"📅 Agenda",lv:1},
 {id:"pacs",l:"👥 Pacientes",lv:1},{id:"remarcar",l:"🔄 Remarcar",lv:2},{id:"pros",l:"🏥 Próteses",lv:2,b:prosBadge},
 {id:"impl",l:"🔩 Implantes",lv:2},{id:"lems",l:"📌 Lembretes",lv:1,b:remBadge},
-{id:"fin",l:"💰 Financeiro",lv:3},{id:"rel",l:"📊 Relatórios",lv:2},
+{id:"fin",l:"💰 Financeiro",lv:3},{id:"pixdent",l:"💸 Pix Dentistas",lv:1},{id:"rel",l:"📊 Relatórios",lv:2},
 {id:"desp",l:"💸 Despesas",lv:3},{id:"stk",l:"📦 Estoque",lv:2},
 {id:"rec",l:"📋 Receituário",lv:1},{id:"pdent",l:"💰 Recebimentos",lv:1},{id:"adm",l:"⚙️ Administrativo",lv:3},
 ];
@@ -4876,8 +5048,10 @@ const cp={pats,dents,procs,user,addLog:function(tipo,desc,pat){mkLog(logs,setLog
 
 // Bottom nav shortcuts (most used)
 const BOTTOM_NAV=user.level>=3
-?[{id:"dash",icon:"🏠"},{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"lems",icon:"📌",b:remBadge},{id:"adm",icon:"⚙️"}]
-:[{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"remarcar",icon:"🔄"},{id:"lems",icon:"📌",b:remBadge},{id:"rec",icon:"📋"}];
+?[{id:"dash",icon:"🏠"},{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"pixdent",icon:"💸"},{id:"adm",icon:"⚙️"}]
+:user.level===2
+?[{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"pixdent",icon:"💸"},{id:"lems",icon:"📌",b:remBadge},{id:"rel",icon:"📊"}]
+:[{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"pixdent",icon:"💸"},{id:"lems",icon:"📌",b:remBadge},{id:"rec",icon:"📋"}];
 
 const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}`;
 
@@ -4936,6 +5110,7 @@ return <>
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} user={user}/>}
       {view==="desp"&&<Despesas expenses={expenses} setExpenses={setExpenses} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
+      {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista appts={appts} pats={pats} dents={dents} recs={recs} treats={treats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user}/>}
