@@ -5553,7 +5553,7 @@ if(data.implMov?.length)setImplMov(data.implMov);
 lastSaved.current=JSON.stringify(data);
 }catch(err){}
 }
-setTimeout(()=>{initialized.current=true;},3000);
+setTimeout(()=>{initialized.current=true;},1000);
 });
 },[]);
 
@@ -5576,8 +5576,43 @@ finally{isSaving.current=false;saveTimer.current=null;}
 },2000);
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov]);
 
-// ── REALTIME desativado - use F5 para sincronizar entre dispositivos ──
-// (polling estava sobrescrevendo dados novos)
+// ── SYNC: polling a cada 30s para sincronizar entre dispositivos ──
+useEffect(()=>{
+  var interval=setInterval(async function(){
+    if(isSaving.current)return; // don't load while saving
+    if(saveTimer.current)return; // don't load if save pending
+    try{
+      var data=await supabase.load();
+      if(!data)return;
+      // Only update if data from server is newer/different
+      var serverStr=JSON.stringify(data);
+      if(serverStr===lastSaved.current)return;
+      // Apply updates
+      if(data.pats?.length)setPats(data.pats);
+      if(data.appts?.length)setAppts(data.appts);
+      if(data.recs?.length)setRecs(data.recs);
+      if(data.treats?.length)setTreats(data.treats);
+      if(data.pros?.length)setPros(data.pros);
+      if(data.rems?.length)setRems(data.rems);
+      if(data.budgets?.length)setBudgets(data.budgets);
+      if(data.dents?.length)setDents(data.dents);
+      if(data.users?.length)setUsers(data.users);
+      if(data.labs?.length)setLabs(data.labs);
+      if(data.procs?.length)setProcs(data.procs);
+      if(data.stock?.length)setStock(data.stock);
+      if(data.impl?.length)setImpl(data.impl);
+      if(data.expenses)setExpenses(data.expenses);
+      if(data.logs?.length)setLogs(data.logs);
+      if(data.remarcar?.length)setRemarcar(data.remarcar);
+      if(data.espera?.length)setEspera(data.espera);
+      if(data.prosProcs?.length)setProsProcs(data.prosProcs);
+      if(data.implCat?.length)setImplCat(data.implCat);
+      if(data.implMov?.length)setImplMov(data.implMov);
+      lastSaved.current=serverStr;
+    }catch(e){}
+  },30000); // every 30 seconds
+  return ()=>clearInterval(interval);
+},[]);
 
 if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>
 
@@ -5650,9 +5685,7 @@ return <>
 
 <style>{CSS+RESPONSIVE_CSS}</style>
 
-{saveStatus==="saving"&&<div style={{position:"fixed",bottom:80,right:16,background:"#FFF3E0",color:"#E65100",border:"1.5px solid #E65100",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>⏳ Salvando...</div>}
-{saveStatus==="saved"&&<div style={{position:"fixed",bottom:80,right:16,background:"#E8F5E9",color:"#2E7D32",border:"1.5px solid #2E7D32",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>✅ Salvo!</div>}
-{saveStatus==="error"&&<div style={{position:"fixed",bottom:80,right:16,background:"#FFEBEE",color:"#C62828",border:"1.5px solid #C62828",borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,zIndex:9000,boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}>❌ Erro ao salvar</div>}
+{saveStatus!=="idle"&&<div style={{position:"fixed",bottom:80,right:16,zIndex:9999,borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,boxShadow:"0 2px 8px rgba(0,0,0,.15)",background:saveStatus==="saved"?"#E8F5E9":saveStatus==="error"?"#FFEBEE":"#FFF3E0",color:saveStatus==="saved"?"#2E7D32":saveStatus==="error"?"#C62828":"#E65100",border:"1.5px solid "+(saveStatus==="saved"?"#A5D6A7":saveStatus==="error"?"#EF9A9A":"#E65100")}}>{saveStatus==="saving"?"💾 Salvando...":saveStatus==="saved"?"✅ Salvo!":"❌ Erro ao salvar"}</div>}
 {/* Overlay for mobile sidebar */}
 {sideOpen&&<div className="sidebar-overlay" onClick={()=>setSideOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:499}}/>}
 
