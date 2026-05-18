@@ -150,6 +150,9 @@ const PROS_SL={waiting:"Aguardando",returned:"Retornou",placed:"Instalada",remak
 const PROS_SC={waiting:G.yellow,returned:G.blue,placed:G.success,remake:G.red};
 const IMPL_ST=["Extração","Enxerto","Implante","Prótese","Controle"];
 const SLOTS=(()=>{const s=[];for(let h=8;h<=19;h++){if(h===8)s.push("08:30");else{s.push(`${String(h).padStart(2,"0")}:00`);if(h<19)s.push(`${String(h).padStart(2,"0")}:30`);}}return s;})();
+// Orto slots: every 20 minutes from 08:00 to 20:00
+const SLOTS_ORTO=(()=>{const s=[];for(let h=8;h<=19;h++){for(let m=0;m<60;m+=20){if(h===8&&m===0)continue; // skip 8:00, start 8:20
+s.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);}}return s;})();
 const MONTHS_PT=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const EXPENSE_CATS=["Aluguel","Água","Luz","Internet","Telefone","Salários","Material","Equipamento","Manutenção","Contabilidade","Outros"];
 
@@ -412,6 +415,8 @@ const upR=k=>v=>setRf(p=>({...p,[k]:v}));
 
 // Treatment modal
 const [treatModal,setTreatModal]=useState(false);
+const [ortoModal,setOrtoModal]=useState(false);
+const [ortoForm,setOrtoForm]=useState({valor:"",ano:new Date().getFullYear(),dentistId:""});
 const [tf,setTf]=useState({name:"",start:today(),items:[],payments:[]});
 const [tni,setTni]=useState({d:"",procId:"",v:""});
 
@@ -450,12 +455,16 @@ setTf(p=>({...p,items:[...p.items,{desc,value:Number(tni.v),paid:false}]}));
 setTni({d:"",procId:"",v:""});
 };
 // Baixa de procedimento pelo dentista
+const [ortoPayModal,setOrtoPayModal]=useState(null); // {tid, idx}
+const [ortoPayMethod,setOrtoPayMethod]=useState("PIX");
 const togItemPaid=(tid,idx)=>{
 const treat=treats.find(t=>t.id===tid);
 if(!treat)return;
 const item=treat.items[idx];
 // Giving baixa
 if(!item.done){
+// Orto: ask payment method first
+if(item.orto){setOrtoPayModal({tid,idx});return;}
 // Check if user is dentist level - only their own dentistId or admin
 if(user.level===1&&user.dentistId!==treat.dentistId&&treat.dentistId){
 alert("Você só pode dar baixa em procedimentos do seu próprio tratamento.");return;
@@ -619,17 +628,35 @@ return <>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🦷 Planos de Tratamento</span>
       <Btn ch="+ Novo Plano" sm onClick={()=>{setTf({name:"",start:today(),items:[],payments:[]});setTreatModal(true);}}/>
+          <Btn ch="🦷 Plano Orto" sm v="f" onClick={()=>{setOrtoForm({valor:"",ano:new Date().getFullYear(),dentistId:String(dents.find(d=>(d.specialty||"").toLowerCase().includes("orto"))?.id||dents[0]?.id||"")});setOrtoModal(true);}}/>
     </div>
     {patTreats.length===0&&<div style={{background:G.bg,borderRadius:10,padding:"20px",textAlign:"center",color:G.muted,fontSize:13}}>Nenhum plano de tratamento</div>}
     {patTreats.map(t=>{
       const total=t.items.reduce((s,i)=>s+i.value,0);
       const paid=(t.payments||[]).reduce((s,p)=>s+p.value,0);
-      return <div key={t.id} style={{background:G.bg,borderRadius:12,padding:"14px 16px",border:`1px solid ${G.border}`}}>
+      return <div key={t.id} style={{background:t.finalizado?"#F1F8E9":G.bg,borderRadius:12,padding:"14px 16px",border:"1px solid "+(t.finalizado?G.success:G.border),opacity:t.finalizado?0.85:1}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:6}}>
-          <div><div style={{fontWeight:700,fontSize:14}}>{t.name}</div><div style={{fontSize:12,color:G.muted}}>Início: {fmt(t.start)}</div></div>
+          <div>
+  <div style={{display:"flex",alignItems:"center",gap:7}}>
+    <span style={{fontWeight:700,fontSize:14}}>{t.name}</span>
+    {t.finalizado&&<span style={{background:G.success+"20",color:G.success,borderRadius:10,padding:"1px 8px",fontSize:10,fontWeight:700}}>{"✅ Concluído"}</span>}
+  </div>
+  <div style={{fontSize:12,color:G.muted}}>{"Início: "+fmt(t.start)}{t.finalizado?" · Finalizado: "+fmt(t.finalizadoEm):""}</div>
+</div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
             <button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>
+                {!t.finalizado
+                  ?<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:true,finalizadoEm:today(),finalizadoPor:user.name}))}
+                    style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✓ Finalizar"}</button>
+                  :<div style={{display:"flex",alignItems:"center",gap:5}}>
+                    <span style={{background:G.success+"20",color:G.success,borderRadius:10,padding:"3px 10px",fontSize:11,fontWeight:700}}>{"✅ Finalizado"}</span>
+                    <button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:false,finalizadoEm:null,finalizadoPor:null}))}
+                      style={{background:"none",border:"1px solid "+G.border,borderRadius:6,padding:"2px 7px",fontSize:10,color:G.muted,cursor:"pointer"}}>{"↩"}</button>
+                  </div>
+                }
+                <button onClick={()=>{if(window.confirm&&!window.confirm("Excluir plano?"))return;setTreats(prev=>prev.filter(x=>x.id!==t.id));}}
+                  style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"🗑"}</button>
             <button onClick={()=>{setTreats(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️</button>
           </div>
         </div>
@@ -956,6 +983,65 @@ return <>
 </div>}
 
 {/* Treatment modal - inline to fix state closure issue */}
+{ortoModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:520,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+    <div style={{background:G.primary,borderRadius:"16px 16px 0 0",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span style={{fontWeight:700,color:"#fff",fontSize:16}}>{"🦷 Plano Ortodôntico"}</span>
+      <button onClick={()=>setOrtoModal(false)} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
+    </div>
+    <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{background:G.accent,borderRadius:8,padding:"9px 13px",fontSize:12,color:G.primary}}>
+        {"Informe o valor mensal e o ano. O sistema gera automaticamente todas as parcelas mensais."}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Valor Mensal (R$) *</label>
+          <input value={ortoForm.valor} onChange={e=>setOrtoForm(p=>({...p,valor:e.target.value}))} type="number" placeholder="Ex: 150,00"
+            style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 11px",fontSize:14,outline:"none"}}/>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Ano</label>
+          <select value={ortoForm.ano} onChange={e=>setOrtoForm(p=>({...p,ano:Number(e.target.value)}))}
+            style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 11px",fontSize:14,outline:"none",background:"#fff"}}>
+            {[2025,2026,2027,2028].map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Ortodontista</label>
+        <select value={ortoForm.dentistId} onChange={e=>setOrtoForm(p=>({...p,dentistId:e.target.value}))}
+          style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 11px",fontSize:14,outline:"none",background:"#fff"}}>
+          {dents.map(d=><option key={d.id} value={String(d.id)}>{d.name}</option>)}
+        </select>
+      </div>
+      {ortoForm.valor&&Number(ortoForm.valor)>0&&<div style={{background:G.bg,borderRadius:10,padding:"10px 13px"}}>
+        <div style={{fontSize:11,fontWeight:700,color:G.muted,marginBottom:8}}>{"PARCELAS GERADAS — "+ortoForm.ano}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:5}}>
+          {["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"].map((m,i)=><div key={m} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:7,padding:"6px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:12,fontWeight:600}}>{m}</span>
+            <span style={{fontSize:12,color:G.primary,fontWeight:700}}>{"R$ "+Number(ortoForm.valor).toFixed(2).replace(".",",")} </span>
+          </div>)}
+        </div>
+        <div style={{marginTop:8,fontWeight:700,color:G.primary,fontSize:13}}>{"Total anual: R$ "+(Number(ortoForm.valor)*12).toFixed(2).replace(".",",")}</div>
+      </div>}
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:10,borderTop:"1px solid "+G.border}}>
+        <button onClick={()=>setOrtoModal(false)} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={()=>{
+          if(!ortoForm.valor||Number(ortoForm.valor)<=0){alert("Informe o valor mensal");return;}
+          var meses=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+          var items=meses.map(function(m,i){
+            var mes=String(i+1).padStart(2,"0");
+            return {desc:m+" "+ortoForm.ano,value:Number(ortoForm.valor),paid:false,orto:true,mesRef:ortoForm.ano+"-"+mes};
+          });
+          var newTreat={name:"Ortodontia "+ortoForm.ano,start:today(),items:items,payments:[],patientId:pat.id,dentistId:Number(ortoForm.dentistId)||dents[0]?.id,id:nid(treats),orto:true,ano:ortoForm.ano};
+          setTreats(prev=>[...prev,newTreat]);
+          setOrtoModal(false);
+        }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🦷 Criar Plano Orto"}</button>
+      </div>
+    </div>
+  </div>
+</div>}
+
 {treatModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 
   <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
@@ -1097,6 +1183,51 @@ return <>
   </div>
 </div>}
 
+{ortoPayModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+    <div style={{background:G.primary,borderRadius:"16px 16px 0 0",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div>
+        <div style={{fontWeight:700,color:"#fff",fontSize:15}}>{"💳 Dar Baixa — Orto"}</div>
+        <div style={{fontSize:12,color:"rgba(255,255,255,.75)"}}>{treats.find(t=>t.id===ortoPayModal.tid)?.items[ortoPayModal.idx]?.desc||""}</div>
+      </div>
+      <button onClick={()=>setOrtoPayModal(null)} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
+    </div>
+    <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{fontSize:13,color:G.muted}}>{"Valor: "}<strong style={{color:G.primary}}>{cur(treats.find(t=>t.id===ortoPayModal.tid)?.items[ortoPayModal.idx]?.value||0)}</strong></div>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Forma de Pagamento</label>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {(function(){
+            var base=["PIX","Dinheiro","Cartão Crédito","Cartão Débito"];
+            var pixDents=dents.map(function(d){
+              var sn=(function(){var sk=["dr.","dra.","dr","dra"];var pts=d.name.split(" ");var r=pts.filter(function(p){return sk.indexOf(p.toLowerCase())<0;});return r[0]||pts[0];})();
+              return "Pix "+sn;
+            });
+            return [...base,...pixDents].map(function(m){
+              var isPix=m.startsWith("Pix ");
+              return <button key={m} onClick={()=>setOrtoPayMethod(m)}
+                style={{border:"2px solid "+(ortoPayMethod===m?(isPix?G.success:G.primary):G.border),background:ortoPayMethod===m?(isPix?G.success:G.primary):"#fff",color:ortoPayMethod===m?"#fff":(isPix?G.success:G.muted),borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{m}</button>;
+            });
+          })()}
+        </div>
+      </div>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:10,borderTop:"1px solid "+G.border}}>
+        <button onClick={()=>setOrtoPayModal(null)} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={()=>{
+          var tid2=ortoPayModal.tid;var idx2=ortoPayModal.idx;
+          var treat2=treats.find(t=>t.id===tid2);
+          if(!treat2)return;
+          var item2=treat2.items[idx2];
+          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,payMethod:ortoPayMethod})}));
+          var recObj={id:nid(recs),patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:item2.value,payment:ortoPayMethod,inst:1,fromTreat:tid2};
+          setRecs(prev=>[...prev,recObj]);
+          setOrtoPayModal(null);
+        }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"✓ Confirmar"}</button>
+      </div>
+    </div>
+  </div>
+</div>}
+
 {/* Payment modal - inline render to avoid state closure bug */}
 {!!payModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 
@@ -1188,7 +1319,15 @@ return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate
 const week=getWeek(selDate);
 const prevW=()=>{const d=new Date(week[0]+"T12:00");d.setDate(d.getDate()-7);setSelDate(d.toISOString().split("T")[0]);};
 const nextW=()=>{const d=new Date(week[6]+"T12:00");d.setDate(d.getDate()+1);setSelDate(d.toISOString().split("T")[0]);};
-const vd=isDent?dents.filter(d=>d.id===user.dentistId):denF==="all"?dents:dents.filter(d=>d.id===Number(denF));
+const isOrto=function(d){var s=(d.specialty||"").toLowerCase();return s.indexOf("orto")>=0;};
+const vd=isDent
+  ?dents.filter(d=>d.id===user.dentistId)
+  :denF==="all"
+    ?dents.filter(d=>!isOrto(d))
+    :dents.filter(d=>d.id===Number(denF));
+// Use 20-min slots when viewing a single orto dentist
+const viewingOrto=vd.length===1&&isOrto(vd[0]);
+const activeSlots=viewingOrto?SLOTS_ORTO:SLOTS;
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
@@ -1269,6 +1408,8 @@ return (
       <option value="all">Todos</option>
       {dents.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
     </select>}
+    {/* Quick orto buttons */}
+    {!isDent&&dents.filter(d=>(d.specialty||"").toLowerCase().indexOf("orto")>=0).map(d=><button key={d.id} onClick={()=>setDenF(String(d.id))} style={{border:"2px solid "+(denF===String(d.id)?d.color:G.border),background:denF===String(d.id)?d.color:"#fff",color:denF===String(d.id)?"#fff":d.color,borderRadius:20,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{"🦷 "+d.name.replace(/Dr\.|Dra\./i,"").trim().split(" ")[0]}</button>)}
     <div style={{flex:1}}/>
     <Btn ch="+ Agendamento" onClick={()=>{setEdit(null);setF({...blank,date:selDate});setModal(true);}}/>
   </div>
@@ -1331,8 +1472,8 @@ return (
 {(()=>{
 // Inclui horarios personalizados dos agendamentos do dia
 var d=vd[0];
-var customTimes=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&!SLOTS.includes(x.time);}).map(function(x){return x.time;});
-var allSlots=[...new Set([...SLOTS,...customTimes])].sort();
+var customTimes=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&!activeSlots.includes(x.time);}).map(function(x){return x.time;});
+var allSlots=[...new Set([...activeSlots,...customTimes])].sort();
 var _slots=allSlots.map(function(slot){
 // Prefer active (non-cancelled/missed/rescheduled) appointments first
 var a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentistId===d.id&&x.status!=="cancelled"&&x.status!=="rescheduled"&&x.status!=="missed";});
@@ -1360,7 +1501,7 @@ if(isExtraSlot&&!a)return(
 </div>
 );
 if(!a)return(
-<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=SLOTS.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer"}}>
+<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:viewingOrto?"2px 8px":"5px 8px",borderRadius:6,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?24:36}}>
 <span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
 {isDent
 ?<span style={{fontSize:11,color:G.border}}>─────────</span>
@@ -1379,7 +1520,7 @@ if(a&&a.blocked)return(
 // Cancelado/desmarcado: libera o horário visualmente
 if(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed"){
 return(
-<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=SLOTS.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer"}}>
+<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:viewingOrto?"2px 8px":"5px 8px",borderRadius:6,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?24:36}}>
 <span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
 <span style={{fontSize:11,color:G.border,flex:1}}>{isDent?"":"+ agendar"}</span>
 </div>
@@ -1437,8 +1578,8 @@ return [_slots, _cancelled];
   {vd.length>1&&<div style={{overflowX:"auto"}}>
     <div style={{minWidth:vd.length>1?vd.length*130+55:250}}>
       {(function(){
-        var customTimesAll=appts.filter(function(x){return x.date===selDate&&vd.some(function(d){return d.id===x.dentistId;})&&SLOTS.indexOf(x.time)<0;}).map(function(x){return x.time;});
-        var allSlotsMulti=SLOTS.concat(customTimesAll).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+        var customTimesAll=appts.filter(function(x){return x.date===selDate&&vd.some(function(d){return d.id===x.dentistId;})&&activeSlots.indexOf(x.time)<0;}).map(function(x){return x.time;});
+        var allSlotsMulti=activeSlots.concat(customTimesAll).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
         return allSlotsMulti.map(function(slot){
         const hasAny=vd.some(d=>appts.find(a=>a.date===selDate&&a.time===slot&&a.dentistId===d.id));
         return (
@@ -1460,7 +1601,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
               // Cancelado/desmarcado: libera o horário visualmente
               if(a&&(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed")){
                 return <div key={d.id} style={{background:"#f8fbf9",border:"1px dashed "+G.border,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:isDent?"default":"pointer"}}
-                  onClick={function(){if(isDent)return;setEdit(null);var _isStdM=SLOTS.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdM?slot:"",timeCustom:_isStdM?"":slot,dentistId:d.id});setModal(true);}}>
+                  onClick={function(){if(isDent)return;setEdit(null);var _isStdM=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdM?slot:"",timeCustom:_isStdM?"":slot,dentistId:d.id});setModal(true);}}>
                   <span style={{fontSize:9,color:G.muted}}>{"+"}</span>
                 </div>;
               }
@@ -1497,7 +1638,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                 var bloqTxtColor=isOffDay?"#C62828":isAlmoco?"#E65100":"#6A1B9A";
                 return <div key={d.id} style={{background:bloqColor,border:"1.5px solid "+bloqBorder,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:bloqTxtColor,fontWeight:700}}>{bloqText}</div>;
               }
-              return <div key={d.id} onClick={function(){if(isDent)return;setEdit(null);var _isStdE=SLOTS.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdE?slot:"",timeCustom:_isStdE?"":slot,dentistId:d.id});setModal(true);}} style={{background:isDent?"transparent":"#f8fbf9",border:"1.5px dashed "+G.border,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:10,color:G.border}} onMouseEnter={e=>{e.currentTarget.style.background=G.accent;e.currentTarget.style.color=G.primary;}} onMouseLeave={e=>{e.currentTarget.style.background="#f8fbf9";e.currentTarget.style.color=G.border;}}>+</div>;
+              return <div key={d.id} onClick={function(){if(isDent)return;setEdit(null);var _isStdE=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdE?slot:"",timeCustom:_isStdE?"":slot,dentistId:d.id});setModal(true);}} style={{background:isDent?"transparent":"#f8fbf9",border:"1.5px dashed "+G.border,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:10,color:G.border}} onMouseEnter={e=>{e.currentTarget.style.background=G.accent;e.currentTarget.style.color=G.primary;}} onMouseLeave={e=>{e.currentTarget.style.background="#f8fbf9";e.currentTarget.style.color=G.border;}}>+</div>;
             })}
           </div>
         );
@@ -1601,7 +1742,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 <div style={{display:"flex",flexDirection:"column",gap:4}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Horário</label>
 <select value={f.time} onChange={e=>upd("time")(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 8px",fontSize:13,outline:"none",background:"#fff"}}>
-{[{v:"",l:"Selecione..."},...SLOTS].map(o=><option key={o.v??o} value={o.v??o}>{o.l??o}</option>)}
+{[{v:"",l:"Selecione..."},...activeSlots].map(o=><option key={o.v??o} value={o.v??o}>{o.l??o}</option>)}
 </select>
 <input value={f.timeCustom||""} onChange={e=>upd("timeCustom")(e.target.value)} placeholder="Horário personalizado ex: 09:15" style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"7px 8px",fontSize:12,outline:"none"}}/>
 </div>
@@ -1633,6 +1774,14 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 </div>
 <R2 a={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>} b={<Sel lb="Status" val={f.status} set={upd("status")} opts={Object.entries(SL).map(([v,l])=>({v,l}))}/>}/>
 <Inp lb="Descrição do Tratamento" val={f.treatment} set={upd("treatment")} ph="Ex: Restauração dente 36"/>
+<label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,cursor:"pointer",background:f.fixo?G.primary+"12":G.bg,borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(f.fixo?G.primary:G.border)}}>
+  <input type="checkbox" checked={!!f.fixo} onChange={e=>upd("fixo")(e.target.checked)} style={{accentColor:G.primary,width:16,height:16}}/>
+  <div>
+    <strong style={{color:f.fixo?G.primary:G.text}}>📌 Despesa Fixa (repete todo mês)</strong>
+    <div style={{fontSize:11,color:G.muted}}>Aparece automaticamente todo mês sem o valor</div>
+  </div>
+</label>
+{f.fixo&&<Inp lb="Dia de Vencimento" val={f.diaVenc||""} set={upd("diaVenc")} type="number" ph="Ex: 10 (dia 10 de cada mês)" min="1" max="31"/>}
 <SC2 save={save} cancel={()=>setModal(false)}/>
 </div>
 }/>
@@ -2221,7 +2370,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 function Despesas({expenses,setExpenses,user}){
 const [tab,setTab]=useState("clinic");
 const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);
-const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false};
+const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false,fixo:false,diaVenc:""};
 const [f,setF]=useState(blank);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const [mo,setMo]=useState(today().slice(0,7));
 const PERS_CATS=["Moradia","Alimentação","Transporte","Saúde","Lazer","Educação","Vestuário","Outros"];
@@ -2229,13 +2378,40 @@ const PERS_CATS=["Moradia","Alimentação","Transporte","Saúde","Lazer","Educa�
 if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><p style={{color:G.red,fontSize:15}}>🔒 Acesso restrito ao Administrador</p></div>;
 
 const list=expenses[tab]||[];
+// Auto-add fixed expenses for current month if not present
+const fixas=expenses.fixas||[];
+fixas.filter(fx=>fx.tab===tab).forEach(fx=>{
+  var diaNum=Number(fx.diaVenc)||1;
+  var diaStr=String(diaNum).padStart(2,"0");
+  var dataVenc=mo+"-"+diaStr;
+  var jaExiste=list.some(e=>e.fixo&&e.desc===fx.desc&&e.date.startsWith(mo));
+  if(!jaExiste){
+    var novaId=nid([...list,...(expenses.clinic||[]),...(expenses.personal||[])]);
+    setExpenses(prev=>({...prev,[tab]:[...prev[tab],{id:novaId,date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true}]}));
+  }
+});
 const moList=list.filter(e=>e.date.startsWith(mo));
-const total=moList.reduce((s,e)=>s+Number(e.value||0),0);
+const total=moList.filter(e=>Number(e.value||0)>0).reduce((s,e)=>s+Number(e.value||0),0);
 const paid=moList.filter(e=>e.paid).reduce((s,e)=>s+Number(e.value||0),0);
 
-const save=()=>{if(!f.desc||!f.value)return alert("Preencha descrição e valor");
-const obj={...f,value:Number(f.value),id:edit?edit.id:nid(list)};
-setExpenses(prev=>({...prev,[tab]:edit?prev[tab].map(e=>e.id===edit.id?obj:e):[...prev[tab],obj]}));
+const save=()=>{
+if(!f.desc)return alert("Preencha a descrição");
+if(!f.fixo&&!f.value)return alert("Preencha o valor");
+const obj={...f,value:f.fixo&&!f.value?0:Number(f.value),id:edit?edit.id:nid(list)};
+setExpenses(prev=>{
+  var newState={...prev,[tab]:edit?prev[tab].map(e=>e.id===edit.id?obj:e):[...prev[tab],obj]};
+  // Save/update in fixas list
+  var fixas=prev.fixas||[];
+  if(obj.fixo){
+    var fx={id:obj.id,desc:obj.desc,cat:obj.cat,diaVenc:obj.diaVenc||"",tab:tab};
+    var exists=fixas.find(x=>x.id===obj.id);
+    newState.fixas=exists?fixas.map(x=>x.id===obj.id?fx:x):[...fixas,fx];
+  } else if(edit&&edit.fixo){
+    // Was fixed, now removed
+    newState.fixas=fixas.filter(x=>x.id!==obj.id);
+  }
+  return newState;
+});
 setModal(false);
 };
 const remove=id=>{if(window.confirm("Remover?"))setExpenses(prev=>({...prev,[tab]:prev[tab].filter(e=>e.id!==id)}));};
@@ -2255,11 +2431,22 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
 {moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:20,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>Nenhuma despesa neste mês</div>}
-{moList.sort((a,b)=>a.date.localeCompare(b.date)).map(e=><div key={e.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11,opacity:e.paid?.7:1}}>
+{moList.sort((a,b)=>{
+  var diaA=a.fixo&&a.diaVenc?Number(a.diaVenc):Number(a.date.slice(8));
+  var diaB=b.fixo&&b.diaVenc?Number(b.diaVenc):Number(b.date.slice(8));
+  return diaA-diaB;
+}).map(e=><div key={e.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11,opacity:e.paid?.7:1}}>
 <input type="checkbox" checked={e.paid} onChange={()=>togglePaid(e.id)} style={{accentColor:G.primary,width:16,height:16,flexShrink:0}}/>
 <div style={{flex:1}}>
-<div style={{fontWeight:700,fontSize:13,textDecoration:e.paid?"line-through":"none"}}>{e.desc}</div>
-<div style={{fontSize:11,color:G.muted}}>{e.cat} · {fmt(e.date)}</div>
+<div style={{display:"flex",alignItems:"center",gap:5}}>
+  <span style={{fontWeight:700,fontSize:13,textDecoration:e.paid?"line-through":"none"}}>{e.desc}</span>
+  {e.fixo&&<span style={{background:G.primary+"20",color:G.primary,borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>📌 Fixa</span>}
+</div>
+<div style={{fontSize:11,color:G.muted,display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+  <span>{e.cat}</span>
+  {e.fixo&&e.diaVenc?<span style={{background:G.primary+"15",color:G.primary,borderRadius:6,padding:"1px 6px",fontWeight:700,fontSize:10}}>{"📅 Vence dia "+e.diaVenc}</span>:<span>{fmt(e.date)}</span>}
+  {e.fixo&&!e.value&&!e.paid&&<span style={{color:G.orange,fontWeight:700}}>{"⚠ Preencher valor"}</span>}
+</div>
 </div>
 <Bdg l={e.paid?"✓ Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
 <span style={{fontWeight:700,fontSize:13}}>{cur(e.value)}</span>
@@ -2271,6 +2458,14 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <Inp lb="Descrição" val={f.desc} set={upd("desc")} ph="Ex: Aluguel consultório maio"/>
 <R2 a={<Sel lb="Categoria" val={f.cat} set={upd("cat")} opts={tab==="clinic"?EXPENSE_CATS:["Moradia","Alimentação","Transporte","Saúde","Lazer","Educação","Vestuário","Outros"]}/>} b={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>}/>
 <R2 a={<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>} b={<div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end"}}><label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={f.paid} onChange={e=>upd("paid")(e.target.checked)} style={{accentColor:G.primary,width:15,height:15}}/> Já pago</label></div>}/>
+<label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,cursor:"pointer",background:f.fixo?G.primary+"12":G.bg,borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(f.fixo?G.primary:G.border)}}>
+  <input type="checkbox" checked={!!f.fixo} onChange={e=>upd("fixo")(e.target.checked)} style={{accentColor:G.primary,width:16,height:16}}/>
+  <div>
+    <strong style={{color:f.fixo?G.primary:G.text}}>📌 Despesa Fixa (repete todo mês)</strong>
+    <div style={{fontSize:11,color:G.muted}}>Aparece automaticamente todo mês sem o valor</div>
+  </div>
+</label>
+{f.fixo&&<Inp lb="Dia de Vencimento" val={f.diaVenc||""} set={upd("diaVenc")} type="number" ph="Ex: 10 (dia 10 de cada mês)" min="1" max="31"/>}
 <SC2 save={save} cancel={()=>setModal(false)}/>
 </div>}/>
 
@@ -3175,7 +3370,7 @@ const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&p.sent.startsWith(
 const clinicExp=(expenses.clinic||[]).filter(e=>e.date.startsWith(mo));
 const persExp=(expenses.personal||[]).filter(e=>e.date.startsWith(mo));
 
-const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
+const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
 if(user.level>=3)TABS.push(["exp","Despesas"]);
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -3295,6 +3490,51 @@ return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14p
 </>;
 })()}
 </div>}
+{tab==="orto"&&(function(){
+  var ortoDents=dents.filter(function(d){return (d.specialty||"").toLowerCase().indexOf("orto")>=0;});
+  if(ortoDents.length===0)return <div style={{background:G.card,borderRadius:12,padding:20,textAlign:"center",color:G.muted}}>{"Nenhum dentista com especialidade Ortodontia cadastrado."}</div>;
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    {ortoDents.map(function(d){
+      var dAppts=appts.filter(function(a){return a.dentistId===d.id&&a.date.startsWith(mo)&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});
+      var dDone=dAppts.filter(function(a){return a.status==="done";}).length;
+      var dConf=dAppts.filter(function(a){return a.status==="confirmed";}).length;
+      var dPend=dAppts.filter(function(a){return a.status==="pending";}).length;
+      // Group by week
+      var byWeek={};
+      dAppts.forEach(function(a){
+        var d2=new Date(a.date+"T12:00");
+        var week="Semana "+Math.ceil(d2.getDate()/7);
+        if(!byWeek[week])byWeek[week]=[];
+        byWeek[week].push(a);
+      });
+      return <div key={d.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+d.color}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:15,color:d.color}}>{d.name}</div>
+            <div style={{fontSize:11,color:G.muted}}>{d.specialty} · {dAppts.length} pacientes no mês</div>
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {[["Realizados",dDone,G.success],["Confirmados",dConf,G.blue],["Pendentes",dPend,G.yellow]].map(function(item){return <div key={item[0]} style={{background:item[2]+"15",borderRadius:9,padding:"6px 12px",textAlign:"center"}}>
+              <div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:item[2],fontWeight:700}}>{item[1]}</div>
+              <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{item[0]}</div>
+            </div>;})}
+          </div>
+        </div>
+        {dAppts.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum paciente este mês</p>}
+        {dAppts.sort(function(a,b){return a.date.localeCompare(b.date)||a.time.localeCompare(b.time);}).map(function(a){
+          var p=pats.find(function(x){return x.id===a.patientId;});
+          return <div key={a.id} style={{display:"flex",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border,alignItems:"center",flexWrap:"wrap"}}>
+            <span style={{fontSize:11,color:G.muted,minWidth:80}}>{fmt(a.date)+" "+a.time}</span>
+            <span style={{flex:1,fontWeight:600,fontSize:12}}>{p?p.name:"A confirmar"}</span>
+            <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
+            <span style={{fontSize:10,fontWeight:700,color:SC[a.status],background:SC_BG[a.status],borderRadius:10,padding:"1px 7px"}}>{SL[a.status]}</span>
+          </div>;
+        })}
+      </div>;
+    })}
+  </div>;
+})()}
+
 {tab==="exp"&&user.level>=3&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
 {[["Despesas Clínica",clinicExp,G.red],["Despesas Pessoais",persExp,G.purple]].map(([title,list,color])=><div key={title} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
@@ -3360,6 +3600,14 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <Inp lb="Nome do Material" val={f.name} set={upd("name")}/>
 <R2 a={<Inp lb="Qtd. Atual" val={String(f.qty)} set={upd("qty")} type="number"/>} b={<Inp lb="Unidade" val={f.unit} set={upd("unit")} ph="un / cx / ml"/>}/>
 <R2 a={<Inp lb="Qtd. Mínima" val={String(f.min)} set={upd("min")} type="number"/>} b={<Inp lb="Preço Un. (R$)" val={String(f.price)} set={upd("price")} type="number"/>}/>
+<label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,cursor:"pointer",background:f.fixo?G.primary+"12":G.bg,borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(f.fixo?G.primary:G.border)}}>
+  <input type="checkbox" checked={!!f.fixo} onChange={e=>upd("fixo")(e.target.checked)} style={{accentColor:G.primary,width:16,height:16}}/>
+  <div>
+    <strong style={{color:f.fixo?G.primary:G.text}}>📌 Despesa Fixa (repete todo mês)</strong>
+    <div style={{fontSize:11,color:G.muted}}>Aparece automaticamente todo mês sem o valor</div>
+  </div>
+</label>
+{f.fixo&&<Inp lb="Dia de Vencimento" val={f.diaVenc||""} set={upd("diaVenc")} type="number" ph="Ex: 10 (dia 10 de cada mês)" min="1" max="31"/>}
 <SC2 save={save} cancel={()=>setModal(false)}/>
 </div>}/>
 <Modal open={!!mv} close={()=>setMv(null)} title={m.t==="in"?"Entrada":"Saída"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
