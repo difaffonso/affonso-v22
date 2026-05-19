@@ -118,7 +118,7 @@ var sn=dentShortName(d).toLowerCase();
 return p.indexOf(sn)>=0&&(p.startsWith("pix ")||p.startsWith("cartão ")||p.startsWith("cartao "));
 })||null;
 };
-const SL={confirmed:"Confirmado",pending:"Pendente",done:"Realizado",cancelled:"Cancelado",missed:"Faltou",rescheduled:"Desmarcado"};
+const SL={confirmed:"Confirmado",pending:"Pendente",waiting:"Aguardando",done:"Realizado",cancelled:"Cancelado",missed:"Faltou",rescheduled:"Desmarcado"};
 // Colors exactly like the photo: confirmed=green, pending=orange, cancelled=red, rescheduled=grey, missed=orange-red
 // Status colors - cada um bem distinto visualmente
 // confirmed=azul (vai vir), pending=laranja (aguardando), done=verde (realizado)
@@ -126,6 +126,7 @@ const SL={confirmed:"Confirmado",pending:"Pendente",done:"Realizado",cancelled:"
 const SC={
 confirmed:"#1565C0",   // Azul vivo - confirmado, vai vir
 pending:"#E65100",     // Laranja forte - pendente, aguardando
+waiting:"#7B1FA2",     // Roxo - paciente aguardando na clínica
 done:"#2E7D32",        // Verde escuro - realizado/concluido
 cancelled:"#C62828",   // Vermelho - cancelado
 missed:"#6A1B9A",      // Roxo - faltou
@@ -135,6 +136,7 @@ blocked:"#B71C1C",     // Vermelho escuro - bloqueado
 const SC_BG={
 confirmed:"#E3F2FD",   // Azul claro
 pending:"#FFF3E0",     // Laranja claro
+waiting:"#F3E5F5",     // Roxo claro - aguardando
 done:"#E8F5E9",        // Verde claro
 cancelled:"#FFEBEE",   // Vermelho claro
 missed:"#F3E5F5",      // Roxo claro
@@ -143,7 +145,7 @@ blocked:"#FFCDD2",     // Vermelho muito claro
 };
 // Emojis de status para identificacao rapida
 const SC_ICON={
-confirmed:"✅",pending:"⏳",done:"✔️",cancelled:"❌",missed:"🚫",rescheduled:"🔄",blocked:"🔒"
+confirmed:"✅",pending:"⏳",waiting:"🪑",done:"✔️",cancelled:"❌",missed:"🚫",rescheduled:"🔄",blocked:"🔒"
 };
 const PROS_T=["Coroa Metalocerâmica","Coroa Zircônia","Coroa Porcelana","PPR","PPF","Prótese Total","Faceta","Inlay/Onlay","Implante (coroa)","Protocolo","Outro"];
 const PROS_SL={waiting:"Aguardando",returned:"Retornou",placed:"Instalada",remake:"Refazer"};
@@ -1288,9 +1290,10 @@ return <>
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,dents,procs,user,addLog}){
+function Agenda({appts,setAppts,pats,dents,procs,user,addLog,agendaSelDate:_extSelDate,setAgendaSelDate:_setExtSelDate}){
 
-const [selDate,setSelDate]=useState(today());
+const [selDate,setSelDate]=useState(_extSelDate||today());
+const _setSelDateSync=function(d){setSelDate(d);if(_setExtSelDate)_setExtSelDate(d);};
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(new Date().getFullYear());
 const [calM,setCalM]=useState(new Date().getMonth());
@@ -1315,8 +1318,8 @@ const mon=new Date(d);mon.setDate(d.getDate()+diff);
 return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x.toISOString().split("T")[0];});
 };
 const week=getWeek(selDate);
-const prevW=()=>{const d=new Date(week[0]+"T12:00");d.setDate(d.getDate()-7);setSelDate(d.toISOString().split("T")[0]);};
-const nextW=()=>{const d=new Date(week[6]+"T12:00");d.setDate(d.getDate()+1);setSelDate(d.toISOString().split("T")[0]);};
+const prevW=()=>{const d=new Date(week[0]+"T12:00");d.setDate(d.getDate()-7);_setSelDateSync(d.toISOString().split("T")[0]);};
+const nextW=()=>{const d=new Date(week[6]+"T12:00");d.setDate(d.getDate()+1);_setSelDateSync(d.toISOString().split("T")[0]);};
 const isOrto=function(d){var s=(d.specialty||"").toLowerCase();return s.indexOf("orto")>=0;};
 const vd=isDent
   ?dents.filter(d=>d.id===user.dentistId)
@@ -1386,7 +1389,7 @@ const ds=calY+"-"+String(calM+1).padStart(2,"0")+"-"+String(i+1).padStart(2,"0")
 const isSel=ds===selDate;const isTd=ds===td;
 const cnt=appts.filter(a=>a.date===ds).length;
 return (
-<div key={i} onClick={()=>{setSelDate(ds);setShowCal(false);}} style={{borderRadius:6,padding:"4px 2px",textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent"}}>
+<div key={i} onClick={()=>{_setSelDateSync(ds);setShowCal(false);}} style={{borderRadius:6,padding:"4px 2px",textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent"}}>
 <div style={{fontSize:12,fontWeight:700,color:isSel?"#fff":isTd?G.primary:G.text}}>{i+1}</div>
 {cnt>0&&<div style={{width:4,height:4,borderRadius:"50%",background:isSel?"rgba(255,255,255,.7)":G.primary,margin:"0 auto"}}/>}
 </div>
@@ -1401,7 +1404,7 @@ return (
     <button onClick={()=>{setCalY(new Date().getFullYear());setCalM(new Date().getMonth());setShowCal(v=>!v);}} style={{background:showCal?G.primary:G.accent,border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",cursor:"pointer",fontSize:16,color:showCal?"#fff":"inherit"}}>{"📅"}</button>
     <button onClick={prevW} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 12px",cursor:"pointer",color:G.primary,fontWeight:700}}>{"<"}</button>
     <button onClick={nextW} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 12px",cursor:"pointer",color:G.primary,fontWeight:700}}>{">"}</button>
-    <button onClick={()=>setSelDate(td)} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",cursor:"pointer",color:G.primary,fontWeight:600,fontSize:12}}>Hoje</button>
+    <button onClick={()=>_setSelDateSync(td)} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",cursor:"pointer",color:G.primary,fontWeight:600,fontSize:12}}>Hoje</button>
     {!isDent&&<select value={denF} onChange={e=>setDenF(e.target.value)} style={{border:"1.5px solid "+G.border,borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:600,outline:"none",background:"#fff"}}>
       <option value="all">Todos</option>
       {dents.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
@@ -1411,37 +1414,7 @@ return (
     <div style={{flex:1}}/>
     <Btn ch="+ Agendamento" onClick={()=>{setEdit(null);setF({...blank,date:selDate});setModal(true);}}/>
   </div>
-  {/* Banner desmarcados/cancelados futuros */}
-  {(function(){
-    var td2=today();
-    var livres=appts.filter(function(a){return (a.status==="rescheduled"||a.status==="cancelled"||a.status==="missed")&&a.date>=td2&&(!isDent||a.dentistId===user.dentistId);});
-    if(!livres.length)return null;
-    return <div style={{background:"#FFF8E1",border:"2px solid #FFC107",borderRadius:12,padding:"10px 14px",marginBottom:4}}>
-      <div style={{fontWeight:700,fontSize:12,color:"#E65100",marginBottom:8}}>{"🔔 "+livres.length+" horário(s) liberado(s) -- disponível para reagendar"}</div>
-      {livres.sort(function(a,b){return a.date.localeCompare(b.date)||a.time.localeCompare(b.time);}).map(function(a){
-        var p=pats.find(function(x){return x.id===a.patientId;});
-        var d=dents.find(function(x){return x.id===a.dentistId;})||dents[0];
-        return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:"#fff",borderRadius:8,marginBottom:5,border:"1px solid #FFE082",flexWrap:"wrap"}}>
-          <span style={{fontSize:11,fontWeight:700,color:"#E65100",minWidth:70}}>{fmt(a.date)}</span>
-          <span style={{fontSize:12,fontWeight:700,color:"#E65100",minWidth:38}}>{a.time}</span>
-          <span style={{flex:1,fontSize:12,fontWeight:600}}>{p&&p.name||a.patientName||"--"}</span>
-          <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
-          <span style={{background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
-          {!isDent&&<button onClick={function(){setEdit(a);var _std=SLOTS.indexOf(a.time)>=0;setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId),time:_std?a.time:"",timeCustom:_std?"":a.time}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
-        </div>;
-      })}
-    </div>;
-  })()}
-
-{/* Legenda de cores */}
-
-  <div style={{display:"flex",gap:5,flexWrap:"wrap",padding:"6px 2px"}}>
-    {Object.entries(SL).map(([k,l])=>(
-      <span key={k} style={{display:"inline-flex",alignItems:"center",gap:4,background:SC_BG[k],border:"1.5px solid "+SC[k],borderRadius:20,padding:"3px 9px",fontSize:10,fontWeight:700,color:SC[k]}}>
-        {SC_ICON[k]} {l}
-      </span>
-    ))}
-  </div>
+  
 
   <div style={{display:"grid",gridTemplateColumns:"48px repeat(7,1fr)",gap:2}}>
     <div/>
@@ -1450,7 +1423,7 @@ return (
       const isTd=ds===td;const isSel=ds===selDate;
       const cnt=appts.filter(a=>a.date===ds).length;
       return (
-        <div key={ds} onClick={()=>setSelDate(ds)} style={{textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent",borderRadius:10,padding:"5px 2px",border:"2px solid "+(isSel?G.primary:isTd?G.primary:"transparent"),transition:"all .15s"}}>
+        <div key={ds} onClick={()=>_setSelDateSync(ds)} style={{textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent",borderRadius:10,padding:"5px 2px",border:"2px solid "+(isSel?G.primary:isTd?G.primary:"transparent"),transition:"all .15s"}}>
           <div style={{fontSize:10,fontWeight:700,color:isSel?"rgba(255,255,255,.8)":G.muted}}>{DAY[d.getDay()]}</div>
           <div style={{fontSize:20,fontWeight:700,color:isSel?"#fff":isTd?G.primary:G.text}}>{d.getDate()}</div>
           {cnt>0&&<div style={{background:isSel?"rgba(255,255,255,.4)":G.primary,color:"#fff",borderRadius:8,padding:"0 5px",fontSize:9,fontWeight:700,display:"inline-block"}}>{cnt}</div>}
@@ -1615,7 +1588,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                     <select value={a.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();chSt(a.id,e.target.value);}} style={{border:"1px solid "+SC[a.status],background:"#fff",borderRadius:5,padding:"1px 4px",fontSize:9,color:SC[a.status],fontWeight:700,cursor:"pointer",outline:"none"}}>
                       {Object.entries(SL).map(([k,l])=><option key={k} value={k}>{l}</option>)}
                     </select>
-                    {p&&p.phone&&<button onClick={e=>{e.stopPropagation();WA_API(p.phone,"Olá, "+(p.name||"")+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+". Affonso Odontologia 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:5,padding:"1px 6px",fontSize:9,fontWeight:700,cursor:"pointer"}}>WA</button>}
+                    {p&&p.phone&&<button onClick={e=>{e.stopPropagation();wa(p.phone,"Olá, "+(p.name||"")+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+". Affonso Odontologia 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:5,padding:"1px 6px",fontSize:9,fontWeight:700,cursor:"pointer"}}>WA</button>}
                   </div>}
                 </div>
               );
@@ -1693,8 +1666,8 @@ return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 1
 {Object.entries(SL).map(([k,l])=><button key={k} onClick={()=>chSt(a.id,k)} style={{border:"2px solid "+SC[k],background:a.status===k?SC[k]:SC_BG[k]||"#fff",color:a.status===k?"#fff":SC[k],borderRadius:20,padding:"5px 11px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{(SC_ICON[k]||"")+" "+l}</button>)}
 </div>}
 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-{!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
-{!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
+{!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
+{!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
 {!isDent&&p&&p.phone&&<Btn ch="🔄 Paciente Cancelou" v="r" sm onClick={function(){chSt(a.id,"cancelled");wa(p.phone,"Olá, "+p.name+"! Entendemos que nao podera comparecer. Gostaria de remarcar? Responda SIM. Affonso Odontologia");setViewA(null);}}/>}
 {!isDent&&<Btn ch="Editar" sm onClick={()=>{setEdit(a);var isStdSlot=SLOTS.indexOf(a.time)>=0;
 var fdata=Object.assign({},a,{
@@ -1772,14 +1745,6 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 </div>
 <R2 a={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>} b={<Sel lb="Status" val={f.status} set={upd("status")} opts={Object.entries(SL).map(([v,l])=>({v,l}))}/>}/>
 <Inp lb="Descrição do Tratamento" val={f.treatment} set={upd("treatment")} ph="Ex: Restauração dente 36"/>
-<label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,cursor:"pointer",background:f.fixo?G.primary+"12":G.bg,borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(f.fixo?G.primary:G.border)}}>
-  <input type="checkbox" checked={!!f.fixo} onChange={e=>upd("fixo")(e.target.checked)} style={{accentColor:G.primary,width:16,height:16}}/>
-  <div>
-    <strong style={{color:f.fixo?G.primary:G.text}}>📌 Despesa Fixa (repete todo mês)</strong>
-    <div style={{fontSize:11,color:G.muted}}>Aparece automaticamente todo mês sem o valor</div>
-  </div>
-</label>
-{f.fixo&&<Inp lb="Dia de Vencimento" val={f.diaVenc||""} set={upd("diaVenc")} type="number" ph="Ex: 10 (dia 10 de cada mês)" min="1" max="31"/>}
 <SC2 save={save} cancel={()=>setModal(false)}/>
 </div>
 }/>
@@ -2520,7 +2485,7 @@ var today2=new Date(t2+"T12:00");
 return today2>=sixMonths;
 });
 const sendWA2=async(ph,msg)=>{
-const sent=await WA_API(ph,msg);
+const sent=await wa(ph,msg);
 if(!sent){const a=document.createElement('a');a.href='https://wa.me/55'+ph.replace(/[^0-9]/g,'')+'?text='+encodeURIComponent(msg);a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);}
 };
 
@@ -5238,6 +5203,7 @@ return <div key={r.id} style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr 
 
 export default function App(){
 const [user,setUser]=useState(null);const [view,setView]=useState("dash");
+const [agendaSelDate,setAgendaSelDate]=useState(today());
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
@@ -5452,9 +5418,9 @@ return <>
       </div>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
-    <div style={{padding:"16px"}}>
+    <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user}/>}
-      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp}/>}
+      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
@@ -5471,6 +5437,15 @@ return <>
     </div>
   </div>
 </div>
+
+{view==="agenda"&&(function(){
+  var d=new Date(agendaSelDate+"T12:00");
+  var dias=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  var meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  return <div style={{position:"fixed",top:48,left:0,right:0,background:"#164436",color:"rgba(255,255,255,.92)",padding:"5px 16px",fontSize:12,fontWeight:700,textAlign:"center",zIndex:98,boxShadow:"0 2px 6px rgba(0,0,0,.2)"}}>
+    {"📅 "+dias[d.getDay()]+", "+d.getDate()+" de "+meses[d.getMonth()]+" · "+d.getFullYear()}
+  </div>;
+})()}
 
 {/* Bottom navigation bar - mobile only */}
 
