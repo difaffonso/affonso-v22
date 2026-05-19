@@ -1435,29 +1435,6 @@ return (
     {!isDent&&dents.filter(d=>(d.specialty||"").toLowerCase().indexOf("orto")>=0).map(d=><button key={d.id} onClick={()=>setDenF(String(d.id))} style={{border:"2px solid "+(denF===String(d.id)?d.color:G.border),background:denF===String(d.id)?d.color:"#fff",color:denF===String(d.id)?"#fff":d.color,borderRadius:20,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{"🦷 "+d.name.replace(/Dr\.|Dra\./i,"").trim().split(" ")[0]}</button>)}
     <div style={{flex:1}}/>
   </div>
-  {/* Banner desmarcados/cancelados futuros */}
-  {(function(){
-    var td2=today();
-    var livres=appts.filter(function(a){return (a.status==="rescheduled"||a.status==="cancelled"||a.status==="missed")&&a.date>=td2&&(!isDent||a.dentistId===user.dentistId);});
-    if(!livres.length)return null;
-    return <div style={{background:"#FFF8E1",border:"2px solid #FFC107",borderRadius:12,padding:"10px 14px",marginBottom:4}}>
-      <div style={{fontWeight:700,fontSize:12,color:"#E65100",marginBottom:8}}>{"🔔 "+livres.length+" horário(s) liberado(s) -- disponível para reagendar"}</div>
-      {livres.sort(function(a,b){return a.date.localeCompare(b.date)||a.time.localeCompare(b.time);}).map(function(a){
-        var p=pats.find(function(x){return x.id===a.patientId;});
-        var d=dents.find(function(x){return x.id===a.dentistId;})||dents[0];
-        return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:"#fff",borderRadius:8,marginBottom:5,border:"1px solid #FFE082",flexWrap:"wrap"}}>
-          <span style={{fontSize:11,fontWeight:700,color:"#E65100",minWidth:70}}>{fmt(a.date)}</span>
-          <span style={{fontSize:12,fontWeight:700,color:"#E65100",minWidth:38}}>{a.time}</span>
-          <span style={{flex:1,fontSize:12,fontWeight:600}}>{p&&p.name||a.patientName||"--"}</span>
-          <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
-          <span style={{background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
-          {!isDent&&<button onClick={function(){setEdit(a);var _std=SLOTS.indexOf(a.time)>=0;setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId),time:_std?a.time:"",timeCustom:_std?"":a.time}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
-        </div>;
-      })}
-    </div>;
-  })()}
-
-
 
   <div>
   <div style={{display:"grid",gridTemplateColumns:"48px repeat(7,1fr)",gap:2}}>
@@ -4054,7 +4031,7 @@ return(
 <Modal open={um} close={()=>setUm(false)} title={eu?"Editar Usuário":"Novo Usuário"} wide ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
 <Inp lb="Nome completo" val={uf.name} set={fu("name")}/>
 <R2 a={<Inp lb="Login" val={uf.login} set={fu("login")}/>} b={<Inp lb="Senha" type="password" val={uf.pass} set={fu("pass")}/>}/>
-<R2 a={<Sel lb="Função" val={uf.role} set={fu("role")} opts={["Administrador","Dentista","Recepcionista","Assistente"]}/>} b={<Sel lb="Nível" val={String(uf.level)} set={v=>fu("level")(Number(v))} opts={[{v:1,l:"1 - Básico (Dentista)"},{v:2,l:"2 - Intermediário (Recepção)"},{v:3,l:"3 - Total (Admin)"}]}/>}/>
+<R2 a={<Sel lb="Função" val={uf.role} set={v=>{fu("role")(v);if(v==="Dentista")fu("level")(1);else if(v==="Administrador")fu("level")(3);else fu("level")(2);}} opts={["Administrador","Dentista","Recepcionista","Assistente"]}/>} b={<Sel lb="Nível" val={String(uf.level)} set={v=>fu("level")(Number(v))} opts={[{v:1,l:"1 - Básico (Dentista)"},{v:2,l:"2 - Intermediário (Recepção)"},{v:3,l:"3 - Total (Admin)"}]}/>}/>
 <Sel lb="Dentista vinculado" val={String(uf.dentistId)} set={fu("dentistId")} opts={[{v:"",l:"Nenhum"},...dents.map(d=>({v:d.id,l:d.name}))]}/>
 
   <div><div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Cor</div>
@@ -5373,7 +5350,7 @@ return(
 // ══════════════════════════════════════════════════════════
 function Login({users,onLogin}){
 const [l,sl]=useState("");const [p,sp]=useState("");const [e,se]=useState("");
-const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});u?onLogin(u):se("Login ou senha inválidos");};
+const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});if(u)u={...u,level:Number(u.level)||1};u?onLogin(u):se("Login ou senha inválidos");};
 return(
 
 <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1B5E4A 0%,#0a2e1e 60%,#051a10 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -5598,7 +5575,7 @@ if(data.treats?.length)setTreats(data.treats);
 if(data.pros?.length)setPros(data.pros);
 if(data.rems?.length)setRems(data.rems);
 if(data.budgets?.length)setBudgets(data.budgets);
-if(data.users?.length)setUsers(data.users);
+if(data.users?.length)setUsers(data.users.map(function(u){return {...u,level:Number(u.level)||1};}));
 if(data.dents?.length)setDents(data.dents);
 if(data.perms)setPerms(data.perms);
 if(data.labs?.length)setLabs(data.labs);
@@ -5658,7 +5635,7 @@ useEffect(()=>{
       if(data.rems?.length)setRems(data.rems);
       if(data.budgets?.length)setBudgets(data.budgets);
       if(data.dents?.length)setDents(data.dents);
-      if(data.users?.length)setUsers(data.users);
+      if(data.users?.length)setUsers(data.users.map(function(u){return {...u,level:Number(u.level)||1};}));
       if(data.labs?.length)setLabs(data.labs);
       if(data.procs?.length)setProcs(data.procs);
       if(data.stock?.length)setStock(data.stock);
@@ -5679,7 +5656,7 @@ useEffect(()=>{
 if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>
 
 // Bloqueio de horário para nível 2 (Recepção/Secretaria)
-if(user.level===2){
+if(user.level===2||user.level==="2"){
   var now=new Date();
   var dow=now.getDay(); // 0=Dom, 1=Seg...6=Sab
   var hm=now.getHours()*60+now.getMinutes();
@@ -5704,6 +5681,7 @@ if(user.level===2){
           <button onClick={()=>setUser(null)} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>
             🚪 Sair
           </button>
+          <div style={{marginTop:16,fontSize:11,color:"rgba(255,255,255,.4)",textAlign:"center"}}>Se você é dentista e está vendo esta tela,<br/>peça ao administrador para ajustar seu nível para "Dentista".</div>
         </div>
       </div>
     );
