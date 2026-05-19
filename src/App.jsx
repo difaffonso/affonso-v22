@@ -69,17 +69,6 @@ items:[
 const MOTIVOS_REM=["Desistiu do tratamento","Mudou de clínica","Problema financeiro","Sem retorno (não responde)","Outros"];
 const WA_TOKEN="EAASoAO9Ee4ABRTNwUDnXlghZCcevkhVNHyiAqhGerNbze52YXkqvBONwFF6cd99nMZBxg5BNicySfOl0ejRR6948F0EVyIMsZCmceUQwksoGtOLQqD6So8CoD9fCC6CU4AnBw7LCFmQkDmPQ7ONukHChhKYrVrogIeAi8cnLfrlpxVU3hgOnY0zhVQmAX9gaVKe0AysKqrSooV209UDHQTyoaO1k49j4m0pph6VTW4KlkyziYhfX8nxGaNVkd7qkxZARtEkgaeQaXzpV3kXsucHF";
 const WA_PHONE_ID="1149169951604986";
-
-// Default WhatsApp templates - can be edited by user
-const DEFAULT_WA_TEMPLATES={
-  confirmacao:"Olá, {nome}! ✅ Consulta confirmada: {data} às {hora} — {procedimento}. Affonso Odontologia 🦷",
-  vespera:"Olá, {nome}! 🔔 Lembrete: sua consulta é amanhã ({data}) às {hora} — {procedimento}. Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷",
-  aniversario:"Olá, {nome}! 🎂 A equipe Affonso Odontologia deseja um feliz aniversário! Que seu dia seja muito especial! 🦷✨",
-  semestral:"Olá, {nome}! 😊 Já faz alguns meses desde sua última consulta. Que tal agendar seu controle semestral? É rápido e fundamental para manter sua saúde bucal em dia! Affonso Odontologia",
-  faltou:"Olá, {nome}! Notamos que você não compareceu à sua consulta. Gostaria de remarcar? Responda SIM! Affonso Odontologia 🦷",
-  pos_cirurgia:"Olá, {nome}! 😊 Como está se sentindo após o procedimento de ontem ({procedimento})? Se tiver dúvidas entre em contato. Affonso Odontologia 🦷",
-  fim_tratamento:"Olá, {nome}! 😊 Parabéns, seu tratamento foi concluído! Para manter os resultados, agende sua manutenção semestral. Affonso Odontologia 🦷",
-};
 const WA_API=async function(to,msg){
 var phone=to.replace(/[^0-9]/g,"");
 if(phone.length===11)phone="55"+phone;
@@ -1303,7 +1292,7 @@ return <>
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,dents,procs,user,addLog,agendaSelDate,setAgendaSelDate,waTemplates}){
+function Agenda({appts,setAppts,pats,dents,procs,user,addLog,agendaSelDate,setAgendaSelDate}){
 
 const [selDate,setSelDate]=useState(agendaSelDate||today());
 // Sync up to App
@@ -1334,10 +1323,6 @@ return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate
 const week=getWeek(selDate);
 const prevW=()=>{const d=new Date(week[0]+"T12:00");d.setDate(d.getDate()-7);setSelDate(d.toISOString().split("T")[0]);};
 const nextW=()=>{const d=new Date(week[6]+"T12:00");d.setDate(d.getDate()+1);setSelDate(d.toISOString().split("T")[0]);};
-const applyTmpl=function(tmpl,pat,appt){
-  var t=(waTemplates&&waTemplates[tmpl])||DEFAULT_WA_TEMPLATES[tmpl]||"";
-  return t.replace(/{nome}/g,pat.name||"").replace(/{data}/g,fmt(appt&&appt.date||"")).replace(/{hora}/g,(appt&&appt.time)||"").replace(/{procedimento}/g,(appt&&appt.procedure)||"");
-};
 const isOrto=function(d){var s=(d.specialty||"").toLowerCase();return s.indexOf("orto")>=0;};
 
 const vd=isDent
@@ -1435,6 +1420,29 @@ return (
     {!isDent&&dents.filter(d=>(d.specialty||"").toLowerCase().indexOf("orto")>=0).map(d=><button key={d.id} onClick={()=>setDenF(String(d.id))} style={{border:"2px solid "+(denF===String(d.id)?d.color:G.border),background:denF===String(d.id)?d.color:"#fff",color:denF===String(d.id)?"#fff":d.color,borderRadius:20,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{"🦷 "+d.name.replace(/Dr\.|Dra\./i,"").trim().split(" ")[0]}</button>)}
     <div style={{flex:1}}/>
   </div>
+  {/* Banner desmarcados/cancelados futuros */}
+  {(function(){
+    var td2=today();
+    var livres=appts.filter(function(a){return (a.status==="rescheduled"||a.status==="cancelled"||a.status==="missed")&&a.date>=td2&&(!isDent||a.dentistId===user.dentistId);});
+    if(!livres.length)return null;
+    return <div style={{background:"#FFF8E1",border:"2px solid #FFC107",borderRadius:12,padding:"10px 14px",marginBottom:4}}>
+      <div style={{fontWeight:700,fontSize:12,color:"#E65100",marginBottom:8}}>{"🔔 "+livres.length+" horário(s) liberado(s) -- disponível para reagendar"}</div>
+      {livres.sort(function(a,b){return a.date.localeCompare(b.date)||a.time.localeCompare(b.time);}).map(function(a){
+        var p=pats.find(function(x){return x.id===a.patientId;});
+        var d=dents.find(function(x){return x.id===a.dentistId;})||dents[0];
+        return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:"#fff",borderRadius:8,marginBottom:5,border:"1px solid #FFE082",flexWrap:"wrap"}}>
+          <span style={{fontSize:11,fontWeight:700,color:"#E65100",minWidth:70}}>{fmt(a.date)}</span>
+          <span style={{fontSize:12,fontWeight:700,color:"#E65100",minWidth:38}}>{a.time}</span>
+          <span style={{flex:1,fontSize:12,fontWeight:600}}>{p&&p.name||a.patientName||"--"}</span>
+          <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
+          <span style={{background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
+          {!isDent&&<button onClick={function(){setEdit(a);var _std=SLOTS.indexOf(a.time)>=0;setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId),time:_std?a.time:"",timeCustom:_std?"":a.time}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
+        </div>;
+      })}
+    </div>;
+  })()}
+
+
 
   <div>
   <div style={{display:"grid",gridTemplateColumns:"48px repeat(7,1fr)",gap:2}}>
@@ -1608,7 +1616,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                     <select value={a.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();chSt(a.id,e.target.value);}} style={{border:"1px solid "+SC[a.status],background:"#fff",borderRadius:5,padding:"1px 4px",fontSize:9,color:SC[a.status],fontWeight:700,cursor:"pointer",outline:"none"}}>
                       {Object.entries(SL).map(([k,l])=><option key={k} value={k}>{l}</option>)}
                     </select>
-                    {p&&p.phone&&<button onClick={e=>{e.stopPropagation();wa(p.phone,"Olá, "+(p.name||"")+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+". Affonso Odontologia 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:5,padding:"1px 6px",fontSize:9,fontWeight:700,cursor:"pointer"}}>WA</button>}
+                    {p&&p.phone&&<button onClick={e=>{e.stopPropagation();WA_API(p.phone,"Olá, "+(p.name||"")+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+". Affonso Odontologia 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:5,padding:"1px 6px",fontSize:9,fontWeight:700,cursor:"pointer"}}>WA</button>}
                   </div>}
                 </div>
               );
@@ -1686,8 +1694,8 @@ return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 1
 {Object.entries(SL).map(([k,l])=><button key={k} onClick={()=>chSt(a.id,k)} style={{border:"2px solid "+SC[k],background:a.status===k?SC[k]:SC_BG[k]||"#fff",color:a.status===k?"#fff":SC[k],borderRadius:20,padding:"5px 11px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{(SC_ICON[k]||"")+" "+l}</button>)}
 </div>}
 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-{!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>wa(p.phone,applyTmpl("confirmacao",p,a))}/>}
-{!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>wa(p.phone,applyTmpl("vespera",p,a))}/>}
+{!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
+{!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
 {!isDent&&p&&p.phone&&<Btn ch="🔄 Paciente Cancelou" v="r" sm onClick={function(){chSt(a.id,"cancelled");wa(p.phone,"Olá, "+p.name+"! Entendemos que nao podera comparecer. Gostaria de remarcar? Responda SIM. Affonso Odontologia");setViewA(null);}}/>}
 {!isDent&&<Btn ch="Editar" sm onClick={()=>{setEdit(a);var isStdSlot=SLOTS.indexOf(a.time)>=0;
 var fdata=Object.assign({},a,{
@@ -2513,7 +2521,7 @@ var today2=new Date(t2+"T12:00");
 return today2>=sixMonths;
 });
 const sendWA2=async(ph,msg)=>{
-const sent=await wa(ph,msg);
+const sent=await WA_API(ph,msg);
 if(!sent){const a=document.createElement('a');a.href='https://wa.me/55'+ph.replace(/[^0-9]/g,'')+'?text='+encodeURIComponent(msg);a.target='_blank';document.body.appendChild(a);a.click();document.body.removeChild(a);}
 };
 
@@ -3300,10 +3308,8 @@ return <PatCard key={sec.isTreat?x.id:p.id} p={p} badge={sec.label.slice(2)} bad
 // ══════════════════════════════════════════════════════════
 // RELATÓRIOS
 // ══════════════════════════════════════════════════════════
-function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,user,waTemplates,setWaTemplates}){
-const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));
-const [tmplEditKey,setTmplEditKey]=useState(null);
-const [tmplEditText,setTmplEditText]=useState("");const [orcDent,setOrcDent]=useState("all");
+function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,user}){
+const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
 const [allSelMsg,setAllSelMsg]=useState(false);
@@ -3363,7 +3369,7 @@ const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&p.sent.startsWith(
 const clinicExp=(expenses.clinic||[]).filter(e=>e.date.startsWith(mo));
 const persExp=(expenses.personal||[]).filter(e=>e.date.startsWith(mo));
 
-const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"],["tmpl","✏️ Templates"]];
+const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
 if(user.level>=3)TABS.push(["exp","Despesas"]);
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -3523,50 +3529,6 @@ return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14p
             <span style={{fontSize:10,fontWeight:700,color:SC[a.status],background:SC_BG[a.status],borderRadius:10,padding:"1px 7px"}}>{SL[a.status]}</span>
           </div>;
         })}
-      </div>;
-    })}
-  </div>;
-})()}
-
-{tab==="tmpl"&&(function(){
-  var tmplLabels={
-    confirmacao:"✅ Confirmação de Consulta",
-    vespera:"🔔 Véspera de Consulta",
-    aniversario:"🎂 Aniversário",
-    semestral:"📅 Controle Semestral",
-    faltou:"📵 Faltou/Não Compareceu",
-    pos_cirurgia:"🏥 Pós-Cirurgia",
-    fim_tratamento:"🦷 Fim de Tratamento",
-  };
-  var editKey=tmplEditKey;
-  var setEditKey=setTmplEditKey;
-  var editText=tmplEditText;
-  var setEditText=setTmplEditText;
-  var wt=waTemplates||DEFAULT_WA_TEMPLATES;
-  return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{background:G.accent,borderRadius:12,padding:"10px 14px",fontSize:12,color:G.primary,lineHeight:1.6}}>
-      <strong>Variáveis disponíveis:</strong> <code>{"{nome}"}</code> · <code>{"{data}"}</code> · <code>{"{hora}"}</code> · <code>{"{procedimento}"}</code><br/>
-      São substituídas automaticamente pelo nome/data do paciente ao enviar.
-    </div>
-    {Object.entries(tmplLabels).map(function([k,l]){
-      var isEditing=editKey===k;
-      return <div key={k} style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <span style={{fontWeight:700,fontSize:13}}>{l}</span>
-          {!isEditing
-            ?<button onClick={function(){setEditKey(k);setEditText(wt[k]||DEFAULT_WA_TEMPLATES[k]||"");}} style={{background:G.accent,border:"1.5px solid "+G.primary,color:G.primary,borderRadius:8,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✏️ Editar"}</button>
-            :<div style={{display:"flex",gap:6}}>
-              <button onClick={function(){setWaTemplates(function(prev){var n={...prev};n[k]=editText;return n;});setEditKey(null);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"💾 Salvar"}</button>
-              <button onClick={function(){setEditKey(null);}} style={{background:"none",border:"1px solid "+G.border,borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer",color:G.muted}}>{"Cancelar"}</button>
-              <button onClick={function(){setEditText(DEFAULT_WA_TEMPLATES[k]||"");}} style={{background:"none",border:"1px solid "+G.border,borderRadius:8,padding:"4px 10px",fontSize:11,cursor:"pointer",color:G.muted}}>{"↩ Padrão"}</button>
-            </div>
-          }
-        </div>
-        {!isEditing
-          ?<div style={{background:G.bg,borderRadius:8,padding:"8px 11px",fontSize:12,color:G.text,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{wt[k]||DEFAULT_WA_TEMPLATES[k]}</div>
-          :<textarea value={editText} onChange={function(e){setEditText(e.target.value);}} rows={4}
-            style={{width:"100%",border:"1.5px solid "+G.primary,borderRadius:8,padding:"8px 11px",fontSize:12,outline:"none",resize:"vertical",fontFamily:"'DM Sans'",lineHeight:1.6,boxSizing:"border-box"}}/>
-        }
       </div>;
     })}
   </div>;
@@ -4031,7 +3993,7 @@ return(
 <Modal open={um} close={()=>setUm(false)} title={eu?"Editar Usuário":"Novo Usuário"} wide ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
 <Inp lb="Nome completo" val={uf.name} set={fu("name")}/>
 <R2 a={<Inp lb="Login" val={uf.login} set={fu("login")}/>} b={<Inp lb="Senha" type="password" val={uf.pass} set={fu("pass")}/>}/>
-<R2 a={<Sel lb="Função" val={uf.role} set={v=>{fu("role")(v);if(v==="Dentista")fu("level")(1);else if(v==="Administrador")fu("level")(3);else fu("level")(2);}} opts={["Administrador","Dentista","Recepcionista","Assistente"]}/>} b={<Sel lb="Nível" val={String(uf.level)} set={v=>fu("level")(Number(v))} opts={[{v:1,l:"1 - Básico (Dentista)"},{v:2,l:"2 - Intermediário (Recepção)"},{v:3,l:"3 - Total (Admin)"}]}/>}/>
+<R2 a={<Sel lb="Função" val={uf.role} set={fu("role")} opts={["Administrador","Dentista","Recepcionista","Assistente"]}/>} b={<Sel lb="Nível" val={String(uf.level)} set={v=>fu("level")(Number(v))} opts={[{v:1,l:"1 - Básico (Dentista)"},{v:2,l:"2 - Intermediário (Recepção)"},{v:3,l:"3 - Total (Admin)"}]}/>}/>
 <Sel lb="Dentista vinculado" val={String(uf.dentistId)} set={fu("dentistId")} opts={[{v:"",l:"Nenhum"},...dents.map(d=>({v:d.id,l:d.name}))]}/>
 
   <div><div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Cor</div>
@@ -5556,7 +5518,6 @@ const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [sideOpen,setSideOpen]=useState(false);
 const [agendaSelDate,setAgendaSelDate]=useState(today());
-const [waTemplates,setWaTemplates]=useState(DEFAULT_WA_TEMPLATES);
 const [saveStatus,setSaveStatus]=useState("idle");
 const saveTimer=useRef(null);
 const initialized=useRef(false);
@@ -5681,7 +5642,6 @@ if(user.level===2){
           <button onClick={()=>setUser(null)} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>
             🚪 Sair
           </button>
-          <div style={{marginTop:16,fontSize:11,color:"rgba(255,255,255,.4)",textAlign:"center"}}>Se você é dentista e está vendo esta tela,<br/>peça ao administrador para ajustar seu nível para "Dentista".</div>
         </div>
       </div>
     );
@@ -5770,14 +5730,14 @@ return <>
 
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user}/>}
-      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate} waTemplates={waTemplates}/>}
+      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} user={user}/>}
-      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates}/>}
+      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} user={user}/>}
       {view==="desp"&&<Despesas expenses={expenses} setExpenses={setExpenses} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
