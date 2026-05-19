@@ -459,6 +459,7 @@ setTni({d:"",procId:"",v:""});
 // Baixa de procedimento pelo dentista
 const [ortoPayModal,setOrtoPayModal]=useState(null); // {tid, idx}
 const [ortoPayMethod,setOrtoPayMethod]=useState("PIX");
+const [ortoPayVal,setOrtoPayVal]=useState("");
 const togItemPaid=(tid,idx)=>{
 const treat=treats.find(t=>t.id===tid);
 if(!treat)return;
@@ -690,7 +691,12 @@ return <>
           <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
           <button onClick={()=>{setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:15,padding:"0 2px"}} title="Excluir pagamento">🗑️</button>
         </div>)}
-        <Btn ch="+ Registrar Pagamento" sm v="f" style={{marginTop:10}} onClick={()=>{setPayModal(t.id);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",note:""}); }}/>
+        <Btn ch="+ Registrar Pagamento" sm v="f" style={{marginTop:10}} onClick={()=>{
+  var unpaidItem=(t.items||[]).find(function(it){return !it.done&&!it.paid;});
+  var defaultVal=unpaidItem?String(unpaidItem.value):"";
+  setPayModal(t.id);
+  setPayForm({date:today(),value:defaultVal,method:"Dinheiro",inst:"1",note:""});
+}}/>
       </div>;
     })}
 
@@ -1190,10 +1196,19 @@ return <>
         <div style={{fontWeight:700,color:"#fff",fontSize:15}}>{"💳 Dar Baixa — Orto"}</div>
         <div style={{fontSize:12,color:"rgba(255,255,255,.75)"}}>{treats.find(t=>t.id===ortoPayModal.tid)?.items[ortoPayModal.idx]?.desc||""}</div>
       </div>
-      <button onClick={()=>setOrtoPayModal(null)} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
+      <button onClick={()=>{setOrtoPayModal(null);setOrtoPayVal("");}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
     </div>
     <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{fontSize:13,color:G.muted}}>{"Valor: "}<strong style={{color:G.primary}}>{cur(treats.find(t=>t.id===ortoPayModal.tid)?.items[ortoPayModal.idx]?.value||0)}</strong></div>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Valor (R$)</label>
+        <input
+          type="number"
+          value={ortoPayVal||String(treats.find(t=>t.id===ortoPayModal?.tid)?.items[ortoPayModal?.idx]?.value||"")}
+          onChange={e=>setOrtoPayVal(e.target.value)}
+          style={{border:"1.5px solid "+G.primary,borderRadius:8,padding:"9px 12px",fontSize:15,fontWeight:700,color:G.primary,outline:"none",width:"100%",boxSizing:"border-box"}}
+        />
+        <div style={{fontSize:11,color:G.muted}}>Valor padrão: {cur(treats.find(t=>t.id===ortoPayModal?.tid)?.items[ortoPayModal?.idx]?.value||0)}</div>
+      </div>
       <div style={{display:"flex",flexDirection:"column",gap:4}}>
         <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Forma de Pagamento</label>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1212,16 +1227,20 @@ return <>
         </div>
       </div>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:10,borderTop:"1px solid "+G.border}}>
-        <button onClick={()=>setOrtoPayModal(null)} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={()=>{setOrtoPayModal(null);setOrtoPayVal("");}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={()=>{
           var tid2=ortoPayModal.tid;var idx2=ortoPayModal.idx;
           var treat2=treats.find(t=>t.id===tid2);
           if(!treat2)return;
           var item2=treat2.items[idx2];
-          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,payMethod:ortoPayMethod})}));
-          var recObj={id:nid(recs),patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:item2.value,payment:ortoPayMethod,inst:1,fromTreat:tid2};
+          var finalVal=Number(ortoPayVal)||item2.value;
+          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,payMethod:ortoPayMethod,value:finalVal})}));
+          var recObj={id:nid(recs),patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2};
           setRecs(prev=>[...prev,recObj]);
-          setOrtoPayModal(null);
+          // Also register in treat.payments so it shows in pagamentos registrados
+          var newPmt={id:Date.now(),date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc};
+          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,payments:[...(t.payments||[]),newPmt]}));
+          setOrtoPayModal(null);setOrtoPayVal("");
         }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"✓ Confirmar"}</button>
       </div>
     </div>
