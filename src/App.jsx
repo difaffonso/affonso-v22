@@ -1412,28 +1412,7 @@ return (
     {!isDent&&dents.filter(d=>(d.specialty||"").toLowerCase().indexOf("orto")>=0).map(d=><button key={d.id} onClick={()=>setDenF(String(d.id))} style={{border:"2px solid "+(denF===String(d.id)?d.color:G.border),background:denF===String(d.id)?d.color:"#fff",color:denF===String(d.id)?"#fff":d.color,borderRadius:20,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{"🦷 "+d.name.replace(/Dr\.|Dra\./i,"").trim().split(" ")[0]}</button>)}
     <div style={{flex:1}}/>
   </div>
-  {/* Banner desmarcados/cancelados futuros */}
-  {(function(){
-    var td2=today();
-    var livres=appts.filter(function(a){return (a.status==="rescheduled"||a.status==="cancelled"||a.status==="missed")&&a.date>=td2&&(!isDent||a.dentistId===user.dentistId);});
-    if(!livres.length)return null;
-    return <div style={{background:"#FFF8E1",border:"2px solid #FFC107",borderRadius:12,padding:"10px 14px",marginBottom:4}}>
-      <div style={{fontWeight:700,fontSize:12,color:"#E65100",marginBottom:8}}>{"🔔 "+livres.length+" horário(s) liberado(s) -- disponível para reagendar"}</div>
-      {livres.sort(function(a,b){return a.date.localeCompare(b.date)||a.time.localeCompare(b.time);}).map(function(a){
-        var p=pats.find(function(x){return x.id===a.patientId;});
-        var d=dents.find(function(x){return x.id===a.dentistId;})||dents[0];
-        return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:"#fff",borderRadius:8,marginBottom:5,border:"1px solid #FFE082",flexWrap:"wrap"}}>
-          <span style={{fontSize:11,fontWeight:700,color:"#E65100",minWidth:70}}>{fmt(a.date)}</span>
-          <span style={{fontSize:12,fontWeight:700,color:"#E65100",minWidth:38}}>{a.time}</span>
-          <span style={{flex:1,fontSize:12,fontWeight:600}}>{p&&p.name||a.patientName||"--"}</span>
-          <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
-          <span style={{background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
-          {!isDent&&<button onClick={function(){setEdit(a);var _std=SLOTS.indexOf(a.time)>=0;setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId),time:_std?a.time:"",timeCustom:_std?"":a.time}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
-        </div>;
-      })}
-    </div>;
-  })()}
-
+  
 
   <div style={{display:"grid",gridTemplateColumns:"48px repeat(7,1fr)",gap:2}}>
     <div/>
