@@ -3999,7 +3999,7 @@ return(
             if(d.pros)setPros(d.pros);
             if(d.rems)setRems(d.rems);
             if(d.dents)setDents(d.dents);
-            if(d.users)setUsers(d.users);
+            if(d.users)setUsers((d.users||[]).map(function(u){return{...u,level:Number(u.level)||1};}));
             if(d.labs)setLabs(d.labs);
             if(d.procs)setProcs(d.procs);
             if(d.stock)setStock(d.stock);
@@ -5544,7 +5544,8 @@ return <div key={r.id} style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr 
 }
 
 export default function App(){
-const [user,setUser]=useState(null);const [view,setView]=useState("dash");
+const [user,setUser]=useState(null);
+const handleLogin=function(u){setUser({...u,level:Number(u.level)||1});};const [view,setView]=useState("dash");
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
@@ -5653,7 +5654,7 @@ useEffect(()=>{
   return ()=>clearInterval(interval);
 },[]);
 
-if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>
+if(!user)return <Login users={users} onLogin={u=>{var ul={...u,level:Number(u.level)||1};setUser(ul);setView(ul.level>=3?"dash":"agenda");}}/>
 
 // Bloqueio de horário para nível 2 (Recepção/Secretaria)
 if(user.level===2||user.level==="2"){
