@@ -3999,7 +3999,7 @@ return(
             if(d.pros)setPros(d.pros);
             if(d.rems)setRems(d.rems);
             if(d.dents)setDents(d.dents);
-            if(d.users)setUsers((d.users||[]).map(function(u){return{...u,level:Number(u.level)||1};}));
+            if(d.users)setUsers(d.users);
             if(d.labs)setLabs(d.labs);
             if(d.procs)setProcs(d.procs);
             if(d.stock)setStock(d.stock);
@@ -5350,7 +5350,7 @@ return(
 // ══════════════════════════════════════════════════════════
 function Login({users,onLogin}){
 const [l,sl]=useState("");const [p,sp]=useState("");const [e,se]=useState("");
-const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});if(u)u={...u,level:Number(u.level)||1};u?onLogin(u):se("Login ou senha inválidos");};
+const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});u?onLogin(u):se("Login ou senha inválidos");};
 return(
 
 <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1B5E4A 0%,#0a2e1e 60%,#051a10 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
@@ -5544,8 +5544,7 @@ return <div key={r.id} style={{display:"grid",gridTemplateColumns:"80px 1fr 1fr 
 }
 
 export default function App(){
-const [user,setUser]=useState(null);
-const handleLogin=function(u){setUser({...u,level:Number(u.level)||1});};const [view,setView]=useState("dash");
+const [user,setUser]=useState(null);const [view,setView]=useState("dash");
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
@@ -5576,7 +5575,7 @@ if(data.treats?.length)setTreats(data.treats);
 if(data.pros?.length)setPros(data.pros);
 if(data.rems?.length)setRems(data.rems);
 if(data.budgets?.length)setBudgets(data.budgets);
-if(data.users?.length)setUsers(data.users.map(function(u){return {...u,level:Number(u.level)||1};}));
+if(data.users?.length)setUsers(data.users);
 if(data.dents?.length)setDents(data.dents);
 if(data.perms)setPerms(data.perms);
 if(data.labs?.length)setLabs(data.labs);
@@ -5636,7 +5635,7 @@ useEffect(()=>{
       if(data.rems?.length)setRems(data.rems);
       if(data.budgets?.length)setBudgets(data.budgets);
       if(data.dents?.length)setDents(data.dents);
-      if(data.users?.length)setUsers(data.users.map(function(u){return {...u,level:Number(u.level)||1};}));
+      if(data.users?.length)setUsers(data.users);
       if(data.labs?.length)setLabs(data.labs);
       if(data.procs?.length)setProcs(data.procs);
       if(data.stock?.length)setStock(data.stock);
@@ -5654,10 +5653,10 @@ useEffect(()=>{
   return ()=>clearInterval(interval);
 },[]);
 
-if(!user)return <Login users={users} onLogin={u=>{var ul={...u,level:Number(u.level)||1};setUser(ul);setView(ul.level>=3?"dash":"agenda");}}/>
+if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>
 
 // Bloqueio de horário para nível 2 (Recepção/Secretaria)
-if(user.level===2||user.level==="2"){
+if(user.level===2){
   var now=new Date();
   var dow=now.getDay(); // 0=Dom, 1=Seg...6=Sab
   var hm=now.getHours()*60+now.getMinutes();
