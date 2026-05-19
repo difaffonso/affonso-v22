@@ -1290,10 +1290,9 @@ return <>
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,dents,procs,user,addLog,agendaSelDate:_extSelDate,setAgendaSelDate:_setExtSelDate}){
+function Agenda({appts,setAppts,pats,dents,procs,user,addLog}){
 
-const [selDate,setSelDate]=useState(_extSelDate||today());
-const _setSelDateSync=function(d){setSelDate(d);if(_setExtSelDate)_setExtSelDate(d);};
+const [selDate,setSelDate]=useState(today());
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(new Date().getFullYear());
 const [calM,setCalM]=useState(new Date().getMonth());
@@ -1318,8 +1317,8 @@ const mon=new Date(d);mon.setDate(d.getDate()+diff);
 return Array.from({length:7},(_,i)=>{const x=new Date(mon);x.setDate(mon.getDate()+i);return x.toISOString().split("T")[0];});
 };
 const week=getWeek(selDate);
-const prevW=()=>{const d=new Date(week[0]+"T12:00");d.setDate(d.getDate()-7);_setSelDateSync(d.toISOString().split("T")[0]);};
-const nextW=()=>{const d=new Date(week[6]+"T12:00");d.setDate(d.getDate()+1);_setSelDateSync(d.toISOString().split("T")[0]);};
+const prevW=()=>{const d=new Date(week[0]+"T12:00");d.setDate(d.getDate()-7);setSelDate(d.toISOString().split("T")[0]);};
+const nextW=()=>{const d=new Date(week[6]+"T12:00");d.setDate(d.getDate()+1);setSelDate(d.toISOString().split("T")[0]);};
 const isOrto=function(d){var s=(d.specialty||"").toLowerCase();return s.indexOf("orto")>=0;};
 const vd=isDent
   ?dents.filter(d=>d.id===user.dentistId)
@@ -1389,7 +1388,7 @@ const ds=calY+"-"+String(calM+1).padStart(2,"0")+"-"+String(i+1).padStart(2,"0")
 const isSel=ds===selDate;const isTd=ds===td;
 const cnt=appts.filter(a=>a.date===ds).length;
 return (
-<div key={i} onClick={()=>{_setSelDateSync(ds);setShowCal(false);}} style={{borderRadius:6,padding:"4px 2px",textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent"}}>
+<div key={i} onClick={()=>{setSelDate(ds);setShowCal(false);}} style={{borderRadius:6,padding:"4px 2px",textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent"}}>
 <div style={{fontSize:12,fontWeight:700,color:isSel?"#fff":isTd?G.primary:G.text}}>{i+1}</div>
 {cnt>0&&<div style={{width:4,height:4,borderRadius:"50%",background:isSel?"rgba(255,255,255,.7)":G.primary,margin:"0 auto"}}/>}
 </div>
@@ -1404,7 +1403,7 @@ return (
     <button onClick={()=>{setCalY(new Date().getFullYear());setCalM(new Date().getMonth());setShowCal(v=>!v);}} style={{background:showCal?G.primary:G.accent,border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",cursor:"pointer",fontSize:16,color:showCal?"#fff":"inherit"}}>{"📅"}</button>
     <button onClick={prevW} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 12px",cursor:"pointer",color:G.primary,fontWeight:700}}>{"<"}</button>
     <button onClick={nextW} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 12px",cursor:"pointer",color:G.primary,fontWeight:700}}>{">"}</button>
-    <button onClick={()=>_setSelDateSync(td)} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",cursor:"pointer",color:G.primary,fontWeight:600,fontSize:12}}>Hoje</button>
+    <button onClick={()=>setSelDate(td)} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",cursor:"pointer",color:G.primary,fontWeight:600,fontSize:12}}>Hoje</button>
     {!isDent&&<select value={denF} onChange={e=>setDenF(e.target.value)} style={{border:"1.5px solid "+G.border,borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:600,outline:"none",background:"#fff"}}>
       <option value="all">Todos</option>
       {dents.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
@@ -1412,9 +1411,29 @@ return (
     {/* Quick orto buttons */}
     {!isDent&&dents.filter(d=>(d.specialty||"").toLowerCase().indexOf("orto")>=0).map(d=><button key={d.id} onClick={()=>setDenF(String(d.id))} style={{border:"2px solid "+(denF===String(d.id)?d.color:G.border),background:denF===String(d.id)?d.color:"#fff",color:denF===String(d.id)?"#fff":d.color,borderRadius:20,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{"🦷 "+d.name.replace(/Dr\.|Dra\./i,"").trim().split(" ")[0]}</button>)}
     <div style={{flex:1}}/>
-    <Btn ch="+ Agendamento" onClick={()=>{setEdit(null);setF({...blank,date:selDate});setModal(true);}}/>
   </div>
-  
+  {/* Banner desmarcados/cancelados futuros */}
+  {(function(){
+    var td2=today();
+    var livres=appts.filter(function(a){return (a.status==="rescheduled"||a.status==="cancelled"||a.status==="missed")&&a.date>=td2&&(!isDent||a.dentistId===user.dentistId);});
+    if(!livres.length)return null;
+    return <div style={{background:"#FFF8E1",border:"2px solid #FFC107",borderRadius:12,padding:"10px 14px",marginBottom:4}}>
+      <div style={{fontWeight:700,fontSize:12,color:"#E65100",marginBottom:8}}>{"🔔 "+livres.length+" horário(s) liberado(s) -- disponível para reagendar"}</div>
+      {livres.sort(function(a,b){return a.date.localeCompare(b.date)||a.time.localeCompare(b.time);}).map(function(a){
+        var p=pats.find(function(x){return x.id===a.patientId;});
+        var d=dents.find(function(x){return x.id===a.dentistId;})||dents[0];
+        return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",background:"#fff",borderRadius:8,marginBottom:5,border:"1px solid #FFE082",flexWrap:"wrap"}}>
+          <span style={{fontSize:11,fontWeight:700,color:"#E65100",minWidth:70}}>{fmt(a.date)}</span>
+          <span style={{fontSize:12,fontWeight:700,color:"#E65100",minWidth:38}}>{a.time}</span>
+          <span style={{flex:1,fontSize:12,fontWeight:600}}>{p&&p.name||a.patientName||"--"}</span>
+          <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
+          <span style={{background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
+          {!isDent&&<button onClick={function(){setEdit(a);var _std=SLOTS.indexOf(a.time)>=0;setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId),time:_std?a.time:"",timeCustom:_std?"":a.time}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
+        </div>;
+      })}
+    </div>;
+  })()}
+
 
   <div style={{display:"grid",gridTemplateColumns:"48px repeat(7,1fr)",gap:2}}>
     <div/>
@@ -1423,7 +1442,7 @@ return (
       const isTd=ds===td;const isSel=ds===selDate;
       const cnt=appts.filter(a=>a.date===ds).length;
       return (
-        <div key={ds} onClick={()=>_setSelDateSync(ds)} style={{textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent",borderRadius:10,padding:"5px 2px",border:"2px solid "+(isSel?G.primary:isTd?G.primary:"transparent"),transition:"all .15s"}}>
+        <div key={ds} onClick={()=>setSelDate(ds)} style={{textAlign:"center",cursor:"pointer",background:isSel?G.primary:isTd?G.accent:"transparent",borderRadius:10,padding:"5px 2px",border:"2px solid "+(isSel?G.primary:isTd?G.primary:"transparent"),transition:"all .15s"}}>
           <div style={{fontSize:10,fontWeight:700,color:isSel?"rgba(255,255,255,.8)":G.muted}}>{DAY[d.getDay()]}</div>
           <div style={{fontSize:20,fontWeight:700,color:isSel?"#fff":isTd?G.primary:G.text}}>{d.getDate()}</div>
           {cnt>0&&<div style={{background:isSel?"rgba(255,255,255,.4)":G.primary,color:"#fff",borderRadius:8,padding:"0 5px",fontSize:9,fontWeight:700,display:"inline-block"}}>{cnt}</div>}
@@ -1588,7 +1607,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                     <select value={a.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();chSt(a.id,e.target.value);}} style={{border:"1px solid "+SC[a.status],background:"#fff",borderRadius:5,padding:"1px 4px",fontSize:9,color:SC[a.status],fontWeight:700,cursor:"pointer",outline:"none"}}>
                       {Object.entries(SL).map(([k,l])=><option key={k} value={k}>{l}</option>)}
                     </select>
-                    {p&&p.phone&&<button onClick={e=>{e.stopPropagation();wa(p.phone,"Olá, "+(p.name||"")+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+". Affonso Odontologia 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:5,padding:"1px 6px",fontSize:9,fontWeight:700,cursor:"pointer"}}>WA</button>}
+                    {p&&p.phone&&<button onClick={e=>{e.stopPropagation();WA_API(p.phone,"Olá, "+(p.name||"")+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+". Affonso Odontologia 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:5,padding:"1px 6px",fontSize:9,fontWeight:700,cursor:"pointer"}}>WA</button>}
                   </div>}
                 </div>
               );
@@ -1666,8 +1685,8 @@ return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 1
 {Object.entries(SL).map(([k,l])=><button key={k} onClick={()=>chSt(a.id,k)} style={{border:"2px solid "+SC[k],background:a.status===k?SC[k]:SC_BG[k]||"#fff",color:a.status===k?"#fff":SC[k],borderRadius:20,padding:"5px 11px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{(SC_ICON[k]||"")+" "+l}</button>)}
 </div>}
 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-{!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
-{!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
+{!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
+{!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
 {!isDent&&p&&p.phone&&<Btn ch="🔄 Paciente Cancelou" v="r" sm onClick={function(){chSt(a.id,"cancelled");wa(p.phone,"Olá, "+p.name+"! Entendemos que nao podera comparecer. Gostaria de remarcar? Responda SIM. Affonso Odontologia");setViewA(null);}}/>}
 {!isDent&&<Btn ch="Editar" sm onClick={()=>{setEdit(a);var isStdSlot=SLOTS.indexOf(a.time)>=0;
 var fdata=Object.assign({},a,{
@@ -1745,6 +1764,14 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 </div>
 <R2 a={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>} b={<Sel lb="Status" val={f.status} set={upd("status")} opts={Object.entries(SL).map(([v,l])=>({v,l}))}/>}/>
 <Inp lb="Descrição do Tratamento" val={f.treatment} set={upd("treatment")} ph="Ex: Restauração dente 36"/>
+<label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,cursor:"pointer",background:f.fixo?G.primary+"12":G.bg,borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(f.fixo?G.primary:G.border)}}>
+  <input type="checkbox" checked={!!f.fixo} onChange={e=>upd("fixo")(e.target.checked)} style={{accentColor:G.primary,width:16,height:16}}/>
+  <div>
+    <strong style={{color:f.fixo?G.primary:G.text}}>📌 Despesa Fixa (repete todo mês)</strong>
+    <div style={{fontSize:11,color:G.muted}}>Aparece automaticamente todo mês sem o valor</div>
+  </div>
+</label>
+{f.fixo&&<Inp lb="Dia de Vencimento" val={f.diaVenc||""} set={upd("diaVenc")} type="number" ph="Ex: 10 (dia 10 de cada mês)" min="1" max="31"/>}
 <SC2 save={save} cancel={()=>setModal(false)}/>
 </div>
 }/>
@@ -4427,7 +4454,7 @@ var curMonth=year+"-"+String(month+1).padStart(2,"0");
 var prevMonth=function(){if(month===0){setMonth(11);setYear(function(y){return y-1;});}else setMonth(function(m){return m-1;});};
 var nextMonth=function(){if(month===11){setMonth(0);setYear(function(y){return y+1;});}else setMonth(function(m){return m+1;});};
 
-// Calc net after card fees
+// Taxa por forma de pagamento
 var calcN=function(v,pay){
   var p=(pay||"").toLowerCase();
   if(p.indexOf("crédito")>=0||p.indexOf("credito")>=0)return v*0.965;
@@ -4435,35 +4462,83 @@ var calcN=function(v,pay){
   return v;
 };
 
-// Build items from recs (baixas avulsas)
-var recItems=[];
-(recs||[]).filter(function(r){return r.dentistId===Number(selDent)&&r.paid>0;}).forEach(function(r){
-  var p=pats.find(function(x){return x.id===r.patientId;});
-  var val=Number(r.paid)||0;
-  var net=calcN(val,r.payment);
-  var com=net*COMM;
-  var pay=(r.payment||"").toLowerCase();
-  var isCard=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0||pay.indexOf("débito")>=0||pay.indexOf("debito")>=0;
-  var isCredit=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0;
-  var inst=Number(r.inst)||1;
-  var receiveDate=r.date;
-  if(isCredit&&inst>1){
-    var d2=new Date(r.date+"T12:00");
-    d2.setMonth(d2.getMonth()+Math.ceil(com/(val/inst)));
-    receiveDate=d2.toISOString().split("T")[0];
-  } else if(isCard){
-    var d3=new Date(r.date+"T12:00");
-    d3.setMonth(d3.getMonth()+1);
-    receiveDate=d3.toISOString().split("T")[0];
-  }
-  recItems.push({patName:p&&p.name||"—",proc:r.procedure||"Atendimento",date:r.date,receiveDate:receiveDate,origVal:val,net:net,commVal:com,isCard:isCard,detail:inst>1?inst+"x parcelas":""});
+// REGRA: só aparece pagamento de procedimento com baixa dada (done=true)
+// Fonte única: treats.payments (sem duplicar com recs)
+var allItems=[];
+
+(treats||[]).forEach(function(treat){
+  // Verifica se é do dentista selecionado
+  var dentId=Number(selDent);
+  var isDentTreat=treat.dentistId&&Number(treat.dentistId)===dentId;
+  var hasDoneItem=(treat.items||[]).some(function(it){
+    return (it.done||it.paid)&&(it.doneByDentistId===dentId||(it.doneBy&&dent&&it.doneBy===dent.name)||isDentTreat);
+  });
+  if(!isDentTreat&&!hasDoneItem)return;
+
+  // Procedimentos com baixa dada
+  var doneItems=(treat.items||[]).filter(function(it){
+    return it.done||it.paid;
+  });
+  if(!doneItems.length)return;
+
+  // Total de procedimentos com baixa
+  var totalDone=doneItems.reduce(function(s,it){return s+Number(it.value||0);},0);
+
+  // Pagamentos registrados no plano
+  var payments=treat.payments||[];
+  if(!payments.length)return; // sem pagamento = não aparece
+
+  // Para cada pagamento, calcular proporção referente a procedimentos concluídos
+  payments.forEach(function(pmt){
+    var val=Number(pmt.value||0);
+    if(!val)return;
+    var pay=(pmt.method||"").toLowerCase();
+    var isCard=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0||pay.indexOf("débito")>=0||pay.indexOf("debito")>=0;
+    var isCredit=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0;
+    var inst=Math.max(1,Number(pmt.inst||pmt.installments||1));
+    var net=calcN(val,pmt.method);
+    var com=net*COMM;
+    var pmtDate=pmt.date||today();
+
+    // Data de recebimento da comissão
+    var receiveDate=pmtDate;
+    if(isCredit&&inst>1){
+      // Parcelado: recebe quando acumulou o suficiente
+      var installAmt=val/inst;
+      var mesesNecessarios=Math.ceil(com/installAmt);
+      if(mesesNecessarios>inst)mesesNecessarios=inst;
+      var rd=new Date(pmtDate+"T12:00");
+      rd.setMonth(rd.getMonth()+mesesNecessarios);
+      receiveDate=rd.toISOString().split("T")[0];
+    } else if(isCard){
+      // Cartão débito ou crédito 1x: recebe mês seguinte
+      var rd2=new Date(pmtDate+"T12:00");
+      rd2.setMonth(rd2.getMonth()+1);
+      receiveDate=rd2.toISOString().split("T")[0];
+    }
+
+    var pat=pats.find(function(x){return x.id===treat.patientId;});
+    allItems.push({
+      id:treat.id+"-"+pmt.id,
+      patName:pat&&pat.name||"—",
+      proc:treat.name||"Tratamento",
+      date:pmtDate,
+      receiveDate:receiveDate,
+      origVal:val,
+      net:net,
+      commVal:com,
+      isCard:isCard,
+      detail:inst>1?inst+"x parcelas":"",
+      method:pmt.method||"",
+    });
+  });
 });
 
 var getMonthStr=function(y,m){return y+"-"+String(m+1).padStart(2,"0");};
 var nm1=month===11?0:month+1; var ny1=month===11?year+1:year;
 var nm2=nm1===11?0:nm1+1;     var ny2=nm1===11?ny1+1:ny1;
-var getTotal=function(y,m){var ms=getMonthStr(y,m);return recItems.filter(function(x){return (x.receiveDate||"").startsWith(ms);}).reduce(function(s,x){return s+x.commVal;},0);};
-var thisMonthItems=recItems.filter(function(x){return (x.receiveDate||"").startsWith(curMonth);});
+var getTotal=function(y,m){var ms=getMonthStr(y,m);return allItems.filter(function(x){return (x.receiveDate||"").startsWith(ms);}).reduce(function(s,x){return s+x.commVal;},0);};
+var thisMonthItems=allItems.filter(function(x){return (x.receiveDate||"").startsWith(curMonth);});
 var totalMes=getTotal(year,month);
 
 return(
@@ -4489,8 +4564,11 @@ return(
       );
     })}
   </div>
+  <div style={{background:G.accent,borderRadius:10,padding:"9px 13px",fontSize:12,color:G.primary}}>
+    {"⚠ Regra: comissão liberada somente quando procedimento realizado (baixa dada) + pagamento registrado"}
+  </div>
   <div style={{fontWeight:700,fontSize:13,color:G.text,borderBottom:"1px solid "+G.border,paddingBottom:6}}>{MF[month]+" "+year+" — "+thisMonthItems.length+" lançamento(s)"}</div>
-  {thisMonthItems.length===0&&<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>Nenhum recebimento neste mês</div>}
+  {thisMonthItems.length===0&&<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>Nenhum recebimento neste mês</div>}
   {thisMonthItems.map(function(item,i){return(
     <div key={i} style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.05)",borderLeft:"4px solid "+(item.isCard?G.blue:G.primary)}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
@@ -4498,11 +4576,11 @@ return(
           <div style={{fontWeight:700,fontSize:13}}>{item.patName}</div>
           <div style={{fontSize:12,color:G.muted,marginBottom:4}}>{item.proc}</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{fontSize:11,color:G.muted}}>{"Proc: "+cur(item.origVal)}</span>
+            <span style={{fontSize:11,color:G.muted}}>{"Pago: "+cur(item.origVal)}</span>
             <span style={{fontSize:11,color:G.muted}}>{"Líq: "+cur(item.net)}</span>
-            {item.isCard&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"Cartão"}</span>}
+            {item.isCard&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{item.method}</span>}
             {item.detail&&<span style={{fontSize:10,color:G.blue}}>{item.detail}</span>}
-            <span style={{fontSize:11,color:G.muted}}>{"Baixa: "+new Date(item.date+"T12:00").toLocaleDateString("pt-BR")}</span>
+            <span style={{fontSize:11,color:G.muted}}>{"Data: "+new Date(item.date+"T12:00").toLocaleDateString("pt-BR")}</span>
           </div>
         </div>
         <div style={{textAlign:"right",flexShrink:0}}>
@@ -5439,7 +5517,7 @@ return <>
 </div>
 
 {view==="agenda"&&(function(){
-  var d=new Date(agendaSelDate+"T12:00");
+  var d=new Date((agendaSelDate||today())+"T12:00");
   var dias=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
   var meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   return <div style={{position:"fixed",top:48,left:0,right:0,background:"#164436",color:"rgba(255,255,255,.92)",padding:"5px 16px",fontSize:12,fontWeight:700,textAlign:"center",zIndex:98,boxShadow:"0 2px 6px rgba(0,0,0,.2)"}}>
