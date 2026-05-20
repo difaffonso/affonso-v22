@@ -4361,12 +4361,61 @@ return(
   <div className="no-print" style={{display:"flex",gap:12,marginBottom:20,width:"100%",maxWidth:520}}>
     <button onClick={function(){setShowPrint(false);}} style={{flex:1,padding:"12px",border:"1.5px solid #ccc",borderRadius:10,background:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>← Voltar</button>
     <button onClick={function(){
-  var style=document.createElement("style");
-  style.id="print-fix";
-  style.innerHTML="@page{size:A4 portrait;margin:10mm 15mm} body{margin:0} .print-page{width:180mm!important;min-height:257mm!important;padding:8mm 10mm!important;display:flex!important;flex-direction:column!important;box-sizing:border-box!important}";
-  document.head.appendChild(style);
-  window.print();
-  setTimeout(function(){var el=document.getElementById("print-fix");if(el)el.remove();},1000);
+  var nomePac2=pat&&pat.name||"--";
+  var nomeDent2=dent&&dent.name||"Dr. Diego Affonso";
+  var cro2="CRO "+(dent&&dent.cro||"SP-72.278");
+  var hoje2=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
+  var meds_int2=sel.filter(function(m){return m.cat!=="Antisséptico";});
+  var meds_ext2=sel.filter(function(m){return m.cat==="Antisséptico";});
+  var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><style>";
+  html+="@page{size:A4 portrait;margin:15mm 20mm}";
+  html+="*{box-sizing:border-box;margin:0;padding:0}";
+  html+="body{font-family:Georgia,serif;background:#fff;color:#222}";
+  html+=".page{width:100%;min-height:227mm;display:flex;flex-direction:column;padding:0}";
+  html+=".header{text-align:center;margin-bottom:18px}";
+  html+=".header h1{font-size:14pt;letter-spacing:4px;color:#8B6914;text-transform:uppercase;font-weight:normal;margin-bottom:4px}";
+  html+=".header h2{font-size:9pt;letter-spacing:3px;color:#999;text-transform:uppercase;font-weight:normal}";
+  html+=".header hr{border:none;border-top:1.5px solid #C9A84C;margin:10px 0}";
+  html+=".para{font-size:12pt;margin-bottom:16px}";
+  html+=".para strong{font-size:12pt}";
+  html+=".section-title{font-size:9pt;font-weight:700;letter-spacing:2px;color:#8B6914;text-transform:uppercase;margin-bottom:8px}";
+  html+=".section-hr{border:none;border-top:0.5px solid #C9A84C;margin-bottom:14px}";
+  html+=".med{display:flex;gap:8px;margin-bottom:16px}";
+  html+=".med-num{font-size:13pt;font-weight:700;color:#8B6914;min-width:22px}";
+  html+=".med-name{font-size:13pt;font-weight:700;color:#111}";
+  html+=".med-qty{font-size:11pt;color:#888;margin-left:8px}";
+  html+=".med-pos{font-size:12pt;color:#444;margin-top:5px;line-height:1.5}";
+  html+=".obs{background:#f9f6ef;border-left:3px solid #C9A84C;padding:10px 14px;margin-top:12px;font-size:11pt}";
+  html+=".footer{margin-top:auto;padding-top:40px;text-align:center;border-top:1.5px solid #C9A84C}";
+  html+=".footer .dent-name{font-size:15pt;font-weight:700;color:#222;margin-bottom:5px}";
+  html+=".footer .cro{font-size:12pt;color:#888;margin-bottom:8px}";
+  html+=".footer .date{font-size:13pt;color:#666;font-style:italic}";
+  html+="</style></head><body><div class='page'>";
+  html+="<div class='header'><h1>Affonso Odontologia</h1><h2>Clínica Especializada</h2><hr/></div>";
+  html+="<div class='para'>Para: <strong>"+nomePac2+"</strong></div>";
+  if(meds_int2.length>0){
+    html+="<div class='section-title'>Uso Interno</div><hr class='section-hr'/>";
+    meds_int2.forEach(function(m,i){
+      html+="<div class='med'><div class='med-num'>"+(i+1)+".</div><div><span class='med-name'>"+m.name+"</span>";
+      if(m.qtyEdit)html+="<span class='med-qty'>-- "+m.qtyEdit+"</span>";
+      html+="<div class='med-pos'>"+m.posEdit+"</div></div></div>";
+    });
+  }
+  if(meds_ext2.length>0){
+    html+="<div class='section-title' style='margin-top:16px'>Uso Externo</div><hr class='section-hr'/>";
+    meds_ext2.forEach(function(m,i){
+      html+="<div class='med'><div class='med-num'>"+(i+1)+".</div><div><span class='med-name'>"+m.name+"</span>";
+      if(m.qtyEdit)html+="<span class='med-qty'>-- "+m.qtyEdit+"</span>";
+      html+="<div class='med-pos'>"+m.posEdit+"</div></div></div>";
+    });
+  }
+  if(obs)html+="<div class='obs'>"+obs+"</div>";
+  html+="<div class='footer'><div class='dent-name'>"+nomeDent2+"</div><div class='cro'>"+cro2+"</div><div class='date'>São Paulo, "+hoje2+"</div></div>";
+  html+="</div></body></html>";
+  var w=window.open("","_blank","width=800,height=900");
+  w.document.write(html);
+  w.document.close();
+  w.onload=function(){w.print();};
 }} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir / Salvar PDF</button>
   </div>
   {/* Receipt page */}
