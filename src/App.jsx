@@ -420,7 +420,7 @@ const [treatModal,setTreatModal]=useState(false);
 const [ortoModal,setOrtoModal]=useState(false);
 const [ortoForm,setOrtoForm]=useState({valor:"",ano:new Date().getFullYear(),dentistId:""});
 const [tf,setTf]=useState({name:"",start:today(),items:[],payments:[]});
-const [tni,setTni]=useState({d:"",procId:"",v:""});
+const [tni,setTni]=useState({d:"",procId:"",v:"",qty:""});
 
 // Budget modal
 const [budgModal,setBudgModal]=useState(false);
@@ -536,13 +536,15 @@ setNfModal(false);
 
 // Add procedure to existing plan
 const [addProcModal,setAddProcModal]=useState(null); // treatId
-const [addProcForm,setAddProcForm]=useState({procId:"",d:"",v:""});
+const [addProcForm,setAddProcForm]=useState({procId:"",d:"",v:"",qty:""});
 const saveAddProc=()=>{
 if(!addProcForm.v||Number(addProcForm.v)<=0){alert("Informe o valor");return;}
 const procName=procs.find(p=>String(p.id)===String(addProcForm.procId))?.name||"";
 const detail=addProcForm.d&&addProcForm.d!==procName?addProcForm.d:"";
 const desc=procName?(detail?`${procName} -- ${detail}`:procName):(addProcForm.d||"Procedimento");
-setTreats(prev=>prev.map(t=>t.id!==addProcModal?t:{...t,items:[...t.items,{desc,value:Number(addProcForm.v),paid:false}]}));
+const qtd=Math.max(1,Number(addProcForm.qty||1));
+const novos=Array.from({length:qtd},(_,i)=>({desc:qtd>1?`${desc} (${i+1}/${qtd})`:desc,value:Number(addProcForm.v),paid:false}));
+setTreats(prev=>prev.map(t=>t.id!==addProcModal?t:{...t,items:[...t.items,...novos]}));
 setAddProcModal(null);
 };
 
@@ -647,7 +649,7 @@ return <>
 </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
-            <button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>
+            <button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:"",qty:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>
                 {!t.finalizado
                   ?<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:true,finalizadoEm:today(),finalizadoPor:user.name}))}
                     style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✓ Finalizar"}</button>
@@ -852,6 +854,10 @@ return <>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
         <Inp lb="Detalhe (opcional)" val={addProcForm.d} set={v=>setAddProcForm(f=>({...f,d:v}))} ph="Ex: dente 36"/>
         <Inp lb="Valor (R$)" val={addProcForm.v} set={v=>setAddProcForm(f=>({...f,v:v}))} type="number" ph="0,00"/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:11,alignItems:"center"}}>
+        <Inp lb="Quantidade" val={addProcForm.qty==null?"":String(addProcForm.qty)} set={v=>setAddProcForm(f=>({...f,qty:v===""?"":Number(v)}))} type="number" min="1" max="20" ph="1"/>
+        {Number(addProcForm.qty||1)>1&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:12,color:G.primary,marginTop:18}}>{"✚ Serão adicionados "+addProcForm.qty+" itens"}</div>}
       </div>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
         <button onClick={()=>setAddProcModal(null)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
@@ -1079,13 +1085,19 @@ return <>
           <Inp lb="Detalhe (opcional)" val={tni.d} set={v=>setTni(p=>({...p,d:v}))} ph="Ex: dente 36"/>
           <Inp lb="Valor (R$)" val={tni.v} set={v=>setTni(p=>({...p,v:v}))} type="number" ph="0,00"/>
         </div>
+        <div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:9,alignItems:"center"}}>
+          <Inp lb="Quantidade" val={tni.qty==null?"":String(tni.qty)} set={v=>setTni(p=>({...p,qty:v===""?"":Number(v)}))} type="number" min="1" max="20" ph="1"/>
+          {Number(tni.qty||1)>1&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:12,color:G.primary,marginTop:18}}>{"✚ Serão adicionados "+tni.qty+" itens individuais"}</div>}
+        </div>
         <button
           onClick={()=>{
             if(!tni.procId&&!tni.d){alert("Selecione um procedimento");return;}
             if(!tni.v||Number(tni.v)<=0){alert("Informe o valor");return;}
             const nm=tni.d?`${procs.find(p=>String(p.id)===tni.procId)?.name||""} ${tni.d}`.trim():(procs.find(p=>String(p.id)===tni.procId)?.name||"Procedimento");
-            setTf(prev=>({...prev,items:[...prev.items,{desc:nm,value:Number(tni.v),paid:false}]}));
-            setTni({d:"",procId:"",v:""});
+            const qtd=Math.max(1,Number(tni.qty||1));
+            const novos=Array.from({length:qtd},(_,i)=>({desc:qtd>1?`${nm} (${i+1}/${qtd})`:nm,value:Number(tni.v),paid:false}));
+            setTf(prev=>({...prev,items:[...prev.items,...novos]}));
+            setTni({d:"",procId:"",v:"",qty:""});
           }}
           style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer",alignSelf:"flex-start"}}
         >➕ Adicionar ao Plano</button>
