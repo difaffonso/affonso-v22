@@ -4356,37 +4356,37 @@ return(
 
 <div style={{position:"fixed",inset:0,zIndex:9999,background:"#f5f0e8",overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px"}}>
   {/* Print styles injected */}
-  <style dangerouslySetInnerHTML={{__html:"@media print{.no-print{display:none!important}.print-page{box-shadow:none!important;max-width:100%!important}}"}}/>
+  <style dangerouslySetInnerHTML={{__html:"@media print{@page{size:A4 portrait;margin:15mm 20mm 15mm 20mm} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} .no-print{display:none!important} .print-page{box-shadow:none!important;max-width:100%!important;width:100%!important;padding:0!important;min-height:auto!important} body{margin:0;padding:0} html,body{height:auto!important}}"}}/>
   {/* Action buttons - hidden on print */}
   <div className="no-print" style={{display:"flex",gap:12,marginBottom:20,width:"100%",maxWidth:520}}>
     <button onClick={function(){setShowPrint(false);}} style={{flex:1,padding:"12px",border:"1.5px solid #ccc",borderRadius:10,background:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>← Voltar</button>
     <button onClick={function(){window.print();}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir / Salvar PDF</button>
   </div>
   {/* Receipt page */}
-  <div className="print-page" style={{background:"#fff",maxWidth:520,width:"100%",padding:40,borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)"}}>
+  <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:794,padding:"32px 48px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:1050,display:"flex",flexDirection:"column"}}>
     {/* Header */}
-    <div style={{textAlign:"center",marginBottom:24}}>
-      <div style={{fontSize:11,letterSpacing:3,color:"#8B6914",textTransform:"uppercase",marginBottom:4}}>Affonso Odontologia</div>
-      <div style={{fontSize:10,letterSpacing:2,color:"#999",textTransform:"uppercase"}}>Clínica Especializada</div>
+    <div style={{textAlign:"center",marginBottom:20}}>
+      <div style={{fontSize:14,letterSpacing:4,color:"#8B6914",textTransform:"uppercase",marginBottom:6}}>Affonso Odontologia</div>
+      <div style={{fontSize:12,letterSpacing:3,color:"#999",textTransform:"uppercase"}}>Clínica Especializada</div>
       <hr style={{border:"1px solid #C9A84C",margin:"12px 0"}}/>
     </div>
     {/* Patient */}
-    <div style={{marginBottom:20,fontSize:14}}>
+    <div style={{marginBottom:16,fontSize:15}}>
       <span style={{color:"#666"}}>Para: </span>
       <strong>{nomePac}</strong>
     </div>
     {/* Uso Interno */}
     {meds_int.length>0&&<>
-      <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"#8B6914",marginBottom:12,textTransform:"uppercase"}}>USO INTERNO</div>
+      <div style={{fontSize:13,fontWeight:700,letterSpacing:2,color:"#8B6914",marginBottom:14,textTransform:"uppercase"}}>USO INTERNO</div>
       <hr style={{border:".5px solid #C9A84C",marginBottom:16}}/>
       {meds_int.map(function(m,i){return(
-        <div key={m.id} style={{marginBottom:18}}>
+        <div key={m.id} style={{marginBottom:20}}>
           <div style={{display:"flex",gap:8,alignItems:"baseline"}}>
-            <span style={{fontSize:13,fontWeight:700,color:"#8B6914",minWidth:20}}>{i+1}.</span>
+            <span style={{fontSize:15,fontWeight:700,color:"#8B6914",minWidth:24}}>{i+1}.</span>
             <div>
-              <span style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
-              {m.qtyEdit&&<span style={{fontSize:12,color:"#888",marginLeft:8}}>-- {m.qtyEdit}</span>}
-              <div style={{fontSize:13,color:"#444",marginTop:4,lineHeight:1.5}}>{m.posEdit}</div>
+              <span style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
+              {m.qtyEdit&&<span style={{fontSize:14,color:"#888",marginLeft:10}}>-- {m.qtyEdit}</span>}
+              <div style={{fontSize:14,color:"#444",marginTop:5,lineHeight:1.6}}>{m.posEdit}</div>
             </div>
           </div>
         </div>
@@ -4397,13 +4397,13 @@ return(
       <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"#8B6914",margin:"16px 0 12px",textTransform:"uppercase"}}>USO EXTERNO</div>
       <hr style={{border:".5px solid #C9A84C",marginBottom:16}}/>
       {meds_ext.map(function(m,i){return(
-        <div key={m.id} style={{marginBottom:18}}>
+        <div key={m.id} style={{marginBottom:20}}>
           <div style={{display:"flex",gap:8,alignItems:"baseline"}}>
-            <span style={{fontSize:13,fontWeight:700,color:"#8B6914",minWidth:20}}>{i+1}.</span>
+            <span style={{fontSize:15,fontWeight:700,color:"#8B6914",minWidth:24}}>{i+1}.</span>
             <div>
-              <span style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
-              {m.qtyEdit&&<span style={{fontSize:12,color:"#888",marginLeft:8}}>-- {m.qtyEdit}</span>}
-              <div style={{fontSize:13,color:"#444",marginTop:4,lineHeight:1.5}}>{m.posEdit}</div>
+              <span style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
+              {m.qtyEdit&&<span style={{fontSize:14,color:"#888",marginLeft:10}}>-- {m.qtyEdit}</span>}
+              <div style={{fontSize:14,color:"#444",marginTop:5,lineHeight:1.6}}>{m.posEdit}</div>
             </div>
           </div>
         </div>
@@ -4412,10 +4412,10 @@ return(
     {/* Obs */}
     {obs&&<div style={{background:"#f9f6ef",borderLeft:"3px solid #C9A84C",padding:"10px 14px",marginTop:12,fontSize:13,color:"#555"}}>{obs}</div>}
     {/* Footer */}
-    <div style={{marginTop:40,textAlign:"center",borderTop:"1px solid #eee",paddingTop:20}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#333"}}>{nomeDent}</div>
-      <div style={{fontSize:11,color:"#888",marginTop:3}}>{croDent}</div>
-      <div style={{fontSize:11,color:"#888",marginTop:6}}>{"São Paulo, "+hoje}</div>
+    <div style={{marginTop:"auto",paddingTop:50,paddingBottom:10,textAlign:"center",borderTop:"2px solid #C9A84C"}}>
+      <div style={{fontSize:17,fontWeight:700,color:"#222"}}>{nomeDent}</div>
+      <div style={{fontSize:13,color:"#888",marginTop:5}}>{croDent}</div>
+      <div style={{fontSize:14,color:"#666",marginTop:10,fontStyle:"italic"}}>{"São Paulo, "+hoje}</div>
     </div>
   </div>
 </div>
