@@ -4356,11 +4356,18 @@ return(
 
 <div style={{position:"fixed",inset:0,zIndex:9999,background:"#f5f0e8",overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px"}}>
   {/* Print styles injected */}
-  <style dangerouslySetInnerHTML={{__html:"@media print{@page{size:A4 portrait;margin:15mm 20mm 15mm 20mm} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} .no-print{display:none!important} .print-page{box-shadow:none!important;max-width:100%!important;width:100%!important;padding:0!important;min-height:auto!important} body{margin:0;padding:0} html,body{height:auto!important}}"}}/>
+  <style dangerouslySetInnerHTML={{__html:"@media print{@page{size:A4 portrait;margin:0} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} .no-print{display:none!important} .print-page{box-shadow:none!important;max-width:100%!important;width:100%!important;padding:20mm 25mm!important;min-height:297mm!important;box-sizing:border-box!important} body,html{margin:0!important;padding:0!important;height:auto!important} .print-wrapper{padding:0!important;margin:0!important;background:none!important}}"}}/>
   {/* Action buttons - hidden on print */}
   <div className="no-print" style={{display:"flex",gap:12,marginBottom:20,width:"100%",maxWidth:520}}>
     <button onClick={function(){setShowPrint(false);}} style={{flex:1,padding:"12px",border:"1.5px solid #ccc",borderRadius:10,background:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>← Voltar</button>
-    <button onClick={function(){window.print();}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir / Salvar PDF</button>
+    <button onClick={function(){
+  var style=document.createElement("style");
+  style.id="print-fix";
+  style.innerHTML="@page{size:A4 portrait;margin:10mm 15mm} body{margin:0} .print-page{width:180mm!important;min-height:257mm!important;padding:8mm 10mm!important;display:flex!important;flex-direction:column!important;box-sizing:border-box!important}";
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(function(){var el=document.getElementById("print-fix");if(el)el.remove();},1000);
+}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir / Salvar PDF</button>
   </div>
   {/* Receipt page */}
   <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:794,padding:"32px 48px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:1050,display:"flex",flexDirection:"column"}}>
