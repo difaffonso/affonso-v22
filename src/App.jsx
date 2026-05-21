@@ -518,9 +518,16 @@ setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",n
 };
 const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:Number(bf.disc),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
-const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["historico","📅 Histórico"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
+const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["historico","📅 Histórico"],["atestado","📄 Atestado"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
 // NF (Nota Fiscal) state
 const [nfModal,setNfModal]=useState(false);
+const [showAtestado,setShowAtestado]=useState(false);
+const [atDias,setAtDias]=useState("1");
+const [atData,setAtData]=useState(today());
+const [atCid,setAtCid]=useState("");
+const [atObs,setAtObs]=useState("");
+const [atTextoEdit,setAtTextoEdit]=useState("");
+const [atEditMode,setAtEditMode]=useState(false);
 const [nfEdit,setNfEdit]=useState(null);
 const [confirmDel,setConfirmDel]=useState(null); // {type,id,label}
 const blankNF={date:today(),number:"",payer:"empresa",payerName:"",payerCnpj:"",dentistId:"",procedure:"",value:"",tax:"",notes:"",status:"pending"};
@@ -782,7 +789,78 @@ return <>
   </div>}
 
   {/* ── NOTA FISCAL ── */}
-  {tab==="nf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+  {tab==="atestado"&&(function(){
+  var dentAtest=dents.find(function(d){return d.id===(user.dentistId||dents[0]&&dents[0].id);});
+  var dentName=dentAtest&&dentAtest.name||"Dr. Diego Affonso";
+  var dentCro="CRO "+(dentAtest&&dentAtest.cro||"SP-72.278");
+  var hoje2=new Date((atData||today())+"T12:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
+  var diasNum=Number(atDias)||1;
+  var diasExtenso=["","um","dois","três","quatro","cinco","seis","sete","oito","nove","dez"];
+  var diasTxt=diasNum===1?"1 (um) dia":diasNum+"("+(diasExtenso[diasNum]||diasNum)+") dias";
+  var cidTxt=atCid?" (CID: "+atCid+")":"";
+  var textoBase="Atesto para os devidos fins que o(a) paciente "+pat.name.toUpperCase()+", portador(a) do CPF "+(pat.cpf||"___.___.___-__")+", esteve sob meus cuidados odontológicos"+cidTxt+" e necessita de afastamento de suas atividades pelo período de "+diasTxt+", a contar desta data.";
+  var textoFinal=atEditMode?atTextoEdit:textoBase;
+  if(showAtestado){return(
+    <div style={{position:"fixed",inset:0,zIndex:9999,background:"#f5f0e8",overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px"}}>
+      <style dangerouslySetInnerHTML={{__html:"@media print{@page{size:A4 portrait;margin:0} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} .no-print{display:none!important} .print-page{box-shadow:none!important;width:100%!important;padding:20mm 25mm!important;min-height:297mm!important;box-sizing:border-box!important} body,html{margin:0!important;padding:0!important}}"}}/>
+      <div className="no-print" style={{display:"flex",gap:12,marginBottom:20,width:"100%",maxWidth:620}}>
+        <button onClick={function(){setShowAtestado(false);}} style={{flex:1,padding:"12px",border:"1.5px solid #ccc",borderRadius:10,fontSize:14,cursor:"pointer",background:"#fff"}}>{"← Voltar"}</button>
+        <button onClick={function(){window.print();}} style={{flex:2,padding:"12px",background:G.primary,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir / Salvar PDF"}</button>
+      </div>
+      <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:620,padding:"32px 40px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:800,display:"flex",flexDirection:"column"}}>
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <div style={{fontSize:13,letterSpacing:4,color:"#8B6914",textTransform:"uppercase",marginBottom:4}}>Affonso Odontologia</div>
+          <div style={{fontSize:9,letterSpacing:3,color:"#999",textTransform:"uppercase"}}>Clínica Especializada</div>
+          <hr style={{border:"none",borderTop:"1.5px solid #C9A84C",margin:"10px 0"}}/>
+        </div>
+        <div style={{fontSize:16,fontWeight:700,textAlign:"center",letterSpacing:2,textTransform:"uppercase",marginBottom:28,color:"#1B5E4A"}}>Atestado Odontológico</div>
+        <div style={{fontSize:13,lineHeight:1.9,textAlign:"justify",marginBottom:20}}>{textoFinal}</div>
+        {atObs&&<div style={{fontSize:12,lineHeight:1.7,color:"#555",fontStyle:"italic",marginBottom:20}}>{"Observações: "+atObs}</div>}
+        <div style={{fontSize:12,color:"#555",marginBottom:40}}>{"São Paulo, "+hoje2}</div>
+        <div style={{marginTop:"auto",textAlign:"center",paddingTop:30,borderTop:"1.5px solid #C9A84C"}}>
+          <div style={{width:200,borderTop:"1px solid #333",margin:"0 auto 8px"}}/>
+          <div style={{fontSize:15,fontWeight:700}}>{dentName}</div>
+          <div style={{fontSize:12,color:"#888",marginTop:4}}>{dentCro}</div>
+        </div>
+      </div>
+    </div>
+  );}
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <span style={{fontWeight:700,fontSize:15,color:G.primary}}>{"📄 Atestado Odontológico"}</span>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Dias de Afastamento</label>
+        <input type="number" min="1" max="30" value={atDias} onChange={function(e){setAtDias(e.target.value);setAtEditMode(false);}}
+          style={{border:"1.5px solid "+G.primary,borderRadius:8,padding:"9px 12px",fontSize:18,fontWeight:700,color:G.primary,outline:"none",textAlign:"center"}}/>
+      </div>
+      <Inp lb="Data" val={atData} set={function(v){setAtData(v);setAtEditMode(false);}} type="date"/>
+    </div>
+    <Inp lb="CID (opcional)" val={atCid} set={function(v){setAtCid(v);setAtEditMode(false);}} ph="Ex: K08.1"/>
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Texto do Atestado</label>
+        <button onClick={function(){if(!atEditMode){setAtTextoEdit(textoBase);}setAtEditMode(!atEditMode);}}
+          style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,color:G.primary,cursor:"pointer"}}>
+          {atEditMode?"↩ Usar padrão":"✏️ Editar"}
+        </button>
+      </div>
+      {!atEditMode
+        ?<div style={{background:G.bg,borderRadius:8,padding:"12px 14px",fontSize:13,lineHeight:1.7,color:G.text}}>{textoBase}</div>
+        :<textarea value={atTextoEdit} onChange={function(e){setAtTextoEdit(e.target.value);}} rows={5}
+          style={{width:"100%",border:"1.5px solid "+G.primary,borderRadius:8,padding:"10px 12px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"Georgia,serif",lineHeight:1.7}}/>
+      }
+    </div>
+    <Txt lb="Observações adicionais (opcional)" val={atObs} set={setAtObs} rows={2}/>
+    <div style={{background:G.accent,borderRadius:10,padding:"10px 14px",fontSize:12,color:G.primary}}>
+      {"👨‍⚕️ "+dentName+" · "+dentCro}
+    </div>
+    <button onClick={function(){setShowAtestado(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+      {"🖨️ Imprimir / Salvar PDF"}
+    </button>
+  </div>;
+})()}
+
+{tab==="nf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🧾 Notas Fiscais</span>
       <Btn ch="+ Nova NF" sm onClick={()=>{setNfEdit(null);setNff(blankNF);setNfModal(true);}}/>
@@ -1511,7 +1589,7 @@ if(!a)return(
 );
 // Slot bloqueado
 if(a&&a.blocked)return(
-<div key={slot} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:7,alignItems:"flex-start",background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
+<div key={slot} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:7,background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
 <span style={{fontSize:12,fontWeight:700,color:G.red,minWidth:38}}>{slot}</span>
 <span style={{fontSize:12,fontWeight:700,color:G.red}}>🔒 {a.blockReason||"Bloqueado"}</span>
 {!isDent&&<span style={{fontSize:10,color:G.muted,marginLeft:"auto"}}>toque p/ desbloquear</span>}
@@ -1551,11 +1629,7 @@ return(
 <span style={{fontSize:10,fontWeight:700,color:isPartial?G.red:SC[a.status],background:(isPartial?G.red:SC[a.status])+"25",borderRadius:5,padding:"2px 7px"}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
 </div>
 {flags.length>0&&<div style={{display:"flex",gap:3,marginTop:1,flexWrap:"wrap"}}>
-{flags.map(function(f,i){
-  var isAlerg=f.indexOf("💊")>=0||f.indexOf("⚠️")>=0;
-  var isCond=!isAlerg;
-  return <span key={i} style={{fontSize:9,background:isAlerg?"#FFEBEE":"#EDE7F6",color:isAlerg?G.red:"#6A1B9A",borderRadius:4,padding:"0px 5px",fontWeight:800}}>{f}</span>;
-})}
+{flags.map(function(f,i){var isAlerg=f.indexOf("💊")>=0||f.indexOf("⚠️")>=0;return <span key={i} style={{fontSize:9,background:isAlerg?"#FFEBEE":"#EDE7F6",color:isAlerg?G.red:"#6A1B9A",borderRadius:4,padding:"0px 5px",fontWeight:800}}>{f}</span>;})}
 </div>}
 </div>
 </div>
