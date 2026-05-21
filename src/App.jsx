@@ -420,7 +420,7 @@ const [treatModal,setTreatModal]=useState(false);
 const [ortoModal,setOrtoModal]=useState(false);
 const [ortoForm,setOrtoForm]=useState({valor:"",ano:new Date().getFullYear(),dentistId:""});
 const [tf,setTf]=useState({name:"",start:today(),items:[],payments:[]});
-const [tni,setTni]=useState({d:"",procId:"",v:""});
+const [tni,setTni]=useState({d:"",procId:"",v:"",qty:""});
 
 // Budget modal
 const [budgModal,setBudgModal]=useState(false);
@@ -536,13 +536,15 @@ setNfModal(false);
 
 // Add procedure to existing plan
 const [addProcModal,setAddProcModal]=useState(null); // treatId
-const [addProcForm,setAddProcForm]=useState({procId:"",d:"",v:""});
+const [addProcForm,setAddProcForm]=useState({procId:"",d:"",v:"",qty:""});
 const saveAddProc=()=>{
 if(!addProcForm.v||Number(addProcForm.v)<=0){alert("Informe o valor");return;}
 const procName=procs.find(p=>String(p.id)===String(addProcForm.procId))?.name||"";
 const detail=addProcForm.d&&addProcForm.d!==procName?addProcForm.d:"";
 const desc=procName?(detail?`${procName} -- ${detail}`:procName):(addProcForm.d||"Procedimento");
-setTreats(prev=>prev.map(t=>t.id!==addProcModal?t:{...t,items:[...t.items,{desc,value:Number(addProcForm.v),paid:false}]}));
+const qtd=Math.max(1,Number(addProcForm.qty||1));
+const novos=Array.from({length:qtd},(_,i)=>({desc:qtd>1?`${desc} (${i+1}/${qtd})`:desc,value:Number(addProcForm.v),paid:false}));
+setTreats(prev=>prev.map(t=>t.id!==addProcModal?t:{...t,items:[...t.items,...novos]}));
 setAddProcModal(null);
 };
 
@@ -647,7 +649,7 @@ return <>
 </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
-            <button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>
+            <button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:"",qty:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>
                 {!t.finalizado
                   ?<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:true,finalizadoEm:today(),finalizadoPor:user.name}))}
                     style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✓ Finalizar"}</button>
@@ -852,6 +854,10 @@ return <>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
         <Inp lb="Detalhe (opcional)" val={addProcForm.d} set={v=>setAddProcForm(f=>({...f,d:v}))} ph="Ex: dente 36"/>
         <Inp lb="Valor (R$)" val={addProcForm.v} set={v=>setAddProcForm(f=>({...f,v:v}))} type="number" ph="0,00"/>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:11,alignItems:"center"}}>
+        <Inp lb="Quantidade" val={addProcForm.qty==null?"":String(addProcForm.qty)} set={v=>setAddProcForm(f=>({...f,qty:v===""?"":Number(v)}))} type="number" min="1" max="20" ph="1"/>
+        {Number(addProcForm.qty||1)>1&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:12,color:G.primary,marginTop:18}}>{"✚ Serão adicionados "+addProcForm.qty+" itens"}</div>}
       </div>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
         <button onClick={()=>setAddProcModal(null)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
@@ -1079,13 +1085,19 @@ return <>
           <Inp lb="Detalhe (opcional)" val={tni.d} set={v=>setTni(p=>({...p,d:v}))} ph="Ex: dente 36"/>
           <Inp lb="Valor (R$)" val={tni.v} set={v=>setTni(p=>({...p,v:v}))} type="number" ph="0,00"/>
         </div>
+        <div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:9,alignItems:"center"}}>
+          <Inp lb="Quantidade" val={tni.qty==null?"":String(tni.qty)} set={v=>setTni(p=>({...p,qty:v===""?"":Number(v)}))} type="number" min="1" max="20" ph="1"/>
+          {Number(tni.qty||1)>1&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:12,color:G.primary,marginTop:18}}>{"✚ Serão adicionados "+tni.qty+" itens individuais"}</div>}
+        </div>
         <button
           onClick={()=>{
             if(!tni.procId&&!tni.d){alert("Selecione um procedimento");return;}
             if(!tni.v||Number(tni.v)<=0){alert("Informe o valor");return;}
             const nm=tni.d?`${procs.find(p=>String(p.id)===tni.procId)?.name||""} ${tni.d}`.trim():(procs.find(p=>String(p.id)===tni.procId)?.name||"Procedimento");
-            setTf(prev=>({...prev,items:[...prev.items,{desc:nm,value:Number(tni.v),paid:false}]}));
-            setTni({d:"",procId:"",v:""});
+            const qtd=Math.max(1,Number(tni.qty||1));
+            const novos=Array.from({length:qtd},(_,i)=>({desc:qtd>1?`${nm} (${i+1}/${qtd})`:nm,value:Number(tni.v),paid:false}));
+            setTf(prev=>({...prev,items:[...prev.items,...novos]}));
+            setTni({d:"",procId:"",v:"",qty:""});
           }}
           style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer",alignSelf:"flex-start"}}
         >➕ Adicionar ao Plano</button>
@@ -1456,7 +1468,7 @@ return (
 
   </div>}
 
-{vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:3}}>
+{vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:1}}>
 {(()=>{
 // Inclui horarios personalizados dos agendamentos do dia
 var d=vd[0];
@@ -1475,31 +1487,31 @@ var isOut=slot<(d.entrada||"08:00")||slot>=(d.saida||"18:00");
 var isBlocked=isOff||isAlm||isOut;
 if(isBlocked&&!a)return(
 
-<div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 8px",borderRadius:8,background:isOff?"#FFEBEE":isAlm?"#FFF8E1":"#F3E5F5",opacity:.6}}>
-<span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
+<div key={slot} style={{display:"flex",alignItems:"center",gap:5,padding:"1px 6px",borderRadius:5,background:isOff?"#FFEBEE":isAlm?"#FFF8E1":"#F3E5F5",opacity:.6}}>
+<span style={{fontSize:10,color:G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
 <span style={{fontSize:11,color:isOff?"#C62828":isAlm?"#E65100":"#6A1B9A",fontWeight:600}}>{isOff?"🚫 Folga":isAlm?"🍽️ Almoço":"⛔ Fechado"}</span>
 </div>
 );
 // Slot ocupado por duração de consulta anterior
 const isExtraSlot=appts.some(a2=>a2.date===selDate&&a2.dentistId===d.id&&(a2.extraSlots||[]).includes(slot)&&a2.status!=="cancelled"&&a2.status!=="rescheduled"&&a2.status!=="missed");
 if(isExtraSlot&&!a)return(
-<div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",borderRadius:8,background:"#F3E5F5",border:"1px solid #CE93D8"}}>
+<div key={slot} style={{display:"flex",alignItems:"center",gap:5,padding:"1px 6px",borderRadius:5,background:"#F3E5F5",border:"1px solid #CE93D8"}}>
 <span style={{fontSize:11,color:"#6A1B9A",minWidth:38,fontWeight:600}}>{slot}</span>
 <span style={{fontSize:11,color:"#6A1B9A"}}>⏱️ Em consulta</span>
 </div>
 );
 if(!a)return(
-<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:viewingOrto?"2px 8px":"5px 8px",borderRadius:6,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?24:36}}>
-<span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
+<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:viewingOrto?"1px 6px":"1px 6px",borderRadius:5,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
+<span style={{fontSize:10,color:G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
 {isDent
-?<span style={{fontSize:11,color:G.border}}>─────────</span>
+?<span style={{fontSize:11,color:G.border}}>──────</span>
 :<span style={{fontSize:11,color:G.border,flex:1}}>{"+ agendar"}</span>}
 {!isDent&&<button onClick={e=>{e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{marginLeft:"auto",background:"#FFEBEE",border:"1px solid #FFCDD2",borderRadius:6,padding:"2px 7px",fontSize:10,color:G.red,cursor:"pointer",fontWeight:700}} title="Bloquear horário">🔒</button>}
 </div>
 );
 // Slot bloqueado
 if(a&&a.blocked)return(
-<div key={slot} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
+<div key={slot} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:7,alignItems:"flex-start",background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
 <span style={{fontSize:12,fontWeight:700,color:G.red,minWidth:38}}>{slot}</span>
 <span style={{fontSize:12,fontWeight:700,color:G.red}}>🔒 {a.blockReason||"Bloqueado"}</span>
 {!isDent&&<span style={{fontSize:10,color:G.muted,marginLeft:"auto"}}>toque p/ desbloquear</span>}
@@ -1508,8 +1520,8 @@ if(a&&a.blocked)return(
 // Cancelado/desmarcado: libera o horário visualmente
 if(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed"){
 return(
-<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:viewingOrto?"2px 8px":"5px 8px",borderRadius:6,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?24:36}}>
-<span style={{fontSize:11,color:G.muted,minWidth:38,fontWeight:600}}>{slot}</span>
+<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:viewingOrto?"1px 6px":"1px 6px",borderRadius:5,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
+<span style={{fontSize:10,color:G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
 <span style={{fontSize:11,color:G.border,flex:1}}>{isDent?"":"+ agendar"}</span>
 </div>
 );
@@ -1532,14 +1544,18 @@ return(
 <span style={{fontSize:12,fontWeight:700,color:isPartial?G.red:SC[a.status],minWidth:38}}>{slot}</span>
 <div style={{flex:1,minWidth:0}}>
 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-<span style={{fontWeight:700,fontSize:13,color:isPartial?G.red:G.text}}>{isPartial?a.patientName:(p&&p.name)}</span>
+<span style={{fontWeight:700,fontSize:12,color:isPartial?G.red:G.text}}>{isPartial?a.patientName:(p&&p.name)}</span>
 {isPartial&&<span style={{fontSize:10,background:G.red+"20",color:G.red,borderRadius:4,padding:"1px 5px",fontWeight:700}}>⚠ Parcial</span>}
-{p&&p.phone&&!isPartial&&<span style={{fontSize:11,color:G.muted}}>{p.phone}</span>}
+
 <span style={{fontSize:12,fontWeight:700,color:SC[a.status],background:SC_BG[a.status],borderRadius:6,padding:"1px 7px"}}>{a.procedureCustom||a.procedure}</span>
 <span style={{fontSize:10,fontWeight:700,color:isPartial?G.red:SC[a.status],background:(isPartial?G.red:SC[a.status])+"25",borderRadius:5,padding:"2px 7px"}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
 </div>
-{flags.length>0&&<div style={{display:"flex",gap:4,marginTop:2,flexWrap:"wrap"}}>
-{flags.map(function(f,i){return <span key={i} style={{fontSize:9,background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 5px",fontWeight:700}}>{f}</span>;})}
+{flags.length>0&&<div style={{display:"flex",gap:3,marginTop:1,flexWrap:"wrap"}}>
+{flags.map(function(f,i){
+  var isAlerg=f.indexOf("💊")>=0||f.indexOf("⚠️")>=0;
+  var isCond=!isAlerg;
+  return <span key={i} style={{fontSize:9,background:isAlerg?"#FFEBEE":"#EDE7F6",color:isAlerg?G.red:"#6A1B9A",borderRadius:4,padding:"0px 5px",fontWeight:800}}>{f}</span>;
+})}
 </div>}
 </div>
 </div>
@@ -1605,7 +1621,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                     <select value={a.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();chSt(a.id,e.target.value);}} style={{border:"1px solid "+SC[a.status],background:"#fff",borderRadius:5,padding:"1px 4px",fontSize:9,color:SC[a.status],fontWeight:700,cursor:"pointer",outline:"none"}}>
                       {Object.entries(SL).map(([k,l])=><option key={k} value={k}>{l}</option>)}
                     </select>
-                    {p&&p.phone&&<button onClick={e=>{e.stopPropagation();WA_API(p.phone,"Olá, "+(p.name||"")+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+". Affonso Odontologia 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:5,padding:"1px 6px",fontSize:9,fontWeight:700,cursor:"pointer"}}>WA</button>}
+                    {p&&p.phone&&<button onClick={e=>{e.stopPropagation();wa(p.phone,"Olá, "+(p.name||"")+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+". Affonso Odontologia 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:5,padding:"1px 6px",fontSize:9,fontWeight:700,cursor:"pointer"}}>WA</button>}
                   </div>}
                 </div>
               );
@@ -1683,8 +1699,8 @@ return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 1
 {Object.entries(SL).map(([k,l])=><button key={k} onClick={()=>chSt(a.id,k)} style={{border:"2px solid "+SC[k],background:a.status===k?SC[k]:SC_BG[k]||"#fff",color:a.status===k?"#fff":SC[k],borderRadius:20,padding:"5px 11px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{(SC_ICON[k]||"")+" "+l}</button>)}
 </div>}
 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-{!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
-{!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>WA_API(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
+{!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
+{!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
 {!isDent&&p&&p.phone&&<Btn ch="🔄 Paciente Cancelou" v="r" sm onClick={function(){chSt(a.id,"cancelled");wa(p.phone,"Olá, "+p.name+"! Entendemos que nao podera comparecer. Gostaria de remarcar? Responda SIM. Affonso Odontologia");setViewA(null);}}/>}
 {!isDent&&<Btn ch="Editar" sm onClick={()=>{setEdit(a);var isStdSlot=SLOTS.indexOf(a.time)>=0;
 var fdata=Object.assign({},a,{
@@ -3150,7 +3166,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
         Todos ({withPhone.length} com telefone)
       </label>
     </div>
-    {!localAll&&<div style={{maxHeight:170,overflowY:"auto",display:"flex",flexDirection:"column",gap:3,border:`1px solid ${G.border}`,borderRadius:9,padding:7}}>
+    {!localAll&&<div style={{maxHeight:170,overflowY:"auto",display:"flex",flexDirection:"column",gap:1,border:`1px solid ${G.border}`,borderRadius:9,padding:7}}>
       {withPhone.map(p=><label key={p.id} style={{display:"flex",gap:9,alignItems:"center",padding:"6px 9px",background:localSel.includes(p.id)?G.accent:"transparent",borderRadius:7,cursor:"pointer",fontSize:12}}>
         <input type="checkbox" checked={localSel.includes(p.id)} onChange={e=>setLocalSel(prev=>e.target.checked?[...prev,p.id]:prev.filter(x=>x!==p.id))} style={{accentColor:G.primary,width:14,height:14}}/>
         <span style={{flex:1,fontWeight:600}}>{p.name}</span>
@@ -3571,7 +3587,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <Btn ch="+ Novo Item" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:11}}>
-{stock.map(s=>{const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:`4px solid ${low?G.red:G.success}`}}>
+{[...stock].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"})).map(s=>{const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:`4px solid ${low?G.red:G.success}`}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
 <div><div style={{fontWeight:700,fontSize:13}}>{s.name}</div><div style={{fontSize:11,color:G.muted}}>Custo: {cur(s.price)}/{s.unit}</div></div>
 <div style={{textAlign:"right"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:low?G.red:G.success,lineHeight:1}}>{s.qty}</div><div style={{fontSize:10,color:G.muted}}>{s.unit}</div></div>
@@ -4356,37 +4372,93 @@ return(
 
 <div style={{position:"fixed",inset:0,zIndex:9999,background:"#f5f0e8",overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px"}}>
   {/* Print styles injected */}
-  <style dangerouslySetInnerHTML={{__html:"@media print{.no-print{display:none!important}.print-page{box-shadow:none!important;max-width:100%!important}}"}}/>
+  <style dangerouslySetInnerHTML={{__html:"@media print{@page{size:A4 portrait;margin:0} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} .no-print{display:none!important} .print-page{box-shadow:none!important;max-width:100%!important;width:100%!important;padding:20mm 25mm!important;min-height:297mm!important;box-sizing:border-box!important} body,html{margin:0!important;padding:0!important;height:auto!important} .print-wrapper{padding:0!important;margin:0!important;background:none!important}}"}}/>
   {/* Action buttons - hidden on print */}
   <div className="no-print" style={{display:"flex",gap:12,marginBottom:20,width:"100%",maxWidth:520}}>
     <button onClick={function(){setShowPrint(false);}} style={{flex:1,padding:"12px",border:"1.5px solid #ccc",borderRadius:10,background:"#fff",fontSize:14,fontWeight:700,cursor:"pointer"}}>← Voltar</button>
-    <button onClick={function(){window.print();}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir / Salvar PDF</button>
+    <button onClick={function(){
+  var nomePac2=pat&&pat.name||"--";
+  var nomeDent2=dent&&dent.name||"Dr. Diego Affonso";
+  var cro2="CRO "+(dent&&dent.cro||"SP-72.278");
+  var hoje2=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
+  var meds_int2=sel.filter(function(m){return m.cat!=="Antisséptico";});
+  var meds_ext2=sel.filter(function(m){return m.cat==="Antisséptico";});
+  var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><style>";
+  html+="@page{size:A4 portrait;margin:15mm 20mm}";
+  html+="*{box-sizing:border-box;margin:0;padding:0}";
+  html+="body{font-family:Georgia,serif;background:#fff;color:#222}";
+  html+=".page{width:100%;min-height:227mm;display:flex;flex-direction:column;padding:0}";
+  html+=".header{text-align:center;margin-bottom:18px}";
+  html+=".header h1{font-size:14pt;letter-spacing:4px;color:#8B6914;text-transform:uppercase;font-weight:normal;margin-bottom:4px}";
+  html+=".header h2{font-size:9pt;letter-spacing:3px;color:#999;text-transform:uppercase;font-weight:normal}";
+  html+=".header hr{border:none;border-top:1.5px solid #C9A84C;margin:10px 0}";
+  html+=".para{font-size:12pt;margin-bottom:16px}";
+  html+=".para strong{font-size:12pt}";
+  html+=".section-title{font-size:9pt;font-weight:700;letter-spacing:2px;color:#8B6914;text-transform:uppercase;margin-bottom:8px}";
+  html+=".section-hr{border:none;border-top:0.5px solid #C9A84C;margin-bottom:14px}";
+  html+=".med{display:flex;gap:8px;margin-bottom:16px}";
+  html+=".med-num{font-size:13pt;font-weight:700;color:#8B6914;min-width:22px}";
+  html+=".med-name{font-size:13pt;font-weight:700;color:#111}";
+  html+=".med-qty{font-size:11pt;color:#888;margin-left:8px}";
+  html+=".med-pos{font-size:12pt;color:#444;margin-top:5px;line-height:1.5}";
+  html+=".obs{background:#f9f6ef;border-left:3px solid #C9A84C;padding:10px 14px;margin-top:12px;font-size:11pt}";
+  html+=".footer{margin-top:auto;padding-top:40px;text-align:center;border-top:1.5px solid #C9A84C}";
+  html+=".footer .dent-name{font-size:15pt;font-weight:700;color:#222;margin-bottom:5px}";
+  html+=".footer .cro{font-size:12pt;color:#888;margin-bottom:8px}";
+  html+=".footer .date{font-size:13pt;color:#666;font-style:italic}";
+  html+="</style></head><body><div class='page'>";
+  html+="<div class='header'><h1>Affonso Odontologia</h1><h2>Clínica Especializada</h2><hr/></div>";
+  html+="<div class='para'>Para: <strong>"+nomePac2+"</strong></div>";
+  if(meds_int2.length>0){
+    html+="<div class='section-title'>Uso Interno</div><hr class='section-hr'/>";
+    meds_int2.forEach(function(m,i){
+      html+="<div class='med'><div class='med-num'>"+(i+1)+".</div><div><span class='med-name'>"+m.name+"</span>";
+      if(m.qtyEdit)html+="<span class='med-qty'>-- "+m.qtyEdit+"</span>";
+      html+="<div class='med-pos'>"+m.posEdit+"</div></div></div>";
+    });
+  }
+  if(meds_ext2.length>0){
+    html+="<div class='section-title' style='margin-top:16px'>Uso Externo</div><hr class='section-hr'/>";
+    meds_ext2.forEach(function(m,i){
+      html+="<div class='med'><div class='med-num'>"+(i+1)+".</div><div><span class='med-name'>"+m.name+"</span>";
+      if(m.qtyEdit)html+="<span class='med-qty'>-- "+m.qtyEdit+"</span>";
+      html+="<div class='med-pos'>"+m.posEdit+"</div></div></div>";
+    });
+  }
+  if(obs)html+="<div class='obs'>"+obs+"</div>";
+  html+="<div class='footer'><div class='dent-name'>"+nomeDent2+"</div><div class='cro'>"+cro2+"</div><div class='date'>São Paulo, "+hoje2+"</div></div>";
+  html+="</div></body></html>";
+  var w=window.open("","_blank","width=800,height=900");
+  w.document.write(html);
+  w.document.close();
+  w.onload=function(){w.print();};
+}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir / Salvar PDF</button>
   </div>
   {/* Receipt page */}
-  <div className="print-page" style={{background:"#fff",maxWidth:520,width:"100%",padding:40,borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)"}}>
+  <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:794,padding:"32px 48px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:1050,display:"flex",flexDirection:"column"}}>
     {/* Header */}
-    <div style={{textAlign:"center",marginBottom:24}}>
-      <div style={{fontSize:11,letterSpacing:3,color:"#8B6914",textTransform:"uppercase",marginBottom:4}}>Affonso Odontologia</div>
-      <div style={{fontSize:10,letterSpacing:2,color:"#999",textTransform:"uppercase"}}>Clínica Especializada</div>
+    <div style={{textAlign:"center",marginBottom:20}}>
+      <div style={{fontSize:14,letterSpacing:4,color:"#8B6914",textTransform:"uppercase",marginBottom:6}}>Affonso Odontologia</div>
+      <div style={{fontSize:12,letterSpacing:3,color:"#999",textTransform:"uppercase"}}>Clínica Especializada</div>
       <hr style={{border:"1px solid #C9A84C",margin:"12px 0"}}/>
     </div>
     {/* Patient */}
-    <div style={{marginBottom:20,fontSize:14}}>
+    <div style={{marginBottom:16,fontSize:15}}>
       <span style={{color:"#666"}}>Para: </span>
       <strong>{nomePac}</strong>
     </div>
     {/* Uso Interno */}
     {meds_int.length>0&&<>
-      <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"#8B6914",marginBottom:12,textTransform:"uppercase"}}>USO INTERNO</div>
+      <div style={{fontSize:13,fontWeight:700,letterSpacing:2,color:"#8B6914",marginBottom:14,textTransform:"uppercase"}}>USO INTERNO</div>
       <hr style={{border:".5px solid #C9A84C",marginBottom:16}}/>
       {meds_int.map(function(m,i){return(
-        <div key={m.id} style={{marginBottom:18}}>
+        <div key={m.id} style={{marginBottom:20}}>
           <div style={{display:"flex",gap:8,alignItems:"baseline"}}>
-            <span style={{fontSize:13,fontWeight:700,color:"#8B6914",minWidth:20}}>{i+1}.</span>
+            <span style={{fontSize:15,fontWeight:700,color:"#8B6914",minWidth:24}}>{i+1}.</span>
             <div>
-              <span style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
-              {m.qtyEdit&&<span style={{fontSize:12,color:"#888",marginLeft:8}}>-- {m.qtyEdit}</span>}
-              <div style={{fontSize:13,color:"#444",marginTop:4,lineHeight:1.5}}>{m.posEdit}</div>
+              <span style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
+              {m.qtyEdit&&<span style={{fontSize:14,color:"#888",marginLeft:10}}>-- {m.qtyEdit}</span>}
+              <div style={{fontSize:14,color:"#444",marginTop:5,lineHeight:1.6}}>{m.posEdit}</div>
             </div>
           </div>
         </div>
@@ -4397,13 +4469,13 @@ return(
       <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:"#8B6914",margin:"16px 0 12px",textTransform:"uppercase"}}>USO EXTERNO</div>
       <hr style={{border:".5px solid #C9A84C",marginBottom:16}}/>
       {meds_ext.map(function(m,i){return(
-        <div key={m.id} style={{marginBottom:18}}>
+        <div key={m.id} style={{marginBottom:20}}>
           <div style={{display:"flex",gap:8,alignItems:"baseline"}}>
-            <span style={{fontSize:13,fontWeight:700,color:"#8B6914",minWidth:20}}>{i+1}.</span>
+            <span style={{fontSize:15,fontWeight:700,color:"#8B6914",minWidth:24}}>{i+1}.</span>
             <div>
-              <span style={{fontSize:14,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
-              {m.qtyEdit&&<span style={{fontSize:12,color:"#888",marginLeft:8}}>-- {m.qtyEdit}</span>}
-              <div style={{fontSize:13,color:"#444",marginTop:4,lineHeight:1.5}}>{m.posEdit}</div>
+              <span style={{fontSize:16,fontWeight:700,color:"#1a1a1a"}}>{m.name}</span>
+              {m.qtyEdit&&<span style={{fontSize:14,color:"#888",marginLeft:10}}>-- {m.qtyEdit}</span>}
+              <div style={{fontSize:14,color:"#444",marginTop:5,lineHeight:1.6}}>{m.posEdit}</div>
             </div>
           </div>
         </div>
@@ -4412,10 +4484,10 @@ return(
     {/* Obs */}
     {obs&&<div style={{background:"#f9f6ef",borderLeft:"3px solid #C9A84C",padding:"10px 14px",marginTop:12,fontSize:13,color:"#555"}}>{obs}</div>}
     {/* Footer */}
-    <div style={{marginTop:40,textAlign:"center",borderTop:"1px solid #eee",paddingTop:20}}>
-      <div style={{fontSize:13,fontWeight:700,color:"#333"}}>{nomeDent}</div>
-      <div style={{fontSize:11,color:"#888",marginTop:3}}>{croDent}</div>
-      <div style={{fontSize:11,color:"#888",marginTop:6}}>{"São Paulo, "+hoje}</div>
+    <div style={{marginTop:"auto",paddingTop:50,paddingBottom:10,textAlign:"center",borderTop:"2px solid #C9A84C"}}>
+      <div style={{fontSize:17,fontWeight:700,color:"#222"}}>{nomeDent}</div>
+      <div style={{fontSize:13,color:"#888",marginTop:5}}>{croDent}</div>
+      <div style={{fontSize:14,color:"#666",marginTop:10,fontStyle:"italic"}}>{"São Paulo, "+hoje}</div>
     </div>
   </div>
 </div>
