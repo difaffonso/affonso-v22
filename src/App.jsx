@@ -804,9 +804,10 @@ return <>
         <button onClick={function(){setShowAtestado(false);}} style={{flex:1,padding:"12px",border:"1.5px solid #ccc",borderRadius:10,fontSize:14,cursor:"pointer",background:"#fff"}}>{"← Voltar"}</button>
         <button onClick={function(){
   var ha="<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width'><style>";
-  ha+="@page{size:A4 portrait;margin:15mm 20mm}";
+  ha+="@page{size:A4 portrait;margin:15mm 20mm} @page{-webkit-print-color-adjust:exact} head{display:none}";
   ha+="*{box-sizing:border-box;margin:0;padding:0}";
-  ha+="body{font-family:Georgia,serif;color:#222;background:#fff}";
+  ha+="body{font-family:Georgia,serif;color:#222;background:#fff;-webkit-print-color-adjust:exact}";
+  ha+="a,a:link{display:none!important}";
   ha+=".page{width:100%;min-height:227mm;display:flex;flex-direction:column}";
   ha+=".header{text-align:center;margin-bottom:20px}";
   ha+=".header h1{font-size:13pt;letter-spacing:4px;color:#8B6914;text-transform:uppercase;font-weight:normal;margin-bottom:4px}";
@@ -816,7 +817,7 @@ return <>
   ha+=".body-txt{font-size:12pt;line-height:1.9;text-align:justify;margin-bottom:20px}";
   ha+=".obs{font-size:11pt;line-height:1.7;color:#555;font-style:italic;margin-bottom:20px}";
   ha+=".date{font-size:11pt;color:#555;margin-bottom:40px}";
-  ha+=".footer{margin-top:auto;text-align:center;padding-top:30px;border-top:1.5px solid #C9A84C}";
+  ha+=".footer{margin-top:auto;text-align:center;padding-top:60px;border-top:1.5px solid #C9A84C}";
   ha+=".footer .ln{width:200px;border-top:1px solid #333;margin:0 auto 8px}";
   ha+=".footer .nm{font-size:14pt;font-weight:700;color:#222}";
   ha+=".footer .cr{font-size:11pt;color:#888;margin-top:4px}";
@@ -835,7 +836,7 @@ return <>
   a.href=url;a.target="_blank";a.rel="noreferrer";
   document.body.appendChild(a);a.click();
   setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
-}} style={{flex:2,padding:"12px",background:G.primary,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir / Salvar PDF"}</button>
+}} style={{flex:2,padding:"12px",background:G.primary,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir — desmarque Cabeçalhos e rodapés"}</button>
       </div>
       <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:620,padding:"32px 40px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:800,display:"flex",flexDirection:"column"}}>
         <div style={{textAlign:"center",marginBottom:20}}>
@@ -4490,7 +4491,8 @@ return(
   var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width'><style>";
   html+="@page{size:A4 portrait;margin:15mm 20mm}";
   html+="*{box-sizing:border-box;margin:0;padding:0}";
-  html+="body{font-family:Georgia,serif;background:#fff;color:#222}";
+  html+="body{font-family:Georgia,serif;background:#fff;color:#222;-webkit-print-color-adjust:exact}";
+  html+="a,a:link{display:none!important}";
   html+=".page{width:100%;min-height:227mm;display:flex;flex-direction:column;padding:0}";
   html+=".header{text-align:center;margin-bottom:18px}";
   html+=".header h1{font-size:14pt;letter-spacing:4px;color:#8B6914;text-transform:uppercase;font-weight:normal;margin-bottom:4px}";
@@ -4505,7 +4507,7 @@ return(
   html+=".med-qty{font-size:11pt;color:#888;margin-left:8px}";
   html+=".med-pos{font-size:12pt;color:#444;margin-top:5px;line-height:1.5}";
   html+=".obs{background:#f9f6ef;border-left:3px solid #C9A84C;padding:10px 14px;margin-top:12px;font-size:11pt}";
-  html+=".footer{margin-top:auto;padding-top:40px;text-align:center;border-top:1.5px solid #C9A84C}";
+  html+=".footer{margin-top:auto;padding-top:60px;text-align:center;border-top:1.5px solid #C9A84C}";
   html+=".footer .dent-name{font-size:15pt;font-weight:700;color:#222;margin-bottom:5px}";
   html+=".footer .cro{font-size:12pt;color:#888;margin-bottom:8px}";
   html+=".footer .date{font-size:13pt;color:#666;font-style:italic}";
@@ -4538,7 +4540,7 @@ return(
   a.href=url;a.target="_blank";a.rel="noreferrer";
   document.body.appendChild(a);a.click();
   setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
-}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir / Salvar PDF"}</button>
+}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir — desmarque Cabeçalhos e rodapés"}</button>
   </div>
   {/* Receipt page */}
   <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:794,padding:"32px 48px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:1050,display:"flex",flexDirection:"column"}}>
