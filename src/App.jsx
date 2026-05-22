@@ -468,10 +468,7 @@ const item=treat.items[idx];
 if(!item.done){
 // Orto: ask payment method first
 if(item.orto){setOrtoPayModal({tid,idx});return;}
-// Check if user is dentist level - only their own dentistId or admin
-if(user.level===1&&user.dentistId!==treat.dentistId&&treat.dentistId){
-alert("Você só pode dar baixa em procedimentos do seu próprio tratamento.");return;
-}
+// Qualquer dentista pode dar baixa
 // Calculate payment info for credit control
 const payments=treat.payments||[];
 const totalPaid=payments.reduce((s,p)=>s+p.value,0);
@@ -805,7 +802,40 @@ return <>
       <style dangerouslySetInnerHTML={{__html:"@media print{@page{size:A4 portrait;margin:0} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} .no-print{display:none!important} .print-page{box-shadow:none!important;width:100%!important;padding:20mm 25mm!important;min-height:297mm!important;box-sizing:border-box!important} body,html{margin:0!important;padding:0!important}}"}}/>
       <div className="no-print" style={{display:"flex",gap:12,marginBottom:20,width:"100%",maxWidth:620}}>
         <button onClick={function(){setShowAtestado(false);}} style={{flex:1,padding:"12px",border:"1.5px solid #ccc",borderRadius:10,fontSize:14,cursor:"pointer",background:"#fff"}}>{"← Voltar"}</button>
-        <button onClick={function(){window.print();}} style={{flex:2,padding:"12px",background:G.primary,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir / Salvar PDF"}</button>
+        <button onClick={function(){
+  var ha="<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width'><style>";
+  ha+="@page{size:A4 portrait;margin:15mm 20mm}";
+  ha+="*{box-sizing:border-box;margin:0;padding:0}";
+  ha+="body{font-family:Georgia,serif;color:#222;background:#fff}";
+  ha+=".page{width:100%;min-height:227mm;display:flex;flex-direction:column}";
+  ha+=".header{text-align:center;margin-bottom:20px}";
+  ha+=".header h1{font-size:13pt;letter-spacing:4px;color:#8B6914;text-transform:uppercase;font-weight:normal;margin-bottom:4px}";
+  ha+=".header h2{font-size:9pt;letter-spacing:3px;color:#999;text-transform:uppercase;font-weight:normal}";
+  ha+=".header hr{border:none;border-top:1.5px solid #C9A84C;margin:10px 0}";
+  ha+=".title{font-size:15pt;font-weight:700;text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:28px;color:#1B5E4A}";
+  ha+=".body-txt{font-size:12pt;line-height:1.9;text-align:justify;margin-bottom:20px}";
+  ha+=".obs{font-size:11pt;line-height:1.7;color:#555;font-style:italic;margin-bottom:20px}";
+  ha+=".date{font-size:11pt;color:#555;margin-bottom:40px}";
+  ha+=".footer{margin-top:auto;text-align:center;padding-top:30px;border-top:1.5px solid #C9A84C}";
+  ha+=".footer .ln{width:200px;border-top:1px solid #333;margin:0 auto 8px}";
+  ha+=".footer .nm{font-size:14pt;font-weight:700;color:#222}";
+  ha+=".footer .cr{font-size:11pt;color:#888;margin-top:4px}";
+  ha+=".footer .ad{font-size:9pt;color:#aaa;margin-top:6px}";
+  ha+="</style></head><body><div class='page'>";
+  ha+="<div class='header'><h1>Affonso Odontologia</h1><h2>Clinica Especializada</h2><hr/></div>";
+  ha+="<div class='title'>Atestado Odontologico</div>";
+  ha+="<div class='body-txt'>"+textoFinal+"</div>";
+  if(atObs)ha+="<div class='obs'>Observacoes: "+atObs+"</div>";
+  ha+="<div class='date'>Sao Paulo, "+hoje2+"</div>";
+  ha+="<div class='footer'><div class='ln'></div><div class='nm'>"+dentName+"</div><div class='cr'>"+dentCro+"</div><div class='ad'>Rua Sabbado D Angelo, 1980 - Itaquera | Tel. 2524-9975</div></div>";
+  ha+="</div></body></html>";
+  var blob=new Blob([ha],{type:"text/html"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.target="_blank";a.rel="noreferrer";
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+}} style={{flex:2,padding:"12px",background:G.primary,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir / Salvar PDF"}</button>
       </div>
       <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:620,padding:"32px 40px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:800,display:"flex",flexDirection:"column"}}>
         <div style={{textAlign:"center",marginBottom:20}}>
@@ -4457,7 +4487,7 @@ return(
   var hoje2=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
   var meds_int2=sel.filter(function(m){return m.cat!=="Antisséptico";});
   var meds_ext2=sel.filter(function(m){return m.cat==="Antisséptico";});
-  var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><style>";
+  var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width'><style>";
   html+="@page{size:A4 portrait;margin:15mm 20mm}";
   html+="*{box-sizing:border-box;margin:0;padding:0}";
   html+="body{font-family:Georgia,serif;background:#fff;color:#222}";
@@ -4467,7 +4497,6 @@ return(
   html+=".header h2{font-size:9pt;letter-spacing:3px;color:#999;text-transform:uppercase;font-weight:normal}";
   html+=".header hr{border:none;border-top:1.5px solid #C9A84C;margin:10px 0}";
   html+=".para{font-size:12pt;margin-bottom:16px}";
-  html+=".para strong{font-size:12pt}";
   html+=".section-title{font-size:9pt;font-weight:700;letter-spacing:2px;color:#8B6914;text-transform:uppercase;margin-bottom:8px}";
   html+=".section-hr{border:none;border-top:0.5px solid #C9A84C;margin-bottom:14px}";
   html+=".med{display:flex;gap:8px;margin-bottom:16px}";
@@ -4480,8 +4509,9 @@ return(
   html+=".footer .dent-name{font-size:15pt;font-weight:700;color:#222;margin-bottom:5px}";
   html+=".footer .cro{font-size:12pt;color:#888;margin-bottom:8px}";
   html+=".footer .date{font-size:13pt;color:#666;font-style:italic}";
+  html+=".footer .addr{font-size:10pt;color:#aaa;margin-top:6px}";
   html+="</style></head><body><div class='page'>";
-  html+="<div class='header'><h1>Affonso Odontologia</h1><h2>Clínica Especializada</h2><hr/></div>";
+  html+="<div class='header'><h1>Affonso Odontologia</h1><h2>Clinica Especializada</h2><hr/></div>";
   html+="<div class='para'>Para: <strong>"+nomePac2+"</strong></div>";
   if(meds_int2.length>0){
     html+="<div class='section-title'>Uso Interno</div><hr class='section-hr'/>";
@@ -4500,13 +4530,15 @@ return(
     });
   }
   if(obs)html+="<div class='obs'>"+obs+"</div>";
-  html+="<div class='footer'><div class='dent-name'>"+nomeDent2+"</div><div class='cro'>"+cro2+"</div><div class='date'>São Paulo, "+hoje2+"</div></div>";
+  html+="<div class='footer'><div class='dent-name'>"+nomeDent2+"</div><div class='cro'>"+cro2+"</div><div class='date'>Sao Paulo, "+hoje2+"</div><div class='addr'>Rua Sabbado D Angelo, 1980 - Itaquera | Tel. 2524-9975</div></div>";
   html+="</div></body></html>";
-  var w=window.open("","_blank","width=800,height=900");
-  w.document.write(html);
-  w.document.close();
-  w.onload=function(){w.print();};
-}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir / Salvar PDF</button>
+  var blob=new Blob([html],{type:"text/html"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.target="_blank";a.rel="noreferrer";
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir / Salvar PDF"}</button>
   </div>
   {/* Receipt page */}
   <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:794,padding:"32px 48px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:1050,display:"flex",flexDirection:"column"}}>
@@ -4584,159 +4616,117 @@ return(
 // 5. Amortizacao: pagamentos alocados do maior pro menor procedimento
 //    ate cobrir 100% - so libera no mes em que o 100% e atingido
 // ══════════════════════════════════════════════════════════
-function PainelDentista({appts,pats,dents,recs,treats,user}){
-var now=new Date();
-var [year,setYear]=useState(now.getFullYear());
-var [month,setMonth]=useState(now.getMonth());
+function PainelDentista({pats,dents,treats,user,setTreats}){
 var isDent=user.level===1;
 var myDents=isDent?dents.filter(function(d){return d.id===user.dentistId;}):dents;
 var [selDent,setSelDent]=useState(String(myDents[0]&&myDents[0].id||""));
+var [mo,setMo]=useState(today().slice(0,7));
 var dent=dents.find(function(d){return d.id===Number(selDent);})||dents[0];
 var COMM=(dent&&dent.commission||40)/100;
-var MF=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-var curMonth=year+"-"+String(month+1).padStart(2,"0");
-var prevMonth=function(){if(month===0){setMonth(11);setYear(function(y){return y-1;});}else setMonth(function(m){return m-1;});};
-var nextMonth=function(){if(month===11){setMonth(0);setYear(function(y){return y+1;});}else setMonth(function(m){return m+1;});};
 
-// Taxa por forma de pagamento
-var calcN=function(v,pay){
-  var p=(pay||"").toLowerCase();
-  if(p.indexOf("crédito")>=0||p.indexOf("credito")>=0)return v*0.965;
-  if(p.indexOf("débito")>=0||p.indexOf("debito")>=0)return v*0.98;
-  return v;
-};
-
-// REGRA: só aparece pagamento de procedimento com baixa dada (done=true)
-// Fonte única: treats.payments (sem duplicar com recs)
-var allItems=[];
-
+// Coletar todos os procedimentos com baixa do dentista selecionado
+var items=[];
 (treats||[]).forEach(function(treat){
-  // Verifica se é do dentista selecionado
   var dentId=Number(selDent);
   var isDentTreat=treat.dentistId&&Number(treat.dentistId)===dentId;
-  var hasDoneItem=(treat.items||[]).some(function(it){
-    return (it.done||it.paid)&&(it.doneByDentistId===dentId||(it.doneBy&&dent&&it.doneBy===dent.name)||isDentTreat);
-  });
-  if(!isDentTreat&&!hasDoneItem)return;
-
-  // Procedimentos com baixa dada
-  var doneItems=(treat.items||[]).filter(function(it){
-    return it.done||it.paid;
-  });
-  if(!doneItems.length)return;
-
-  // Total de procedimentos com baixa
-  var totalDone=doneItems.reduce(function(s,it){return s+Number(it.value||0);},0);
-
-  // Pagamentos registrados no plano
-  var payments=treat.payments||[];
-  if(!payments.length)return; // sem pagamento = não aparece
-
-  // Para cada pagamento, calcular proporção referente a procedimentos concluídos
-  payments.forEach(function(pmt){
-    var val=Number(pmt.value||0);
-    if(!val)return;
-    var pay=(pmt.method||"").toLowerCase();
-    var isCard=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0||pay.indexOf("débito")>=0||pay.indexOf("debito")>=0;
-    var isCredit=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0;
-    var inst=Math.max(1,Number(pmt.inst||pmt.installments||1));
-    var net=calcN(val,pmt.method);
-    var com=net*COMM;
-    var pmtDate=pmt.date||today();
-
-    // Data de recebimento da comissão
-    var receiveDate=pmtDate;
-    if(isCredit&&inst>1){
-      // Parcelado: recebe quando acumulou o suficiente
-      var installAmt=val/inst;
-      var mesesNecessarios=Math.ceil(com/installAmt);
-      if(mesesNecessarios>inst)mesesNecessarios=inst;
-      var rd=new Date(pmtDate+"T12:00");
-      rd.setMonth(rd.getMonth()+mesesNecessarios);
-      receiveDate=rd.toISOString().split("T")[0];
-    } else if(isCard){
-      // Cartão débito ou crédito 1x: recebe mês seguinte
-      var rd2=new Date(pmtDate+"T12:00");
-      rd2.setMonth(rd2.getMonth()+1);
-      receiveDate=rd2.toISOString().split("T")[0];
-    }
-
+  (treat.items||[]).forEach(function(it,idx){
+    if(!(it.done||it.paid))return;
+    var doneByMe=isDentTreat||(it.doneByDentistId===dentId)||(it.doneBy&&dent&&it.doneBy===dent.name);
+    if(!doneByMe)return;
+    var baixaDate=it.doneDate||"";
+    if(!baixaDate.startsWith(mo))return;
     var pat=pats.find(function(x){return x.id===treat.patientId;});
-    allItems.push({
-      id:treat.id+"-"+pmt.id,
+    var val=Number(it.value||0);
+    items.push({
+      key:treat.id+"-"+idx,
+      treatId:treat.id,
+      itemIdx:idx,
       patName:pat&&pat.name||"—",
-      proc:treat.name||"Tratamento",
-      date:pmtDate,
-      receiveDate:receiveDate,
-      origVal:val,
-      net:net,
-      commVal:com,
-      isCard:isCard,
-      detail:inst>1?inst+"x parcelas":"",
-      method:pmt.method||"",
+      proc:it.desc||treat.name||"Procedimento",
+      valor:val,
+      comissao:val*COMM,
+      baixaDate:baixaDate,
+      pago:it.recebido||false,
+      pagoDate:it.recebidoDate||"",
     });
   });
 });
 
-var getMonthStr=function(y,m){return y+"-"+String(m+1).padStart(2,"0");};
-var nm1=month===11?0:month+1; var ny1=month===11?year+1:year;
-var nm2=nm1===11?0:nm1+1;     var ny2=nm1===11?ny1+1:ny1;
-var getTotal=function(y,m){var ms=getMonthStr(y,m);return allItems.filter(function(x){return (x.receiveDate||"").startsWith(ms);}).reduce(function(s,x){return s+x.commVal;},0);};
-var thisMonthItems=allItems.filter(function(x){return (x.receiveDate||"").startsWith(curMonth);});
-var totalMes=getTotal(year,month);
+var totalComissao=items.reduce(function(s,i){return s+i.comissao;},0);
+var totalPago=items.filter(function(i){return i.pago;}).reduce(function(s,i){return s+i.comissao;},0);
+var totalPendente=totalComissao-totalPago;
+
+var marcarPago=function(key,pago){
+  var parts=key.split("-");
+  var treatId=Number(parts[0]);
+  var itemIdx=Number(parts[1]);
+  var hoje=today();
+  setTreats(function(prev){return prev.map(function(t){
+    if(t.id!==treatId)return t;
+    return {...t,items:t.items.map(function(it,i){
+      if(i!==itemIdx)return it;
+      return {...it,recebido:pago,recebidoDate:pago?hoje:""};
+    })};
+  });});
+};
 
 return(
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
     <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"💰 Recebimentos"}</h2>
-    {!isDent&&<Sel lb="" val={selDent} set={setSelDent} opts={myDents.map(function(d){return{v:String(d.id),l:d.name};})}/>}
+    {!isDent&&<select value={selDent} onChange={function(e){setSelDent(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",background:"#fff"}}>
+      {myDents.map(function(d){return <option key={d.id} value={String(d.id)}>{d.name}</option>;})}
+    </select>}
   </div>
-  <div style={{display:"flex",alignItems:"center",gap:8}}>
-    <button onClick={prevMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{"<"}</button>
-    <span style={{fontWeight:700,fontSize:16,flex:1,textAlign:"center"}}>{MF[month]+" "+year}</span>
-    <button onClick={nextMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{">"}</button>
+
+  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}}
+      style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:14,outline:"none",flex:1}}/>
   </div>
-  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-    {[[MF[month],totalMes,"Este mês",year,month],[MF[nm1],getTotal(ny1,nm1),"Próx. mês",ny1,nm1],[MF[nm2],getTotal(ny2,nm2),"Seguinte",ny2,nm2]].map(function(row,i){
-      var isCur=row[3]===year&&row[4]===month;
-      return(
-        <div key={i} style={{background:isCur?G.primary:G.card,borderRadius:12,padding:"12px 8px",boxShadow:"0 2px 8px rgba(0,0,0,.06)",textAlign:"center"}}>
-          <div style={{fontSize:9,color:isCur?"rgba(255,255,255,.7)":G.muted,fontWeight:700,textTransform:"uppercase"}}>{row[2]}</div>
-          <div style={{fontSize:11,color:isCur?"rgba(255,255,255,.8)":G.muted,marginBottom:2}}>{row[0]}</div>
-          <div style={{fontSize:17,fontWeight:700,color:isCur?"#fff":G.primary}}>{cur(row[1])}</div>
-        </div>
-      );
-    })}
+
+  {/* Resumo */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+    {[["Total Comissão",totalComissao,G.primary],["Pago",totalPago,G.success],["Pendente",totalPendente,G.red]].map(function(row){return(
+      <div key={row[0]} style={{background:G.card,borderRadius:12,padding:"11px 8px",textAlign:"center",borderTop:"3px solid "+row[2],boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+        <div style={{fontSize:9,color:G.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{row[0]}</div>
+        <div style={{fontSize:16,fontWeight:700,color:row[2]}}>{cur(row[1])}</div>
+      </div>
+    );})}
   </div>
-  <div style={{background:G.accent,borderRadius:10,padding:"9px 13px",fontSize:12,color:G.primary}}>
-    {"⚠ Regra: comissão liberada somente quando procedimento realizado (baixa dada) + pagamento registrado"}
-  </div>
-  <div style={{fontWeight:700,fontSize:13,color:G.text,borderBottom:"1px solid "+G.border,paddingBottom:6}}>{MF[month]+" "+year+" — "+thisMonthItems.length+" lançamento(s)"}</div>
-  {thisMonthItems.length===0&&<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>Nenhum recebimento neste mês</div>}
-  {thisMonthItems.map(function(item,i){return(
-    <div key={i} style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.05)",borderLeft:"4px solid "+(item.isCard?G.blue:G.primary)}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:700,fontSize:13}}>{item.patName}</div>
-          <div style={{fontSize:12,color:G.muted,marginBottom:4}}>{item.proc}</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{fontSize:11,color:G.muted}}>{"Pago: "+cur(item.origVal)}</span>
-            <span style={{fontSize:11,color:G.muted}}>{"Líq: "+cur(item.net)}</span>
-            {item.isCard&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{item.method}</span>}
-            {item.detail&&<span style={{fontSize:10,color:G.blue}}>{item.detail}</span>}
-            <span style={{fontSize:11,color:G.muted}}>{"Data: "+new Date(item.date+"T12:00").toLocaleDateString("pt-BR")}</span>
+
+  {/* Lista de procedimentos */}
+  {items.length===0&&<div style={{background:G.card,borderRadius:12,padding:30,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+    Nenhum procedimento realizado neste mês
+  </div>}
+
+  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+    {items.map(function(item){return(
+      <div key={item.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+(item.pago?G.success:G.orange),opacity:item.pago?0.75:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          {/* Checkbox admin */}
+          {!isDent&&<div onClick={function(){marcarPago(item.key,!item.pago);}}
+            style={{width:26,height:26,borderRadius:6,border:"2px solid "+(item.pago?G.success:G.border),background:item.pago?G.success:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,transition:"all .15s"}}>
+            {item.pago&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>✓</span>}
+          </div>}
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:14,color:G.text}}>{item.patName}</div>
+            <div style={{fontSize:13,color:G.primary,fontWeight:600,marginTop:1}}>{item.proc}</div>
+            <div style={{fontSize:11,color:G.muted,marginTop:2}}>{"Baixa: "+fmt(item.baixaDate)}</div>
+            {item.pago&&item.pagoDate&&<div style={{fontSize:11,color:G.success,fontWeight:600,marginTop:2}}>{"✓ Pago em "+fmt(item.pagoDate)}</div>}
+          </div>
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <div style={{fontSize:11,color:G.muted}}>{"Valor: "+cur(item.valor)}</div>
+            <div style={{fontSize:17,fontWeight:700,color:item.pago?G.success:G.primary}}>{cur(item.comissao)}</div>
+            <div style={{fontSize:10,color:G.muted}}>{"40% comissão"}</div>
           </div>
         </div>
-        <div style={{textAlign:"right",flexShrink:0}}>
-          <div style={{fontSize:17,fontWeight:700,color:G.primary}}>{cur(item.commVal)}</div>
-          <div style={{fontSize:10,color:G.muted}}>{Math.round(COMM*100)+"% comissão"}</div>
-        </div>
       </div>
-    </div>
-  );})}
-  {thisMonthItems.length>0&&<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-    <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{MF[month]+" — Total"}</span>
-    <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{cur(totalMes)}</span>
+    );})}
+  </div>
+
+  {items.length>0&&<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+mo}</span>
+    <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{cur(totalComissao)}</span>
   </div>}
 </div>
 );
@@ -5653,7 +5643,7 @@ return <>
       {view==="desp"&&<Despesas expenses={expenses} setExpenses={setExpenses} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
-      {view==="pdent"&&<PainelDentista appts={appts} pats={pats} dents={dents} recs={recs} treats={treats} user={user}/>}
+      {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl}/>}
     </div>
