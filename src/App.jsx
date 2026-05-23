@@ -691,12 +691,32 @@ return <>
         })}
         <Div lb="Pagamentos Registrados"/>
         {(t.payments||[]).length===0&&<p style={{fontSize:12,color:G.muted}}>Nenhum pagamento registrado</p>}
-        {(t.payments||[]).map(p=><div key={p.id} style={{display:"flex",gap:8,fontSize:12,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}>
+        {(t.payments||[]).map(p=>{
+          var isCredit=p.method==="Cartão Crédito";
+          var inst=isCredit?Math.max(1,Number(p.inst||1)):1;
+          var parcelas=[];
+          if(isCredit&&inst>1&&p.date){
+            var vlParcela=Number(p.value||0)/inst;
+            for(var pi=1;pi<=inst;pi++){
+              var dp=new Date(p.date+"T12:00");
+              dp.setMonth(dp.getMonth()+pi);
+              parcelas.push({n:pi,val:vlParcela,date:dp.toLocaleDateString("pt-BR")});
+            }
+          }
+          return <div key={p.id} style={{padding:"6px 0",borderBottom:`1px solid ${G.border}`}}>
+          <div style={{display:"flex",gap:8,fontSize:12,flexWrap:"wrap",alignItems:"center"}}>
           <span style={{color:G.muted,minWidth:72}}>{fmt(p.date)}</span>
-          <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}</span>
+          <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}{inst>1?` · ${inst}x`:""}</span>
           <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
-          {user.level>=2&&<button onClick={()=>{setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:15,padding:"0 2px"}} title="Excluir pagamento">🗑️</button>}
-        </div>)}
+          {user.level>=2&&<button onClick={()=>{
+  setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));
+  setRecs(prev=>prev.filter(r=>!(r.fromTreat===t.id&&Math.abs(r.paid-p.value)<0.01&&r.date===p.date)));
+}} style={{background:G.red,border:"none",color:"#fff",cursor:"pointer",fontSize:12,padding:"3px 8px",borderRadius:6,fontWeight:700}} title="Excluir pagamento">✕ Excluir</button>}
+          </div>
+          {parcelas.length>0&&<div style={{background:G.blue+"10",borderRadius:7,padding:"6px 10px",marginTop:4,display:"flex",flexWrap:"wrap",gap:6}}>
+            {parcelas.map(function(pc){return <span key={pc.n} style={{fontSize:11,color:G.blue,fontWeight:600,background:G.blue+"15",borderRadius:5,padding:"2px 8px"}}>{pc.n+"ª "+cur(pc.val)+" → "+pc.date}</span>;})}
+          </div>}
+          </div>;})}
         {!isDentUser&&<Btn ch="+ Registrar Pagamento" sm v="f" style={{marginTop:10}} onClick={()=>{
   var unpaidItem=(t.items||[]).find(function(it){return !it.done&&!it.paid;});
   var defaultVal=unpaidItem?String(unpaidItem.value):"";
