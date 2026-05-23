@@ -21,7 +21,7 @@ items:[
 {id:"baixa",         label:"Dar baixa nos procedimentos",        val:true, fixed:true},
 {id:"historico",     label:"Registrar atendimentos/histórico",   val:true, fixed:true},
 {id:"receituario",   label:"Emitir receituário",                 val:true, fixed:true},
-{id:"orcamento_own", label:"Criar orçamentos dos seus pacientes",val:true, fixed:true},
+{id:"orcamento_own", label:"Criar orçamentos dos seus pacientes",val:false, fixed:true},
 {id:"relatorio_own", label:"Ver seu relatório de produção",      val:true, fixed:true},
 {id:"lembretes_own", label:"Ver lembretes relacionados a você",  val:true, fixed:true},
 {id:"implantes_own", label:"Ver seus casos de implantes",        val:true, fixed:true},
@@ -468,10 +468,7 @@ const item=treat.items[idx];
 if(!item.done){
 // Orto: ask payment method first
 if(item.orto){setOrtoPayModal({tid,idx});return;}
-// Check if user is dentist level - only their own dentistId or admin
-if(user.level===1&&user.dentistId!==treat.dentistId&&treat.dentistId){
-alert("Você só pode dar baixa em procedimentos do seu próprio tratamento.");return;
-}
+// Qualquer dentista pode dar baixa
 // Calculate payment info for credit control
 const payments=treat.payments||[];
 const totalPaid=payments.reduce((s,p)=>s+p.value,0);
@@ -518,9 +515,16 @@ setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",n
 };
 const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:Number(bf.disc),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
-const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["historico","📅 Histórico"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
+const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["historico","📅 Histórico"],["atestado","📄 Atestado"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
 // NF (Nota Fiscal) state
 const [nfModal,setNfModal]=useState(false);
+const [showAtestado,setShowAtestado]=useState(false);
+const [atDias,setAtDias]=useState("1");
+const [atData,setAtData]=useState(today());
+const [atCid,setAtCid]=useState("");
+const [atObs,setAtObs]=useState("");
+const [atTextoEdit,setAtTextoEdit]=useState("");
+const [atEditMode,setAtEditMode]=useState(false);
 const [nfEdit,setNfEdit]=useState(null);
 const [confirmDel,setConfirmDel]=useState(null); // {type,id,label}
 const blankNF={date:today(),number:"",payer:"empresa",payerName:"",payerCnpj:"",dentistId:"",procedure:"",value:"",tax:"",notes:"",status:"pending"};
@@ -631,8 +635,8 @@ return <>
   {tab==="tratamento"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🦷 Planos de Tratamento</span>
-      <Btn ch="+ Novo Plano" sm onClick={()=>{setTf({name:"",start:today(),items:[],payments:[]});setTreatModal(true);}}/>
-          <Btn ch="🦷 Plano Orto" sm v="f" onClick={()=>{setOrtoForm({valor:"",ano:new Date().getFullYear(),dentistId:String(dents.find(d=>(d.specialty||"").toLowerCase().includes("orto"))?.id||dents[0]?.id||"")});setOrtoModal(true);}}/>
+      {!isDentUser&&<Btn ch="+ Novo Plano" sm onClick={()=>{setTf({name:"",start:today(),items:[],payments:[]});setTreatModal(true);}}/>}
+          {!isDentUser&&<Btn ch="🦷 Plano Orto" sm v="f" onClick={()=>{setOrtoForm({valor:"",ano:new Date().getFullYear(),dentistId:String(dents.find(d=>(d.specialty||"").toLowerCase().includes("orto"))?.id||dents[0]?.id||"")});setOrtoModal(true);}}/>}
     </div>
     {patTreats.length===0&&<div style={{background:G.bg,borderRadius:10,padding:"20px",textAlign:"center",color:G.muted,fontSize:13}}>Nenhum plano de tratamento</div>}
     {patTreats.map(t=>{
@@ -649,19 +653,19 @@ return <>
 </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
-            <button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:"",qty:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>
-                {!t.finalizado
-                  ?<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:true,finalizadoEm:today(),finalizadoPor:user.name}))}
-                    style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✓ Finalizar"}</button>
+            {!isDentUser&&<button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:"",qty:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>}
+                { !t.finalizado
+                  ? (!isDentUser&&<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:true,finalizadoEm:today(),finalizadoPor:user.name}))}
+                    style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✓ Finalizar"}</button>)
                   :<div style={{display:"flex",alignItems:"center",gap:5}}>
                     <span style={{background:G.success+"20",color:G.success,borderRadius:10,padding:"3px 10px",fontSize:11,fontWeight:700}}>{"✅ Finalizado"}</span>
-                    <button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:false,finalizadoEm:null,finalizadoPor:null}))}
-                      style={{background:"none",border:"1px solid "+G.border,borderRadius:6,padding:"2px 7px",fontSize:10,color:G.muted,cursor:"pointer"}}>{"↩"}</button>
+                    {!isDentUser&&<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:false,finalizadoEm:null,finalizadoPor:null}))}
+                      style={{background:"none",border:"1px solid "+G.border,borderRadius:6,padding:"2px 7px",fontSize:10,color:G.muted,cursor:"pointer"}}>{"↩"}</button>}
                   </div>
                 }
-                <button onClick={()=>{if(window.confirm&&!window.confirm("Excluir plano?"))return;setTreats(prev=>prev.filter(x=>x.id!==t.id));}}
-                  style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"🗑"}</button>
-            <button onClick={()=>{setTreats(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️</button>
+                {!isDentUser&&<button onClick={()=>{if(window.confirm&&!window.confirm("Excluir plano?"))return;setTreats(prev=>prev.filter(x=>x.id!==t.id));}}
+                  style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"🗑"}</button>}
+            {!isDentUser&&<button onClick={()=>{setTreats(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️</button>}
           </div>
         </div>
         <div style={{background:G.border,borderRadius:4,height:5,marginBottom:10}}><div style={{background:G.primary,height:5,borderRadius:4,width:`${total?Math.min(100,paid/total*100):0}%`,transition:"width .3s"}}/></div>
@@ -691,20 +695,20 @@ return <>
           <span style={{color:G.muted,minWidth:72}}>{fmt(p.date)}</span>
           <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}</span>
           <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
-          <button onClick={()=>{setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:15,padding:"0 2px"}} title="Excluir pagamento">🗑️</button>
+          {user.level>=2&&<button onClick={()=>{setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:15,padding:"0 2px"}} title="Excluir pagamento">🗑️</button>}
         </div>)}
-        <Btn ch="+ Registrar Pagamento" sm v="f" style={{marginTop:10}} onClick={()=>{
+        {!isDentUser&&<Btn ch="+ Registrar Pagamento" sm v="f" style={{marginTop:10}} onClick={()=>{
   var unpaidItem=(t.items||[]).find(function(it){return !it.done&&!it.paid;});
   var defaultVal=unpaidItem?String(unpaidItem.value):"";
   setPayModal(t.id);
   setPayForm({date:today(),value:defaultVal,method:"Dinheiro",inst:"1",note:""});
-}}/>
+}}/>}
       </div>;
     })}
 
     {/* Orçamentos */}
     <Div lb="Orçamentos"/>
-    <div style={{display:"flex",justifyContent:"flex-end"}}><Btn ch="+ Novo Orçamento" sm onClick={()=>{setBudgEdit(null);setBf(blankB);setBudgModal(true);}}/></div>
+    <div style={{display:"flex",justifyContent:"flex-end"}}>{!isDentUser&&<Btn ch="+ Novo Orçamento" sm onClick={()=>{setBudgEdit(null);setBf(blankB);setBudgModal(true);}}/>}</div>
     {patBudgets.map(b=>{const tot=b.items.reduce((s,i)=>s+i.v,0)-(b.disc||0);return <div key={b.id} style={{background:G.bg,borderRadius:10,padding:"10px 13px",marginBottom:7,borderLeft:`3px solid ${BCOLOR[b.status]}`}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:5}}>
         <span style={{fontWeight:700,fontSize:12}}>{fmt(b.date)}</span>
@@ -712,7 +716,7 @@ return <>
           <Bdg l={BSTATUS[b.status]} col={BCOLOR[b.status]} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(tot)}</span>
           {b.attach&&<Bdg l={`📎 ${b.attach}`} col={G.blue} sm/>}
           <Btn ch="📱" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! Orçamento:\n${b.items.map(i=>`• ${i.d}: ${cur(i.v)}`).join("\n")}\nTotal: ${cur(tot)}`)}/> 
-          <Btn ch="Editar" v="g" sm onClick={()=>{setBudgEdit(b);setBf({...b,disc:b.disc||0});setBudgModal(true);}}/>
+          {!isDentUser&&<Btn ch="Editar" v="g" sm onClick={()=>{setBudgEdit(b);setBf({...b,disc:b.disc||0});setBudgModal(true);}}/>}
         </div>
       </div>
       {b.items.map((it,i)=><div key={i} style={{fontSize:12,color:G.muted,display:"flex",justifyContent:"space-between",marginTop:2}}><span>{it.d}</span><span>{cur(it.v)}</span></div>)}
@@ -767,7 +771,7 @@ return <>
       {r.inst>1&&<Bdg l={`${r.inst}x`} col={G.blue} sm/>}
       <span style={{fontWeight:700,color:G.success,fontSize:12}}>{cur(r.paid)}</span>
       <span style={{fontSize:11,color:G.muted}}>líq: {cur(calcNet(r.paid,r.payment))}</span>
-      {user.level>=3&&<button onClick={()=>setConfirmDel({type:"rec",id:r.id,label:"Pagamento de "+cur(r.paid)+" em "+fmt(r.date)})} style={{background:G.red,color:"#fff",border:"none",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>Excluir</button>}
+      {user.level>=2&&<button onClick={()=>setConfirmDel({type:"rec",id:r.id,label:"Pagamento de "+cur(r.paid)+" em "+fmt(r.date)})} style={{background:G.red,color:"#fff",border:"none",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>Excluir</button>}
     </div>)}
     <Div lb="Pagamentos de Planos de Tratamento"/>
     {patTreats.map(t=><div key={t.id}>
@@ -782,7 +786,115 @@ return <>
   </div>}
 
   {/* ── NOTA FISCAL ── */}
-  {tab==="nf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+  {tab==="atestado"&&(function(){
+  var dentAtest=dents.find(function(d){return d.id===(user.dentistId||dents[0]&&dents[0].id);});
+  var dentName=dentAtest&&dentAtest.name||"Dr. Diego Affonso";
+  var dentCro="CRO "+(dentAtest&&dentAtest.cro||"SP-72.278");
+  var hoje2=new Date((atData||today())+"T12:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
+  var diasNum=Number(atDias)||1;
+  var diasExtenso=["","um","dois","três","quatro","cinco","seis","sete","oito","nove","dez"];
+  var diasTxt=diasNum===1?"1 (um) dia":diasNum+"("+(diasExtenso[diasNum]||diasNum)+") dias";
+  var cidTxt=atCid?" (CID: "+atCid+")":"";
+  var textoBase="Atesto para os devidos fins que o(a) paciente "+pat.name.toUpperCase()+", portador(a) do CPF "+(pat.cpf||"___.___.___-__")+", esteve sob meus cuidados odontológicos"+cidTxt+" e necessita de afastamento de suas atividades pelo período de "+diasTxt+", a contar desta data.";
+  var textoFinal=atEditMode?atTextoEdit:textoBase;
+  if(showAtestado){return(
+    <div style={{position:"fixed",inset:0,zIndex:9999,background:"#f5f0e8",overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px"}}>
+      <style dangerouslySetInnerHTML={{__html:"@media print{@page{size:A4 portrait;margin:0} *{-webkit-print-color-adjust:exact;print-color-adjust:exact} .no-print{display:none!important} .print-page{box-shadow:none!important;width:100%!important;padding:20mm 25mm!important;min-height:297mm!important;box-sizing:border-box!important} body,html{margin:0!important;padding:0!important}}"}}/>
+      <div className="no-print" style={{display:"flex",gap:12,marginBottom:20,width:"100%",maxWidth:620}}>
+        <button onClick={function(){setShowAtestado(false);}} style={{flex:1,padding:"12px",border:"1.5px solid #ccc",borderRadius:10,fontSize:14,cursor:"pointer",background:"#fff"}}>{"← Voltar"}</button>
+        <div style={{flex:2,display:"flex",flexDirection:"column",gap:5}}>
+        <div style={{background:"#FFF3E0",border:"1px solid #FF9800",borderRadius:7,padding:"6px 9px",fontSize:10,color:"#E65100",fontWeight:700}}>{"⚙️ Na janela de impressão: desmarque Cabeçalhos e rodapés"}</div>
+        <button onClick={function(){
+  var ha="<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width'><style>";
+  ha+="@page{size:A4 portrait;margin:15mm 20mm} @page{-webkit-print-color-adjust:exact} head{display:none}";
+  ha+="*{box-sizing:border-box;margin:0;padding:0}";
+  ha+="body{font-family:Georgia,serif;color:#222;background:#fff;-webkit-print-color-adjust:exact}";
+  ha+="a,a:link{display:none!important}";
+  ha+=".page{width:100%;min-height:227mm;display:flex;flex-direction:column}";
+  ha+=".header{text-align:center;margin-bottom:20px}";
+  ha+=".header h1{font-size:13pt;letter-spacing:4px;color:#8B6914;text-transform:uppercase;font-weight:normal;margin-bottom:4px}";
+  ha+=".header h2{font-size:9pt;letter-spacing:3px;color:#999;text-transform:uppercase;font-weight:normal}";
+  ha+=".header hr{border:none;border-top:1.5px solid #C9A84C;margin:10px 0}";
+  ha+=".title{font-size:15pt;font-weight:700;text-align:center;letter-spacing:2px;text-transform:uppercase;margin-bottom:28px;color:#1B5E4A}";
+  ha+=".body-txt{font-size:12pt;line-height:1.9;text-align:justify;margin-bottom:20px}";
+  ha+=".obs{font-size:11pt;line-height:1.7;color:#555;font-style:italic;margin-bottom:20px}";
+  ha+=".date{font-size:11pt;color:#555;margin-bottom:40px}";
+  ha+=".footer{margin-top:auto;text-align:center;padding-top:60px;border-top:1.5px solid #C9A84C}";
+  ha+=".footer .ln{width:200px;border-top:1px solid #333;margin:0 auto 8px}";
+  ha+=".footer .nm{font-size:14pt;font-weight:700;color:#222}";
+  ha+=".footer .cr{font-size:11pt;color:#888;margin-top:4px}";
+  ha+=".footer .ad{font-size:9pt;color:#aaa;margin-top:6px}";
+  ha+="</style></head><body><div class='page'>";
+  ha+="<div class='header'><h1>Affonso Odontologia</h1><h2>Clinica Especializada</h2><hr/></div>";
+  ha+="<div class='title'>Atestado Odontologico</div>";
+  ha+="<div class='body-txt'>"+textoFinal+"</div>";
+  if(atObs)ha+="<div class='obs'>Observacoes: "+atObs+"</div>";
+  ha+="<div class='date'>Sao Paulo, "+hoje2+"</div>";
+  ha+="<div class='footer'><div class='ln'></div><div class='nm'>"+dentName+"</div><div class='cr'>"+dentCro+"</div><div class='ad'>Rua Sabbado D Angelo, 1980 - Itaquera | Tel. 2524-9975</div></div>";
+  ha+="</div></body></html>";
+  var blob=new Blob([ha],{type:"text/html"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.target="_blank";a.rel="noreferrer";
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+}} style={{width:"100%",padding:"12px",background:G.primary,color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir / Salvar PDF"}</button>
+        </div>
+      </div>
+      <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:620,padding:"32px 40px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:800,display:"flex",flexDirection:"column"}}>
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <div style={{fontSize:13,letterSpacing:4,color:"#8B6914",textTransform:"uppercase",marginBottom:4}}>Affonso Odontologia</div>
+          <div style={{fontSize:9,letterSpacing:3,color:"#999",textTransform:"uppercase"}}>Clínica Especializada</div>
+          <hr style={{border:"none",borderTop:"1.5px solid #C9A84C",margin:"10px 0"}}/>
+        </div>
+        <div style={{fontSize:16,fontWeight:700,textAlign:"center",letterSpacing:2,textTransform:"uppercase",marginBottom:28,color:"#1B5E4A"}}>Atestado Odontológico</div>
+        <div style={{fontSize:13,lineHeight:1.9,textAlign:"justify",marginBottom:20}}>{textoFinal}</div>
+        {atObs&&<div style={{fontSize:12,lineHeight:1.7,color:"#555",fontStyle:"italic",marginBottom:20}}>{"Observações: "+atObs}</div>}
+        <div style={{fontSize:12,color:"#555",marginBottom:40}}>{"São Paulo, "+hoje2}</div>
+        <div style={{marginTop:"auto",textAlign:"center",paddingTop:30,borderTop:"1.5px solid #C9A84C"}}>
+          <div style={{width:200,borderTop:"1px solid #333",margin:"0 auto 8px"}}/>
+          <div style={{fontSize:15,fontWeight:700}}>{dentName}</div>
+          <div style={{fontSize:12,color:"#888",marginTop:4}}>{dentCro}</div>
+        </div>
+      </div>
+    </div>
+  );}
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <span style={{fontWeight:700,fontSize:15,color:G.primary}}>{"📄 Atestado Odontológico"}</span>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Dias de Afastamento</label>
+        <input type="number" min="1" max="30" value={atDias} onChange={function(e){setAtDias(e.target.value);setAtEditMode(false);}}
+          style={{border:"1.5px solid "+G.primary,borderRadius:8,padding:"9px 12px",fontSize:18,fontWeight:700,color:G.primary,outline:"none",textAlign:"center"}}/>
+      </div>
+      <Inp lb="Data" val={atData} set={function(v){setAtData(v);setAtEditMode(false);}} type="date"/>
+    </div>
+    <Inp lb="CID (opcional)" val={atCid} set={function(v){setAtCid(v);setAtEditMode(false);}} ph="Ex: K08.1"/>
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Texto do Atestado</label>
+        <button onClick={function(){if(!atEditMode){setAtTextoEdit(textoBase);}setAtEditMode(!atEditMode);}}
+          style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,color:G.primary,cursor:"pointer"}}>
+          {atEditMode?"↩ Usar padrão":"✏️ Editar"}
+        </button>
+      </div>
+      {!atEditMode
+        ?<div style={{background:G.bg,borderRadius:8,padding:"12px 14px",fontSize:13,lineHeight:1.7,color:G.text}}>{textoBase}</div>
+        :<textarea value={atTextoEdit} onChange={function(e){setAtTextoEdit(e.target.value);}} rows={5}
+          style={{width:"100%",border:"1.5px solid "+G.primary,borderRadius:8,padding:"10px 12px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"Georgia,serif",lineHeight:1.7}}/>
+      }
+    </div>
+    <Txt lb="Observações adicionais (opcional)" val={atObs} set={setAtObs} rows={2}/>
+    <div style={{background:G.accent,borderRadius:10,padding:"10px 14px",fontSize:12,color:G.primary}}>
+      {"👨‍⚕️ "+dentName+" · "+dentCro}
+    </div>
+    <button onClick={function(){setShowAtestado(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+      {"🖨️ Imprimir / Salvar PDF"}
+    </button>
+  </div>;
+})()}
+
+{tab==="nf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🧾 Notas Fiscais</span>
       <Btn ch="+ Nova NF" sm onClick={()=>{setNfEdit(null);setNff(blankNF);setNfModal(true);}}/>
@@ -1511,7 +1623,7 @@ if(!a)return(
 );
 // Slot bloqueado
 if(a&&a.blocked)return(
-<div key={slot} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:7,alignItems:"flex-start",background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
+<div key={slot} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:7,background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
 <span style={{fontSize:12,fontWeight:700,color:G.red,minWidth:38}}>{slot}</span>
 <span style={{fontSize:12,fontWeight:700,color:G.red}}>🔒 {a.blockReason||"Bloqueado"}</span>
 {!isDent&&<span style={{fontSize:10,color:G.muted,marginLeft:"auto"}}>toque p/ desbloquear</span>}
@@ -1551,11 +1663,7 @@ return(
 <span style={{fontSize:10,fontWeight:700,color:isPartial?G.red:SC[a.status],background:(isPartial?G.red:SC[a.status])+"25",borderRadius:5,padding:"2px 7px"}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
 </div>
 {flags.length>0&&<div style={{display:"flex",gap:3,marginTop:1,flexWrap:"wrap"}}>
-{flags.map(function(f,i){
-  var isAlerg=f.indexOf("💊")>=0||f.indexOf("⚠️")>=0;
-  var isCond=!isAlerg;
-  return <span key={i} style={{fontSize:9,background:isAlerg?"#FFEBEE":"#EDE7F6",color:isAlerg?G.red:"#6A1B9A",borderRadius:4,padding:"0px 5px",fontWeight:800}}>{f}</span>;
-})}
+{flags.map(function(f,i){var isAlerg=f.indexOf("💊")>=0||f.indexOf("⚠️")>=0;return <span key={i} style={{fontSize:9,background:isAlerg?"#FFEBEE":"#EDE7F6",color:isAlerg?G.red:"#6A1B9A",borderRadius:4,padding:"0px 5px",fontWeight:800}}>{f}</span>;})}
 </div>}
 </div>
 </div>
@@ -4383,17 +4491,17 @@ return(
   var hoje2=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
   var meds_int2=sel.filter(function(m){return m.cat!=="Antisséptico";});
   var meds_ext2=sel.filter(function(m){return m.cat==="Antisséptico";});
-  var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><style>";
+  var html="<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width'><style>";
   html+="@page{size:A4 portrait;margin:15mm 20mm}";
   html+="*{box-sizing:border-box;margin:0;padding:0}";
-  html+="body{font-family:Georgia,serif;background:#fff;color:#222}";
+  html+="body{font-family:Georgia,serif;background:#fff;color:#222;-webkit-print-color-adjust:exact}";
+  html+="a,a:link{display:none!important}";
   html+=".page{width:100%;min-height:227mm;display:flex;flex-direction:column;padding:0}";
   html+=".header{text-align:center;margin-bottom:18px}";
   html+=".header h1{font-size:14pt;letter-spacing:4px;color:#8B6914;text-transform:uppercase;font-weight:normal;margin-bottom:4px}";
   html+=".header h2{font-size:9pt;letter-spacing:3px;color:#999;text-transform:uppercase;font-weight:normal}";
   html+=".header hr{border:none;border-top:1.5px solid #C9A84C;margin:10px 0}";
   html+=".para{font-size:12pt;margin-bottom:16px}";
-  html+=".para strong{font-size:12pt}";
   html+=".section-title{font-size:9pt;font-weight:700;letter-spacing:2px;color:#8B6914;text-transform:uppercase;margin-bottom:8px}";
   html+=".section-hr{border:none;border-top:0.5px solid #C9A84C;margin-bottom:14px}";
   html+=".med{display:flex;gap:8px;margin-bottom:16px}";
@@ -4402,12 +4510,13 @@ return(
   html+=".med-qty{font-size:11pt;color:#888;margin-left:8px}";
   html+=".med-pos{font-size:12pt;color:#444;margin-top:5px;line-height:1.5}";
   html+=".obs{background:#f9f6ef;border-left:3px solid #C9A84C;padding:10px 14px;margin-top:12px;font-size:11pt}";
-  html+=".footer{margin-top:auto;padding-top:40px;text-align:center;border-top:1.5px solid #C9A84C}";
+  html+=".footer{margin-top:auto;padding-top:60px;text-align:center;border-top:1.5px solid #C9A84C}";
   html+=".footer .dent-name{font-size:15pt;font-weight:700;color:#222;margin-bottom:5px}";
   html+=".footer .cro{font-size:12pt;color:#888;margin-bottom:8px}";
   html+=".footer .date{font-size:13pt;color:#666;font-style:italic}";
+  html+=".footer .addr{font-size:10pt;color:#aaa;margin-top:6px}";
   html+="</style></head><body><div class='page'>";
-  html+="<div class='header'><h1>Affonso Odontologia</h1><h2>Clínica Especializada</h2><hr/></div>";
+  html+="<div class='header'><h1>Affonso Odontologia</h1><h2>Clinica Especializada</h2><hr/></div>";
   html+="<div class='para'>Para: <strong>"+nomePac2+"</strong></div>";
   if(meds_int2.length>0){
     html+="<div class='section-title'>Uso Interno</div><hr class='section-hr'/>";
@@ -4426,13 +4535,15 @@ return(
     });
   }
   if(obs)html+="<div class='obs'>"+obs+"</div>";
-  html+="<div class='footer'><div class='dent-name'>"+nomeDent2+"</div><div class='cro'>"+cro2+"</div><div class='date'>São Paulo, "+hoje2+"</div></div>";
+  html+="<div class='footer'><div class='dent-name'>"+nomeDent2+"</div><div class='cro'>"+cro2+"</div><div class='date'>Sao Paulo, "+hoje2+"</div><div class='addr'>Rua Sabbado D Angelo, 1980 - Itaquera | Tel. 2524-9975</div></div>";
   html+="</div></body></html>";
-  var w=window.open("","_blank","width=800,height=900");
-  w.document.write(html);
-  w.document.close();
-  w.onload=function(){w.print();};
-}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir / Salvar PDF</button>
+  var blob=new Blob([html],{type:"text/html"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url;a.target="_blank";a.rel="noreferrer";
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+}} style={{flex:2,padding:"12px",background:"#1B5E4A",color:"#fff",border:"none",borderRadius:10,fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🖨️ Imprimir — desmarque Cabeçalhos e rodapés"}</button>
   </div>
   {/* Receipt page */}
   <div className="print-page" style={{background:"#fff",width:"100%",maxWidth:794,padding:"32px 48px",borderRadius:4,boxShadow:"0 2px 20px rgba(0,0,0,.1)",minHeight:1050,display:"flex",flexDirection:"column"}}>
@@ -4510,159 +4621,117 @@ return(
 // 5. Amortizacao: pagamentos alocados do maior pro menor procedimento
 //    ate cobrir 100% - so libera no mes em que o 100% e atingido
 // ══════════════════════════════════════════════════════════
-function PainelDentista({appts,pats,dents,recs,treats,user}){
-var now=new Date();
-var [year,setYear]=useState(now.getFullYear());
-var [month,setMonth]=useState(now.getMonth());
+function PainelDentista({pats,dents,treats,user,setTreats}){
 var isDent=user.level===1;
 var myDents=isDent?dents.filter(function(d){return d.id===user.dentistId;}):dents;
 var [selDent,setSelDent]=useState(String(myDents[0]&&myDents[0].id||""));
+var [mo,setMo]=useState(today().slice(0,7));
 var dent=dents.find(function(d){return d.id===Number(selDent);})||dents[0];
 var COMM=(dent&&dent.commission||40)/100;
-var MF=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-var curMonth=year+"-"+String(month+1).padStart(2,"0");
-var prevMonth=function(){if(month===0){setMonth(11);setYear(function(y){return y-1;});}else setMonth(function(m){return m-1;});};
-var nextMonth=function(){if(month===11){setMonth(0);setYear(function(y){return y+1;});}else setMonth(function(m){return m+1;});};
 
-// Taxa por forma de pagamento
-var calcN=function(v,pay){
-  var p=(pay||"").toLowerCase();
-  if(p.indexOf("crédito")>=0||p.indexOf("credito")>=0)return v*0.965;
-  if(p.indexOf("débito")>=0||p.indexOf("debito")>=0)return v*0.98;
-  return v;
-};
-
-// REGRA: só aparece pagamento de procedimento com baixa dada (done=true)
-// Fonte única: treats.payments (sem duplicar com recs)
-var allItems=[];
-
+// Coletar todos os procedimentos com baixa do dentista selecionado
+var items=[];
 (treats||[]).forEach(function(treat){
-  // Verifica se é do dentista selecionado
   var dentId=Number(selDent);
   var isDentTreat=treat.dentistId&&Number(treat.dentistId)===dentId;
-  var hasDoneItem=(treat.items||[]).some(function(it){
-    return (it.done||it.paid)&&(it.doneByDentistId===dentId||(it.doneBy&&dent&&it.doneBy===dent.name)||isDentTreat);
-  });
-  if(!isDentTreat&&!hasDoneItem)return;
-
-  // Procedimentos com baixa dada
-  var doneItems=(treat.items||[]).filter(function(it){
-    return it.done||it.paid;
-  });
-  if(!doneItems.length)return;
-
-  // Total de procedimentos com baixa
-  var totalDone=doneItems.reduce(function(s,it){return s+Number(it.value||0);},0);
-
-  // Pagamentos registrados no plano
-  var payments=treat.payments||[];
-  if(!payments.length)return; // sem pagamento = não aparece
-
-  // Para cada pagamento, calcular proporção referente a procedimentos concluídos
-  payments.forEach(function(pmt){
-    var val=Number(pmt.value||0);
-    if(!val)return;
-    var pay=(pmt.method||"").toLowerCase();
-    var isCard=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0||pay.indexOf("débito")>=0||pay.indexOf("debito")>=0;
-    var isCredit=pay.indexOf("crédito")>=0||pay.indexOf("credito")>=0;
-    var inst=Math.max(1,Number(pmt.inst||pmt.installments||1));
-    var net=calcN(val,pmt.method);
-    var com=net*COMM;
-    var pmtDate=pmt.date||today();
-
-    // Data de recebimento da comissão
-    var receiveDate=pmtDate;
-    if(isCredit&&inst>1){
-      // Parcelado: recebe quando acumulou o suficiente
-      var installAmt=val/inst;
-      var mesesNecessarios=Math.ceil(com/installAmt);
-      if(mesesNecessarios>inst)mesesNecessarios=inst;
-      var rd=new Date(pmtDate+"T12:00");
-      rd.setMonth(rd.getMonth()+mesesNecessarios);
-      receiveDate=rd.toISOString().split("T")[0];
-    } else if(isCard){
-      // Cartão débito ou crédito 1x: recebe mês seguinte
-      var rd2=new Date(pmtDate+"T12:00");
-      rd2.setMonth(rd2.getMonth()+1);
-      receiveDate=rd2.toISOString().split("T")[0];
-    }
-
+  (treat.items||[]).forEach(function(it,idx){
+    if(!(it.done||it.paid))return;
+    var doneByMe=isDentTreat||(it.doneByDentistId===dentId)||(it.doneBy&&dent&&it.doneBy===dent.name);
+    if(!doneByMe)return;
+    var baixaDate=it.doneDate||"";
+    if(!baixaDate.startsWith(mo))return;
     var pat=pats.find(function(x){return x.id===treat.patientId;});
-    allItems.push({
-      id:treat.id+"-"+pmt.id,
+    var val=Number(it.value||0);
+    items.push({
+      key:treat.id+"-"+idx,
+      treatId:treat.id,
+      itemIdx:idx,
       patName:pat&&pat.name||"—",
-      proc:treat.name||"Tratamento",
-      date:pmtDate,
-      receiveDate:receiveDate,
-      origVal:val,
-      net:net,
-      commVal:com,
-      isCard:isCard,
-      detail:inst>1?inst+"x parcelas":"",
-      method:pmt.method||"",
+      proc:it.desc||treat.name||"Procedimento",
+      valor:val,
+      comissao:val*COMM,
+      baixaDate:baixaDate,
+      pago:it.recebido||false,
+      pagoDate:it.recebidoDate||"",
     });
   });
 });
 
-var getMonthStr=function(y,m){return y+"-"+String(m+1).padStart(2,"0");};
-var nm1=month===11?0:month+1; var ny1=month===11?year+1:year;
-var nm2=nm1===11?0:nm1+1;     var ny2=nm1===11?ny1+1:ny1;
-var getTotal=function(y,m){var ms=getMonthStr(y,m);return allItems.filter(function(x){return (x.receiveDate||"").startsWith(ms);}).reduce(function(s,x){return s+x.commVal;},0);};
-var thisMonthItems=allItems.filter(function(x){return (x.receiveDate||"").startsWith(curMonth);});
-var totalMes=getTotal(year,month);
+var totalComissao=items.reduce(function(s,i){return s+i.comissao;},0);
+var totalPago=items.filter(function(i){return i.pago;}).reduce(function(s,i){return s+i.comissao;},0);
+var totalPendente=totalComissao-totalPago;
+
+var marcarPago=function(key,pago){
+  var parts=key.split("-");
+  var treatId=Number(parts[0]);
+  var itemIdx=Number(parts[1]);
+  var hoje=today();
+  setTreats(function(prev){return prev.map(function(t){
+    if(t.id!==treatId)return t;
+    return {...t,items:t.items.map(function(it,i){
+      if(i!==itemIdx)return it;
+      return {...it,recebido:pago,recebidoDate:pago?hoje:""};
+    })};
+  });});
+};
 
 return(
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
     <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"💰 Recebimentos"}</h2>
-    {!isDent&&<Sel lb="" val={selDent} set={setSelDent} opts={myDents.map(function(d){return{v:String(d.id),l:d.name};})}/>}
+    {!isDent&&<select value={selDent} onChange={function(e){setSelDent(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",background:"#fff"}}>
+      {myDents.map(function(d){return <option key={d.id} value={String(d.id)}>{d.name}</option>;})}
+    </select>}
   </div>
-  <div style={{display:"flex",alignItems:"center",gap:8}}>
-    <button onClick={prevMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{"<"}</button>
-    <span style={{fontWeight:700,fontSize:16,flex:1,textAlign:"center"}}>{MF[month]+" "+year}</span>
-    <button onClick={nextMonth} style={{border:"1.5px solid "+G.border,background:"#fff",borderRadius:8,padding:"6px 14px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{">"}</button>
+
+  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}}
+      style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:14,outline:"none",flex:1}}/>
   </div>
-  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-    {[[MF[month],totalMes,"Este mês",year,month],[MF[nm1],getTotal(ny1,nm1),"Próx. mês",ny1,nm1],[MF[nm2],getTotal(ny2,nm2),"Seguinte",ny2,nm2]].map(function(row,i){
-      var isCur=row[3]===year&&row[4]===month;
-      return(
-        <div key={i} style={{background:isCur?G.primary:G.card,borderRadius:12,padding:"12px 8px",boxShadow:"0 2px 8px rgba(0,0,0,.06)",textAlign:"center"}}>
-          <div style={{fontSize:9,color:isCur?"rgba(255,255,255,.7)":G.muted,fontWeight:700,textTransform:"uppercase"}}>{row[2]}</div>
-          <div style={{fontSize:11,color:isCur?"rgba(255,255,255,.8)":G.muted,marginBottom:2}}>{row[0]}</div>
-          <div style={{fontSize:17,fontWeight:700,color:isCur?"#fff":G.primary}}>{cur(row[1])}</div>
-        </div>
-      );
-    })}
+
+  {/* Resumo */}
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+    {[["Total Comissão",totalComissao,G.primary],["Pago",totalPago,G.success],["Pendente",totalPendente,G.red]].map(function(row){return(
+      <div key={row[0]} style={{background:G.card,borderRadius:12,padding:"11px 8px",textAlign:"center",borderTop:"3px solid "+row[2],boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+        <div style={{fontSize:9,color:G.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{row[0]}</div>
+        <div style={{fontSize:16,fontWeight:700,color:row[2]}}>{cur(row[1])}</div>
+      </div>
+    );})}
   </div>
-  <div style={{background:G.accent,borderRadius:10,padding:"9px 13px",fontSize:12,color:G.primary}}>
-    {"⚠ Regra: comissão liberada somente quando procedimento realizado (baixa dada) + pagamento registrado"}
-  </div>
-  <div style={{fontWeight:700,fontSize:13,color:G.text,borderBottom:"1px solid "+G.border,paddingBottom:6}}>{MF[month]+" "+year+" — "+thisMonthItems.length+" lançamento(s)"}</div>
-  {thisMonthItems.length===0&&<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>Nenhum recebimento neste mês</div>}
-  {thisMonthItems.map(function(item,i){return(
-    <div key={i} style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.05)",borderLeft:"4px solid "+(item.isCard?G.blue:G.primary)}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:700,fontSize:13}}>{item.patName}</div>
-          <div style={{fontSize:12,color:G.muted,marginBottom:4}}>{item.proc}</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{fontSize:11,color:G.muted}}>{"Pago: "+cur(item.origVal)}</span>
-            <span style={{fontSize:11,color:G.muted}}>{"Líq: "+cur(item.net)}</span>
-            {item.isCard&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:8,padding:"1px 7px",fontSize:10,fontWeight:700}}>{item.method}</span>}
-            {item.detail&&<span style={{fontSize:10,color:G.blue}}>{item.detail}</span>}
-            <span style={{fontSize:11,color:G.muted}}>{"Data: "+new Date(item.date+"T12:00").toLocaleDateString("pt-BR")}</span>
+
+  {/* Lista de procedimentos */}
+  {items.length===0&&<div style={{background:G.card,borderRadius:12,padding:30,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+    Nenhum procedimento realizado neste mês
+  </div>}
+
+  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+    {items.map(function(item){return(
+      <div key={item.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+(item.pago?G.success:G.orange),opacity:item.pago?0.75:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          {/* Checkbox admin */}
+          {!isDent&&<div onClick={function(){marcarPago(item.key,!item.pago);}}
+            style={{width:26,height:26,borderRadius:6,border:"2px solid "+(item.pago?G.success:G.border),background:item.pago?G.success:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,transition:"all .15s"}}>
+            {item.pago&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>✓</span>}
+          </div>}
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:14,color:G.text}}>{item.patName}</div>
+            <div style={{fontSize:13,color:G.primary,fontWeight:600,marginTop:1}}>{item.proc}</div>
+            <div style={{fontSize:11,color:G.muted,marginTop:2}}>{"Baixa: "+fmt(item.baixaDate)}</div>
+            {item.pago&&item.pagoDate&&<div style={{fontSize:11,color:G.success,fontWeight:600,marginTop:2}}>{"✓ Pago em "+fmt(item.pagoDate)}</div>}
+          </div>
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <div style={{fontSize:11,color:G.muted}}>{"Valor: "+cur(item.valor)}</div>
+            <div style={{fontSize:17,fontWeight:700,color:item.pago?G.success:G.primary}}>{cur(item.comissao)}</div>
+            <div style={{fontSize:10,color:G.muted}}>{"40% comissão"}</div>
           </div>
         </div>
-        <div style={{textAlign:"right",flexShrink:0}}>
-          <div style={{fontSize:17,fontWeight:700,color:G.primary}}>{cur(item.commVal)}</div>
-          <div style={{fontSize:10,color:G.muted}}>{Math.round(COMM*100)+"% comissão"}</div>
-        </div>
       </div>
-    </div>
-  );})}
-  {thisMonthItems.length>0&&<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-    <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{MF[month]+" — Total"}</span>
-    <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{cur(totalMes)}</span>
+    );})}
+  </div>
+
+  {items.length>0&&<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+mo}</span>
+    <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{cur(totalComissao)}</span>
   </div>}
 </div>
 );
@@ -5579,7 +5648,7 @@ return <>
       {view==="desp"&&<Despesas expenses={expenses} setExpenses={setExpenses} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
-      {view==="pdent"&&<PainelDentista appts={appts} pats={pats} dents={dents} recs={recs} treats={treats} user={user}/>}
+      {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl}/>}
     </div>
