@@ -1453,9 +1453,10 @@ return <>
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,dents,procs,user,addLog}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets}){
 
 const [selDate,setSelDate]=useState(today());
+const [openFolder,setOpenFolder]=useState(null);
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(new Date().getFullYear());
 const [calM,setCalM]=useState(new Date().getMonth());
@@ -1810,9 +1811,9 @@ return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 1
 </div>}
 {histTab==="info"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
 {p&&p.obs&&<div style={{background:G.yellow+"18",border:"2px solid "+G.yellow,borderRadius:10,padding:"8px 12px",fontWeight:700,color:G.yellow}}>{"⚠ "+p.obs}</div>}
-<div style={{background:G.accent,borderRadius:10,padding:"10px 14px"}}>
-<div style={{fontSize:15,fontWeight:700}}>{p&&p.name}</div>
-<div style={{fontSize:12,color:G.muted}}>{"📁 "+(p&&p.folder)}</div>
+<div style={{background:G.accent,borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={()=>{setViewA(null);setOpenFolder(p);}}>
+<div style={{fontSize:15,fontWeight:700,color:G.primary,textDecoration:"underline"}}>{p&&p.name}</div>
+<div style={{fontSize:12,color:G.muted}}>{"📁 "+(p&&p.folder)+" · Toque para abrir prontuário"}</div>
 {p&&p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600,marginTop:3}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
 </div>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -1943,8 +1944,8 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 </div>
 
   </div>}
+{openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs||[]} setRecs={setRecs||(()=>{})} treats={treats||[]} setTreats={setTreats||(()=>{})} budgets={budgets||[]} setBudgets={setBudgets||(()=>{})} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 </div>
-
 );
 }
 
@@ -2530,6 +2531,12 @@ const paid=moList.filter(e=>e.paid).reduce((s,e)=>s+Number(e.value||0),0);
 const save=()=>{
 if(!f.desc)return alert("Preencha a descrição");
 if(!f.fixo&&!f.value)return alert("Preencha o valor");
+// Verificar duplicidade: mesma desc + mesmo mes + mesmo valor
+if(!edit&&f.value&&!f.fixo){
+  var moAtual=f.date?f.date.slice(0,7):"";
+  var dup=list.find(function(e){return e.desc.toLowerCase()===f.desc.toLowerCase()&&e.date&&e.date.slice(0,7)===moAtual&&Number(e.value)===Number(f.value);});
+  if(dup){alert("⚠️ Duplicata! Já existe: "+dup.desc+" — "+cur(Number(f.value))+" neste mês.");return;}
+}
 const obj={...f,value:f.fixo&&!f.value?0:Number(f.value),id:edit?edit.id:nid(list)};
 setExpenses(prev=>{
   var newState={...prev,[tab]:edit?prev[tab].map(e=>e.id===edit.id?obj:e):[...prev[tab],obj]};
@@ -2547,7 +2554,12 @@ setExpenses(prev=>{
 });
 setModal(false);
 };
-const remove=id=>{if(window.confirm("Remover?"))setExpenses(prev=>({...prev,[tab]:prev[tab].filter(e=>e.id!==id)}));};
+const remove=id=>{setExpenses(prev=>{
+  var item=prev[tab].find(e=>e.id===id);
+  var newTab=prev[tab].filter(e=>e.id!==id);
+  var newFixas=(prev.fixas||[]).filter(f=>!(item&&item.fixo&&f.desc===item.desc&&f.tab===tab));
+  return {...prev,[tab]:newTab,fixas:newFixas};
+});};
 const togglePaid=id=>setExpenses(prev=>({...prev,[tab]:prev[tab].map(e=>e.id===id?{...e,paid:!e.paid}:e)}));
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -2568,7 +2580,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
   var diaA=a.fixo&&a.diaVenc?Number(a.diaVenc):Number(a.date.slice(8));
   var diaB=b.fixo&&b.diaVenc?Number(b.diaVenc):Number(b.date.slice(8));
   return diaA-diaB;
-}).map(e=><div key={e.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11,opacity:e.paid?.7:1}}>
+}).map(e=>{
+var isDup=moList.filter(x=>x.id!==e.id&&x.desc.toLowerCase()===e.desc.toLowerCase()&&Number(x.value)===Number(e.value)).length>0;
+return <div key={e.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11,opacity:e.paid?.7:1,border:isDup?"2px solid #FF9800":"none"}}>
 <input type="checkbox" checked={e.paid} onChange={()=>togglePaid(e.id)} style={{accentColor:G.primary,width:16,height:16,flexShrink:0}}/>
 <div style={{flex:1}}>
 <div style={{display:"flex",alignItems:"center",gap:5}}>
@@ -2585,7 +2599,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <span style={{fontWeight:700,fontSize:13}}>{cur(e.value)}</span>
 <Btn ch="✏️" v="g" sm onClick={()=>{setEdit(e);setF({...e,value:String(e.value)});setModal(true);}}/>
 <Btn ch="✕" v="r" sm onClick={()=>remove(e.id)}/>
-</div>)}
+</div>;})}
 </div>
 <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Despesa":"Nova Despesa"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
 <Inp lb="Descrição" val={f.desc} set={upd("desc")} ph="Ex: Aluguel consultório maio"/>
@@ -5658,7 +5672,7 @@ return <>
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user}/>}
-      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
+      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
