@@ -5658,7 +5658,7 @@ if(data.perms)setPerms(data.perms);
 if(data.labs?.length)setLabs(data.labs);
 if(data.procs?.length)setProcs(data.procs);
 if(data.stock?.length)setStock(data.stock);
-if(data.impl?.length)setImpl(data.impl);
+if(data.impl?.length&&data.impl.length>10)setImpl(data.impl);else setImpl(IMPL_DATA_SEED);
 if(data.expenses)setExpenses(data.expenses);
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
@@ -5716,7 +5716,7 @@ useEffect(()=>{
       if(data.labs?.length)setLabs(data.labs);
       if(data.procs?.length)setProcs(data.procs);
       if(data.stock?.length)setStock(data.stock);
-      if(data.impl?.length)setImpl(data.impl);
+      if(data.impl?.length&&data.impl.length>10)setImpl(data.impl);else setImpl(IMPL_DATA_SEED);
       if(data.expenses)setExpenses(data.expenses);
       if(data.logs?.length)setLogs(data.logs);
       if(data.remarcar?.length)setRemarcar(data.remarcar);
