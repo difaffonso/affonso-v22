@@ -86,6 +86,25 @@ return true;
 };
 const ANAM_LINK="https://claude.ai/public/artifacts/134f3434-6997-4396-ab62-3d37bae9d44e";
 const UCOLS=["#1B5E4A","#6C3483","#1A5276","#CA6F1E","#C0392B","#148F77","#D68910"];
+
+const WA_TEMPLATES_DEFAULT={
+  confirmacao:"Olá, {nome}! ✅ Consulta confirmada: {data} às {hora} — {proc}. Affonso Odontologia 🦷",
+  vespera:"Olá, {nome}! 🔔 Lembrete: sua consulta é amanhã ({data}) às {hora} — {proc}. Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷",
+  cancelou:"Olá, {nome}! 😊 Entendemos que não poderá comparecer. Gostaria de remarcar sua consulta? Responda SIM que nossa equipe entrará em contato! Affonso Odontologia",
+  remarcar:"Olá, {nome}! Notamos que sua consulta de {data} não foi realizada. Gostaria de remarcar? Responda SIM! Affonso Odontologia.",
+  bday:"🎂 Feliz Aniversário, {nome}! 🥳\n\nA equipe Affonso Odontologia deseja um dia incrível cheio de alegria e muitos sorrisos!\n\nQue este novo ano seja repleto de saúde e conquistas. 🌟\n\nParabéns!\nDr. Diego Affonso e equipe 🦷🤍",
+  semestral:"Olá, {nome}! 😊 Já faz alguns meses desde sua última consulta. Que tal agendar seu controle semestral? É rápido e fundamental para manter sua saúde bucal em dia!\n\nEntre em contato — ficaremos felizes em recebê-lo(a)! 😁\n\nAffonso Odontologia",
+  fim:"Olá, {nome}! 😊\n\nAgradecemos imensamente pela confiança no nosso trabalho! 🦷✨\n\nSeu tratamento foi concluído com sucesso. Para manter os resultados, é fundamental a manutenção semestral.\n\nEstamos sempre aqui para você!\nCom carinho, Dr. Diego Affonso e equipe 🤍",
+  natal:"🎄 Feliz Natal! 🦷✨\n\nOlá, {nome}!\n\nNesta data tão especial, a equipe Affonso Odontologia deseja a você e sua família um Natal repleto de alegria, saúde e muitos sorrisos!\n\nCom carinho,\nDr. Diego Affonso e equipe 🤍",
+  reveillon:"🥂 Feliz Ano Novo! 🎉\n\nOlá, {nome}!\n\nQue este novo ano seja repleto de saúde, alegria e sorrisos bonitos! 😁\n\nCom carinho,\nDr. Diego Affonso e equipe 🦷",
+  pascoa:"🐣 Feliz Páscoa! 🍫\n\nOlá, {nome}!\n\nDesejamos a você uma Páscoa cheia de paz, amor e razões para sorrir! 😊\n\nCom carinho,\nDr. Diego Affonso e equipe",
+  poscirurgia:"Olá, {nome}! 😊 Como está se sentindo após o procedimento de ontem? Se tiver dúvidas entre em contato. Affonso Odontologia 🦷",
+};
+const getWA=(templates,key,vars)=>{
+  var tpl=(templates&&templates[key])||WA_TEMPLATES_DEFAULT[key]||"";
+  if(vars){Object.entries(vars).forEach(([k,v])=>{tpl=tpl.replace(new RegExp("{"+k+"}","g"),v||"");});}
+  return tpl;
+};
 const CSS=`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@400;600;700&display=swap'); *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'DM Sans',sans-serif;background:${G.bg};color:${G.text};} ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-thumb{background:${G.accentDark};border-radius:3px;} input,select,textarea,button{font-family:'DM Sans',sans-serif;} @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}} .fi{animation:fi .2s ease}`;
 
 const PAY_BASE=["Dinheiro","PIX","Cartão Crédito","Cartão Débito","Convênio","Cheque"];
@@ -3120,9 +3139,28 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // MSG TAB - WhatsApp component (outside Relatorios to allow useState)
 // ══════════════════════════════════════════════════════════
-function MsgTab({pats}){
+function MsgTab({pats,waTemplates,setWaTemplates,user}){
 const NL="\n";
 const mk=lines=>lines.join(NL);
+const [msgTab,setMsgTab]=useState("datas");
+const getTpl=function(key){return (waTemplates&&waTemplates[key])||WA_TEMPLATES_DEFAULT[key]||"";};
+const saveTpl=function(key,val){setWaTemplates(function(prev){return {...prev,[key]:val};});};
+const resetTpl=function(key){setWaTemplates(function(prev){var n={...prev};delete n[key];return n;});};
+const [editKey,setEditKey]=useState(null);
+const [editVal,setEditVal]=useState("");
+const ALL_TPLS=[
+  {key:"confirmacao",label:"✅ Confirmação de Consulta",desc:"Enviado ao confirmar consulta na agenda"},
+  {key:"vespera",label:"🔔 Véspera de Consulta",desc:"Lembrete enviado no dia anterior"},
+  {key:"cancelou",label:"🔄 Paciente Cancelou",desc:"Quando paciente cancela a consulta"},
+  {key:"remarcar",label:"📵 Remarcar",desc:"Quando paciente faltou ou desmarcou"},
+  {key:"bday",label:"🎂 Aniversário",desc:"Parabéns para o paciente"},
+  {key:"semestral",label:"📅 Controle Semestral",desc:"Retorno semestral de pacientes"},
+  {key:"fim",label:"✅ Fim de Tratamento",desc:"Conclusão do tratamento"},
+  {key:"poscirurgia",label:"🏥 Pós-Cirurgia",desc:"Acompanhamento pós-procedimento"},
+  {key:"natal",label:"🎄 Natal",desc:"Mensagem de Natal"},
+  {key:"reveillon",label:"🥂 Réveillon",desc:"Feliz Ano Novo"},
+  {key:"pascoa",label:"🐣 Páscoa",desc:"Mensagem de Páscoa"},
+];
 
 const DATAS=[
 {id:"natal",  label:"🎄 Natal",       msg:mk(["🎄 Feliz Natal! 🦷✨","","Olá, {nome}!","","Nesta data tão especial, a equipe Affonso Odontologia deseja a você e sua família um Natal repleto de alegria, saúde e muitos sorrisos!","","Que o próximo ano traga ainda mais motivos para sorrir! 😁","","Com carinho,","Dr. Diego Affonso e equipe 🤍"])},
@@ -3200,6 +3238,48 @@ setPreview(null);
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
+{/* Abas: Datas Especiais | Mensagens | Templates */}
+<div style={{display:"flex",gap:3,background:G.bg,borderRadius:10,padding:3}}>
+  {[["datas","🎊 Datas"],["mensagens","✉️ Mensagens"],["templates","✏️ Templates"]].map(function([k,l]){return(
+    <button key={k} onClick={function(){setMsgTab(k);}} style={{flex:1,border:"none",borderRadius:8,padding:"8px 4px",fontSize:11,fontWeight:700,cursor:"pointer",background:msgTab===k?G.primary:G.bg,color:msgTab===k?"#fff":G.muted,boxShadow:msgTab===k?"0 1px 4px rgba(0,0,0,.15)":"none"}}>{l}</button>
+  );})}
+</div>
+
+{/* ── ABA TEMPLATES ── */}
+{msgTab==="templates"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+  <div style={{background:G.accent,borderRadius:10,padding:"10px 14px",fontSize:13,color:G.primary}}>
+    {"✏️ Edite os textos padrão enviados pelo WhatsApp. Use {nome}, {data}, {hora}, {proc} como variáveis."}
+  </div>
+  {ALL_TPLS.map(function(tpl){
+    var isEditing=editKey===tpl.key;
+    var isCustom=waTemplates&&waTemplates[tpl.key];
+    return <div key={tpl.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",border:isCustom?"2px solid "+G.primary:"1px solid "+G.border}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8,gap:8}}>
+        <div>
+          <div style={{fontWeight:700,fontSize:13}}>{tpl.label}</div>
+          <div style={{fontSize:11,color:G.muted}}>{tpl.desc}</div>
+          {isCustom&&<span style={{fontSize:10,background:G.primary+"20",color:G.primary,borderRadius:5,padding:"1px 6px",fontWeight:700}}>✓ Personalizado</span>}
+        </div>
+        <div style={{display:"flex",gap:5,flexShrink:0}}>
+          {!isEditing&&<button onClick={function(){setEditKey(tpl.key);setEditVal(getTpl(tpl.key));}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:7,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Editar</button>}
+          {isCustom&&!isEditing&&<button onClick={function(){resetTpl(tpl.key);}} style={{background:"none",border:"1.5px solid "+G.red,color:G.red,borderRadius:7,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>↩ Original</button>}
+        </div>
+      </div>
+      {!isEditing&&<div style={{background:G.bg,borderRadius:8,padding:"9px 11px",fontSize:12,color:G.muted,whiteSpace:"pre-wrap",lineHeight:1.5,maxHeight:80,overflow:"hidden"}}>{getTpl(tpl.key).slice(0,200)+(getTpl(tpl.key).length>200?"...":"")}</div>}
+      {isEditing&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <textarea value={editVal} onChange={function(e){setEditVal(e.target.value);}} rows={6}
+          style={{width:"100%",border:"1.5px solid "+G.primary,borderRadius:8,padding:"9px 12px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"'DM Sans'",lineHeight:1.5,boxSizing:"border-box"}}/>
+        <div style={{fontSize:11,color:G.muted}}>{"Variáveis: {nome} {data} {hora} {proc}"}</div>
+        <div style={{display:"flex",gap:7}}>
+          <button onClick={function(){saveTpl(tpl.key,editVal);setEditKey(null);}} style={{flex:1,background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px",fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 Salvar</button>
+          <button onClick={function(){setEditKey(null);}} style={{flex:1,background:"none",border:"1.5px solid "+G.border,color:G.muted,borderRadius:8,padding:"9px",fontSize:13,cursor:"pointer"}}>Cancelar</button>
+        </div>
+      </div>}
+    </div>;
+  })}
+</div>}
+
+{msgTab!=="templates"&&<>{/* Preview Modal */}</>}
 {/* Preview Modal */}
 {preview&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
 
@@ -3456,7 +3536,7 @@ return <PatCard key={sec.isTreat?x.id:p.id} p={p} badge={sec.label.slice(2)} bad
 // ══════════════════════════════════════════════════════════
 // RELATÓRIOS
 // ══════════════════════════════════════════════════════════
-function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,user}){
+function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,user,waTemplates,setWaTemplates}){
 const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
@@ -3702,7 +3782,7 @@ return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14p
 {tab==="pacs"&&<PacsTab pats={pats} recs={recs} treats={treats} appts={appts} dents={dents} mo={mo} user={user}/>}
 
 {/* ── WHATSAPP ── */}
-{tab==="msg"&&<MsgTab pats={pats} selMsg={selMsg} setSelMsg={setSelMsg} selPatsMsg={selPatsMsg} setSelPatsMsg={setSelPatsMsg} allSelMsg={allSelMsg} setAllSelMsg={setAllSelMsg}/>}
+{tab==="msg"&&<MsgTab pats={pats} selMsg={selMsg} setSelMsg={setSelMsg} selPatsMsg={selPatsMsg} setSelPatsMsg={setSelPatsMsg} allSelMsg={allSelMsg} setAllSelMsg={setAllSelMsg} waTemplates={waTemplates} setWaTemplates={setWaTemplates} user={user}/>}
 
   </div>;
 }
@@ -5477,6 +5557,7 @@ export default function App(){
 const [user,setUser]=useState(null);const [view,setView]=useState("dash");
 const [agendaSelDate,setAgendaSelDate]=useState(today());
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
+const [waTemplates,setWaTemplates]=useState({});
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
 const [budgets,setBudgets]=useState(BUDGETS0);
@@ -5699,7 +5780,7 @@ return <>
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} user={user}/>}
-      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} user={user}/>}
+      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates}/>}
       {view==="desp"&&<Despesas expenses={expenses} setExpenses={setExpenses} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
