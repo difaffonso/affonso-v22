@@ -2772,8 +2772,11 @@ const t3=today();
 const esperaAtiva=(espera||[]).filter(e=>e.valido>=t3);
 
 // Lembretes visiveis por nivel de usuario
+// Admin (3) ve tudo | Secretaria/Dentista ve so os seus ou sem atribuicao
 const remsFiltered=rems.filter(r=>{
-const visivel=user.level>=2?true:(!r.assignedUserId||r.assignedUserId===myUserId);
+const visivel=user.level>=3
+  ?true  // admin ve tudo
+  :(!r.assignedUserId||Number(r.assignedUserId)===Number(myUserId)); // ve os seus ou gerais
 if(!visivel)return false;
 if(filt==='pending')return !r.done;
 if(filt==='done')return r.done;
