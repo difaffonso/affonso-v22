@@ -2597,18 +2597,27 @@ const PERS_CATS=["Moradia","Alimentação","Transporte","Saúde","Lazer","Educa�
 if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><p style={{color:G.red,fontSize:15}}>🔒 Acesso restrito ao Administrador</p></div>;
 
 const list=expenses[tab]||[];
-// Auto-add fixed expenses for current month if not present
 const fixas=expenses.fixas||[];
-fixas.filter(fx=>fx.tab===tab).forEach(fx=>{
-  var diaNum=Number(fx.diaVenc)||1;
-  var diaStr=String(diaNum).padStart(2,"0");
-  var dataVenc=mo+"-"+diaStr;
-  var jaExiste=list.some(e=>e.fixo&&e.desc===fx.desc&&e.date.startsWith(mo));
-  if(!jaExiste){
-    var novaId=nid([...list,...(expenses.clinic||[]),...(expenses.personal||[])]);
-    setExpenses(prev=>({...prev,[tab]:[...prev[tab],{id:novaId,date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true}]}));
+
+// Auto-add fixas no useEffect para evitar bug de aba
+useEffect(()=>{
+  var currentTab=tab;
+  var currentList=expenses[currentTab]||[];
+  var toAdd=[];
+  (expenses.fixas||[]).filter(fx=>fx.tab===currentTab).forEach(fx=>{
+    var diaNum=Number(fx.diaVenc)||1;
+    var diaStr=String(diaNum).padStart(2,"0");
+    var dataVenc=mo+"-"+diaStr;
+    var jaExiste=currentList.some(e=>e.fixo&&e.desc===fx.desc&&e.date.startsWith(mo));
+    if(!jaExiste){
+      var novaId=Date.now()+Math.random();
+      toAdd.push({id:novaId,date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true});
+    }
+  });
+  if(toAdd.length>0){
+    setExpenses(prev=>({...prev,[currentTab]:[...(prev[currentTab]||[]),...toAdd]}));
   }
-});
+},[mo,tab]);
 const moList=list.filter(e=>e.date.startsWith(mo));
 const total=moList.filter(e=>Number(e.value||0)>0).reduce((s,e)=>s+Number(e.value||0),0);
 const paid=moList.filter(e=>e.paid).reduce((s,e)=>s+Number(e.value||0),0);
