@@ -2588,129 +2588,152 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 // ══════════════════════════════════════════════════════════
 function Despesas({expenses,setExpenses,user}){
 const [tab,setTab]=useState("clinic");
-const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);
-const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false,fixo:false,diaVenc:""};
-const [f,setF]=useState(blank);const upd=k=>v=>setF(p=>({...p,[k]:v}));
+const [modal,setModal]=useState(false);
+const [edit,setEdit]=useState(null);
 const [mo,setMo]=useState(today().slice(0,7));
-const PERS_CATS=["Moradia","Alimentação","Transporte","Saúde","Lazer","Educação","Vestuário","Outros"];
+const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false,fixo:false,diaVenc:""};
+const [f,setF]=useState(blank);
+const upd=k=>v=>setF(p=>({...p,[k]:v}));
+const CLINIC_CATS=["Aluguel","Agua","Luz","Internet","Telefone","Salarios","Material","Equipamento","Manutencao","Contabilidade","Outros"];
+const PERS_CATS=["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario","Outros"];
 
-if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><p style={{color:G.red,fontSize:15}}>🔒 Acesso restrito ao Administrador</p></div>;
+if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center"}}><p style={{color:G.red,fontSize:15}}>{"Acesso restrito ao Administrador"}</p></div>;
 
-const list=expenses[tab]||[];
-const fixas=expenses.fixas||[];
+const currentList=expenses[tab]||[];
 
-// Auto-add fixas no useEffect para evitar bug de aba
-useEffect(()=>{
-  var currentTab=tab;
-  var currentList=expenses[currentTab]||[];
+useEffect(function(){
   var toAdd=[];
-  (expenses.fixas||[]).filter(fx=>fx.tab===currentTab).forEach(fx=>{
+  var curList=expenses[tab]||[];
+  (expenses.fixas||[]).filter(function(fx){return fx.tab===tab;}).forEach(function(fx){
     var diaNum=Number(fx.diaVenc)||1;
-    var diaStr=String(diaNum).padStart(2,"0");
-    var dataVenc=mo+"-"+diaStr;
-    var jaExiste=currentList.some(e=>e.fixo&&e.desc===fx.desc&&e.date.startsWith(mo));
-    if(!jaExiste){
-      var novaId=Date.now()+Math.random();
-      toAdd.push({id:novaId,date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true});
-    }
+    var dataVenc=mo+"-"+String(diaNum).padStart(2,"0");
+    var jaExiste=curList.some(function(e){return e.fixo&&e.desc===fx.desc&&e.date&&e.date.startsWith(mo);});
+    if(!jaExiste){toAdd.push({id:Date.now()+Math.random(),date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true});}
   });
-  if(toAdd.length>0){
-    setExpenses(prev=>({...prev,[currentTab]:[...(prev[currentTab]||[]),...toAdd]}));
-  }
+  if(toAdd.length>0){setExpenses(function(prev){return {...prev,[tab]:[...(prev[tab]||[]),...toAdd]};});}
 },[mo,tab]);
-const moList=list.filter(e=>e.date.startsWith(mo));
-const total=moList.filter(e=>Number(e.value||0)>0).reduce((s,e)=>s+Number(e.value||0),0);
-const paid=moList.filter(e=>e.paid).reduce((s,e)=>s+Number(e.value||0),0);
 
-const save=()=>{
-if(!f.desc)return alert("Preencha a descrição");
-if(!f.fixo&&!f.value)return alert("Preencha o valor");
-// Verificar duplicidade: mesma desc + mesmo mes + mesmo valor
-if(!edit&&f.value&&!f.fixo){
-  var moAtual=f.date?f.date.slice(0,7):"";
-  var dup=list.find(function(e){return e.desc.toLowerCase()===f.desc.toLowerCase()&&e.date&&e.date.slice(0,7)===moAtual&&Number(e.value)===Number(f.value);});
-  if(dup){alert("⚠️ Duplicata! Já existe: "+dup.desc+" — "+cur(Number(f.value))+" neste mês.");return;}
-}
-const obj={...f,value:f.fixo&&!f.value?0:Number(f.value),id:edit?edit.id:nid(list)};
-setExpenses(prev=>{
-  var newState={...prev,[tab]:edit?prev[tab].map(e=>e.id===edit.id?obj:e):[...prev[tab],obj]};
-  // Save/update in fixas list
-  var fixas=prev.fixas||[];
-  if(obj.fixo){
-    var fx={id:obj.id,desc:obj.desc,cat:obj.cat,diaVenc:obj.diaVenc||"",tab:tab};
-    var exists=fixas.find(x=>x.id===obj.id);
-    newState.fixas=exists?fixas.map(x=>x.id===obj.id?fx:x):[...fixas,fx];
-  } else if(edit&&edit.fixo){
-    // Was fixed, now removed
-    newState.fixas=fixas.filter(x=>x.id!==obj.id);
+const moList=currentList.filter(function(e){return e.date&&e.date.startsWith(mo);});
+const total=moList.filter(function(e){return Number(e.value||0)>0;}).reduce(function(s,e){return s+Number(e.value||0);},0);
+const paid=moList.filter(function(e){return e.paid&&Number(e.value||0)>0;}).reduce(function(s,e){return s+Number(e.value||0);},0);
+
+const save=function(){
+  if(!f.desc)return alert("Preencha a descricao");
+  if(!f.fixo&&!f.value)return alert("Preencha o valor");
+  if(!edit&&f.value&&!f.fixo){
+    var moAtual=f.date?f.date.slice(0,7):"";
+    var dup=currentList.find(function(e){return e.desc.toLowerCase()===f.desc.toLowerCase()&&e.date&&e.date.slice(0,7)===moAtual&&Number(e.value)===Number(f.value);});
+    if(dup){alert("Duplicata! Ja existe: "+dup.desc+" neste mes.");return;}
   }
-  return newState;
-});
-setModal(false);
+  var obj={...f,value:f.fixo&&!f.value?0:Number(f.value),id:edit?edit.id:nid(currentList)};
+  setExpenses(function(prev){
+    var newTab=edit?prev[tab].map(function(e){return e.id===edit.id?obj:e;}):[...(prev[tab]||[]),obj];
+    var newFixas=prev.fixas||[];
+    if(obj.fixo){
+      var fx={id:obj.id,desc:obj.desc,cat:obj.cat,diaVenc:obj.diaVenc||"",tab:tab};
+      newFixas=newFixas.find(function(x){return x.id===obj.id;})?newFixas.map(function(x){return x.id===obj.id?fx:x;}):[...newFixas,fx];
+    } else if(edit&&edit.fixo){newFixas=newFixas.filter(function(x){return x.id!==obj.id;});}
+    return {...prev,[tab]:newTab,fixas:newFixas};
+  });
+  setModal(false);setEdit(null);setF(blank);
 };
-const remove=id=>{setExpenses(prev=>{
-  var item=prev[tab].find(e=>e.id===id);
-  var newTab=prev[tab].filter(e=>e.id!==id);
-  var newFixas=(prev.fixas||[]).filter(f=>!(item&&item.fixo&&f.desc===item.desc&&f.tab===tab));
-  return {...prev,[tab]:newTab,fixas:newFixas};
-});};
-const togglePaid=id=>setExpenses(prev=>({...prev,[tab]:prev[tab].map(e=>e.id===id?{...e,paid:!e.paid}:e)}));
+
+const remove=function(id){
+  setExpenses(function(prev){
+    var item=(prev[tab]||[]).find(function(e){return e.id===id;});
+    var newTab=(prev[tab]||[]).filter(function(e){return e.id!==id;});
+    var newFixas=(prev.fixas||[]).filter(function(fx){return !(item&&item.fixo&&fx.desc===item.desc&&fx.tab===tab);});
+    return {...prev,[tab]:newTab,fixas:newFixas};
+  });
+};
+
+const togglePaid=function(id){
+  setExpenses(function(prev){
+    return {...prev,[tab]:(prev[tab]||[]).map(function(e){return e.id===id?{...e,paid:!e.paid}:e;})};
+  });
+};
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
-
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Despesas</h2>
-<div style={{display:"flex",gap:8}}><Inp val={mo} set={setMo} type="month" style={{width:165}}/><Btn ch="+ Nova Despesa" onClick={()=>{setEdit(null);setF({...blank,cat:tab==="clinic"?"Aluguel":"Moradia"});setModal(true);}}/></div>
+<div style={{display:"flex",gap:8}}>
+  <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:14,outline:"none",width:165}}/>
+  <Btn ch="+ Nova Despesa" onClick={function(){setEdit(null);setF({...blank,cat:tab==="clinic"?"Aluguel":"Moradia"});setModal(true);}}/>
 </div>
-<div style={{display:"flex",gap:0,borderBottom:`2px solid ${G.border}`}}>
-{[["clinic","🏥 Clínica"],["personal","🏠 Pessoal"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 18px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2}}>{l}</button>)}
+</div>
+<div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border}}>
+{[["clinic","Clinica"],["personal","Pessoal"]].map(function([k,l]){return(
+  <button key={k} onClick={function(){setTab(k);}} style={{border:"none",background:"none",padding:"9px 18px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2}}>{l}</button>
+);})}
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
-{[["Total",cur(total),G.primary],["Pago",cur(paid),G.success],["Pendente",cur(total-paid),G.red]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:`4px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div></div>)}
+{[["Total",cur(total),G.primary],["Pago",cur(paid),G.success],["Pendente",cur(total-paid),G.red]].map(function([l,v,c]){return(
+  <div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+    <div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div>
+  </div>
+);})}
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-{moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:20,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>Nenhuma despesa neste mês</div>}
-{moList.sort((a,b)=>{
-  var diaA=a.fixo&&a.diaVenc?Number(a.diaVenc):Number(a.date.slice(8));
-  var diaB=b.fixo&&b.diaVenc?Number(b.diaVenc):Number(b.date.slice(8));
-  return diaA-diaB;
-}).map(e=>{
-var isDup=moList.filter(x=>x.id!==e.id&&x.desc.toLowerCase()===e.desc.toLowerCase()&&Number(x.value)===Number(e.value)).length>0;
-return <div key={e.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:11,opacity:e.paid?.7:1,border:isDup?"2px solid #FF9800":"none"}}>
-<input type="checkbox" checked={e.paid} onChange={()=>togglePaid(e.id)} style={{accentColor:G.primary,width:16,height:16,flexShrink:0}}/>
-<div style={{flex:1}}>
-<div style={{display:"flex",alignItems:"center",gap:5}}>
-  <span style={{fontWeight:700,fontSize:13,textDecoration:e.paid?"line-through":"none"}}>{e.desc}</span>
-  {e.fixo&&<span style={{background:G.primary+"20",color:G.primary,borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>📌 Fixa</span>}
-</div>
-<div style={{fontSize:11,color:G.muted,display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
-  <span>{e.cat}</span>
-  {e.fixo&&e.diaVenc?<span style={{background:G.primary+"15",color:G.primary,borderRadius:6,padding:"1px 6px",fontWeight:700,fontSize:10}}>{"📅 Vence dia "+e.diaVenc}</span>:<span>{fmt(e.date)}</span>}
-  {e.fixo&&!e.value&&!e.paid&&<span style={{color:G.orange,fontWeight:700}}>{"⚠ Preencher valor"}</span>}
-</div>
-</div>
-<Bdg l={e.paid?"✓ Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
-<span style={{fontWeight:700,fontSize:13}}>{cur(e.value)}</span>
-<Btn ch="✏️" v="g" sm onClick={()=>{setEdit(e);setF({...e,value:String(e.value)});setModal(true);}}/>
-<Btn ch="✕" v="r" sm onClick={()=>remove(e.id)}/>
-</div>;})}
-</div>
-<Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Despesa":"Nova Despesa"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
-<Inp lb="Descrição" val={f.desc} set={upd("desc")} ph="Ex: Aluguel consultório maio"/>
-<R2 a={<Sel lb="Categoria" val={f.cat} set={upd("cat")} opts={tab==="clinic"?EXPENSE_CATS:["Moradia","Alimentação","Transporte","Saúde","Lazer","Educação","Vestuário","Outros"]}/>} b={<Inp lb="Valor (R$)" val={f.value} set={upd("value")} type="number"/>}/>
-<R2 a={<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>} b={<div style={{display:"flex",flexDirection:"column",justifyContent:"flex-end"}}><label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={f.paid} onChange={e=>upd("paid")(e.target.checked)} style={{accentColor:G.primary,width:15,height:15}}/> Já pago</label></div>}/>
-<label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,cursor:"pointer",background:f.fixo?G.primary+"12":G.bg,borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(f.fixo?G.primary:G.border)}}>
-  <input type="checkbox" checked={!!f.fixo} onChange={e=>upd("fixo")(e.target.checked)} style={{accentColor:G.primary,width:16,height:16}}/>
-  <div>
-    <strong style={{color:f.fixo?G.primary:G.text}}>📌 Despesa Fixa (repete todo mês)</strong>
-    <div style={{fontSize:11,color:G.muted}}>Aparece automaticamente todo mês sem o valor</div>
-  </div>
-</label>
-{f.fixo&&<Inp lb="Dia de Vencimento" val={f.diaVenc||""} set={upd("diaVenc")} type="number" ph="Ex: 10 (dia 10 de cada mês)" min="1" max="31"/>}
-<SC2 save={save} cancel={()=>setModal(false)}/>
-</div>}/>
-
+{moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>{"Nenhuma despesa neste mes"}</div>}
+{moList.sort(function(a,b){
+  var da=a.fixo&&a.diaVenc?Number(a.diaVenc):Number((a.date||"").slice(8));
+  var db=b.fixo&&b.diaVenc?Number(b.diaVenc):Number((b.date||"").slice(8));
+  return da-db;
+}).map(function(e){
+  var isDup=moList.filter(function(x){return x.id!==e.id&&x.desc.toLowerCase()===e.desc.toLowerCase()&&Number(x.value)===Number(e.value);}).length>0;
+  return <div key={e.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:10,border:isDup?"2px solid #FF9800":"none"}}>
+    <input type="checkbox" checked={!!e.paid} onChange={function(){togglePaid(e.id);}} style={{accentColor:G.primary,width:17,height:17,flexShrink:0,cursor:"pointer"}}/>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+        <span style={{fontWeight:700,fontSize:13,textDecoration:e.paid?"line-through":"none",color:e.paid?G.muted:G.text}}>{e.desc}</span>
+        {e.fixo&&<span style={{background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 5px",fontSize:9,fontWeight:700}}>{"Fixa"}</span>}
+        {isDup&&<span style={{background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 5px",fontSize:9,fontWeight:700}}>{"DUPLICATA"}</span>}
+      </div>
+      <div style={{fontSize:11,color:G.muted,marginTop:2}}>
+        {e.cat}{e.fixo&&e.diaVenc?" · Vence dia "+e.diaVenc:e.date?" · "+fmt(e.date):""}
+        {e.fixo&&!Number(e.value)&&<span style={{color:"#FF9800",fontWeight:600}}>{" · Preencher valor"}</span>}
+      </div>
+    </div>
+    <Bdg l={e.paid?"Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
+    <span style={{fontWeight:700,fontSize:13,minWidth:68,textAlign:"right"}}>{cur(Number(e.value||0))}</span>
+    <button onClick={function(){setEdit(e);setF({...e,value:String(e.value||"")});setModal(true);}} style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:7,padding:"5px 8px",cursor:"pointer",fontSize:14,flexShrink:0}}>{"pencil"}</button>
+    <button onClick={function(){remove(e.id);}} style={{background:G.red,border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#fff",fontWeight:700,fontSize:12,flexShrink:0}}>{"X"}</button>
   </div>;
+})}
+</div>
+{modal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:480,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
+      <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{edit?"Editar Despesa":"Nova Despesa"}</span>
+      <button onClick={function(){setModal(false);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>{"x"}</button>
+    </div>
+    <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+      <Inp lb="Descricao *" val={f.desc} set={upd("desc")} ph="Ex: Aluguel consultorio"/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+        <Sel lb="Categoria" val={f.cat} set={upd("cat")} opts={tab==="clinic"?CLINIC_CATS:PERS_CATS}/>
+        <Inp lb="Valor (R$)" val={String(f.value||"")} set={upd("value")} type="number" ph="0,00"/>
+      </div>
+      <label style={{display:"flex",alignItems:"center",gap:9,background:G.bg,borderRadius:8,padding:"10px 12px",cursor:"pointer"}}>
+        <input type="checkbox" checked={!!f.fixo} onChange={function(e){setF(function(p){return {...p,fixo:e.target.checked};});}} style={{accentColor:G.primary,width:15,height:15}}/>
+        <span style={{fontSize:13,fontWeight:600}}>{"Despesa fixa (recorrente todo mes)"}</span>
+      </label>
+      {f.fixo
+        ?<Inp lb="Dia de vencimento" val={String(f.diaVenc||"")} set={upd("diaVenc")} type="number" ph="Ex: 10"/>
+        :<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>
+      }
+      <label style={{display:"flex",alignItems:"center",gap:9,background:G.bg,borderRadius:8,padding:"10px 12px",cursor:"pointer"}}>
+        <input type="checkbox" checked={!!f.paid} onChange={function(e){setF(function(p){return {...p,paid:e.target.checked};});}} style={{accentColor:G.primary,width:15,height:15}}/>
+        <span style={{fontSize:13}}>{"Ja pago"}</span>
+      </label>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid "+G.border}}>
+        <button onClick={function(){setModal(false);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={save} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Salvar"}</button>
+      </div>
+    </div>
+  </div>
+</div>}
+</div>;
 }
 
 // ══════════════════════════════════════════════════════════
