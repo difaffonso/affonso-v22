@@ -2597,18 +2597,27 @@ const PERS_CATS=["Moradia","Alimentação","Transporte","Saúde","Lazer","Educa�
 if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><p style={{color:G.red,fontSize:15}}>🔒 Acesso restrito ao Administrador</p></div>;
 
 const list=expenses[tab]||[];
-// Auto-add fixed expenses for current month if not present
 const fixas=expenses.fixas||[];
-fixas.filter(fx=>fx.tab===tab).forEach(fx=>{
-  var diaNum=Number(fx.diaVenc)||1;
-  var diaStr=String(diaNum).padStart(2,"0");
-  var dataVenc=mo+"-"+diaStr;
-  var jaExiste=list.some(e=>e.fixo&&e.desc===fx.desc&&e.date.startsWith(mo));
-  if(!jaExiste){
-    var novaId=nid([...list,...(expenses.clinic||[]),...(expenses.personal||[])]);
-    setExpenses(prev=>({...prev,[tab]:[...prev[tab],{id:novaId,date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true}]}));
+
+// Auto-add fixas no useEffect para evitar bug de aba
+useEffect(()=>{
+  var currentTab=tab;
+  var currentList=expenses[currentTab]||[];
+  var toAdd=[];
+  (expenses.fixas||[]).filter(fx=>fx.tab===currentTab).forEach(fx=>{
+    var diaNum=Number(fx.diaVenc)||1;
+    var diaStr=String(diaNum).padStart(2,"0");
+    var dataVenc=mo+"-"+diaStr;
+    var jaExiste=currentList.some(e=>e.fixo&&e.desc===fx.desc&&e.date.startsWith(mo));
+    if(!jaExiste){
+      var novaId=Date.now()+Math.random();
+      toAdd.push({id:novaId,date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true});
+    }
+  });
+  if(toAdd.length>0){
+    setExpenses(prev=>({...prev,[currentTab]:[...(prev[currentTab]||[]),...toAdd]}));
   }
-});
+},[mo,tab]);
 const moList=list.filter(e=>e.date.startsWith(mo));
 const total=moList.filter(e=>Number(e.value||0)>0).reduce((s,e)=>s+Number(e.value||0),0);
 const paid=moList.filter(e=>e.paid).reduce((s,e)=>s+Number(e.value||0),0);
@@ -2763,8 +2772,11 @@ const t3=today();
 const esperaAtiva=(espera||[]).filter(e=>e.valido>=t3);
 
 // Lembretes visiveis por nivel de usuario
+// Admin (3) ve tudo | Secretaria/Dentista ve so os seus ou sem atribuicao
 const remsFiltered=rems.filter(r=>{
-const visivel=user.level>=2?true:(!r.assignedUserId||r.assignedUserId===myUserId);
+const visivel=user.level>=3
+  ?true  // admin ve tudo
+  :(!r.assignedUserId||Number(r.assignedUserId)===Number(myUserId)); // ve os seus ou gerais
 if(!visivel)return false;
 if(filt==='pending')return !r.done;
 if(filt==='done')return r.done;
@@ -2961,7 +2973,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
       <div style={{display:'flex',gap:4,flexDirection:'column',alignItems:'flex-end',flexShrink:0}}>
         {p?.phone&&!r.done&&<button onClick={()=>wa(p.phone,'Ola '+p.name+'! '+(r.desc||r.title))} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:6,padding:'4px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>WA</button>}
         <button onClick={()=>{setEdit(r);setF({...r,patientId:String(r.patientId||''),assignedUserId:String(r.assignedUserId||'')});setModal(true);}} style={{background:'transparent',border:'1.5px solid '+G.primary,color:G.primary,borderRadius:6,padding:'4px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Editar</button>
-        <button onClick={()=>{setRemMotivoModal(r.id);setRemMotivoText('');}} style={{background:G.red,color:'#fff',border:'none',borderRadius:6,padding:'4px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Apagar</button>
+        {typeof r.id!=='string'&&<button onClick={()=>{setRemMotivoModal(r.id);setRemMotivoText('');}} style={{background:G.red,color:'#fff',border:'none',borderRadius:6,padding:'4px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Apagar</button>}
       </div>
     </div>;
   })}
@@ -2980,7 +2992,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
       <textarea value={remMotivoText} onChange={e=>setRemMotivoText(e.target.value)} rows={2} placeholder="Ou descreva o motivo..." style={{border:'1.5px solid '+G.border,borderRadius:8,padding:'8px 11px',fontSize:13,outline:'none',resize:'none',fontFamily:"'DM Sans'"}}/>
       <div style={{display:'flex',gap:9,justifyContent:'flex-end',paddingTop:8,borderTop:'1px solid '+G.border}}>
         <button onClick={()=>setRemMotivoModal(null)} style={{border:'1.5px solid '+G.primary,background:'transparent',color:G.primary,borderRadius:8,padding:'8px 15px',fontSize:13,fontWeight:600,cursor:'pointer'}}>Cancelar</button>
-        <button onClick={()=>{if(!remMotivoText.trim())return alert('Informe o motivo');rm(remMotivoModal);setRemMotivoModal(null);}} style={{background:G.red,color:'#fff',border:'none',borderRadius:8,padding:'9px 18px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Confirmar</button>
+        <button onClick={()=>{rm(remMotivoModal);setRemMotivoModal(null);}} style={{background:G.red,color:'#fff',border:'none',borderRadius:8,padding:'9px 18px',fontSize:13,fontWeight:700,cursor:'pointer'}}>Confirmar</button>
       </div>
     </div>
   </div>
