@@ -576,74 +576,6 @@ setAddProcModal(null);
 const BSTATUS={pending:"Em espera",approved:"Aprovado",rejected:"Recusado"};
 const BCOLOR={pending:G.yellow,approved:G.success,rejected:G.red};
 
-const saveTimer=useRef(null);
-const isSaving=useRef(false);
-const lastSaved=useRef("");
-const initialized=useRef(false);
-const [saveStatus,setSaveStatus]=useState("idle");
-
-useEffect(()=>{
-supabase.load().then(data=>{
-if(data){
-try{
-if(data.pats?.length)setPats(data.pats);
-if(data.appts?.length)setAppts(data.appts);
-if(data.recs?.length)setRecs(data.recs);
-if(data.treats?.length)setTreats(data.treats);
-if(data.pros?.length)setPros(data.pros);
-if(data.rems?.length)setRems(data.rems);
-if(data.budgets?.length)setBudgets(data.budgets);
-if(data.users?.length)setUsers(data.users);
-if(data.dents?.length)setDents(data.dents);
-if(data.perms)setPerms(data.perms);
-if(data.labs?.length)setLabs(data.labs);
-if(data.procs?.length)setProcs(data.procs);
-if(data.stock?.length)setStock(data.stock);
-if(data.impl?.length&&data.impl.length>10)setImpl(data.impl);else setImpl(IMPL_DATA_SEED);
-if(data.semTicks)setSemTicks(data.semTicks);
-if(data.anivTicks)setAnivTicks(data.anivTicks);
-if(data.waTemplates)setWaTemplates(data.waTemplates);
-if(data.pacsTicks)setPacsTicks(data.pacsTicks);
-if(data.gastos)setGastos(data.gastos);
-if(data.expenses){
-  var expData=data.expenses;
-  setExpenses({
-    clinic:(expData.clinic||[]).filter(function(e){return e.date&&e.value!==undefined;}),
-    personal:(expData.personal||[]).filter(function(e){return e.date&&e.value!==undefined;})
-  });
-}
-if(data.logs?.length)setLogs(data.logs);
-if(data.remarcar?.length)setRemarcar(data.remarcar);
-if(data.espera?.length)setEspera(data.espera);
-if(data.prosProcs?.length)setProsProcs(data.prosProcs);
-if(data.implCat?.length)setImplCat(data.implCat);
-if(data.implMov?.length)setImplMov(data.implMov);
-lastSaved.current=JSON.stringify(data);
-}catch(err){}
-}
-setTimeout(()=>{initialized.current=true;},1000);
-});
-},[]);
-
-useEffect(()=>{
-if(!initialized.current)return;
-if(saveTimer.current)clearTimeout(saveTimer.current);
-setSaveStatus("saving");
-saveTimer.current=setTimeout(async()=>{
-if(isSaving.current)return;
-isSaving.current=true;
-try{
-const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
-await supabase.save(payload);
-lastSaved.current=JSON.stringify(payload);
-setSaveStatus("saved");
-setTimeout(()=>setSaveStatus("idle"),2500);
-}catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
-finally{isSaving.current=false;saveTimer.current=null;}
-},2000);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos]);
-
-
 return <>
 
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:10}}>
@@ -1546,7 +1478,6 @@ function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRec
 
 const [selDate,setSelDate]=useState(today());
 const [openFolder,setOpenFolder]=useState(null);
-
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(new Date().getFullYear());
 const [calM,setCalM]=useState(new Date().getMonth());
@@ -1938,7 +1869,6 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 );
 })()}
 
-{openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs||[]} setRecs={setRecs||(()=>{})} treats={treats||[]} setTreats={setTreats||(()=>{})} budgets={budgets||[]} setBudgets={setBudgets||(()=>{})} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Agendamento":"Novo Agendamento"} wide ch={
 
 <div style={{display:"flex",flexDirection:"column",gap:11}}>
@@ -2045,7 +1975,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 // ══════════════════════════════════════════════════════════
 function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog}){
 const [srch,setSrch]=useState("");
-
+const [openFolder,setOpenFolder]=useState(null);
 const [pm,setPm]=useState(false);const [ep,setEp]=useState(null);
 const b0={name:"",dob:"",phone:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insurance:"",notes:"",folder:"",since:today(),rx:"",nf:"",obs:"",origem:"",genero:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}};
 const [pf,setPf]=useState(b0);const fp=k=>v=>setPf(p=>({...p,[k]:v}));
@@ -2666,33 +2596,24 @@ const [f,setF]=useState(blank);
 
 if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center"}}><p style={{color:G.red}}>{"Acesso restrito ao Administrador"}</p></div>;
 
-// Lista do mes atual na aba atual
 var baseList=gastos[tab]||[];
 var moList=baseList.filter(function(e){
-  if(e.recorrente&&e.diaVenc){
-    // Recorrente: aparece todo mes
-    return true;
-  }
+  if(e.recorrente&&e.diaVenc)return true;
   return e.date&&e.date.startsWith(mo);
-}).sort(function(a,b){
+}).slice().sort(function(a,b){
   var da=a.recorrente?Number(a.diaVenc||0):Number((a.date||"").slice(8));
   var db=b.recorrente?Number(b.diaVenc||0):Number((b.date||"").slice(8));
   return da-db;
 });
 
-var total=moList.reduce(function(s,e){return s+Number(e.value||0);},0);
-var pago=moList.filter(function(e){
-  if(e.recorrente){
-    // Verificar se foi marcado pago neste mes
-    var pagoMeses=e.pagoMeses||{};
-    return !!pagoMeses[mo];
-  }
-  return e.paid;
-}).reduce(function(s,e){return s+Number(e.value||0);},0);
+var isPago=function(e){
+  if(e.recorrente)return !!(e.pagoMeses&&e.pagoMeses[mo]);
+  return !!e.paid;
+};
 
-var CATS_CLINICA=["Aluguel","Agua","Luz","Internet","Telefone","Salarios","Material","Equipamento","Manutencao","Contabilidade","Outros"];
-var CATS_PESSOAL=["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario","Outros"];
-var CATS=tab==="clinica"?CATS_CLINICA:CATS_PESSOAL;
+var total=moList.reduce(function(s,e){return s+Number(e.value||0);},0);
+var pago=moList.filter(isPago).reduce(function(s,e){return s+Number(e.value||0);},0);
+var CATS=tab==="clinica"?["Aluguel","Agua","Luz","Internet","Telefone","Salarios","Material","Equipamento","Manutencao","Contabilidade","Outros"]:["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario","Outros"];
 
 var save=function(){
   if(!f.desc)return alert("Informe a descricao");
@@ -2706,96 +2627,64 @@ var save=function(){
 };
 
 var remove=function(id){
-  setGastos(function(prev){
-    return {...prev,[tab]:(prev[tab]||[]).filter(function(e){return e.id!==id;})};
-  });
+  setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).filter(function(e){return e.id!==id;})};});
 };
 
 var togglePago=function(e){
   if(e.recorrente){
-    // Toggle pago para este mes
-    setGastos(function(prev){
-      return {...prev,[tab]:(prev[tab]||[]).map(function(x){
-        if(x.id!==e.id)return x;
-        var pm={...(x.pagoMeses||{})};
-        pm[mo]=!pm[mo];
-        return {...x,pagoMeses:pm};
-      })};
-    });
+    setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).map(function(x){
+      if(x.id!==e.id)return x;
+      var pm={...(x.pagoMeses||{})};pm[mo]=!pm[mo];return {...x,pagoMeses:pm};
+    })};});
   } else {
-    setGastos(function(prev){
-      return {...prev,[tab]:(prev[tab]||[]).map(function(x){return x.id===e.id?{...x,paid:!x.paid}:x;})};
-    });
+    setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).map(function(x){return x.id===e.id?{...x,paid:!x.paid}:x;})};});
   }
 };
 
-var isPago=function(e){
-  if(e.recorrente){return !!(e.pagoMeses&&e.pagoMeses[mo]);}
-  return !!e.paid;
-};
-
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
-
-{/* Header */}
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
   <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Gastos</h2>
   <div style={{display:"flex",gap:8}}>
-    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}}
-      style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:14,outline:"none"}}/>
+    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:14,outline:"none"}}/>
     <Btn ch="+ Novo" onClick={function(){setEdit(null);setF({...blank,cat:CATS[0]});setModal(true);}}/>
   </div>
 </div>
-
-{/* Abas */}
 <div style={{display:"flex",borderBottom:"2px solid "+G.border}}>
-  {[["clinica","🏥 Clinica"],["pessoal","🏠 Pessoal"]].map(function([k,l]){return(
-    <button key={k} onClick={function(){setTab(k);}}
-      style={{border:"none",background:"none",padding:"9px 20px",fontWeight:700,fontSize:13,cursor:"pointer",
-              color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),
-              marginBottom:-2,fontFamily:"'DM Sans'"}}>{l}</button>
+  {[["clinica","Clinica"],["pessoal","Pessoal"]].map(function([k,l]){return(
+    <button key={k} onClick={function(){setTab(k);}} style={{border:"none",background:"none",padding:"9px 20px",fontWeight:700,fontSize:13,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,fontFamily:"'DM Sans'"}}>{l}</button>
   );})}
 </div>
-
-{/* Resumo */}
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
   {[["Total",total,G.primary],["Pago",pago,G.success],["Pendente",total-pago,G.red]].map(function([l,v,c]){return(
     <div key={l} style={{background:G.card,borderRadius:10,padding:"12px",textAlign:"center",borderTop:"3px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-      <div style={{fontSize:10,color:G.muted,fontWeight:700,textTransform:"uppercase"}}>{l}</div>
+      <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div>
       <div style={{fontSize:18,fontWeight:700,color:c,marginTop:4}}>{cur(v)}</div>
     </div>
   );})}
 </div>
-
-{/* Lista */}
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-  {moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>{"Nenhum gasto em "+mo}</div>}
+  {moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted}}>{"Nenhum gasto em "+mo}</div>}
   {moList.map(function(e){
-    var pago2=isPago(e);
-    return <div key={e.id} style={{background:G.card,borderRadius:11,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 1px 4px rgba(0,0,0,.07)",opacity:pago2?.75:1}}>
-      <input type="checkbox" checked={pago2} onChange={function(){togglePago(e);}}
-        style={{width:18,height:18,accentColor:G.primary,cursor:"pointer",flexShrink:0}}/>
+    var pg=isPago(e);
+    return <div key={e.id} style={{background:G.card,borderRadius:11,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 1px 4px rgba(0,0,0,.07)",opacity:pg?.75:1}}>
+      <input type="checkbox" checked={pg} onChange={function(){togglePago(e);}} style={{width:18,height:18,accentColor:G.primary,cursor:"pointer",flexShrink:0}}/>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-          <span style={{fontWeight:700,fontSize:13,textDecoration:pago2?"line-through":"none",color:pago2?G.muted:G.text}}>{e.desc}</span>
+        <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+          <span style={{fontWeight:700,fontSize:13,textDecoration:pg?"line-through":"none",color:pg?G.muted:G.text}}>{e.desc}</span>
           {e.recorrente&&<span style={{background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:700}}>{"Recorrente"}</span>}
         </div>
         <div style={{fontSize:11,color:G.muted,marginTop:2}}>
-          {e.cat}
-          {e.recorrente&&e.diaVenc?" · Vence dia "+e.diaVenc:e.date?" · "+fmt(e.date):""}
+          {e.cat}{e.recorrente&&e.diaVenc?" · Vence dia "+e.diaVenc:e.date?" · "+fmt(e.date):""}
           {e.recorrente&&!e.value&&<span style={{color:"#FF9800",fontWeight:600}}>{" · Preencher valor"}</span>}
         </div>
       </div>
-      <span style={{fontWeight:700,fontSize:14,minWidth:80,textAlign:"right",color:pago2?G.success:G.text}}>{cur(Number(e.value||0))}</span>
-      <Bdg l={pago2?"Pago":"Pendente"} col={pago2?G.success:G.red} sm/>
-      <button onClick={function(){setEdit(e);setF({...e,value:String(e.value||"")});setModal(true);}}
-        style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:14,flexShrink:0}}>{"✏️"}</button>
-      <button onClick={function(){remove(e.id);}}
-        style={{background:G.red,border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>{"✕"}</button>
+      <span style={{fontWeight:700,fontSize:14,minWidth:75,textAlign:"right",color:pg?G.success:G.text}}>{cur(Number(e.value||0))}</span>
+      <Bdg l={pg?"Pago":"Pendente"} col={pg?G.success:G.red} sm/>
+      <button onClick={function(){setEdit(e);setF({...e,value:String(e.value||"")});setModal(true);}} style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:14,flexShrink:0}}>{"edit"}</button>
+      <button onClick={function(){remove(e.id);}} style={{background:G.red,border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>{"X"}</button>
     </div>;
   })}
 </div>
-
-{/* Modal */}
 {modal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
   <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.2)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
@@ -2803,27 +2692,21 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
       <button onClick={function(){setModal(false);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>{"x"}</button>
     </div>
     <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-      <Inp lb="Descricao *" val={f.desc} set={function(v){setF(function(p){return {...p,desc:v};});}} ph="Ex: Aluguel consultorio"/>
+      <Inp lb="Descricao" val={f.desc} set={function(v){setF(function(p){return {...p,desc:v};});}} ph="Ex: Aluguel"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
         <Sel lb="Categoria" val={f.cat} set={function(v){setF(function(p){return {...p,cat:v};});}} opts={CATS}/>
         <Inp lb="Valor (R$)" val={String(f.value||"")} set={function(v){setF(function(p){return {...p,value:v};});}} type="number" ph="0,00"/>
       </div>
-      {/* Recorrente toggle */}
       <label style={{display:"flex",alignItems:"center",gap:10,background:f.recorrente?G.accent:G.bg,borderRadius:8,padding:"11px 12px",cursor:"pointer",border:"1.5px solid "+(f.recorrente?G.primary:G.border)}}>
-        <input type="checkbox" checked={!!f.recorrente} onChange={function(ev){setF(function(p){return {...p,recorrente:ev.target.checked};});}}
-          style={{width:16,height:16,accentColor:G.primary}}/>
-        <div>
-          <div style={{fontWeight:700,fontSize:13}}>{"Gasto Recorrente"}</div>
-          <div style={{fontSize:11,color:G.muted}}>{"Aparece todo mes automaticamente"}</div>
-        </div>
+        <input type="checkbox" checked={!!f.recorrente} onChange={function(ev){setF(function(p){return {...p,recorrente:ev.target.checked};});}} style={{width:16,height:16,accentColor:G.primary}}/>
+        <div><div style={{fontWeight:700,fontSize:13}}>{"Gasto Recorrente"}</div><div style={{fontSize:11,color:G.muted}}>{"Aparece todo mes automaticamente"}</div></div>
       </label>
       {f.recorrente
-        ?<Inp lb="Dia de vencimento (1-31)" val={String(f.diaVenc||"")} set={function(v){setF(function(p){return {...p,diaVenc:v};});}} type="number" ph="Ex: 10"/>
+        ?<Inp lb="Dia de vencimento" val={String(f.diaVenc||"")} set={function(v){setF(function(p){return {...p,diaVenc:v};});}} type="number" ph="Ex: 10"/>
         :<Inp lb="Data" val={f.date} set={function(v){setF(function(p){return {...p,date:v};});}} type="date"/>
       }
       {!f.recorrente&&<label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",fontSize:13}}>
-        <input type="checkbox" checked={!!f.paid} onChange={function(ev){setF(function(p){return {...p,paid:ev.target.checked};});}}
-          style={{width:15,height:15,accentColor:G.primary}}/>
+        <input type="checkbox" checked={!!f.paid} onChange={function(ev){setF(function(p){return {...p,paid:ev.target.checked};});}} style={{width:15,height:15,accentColor:G.primary}}/>
         {"Ja pago"}
       </label>}
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid "+G.border}}>
@@ -2833,7 +2716,6 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
     </div>
   </div>
 </div>}
-
 </div>;
 }
 
@@ -4967,6 +4849,8 @@ var [selDent,setSelDent]=useState(String(myDents[0]&&myDents[0].id||""));
 var [mo,setMo]=useState(today().slice(0,7));
 var dent=dents.find(function(d){return d.id===Number(selDent);})||dents[0];
 var COMM=(dent&&dent.commission||40)/100;
+
+// Coletar todos os procedimentos com baixa do dentista selecionado
 var items=[];
 (treats||[]).forEach(function(treat){
   var dentId=Number(selDent);
@@ -4979,58 +4863,93 @@ var items=[];
     if(!baixaDate.startsWith(mo))return;
     var pat=pats.find(function(x){return x.id===treat.patientId;});
     var val=Number(it.value||0);
-    items.push({key:treat.id+"-"+idx,treatId:treat.id,itemIdx:idx,patName:pat&&pat.name||"—",proc:it.desc||treat.name||"Procedimento",valor:val,comissao:val*COMM,baixaDate:baixaDate,pago:it.recebido||false,pagoDate:it.recebidoDate||""});
+    items.push({
+      key:treat.id+"-"+idx,
+      treatId:treat.id,
+      itemIdx:idx,
+      patName:pat&&pat.name||"—",
+      proc:it.desc||treat.name||"Procedimento",
+      valor:val,
+      comissao:val*COMM,
+      baixaDate:baixaDate,
+      pago:it.recebido||false,
+      pagoDate:it.recebidoDate||"",
+    });
   });
 });
+
 var totalComissao=items.reduce(function(s,i){return s+i.comissao;},0);
 var totalPago=items.filter(function(i){return i.pago;}).reduce(function(s,i){return s+i.comissao;},0);
+var totalPendente=totalComissao-totalPago;
+
 var marcarPago=function(key,pago){
-  var parts=key.split("-");var treatId=Number(parts[0]);var itemIdx=Number(parts[1]);
+  var parts=key.split("-");
+  var treatId=Number(parts[0]);
+  var itemIdx=Number(parts[1]);
+  var hoje=today();
   setTreats(function(prev){return prev.map(function(t){
     if(t.id!==treatId)return t;
-    return {...t,items:t.items.map(function(it,i){if(i!==itemIdx)return it;return {...it,recebido:pago,recebidoDate:pago?today():""};})};
+    return {...t,items:t.items.map(function(it,i){
+      if(i!==itemIdx)return it;
+      return {...it,recebido:pago,recebidoDate:pago?hoje:""};
+    })};
   });});
 };
+
 return(
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-    <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"Recebimentos"}</h2>
+    <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"💰 Recebimentos"}</h2>
     {!isDent&&<select value={selDent} onChange={function(e){setSelDent(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",background:"#fff"}}>
       {myDents.map(function(d){return <option key={d.id} value={String(d.id)}>{d.name}</option>;})}
     </select>}
   </div>
-  <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:14,outline:"none"}}/>
+
+  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}}
+      style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:14,outline:"none",flex:1}}/>
+  </div>
+
+  {/* Resumo */}
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-    {[["Total Comissao",totalComissao,G.primary],["Pago",totalPago,G.success],["Pendente",totalComissao-totalPago,G.red]].map(function(row){return(
+    {[["Total Comissão",totalComissao,G.primary],["Pago",totalPago,G.success],["Pendente",totalPendente,G.red]].map(function(row){return(
       <div key={row[0]} style={{background:G.card,borderRadius:12,padding:"11px 8px",textAlign:"center",borderTop:"3px solid "+row[2],boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
         <div style={{fontSize:9,color:G.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{row[0]}</div>
         <div style={{fontSize:16,fontWeight:700,color:row[2]}}>{cur(row[1])}</div>
       </div>
     );})}
   </div>
-  {items.length===0&&<div style={{background:G.card,borderRadius:12,padding:30,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum procedimento realizado neste mes</div>}
+
+  {/* Lista de procedimentos */}
+  {items.length===0&&<div style={{background:G.card,borderRadius:12,padding:30,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+    Nenhum procedimento realizado neste mês
+  </div>}
+
   <div style={{display:"flex",flexDirection:"column",gap:8}}>
     {items.map(function(item){return(
       <div key={item.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+(item.pago?G.success:G.orange),opacity:item.pago?0.75:1}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          {!isDent&&<div onClick={function(){marcarPago(item.key,!item.pago);}} style={{width:26,height:26,borderRadius:6,border:"2px solid "+(item.pago?G.success:G.border),background:item.pago?G.success:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
-            {item.pago&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>{"checkmark"}</span>}
+          {/* Checkbox admin */}
+          {!isDent&&<div onClick={function(){marcarPago(item.key,!item.pago);}}
+            style={{width:26,height:26,borderRadius:6,border:"2px solid "+(item.pago?G.success:G.border),background:item.pago?G.success:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,transition:"all .15s"}}>
+            {item.pago&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>✓</span>}
           </div>}
           <div style={{flex:1}}>
-            <div style={{fontWeight:700,fontSize:14}}>{item.patName}</div>
-            <div style={{fontSize:13,color:G.primary,fontWeight:600}}>{item.proc}</div>
-            <div style={{fontSize:11,color:G.muted}}>{"Baixa: "+fmt(item.baixaDate)}</div>
-            {item.pago&&item.pagoDate&&<div style={{fontSize:11,color:G.success,fontWeight:600}}>{"Pago em "+fmt(item.pagoDate)}</div>}
+            <div style={{fontWeight:700,fontSize:14,color:G.text}}>{item.patName}</div>
+            <div style={{fontSize:13,color:G.primary,fontWeight:600,marginTop:1}}>{item.proc}</div>
+            <div style={{fontSize:11,color:G.muted,marginTop:2}}>{"Baixa: "+fmt(item.baixaDate)}</div>
+            {item.pago&&item.pagoDate&&<div style={{fontSize:11,color:G.success,fontWeight:600,marginTop:2}}>{"✓ Pago em "+fmt(item.pagoDate)}</div>}
           </div>
-          <div style={{textAlign:"right"}}>
+          <div style={{textAlign:"right",flexShrink:0}}>
             <div style={{fontSize:11,color:G.muted}}>{"Valor: "+cur(item.valor)}</div>
             <div style={{fontSize:17,fontWeight:700,color:item.pago?G.success:G.primary}}>{cur(item.comissao)}</div>
-            <div style={{fontSize:10,color:G.muted}}>{"40% comissao"}</div>
+            <div style={{fontSize:10,color:G.muted}}>{"40% comissão"}</div>
           </div>
         </div>
       </div>
     );})}
   </div>
+
   {items.length>0&&<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
     <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+mo}</span>
     <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{cur(totalComissao)}</span>
@@ -5038,7 +4957,6 @@ return(
 </div>
 );
 }
-
 function WAAnamneseModal({pat,onClose}){
 const [sent,setSent]=useState(false);
 const send=function(){
@@ -5726,15 +5644,9 @@ const [user,setUser]=useState(null);const [view,setView]=useState("dash");
 const [agendaSelDate,setAgendaSelDate]=useState(today());
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [waTemplates,setWaTemplates]=useState({});
-const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [semTicks,setSemTicks]=useState({});
-// semTicks vem como prop global
 const [anivTicks,setAnivTicks]=useState({});
 const [pacsTicks,setPacsTicks]=useState({});
-
-// semTicks vem como prop global
-
-
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
 const [budgets,setBudgets]=useState(BUDGETS0);
@@ -5743,6 +5655,7 @@ const [labs,setLabs]=useState(LABS0);const [procs,setProcs]=useState(PROCS0);
 const [stock,setStock]=useState(STOCK0);const [impl,setImpl]=useState(IMPL_DATA_SEED);const [implCat,setImplCat]=useState([]);const [implMov,setImplMov]=useState([]);
 const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
+const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [sideOpen,setSideOpen]=useState(false);
 const [saveStatus,setSaveStatus]=useState("idle");
 const saveTimer=useRef(null);
@@ -5774,6 +5687,7 @@ if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);
 if(data.expenses)setExpenses(data.expenses);
+if(data.gastos)setGastos(data.gastos);
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
 if(data.espera?.length)setEspera(data.espera);
@@ -5796,7 +5710,7 @@ saveTimer.current=setTimeout(async()=>{
 if(isSaving.current)return;
 isSaving.current=true;
 try{
-const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
+const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks};
 await supabase.save(payload);
 lastSaved.current=JSON.stringify(payload);
 setSaveStatus("saved");
@@ -5804,7 +5718,7 @@ setTimeout(()=>setSaveStatus("idle"),2500);
 }catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
 finally{isSaving.current=false;saveTimer.current=null;}
 },2000);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks]);
 
 // ── SYNC: polling a cada 30s para sincronizar entre dispositivos ──
 useEffect(()=>{
@@ -5836,6 +5750,7 @@ if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);
       if(data.expenses)setExpenses(data.expenses);
+if(data.gastos)setGastos(data.gastos);
       if(data.logs?.length)setLogs(data.logs);
       if(data.remarcar?.length)setRemarcar(data.remarcar);
       if(data.espera?.length)setEspera(data.espera);
