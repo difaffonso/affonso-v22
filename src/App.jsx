@@ -2604,11 +2604,21 @@ const currentList=expenses[tab]||[];
 useEffect(function(){
   var toAdd=[];
   var curList=expenses[tab]||[];
-  (expenses.fixas||[]).filter(function(fx){return fx.tab===tab;}).forEach(function(fx){
+  (expenses.fixas||[]).filter(function(fx){
+    // Se nao tem tab, inferir pela categoria
+    var fxTab=fx.tab;
+    if(!fxTab){
+      var persCATS=["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario"];
+      fxTab=persCATS.some(function(c){return fx.cat&&fx.cat.indexOf(c)>=0;})?'personal':'clinic';
+    }
+    return fxTab===tab;
+  }).forEach(function(fx){
     var diaNum=Number(fx.diaVenc)||1;
     var dataVenc=mo+"-"+String(diaNum).padStart(2,"0");
+    // Checar em clinic E personal para nao duplicar entre abas
     var jaExiste=curList.some(function(e){return e.fixo&&e.desc===fx.desc&&e.date&&e.date.startsWith(mo);});
-    if(!jaExiste){toAdd.push({id:Date.now()+Math.random(),date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true});}
+    var jaExisteOutraAba=(expenses[tab==="clinic"?"personal":"clinic"]||[]).some(function(e){return e.fixo&&e.desc===fx.desc&&e.date&&e.date.startsWith(mo);});
+    if(!jaExiste&&!jaExisteOutraAba){toAdd.push({id:Date.now()+Math.random(),date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true});}
   });
   if(toAdd.length>0){setExpenses(function(prev){return {...prev,[tab]:[...(prev[tab]||[]),...toAdd]};});}
 },[mo,tab]);
@@ -2697,8 +2707,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
     </div>
     <Bdg l={e.paid?"Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
     <span style={{fontWeight:700,fontSize:13,minWidth:68,textAlign:"right"}}>{cur(Number(e.value||0))}</span>
-    <button onClick={function(){setEdit(e);setF({...e,value:String(e.value||"")});setModal(true);}} style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:7,padding:"5px 8px",cursor:"pointer",fontSize:14,flexShrink:0}}>{"pencil"}</button>
-    <button onClick={function(){remove(e.id);}} style={{background:G.red,border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#fff",fontWeight:700,fontSize:12,flexShrink:0}}>{"X"}</button>
+    <button onClick={function(){setEdit(e);setF({...e,value:String(e.value||"")});setModal(true);}} style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:7,padding:"5px 8px",cursor:"pointer",fontSize:14,flexShrink:0}}>{"✏️"}</button>
+    <button onClick={function(){remove(e.id);}} style={{background:G.red,border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#fff",fontWeight:700,fontSize:12,flexShrink:0}}>{"✕"}</button>
   </div>;
 })}
 </div>
@@ -4986,7 +4996,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex
 <div style={{background:"#075E54",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"📋"}</span>
 <div style={{flex:1}}><div style={{fontWeight:700,color:"#fff",fontSize:14}}>Anamnese por WhatsApp</div><div style={{fontSize:11,color:"rgba(255,255,255,.8)"}}>{pat.name}</div></div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"X"}</button>
+<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"✕"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
 {!sent?<div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -5092,7 +5102,7 @@ return(
 <div style={{background:G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"📋"}</span>
 <div style={{flex:1,color:"#fff"}}><div style={{fontWeight:700,fontSize:14}}>Motivo do Não Agendamento</div><div style={{fontSize:11,opacity:.8}}>{p&&p.name}</div></div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
+<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"✕"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
 <div style={{fontSize:12,color:G.muted}}>{(appt.status==="missed"?"Faltou":"Cancelou")+" em "+fmt(appt.date)+" · "+appt.procedure}</div>
@@ -5227,7 +5237,7 @@ return(
 <div style={{background:"#7B1FA2",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"⏳"}</span>
 <div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>Nova Lista de Espera</div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
+<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"✕"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12,maxHeight:"75vh",overflowY:"auto"}}>
 <div>
@@ -5395,7 +5405,7 @@ return(
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:400}}>
 <div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>{editCat?"Editar Item":"Novo Item"}</div>
-<button onClick={function(){setShowCat(false);setEditCat(null);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
+<button onClick={function(){setShowCat(false);setEditCat(null);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"✕"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
 <div>
@@ -5416,7 +5426,7 @@ return(
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,maxHeight:"90vh",overflowY:"auto"}}>
 <div style={{background:movF.tipo==="entrada"?"#27AE60":G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>{movF.tipo==="entrada"?"Registrar Entrada":"Registrar Saida (Uso)"}</div>
-<button onClick={function(){setShowMov(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
+<button onClick={function(){setShowMov(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"✕"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
 <div style={{display:"flex",gap:6}}>
