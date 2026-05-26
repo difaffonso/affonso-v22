@@ -5712,7 +5712,38 @@ if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);
-if(data.expenses)setExpenses(data.expenses);
+if(data.expenses){
+  // Corrigir fixas sem tab: inferir pelo conteudo das listas
+  var exp=data.expenses;
+  if(exp.fixas&&exp.fixas.length>0){
+    var clinicDescs=new Set((exp.clinic||[]).map(function(e){return e.desc;}));
+    var personalDescs=new Set((exp.personal||[]).map(function(e){return e.desc;}));
+    exp={...exp,fixas:exp.fixas.map(function(fx){
+      if(fx.tab)return fx;
+      // Inferir tab pela lista onde aparece
+      if(clinicDescs.has(fx.desc)&&!personalDescs.has(fx.desc))return {...fx,tab:'clinic'};
+      if(personalDescs.has(fx.desc)&&!clinicDescs.has(fx.desc))return {...fx,tab:'personal'};
+      // Se em ambas ou nenhuma, usar categoria
+      var persCATS=['Moradia','Alimentacao','Transporte','Saude','Lazer','Educacao','Vestuario','Iphone','iPhone','Escola','Seguro','IPTU','FGTS','ARRECADACAO'];
+      var isPersoal=persCATS.some(function(c){return fx.desc&&fx.desc.toLowerCase().indexOf(c.toLowerCase())>=0;});
+      return {...fx,tab:isPersoal?'personal':'clinic'};
+    })};
+    // Remover itens da lista errada baseado no tab das fixas
+    exp={...exp,
+      clinic:(exp.clinic||[]).filter(function(e){
+        if(!e.fixo)return true;
+        var fx=exp.fixas.find(function(f){return f.desc===e.desc;});
+        return !fx||fx.tab==='clinic';
+      }),
+      personal:(exp.personal||[]).filter(function(e){
+        if(!e.fixo)return true;
+        var fx=exp.fixas.find(function(f){return f.desc===e.desc;});
+        return !fx||fx.tab==='personal';
+      })
+    };
+  }
+  setExpenses(exp);
+}
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
 if(data.espera?.length)setEspera(data.espera);
@@ -5774,7 +5805,38 @@ if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);
-      if(data.expenses)setExpenses(data.expenses);
+      if(data.expenses){
+  // Corrigir fixas sem tab: inferir pelo conteudo das listas
+  var exp=data.expenses;
+  if(exp.fixas&&exp.fixas.length>0){
+    var clinicDescs=new Set((exp.clinic||[]).map(function(e){return e.desc;}));
+    var personalDescs=new Set((exp.personal||[]).map(function(e){return e.desc;}));
+    exp={...exp,fixas:exp.fixas.map(function(fx){
+      if(fx.tab)return fx;
+      // Inferir tab pela lista onde aparece
+      if(clinicDescs.has(fx.desc)&&!personalDescs.has(fx.desc))return {...fx,tab:'clinic'};
+      if(personalDescs.has(fx.desc)&&!clinicDescs.has(fx.desc))return {...fx,tab:'personal'};
+      // Se em ambas ou nenhuma, usar categoria
+      var persCATS=['Moradia','Alimentacao','Transporte','Saude','Lazer','Educacao','Vestuario','Iphone','iPhone','Escola','Seguro','IPTU','FGTS','ARRECADACAO'];
+      var isPersoal=persCATS.some(function(c){return fx.desc&&fx.desc.toLowerCase().indexOf(c.toLowerCase())>=0;});
+      return {...fx,tab:isPersoal?'personal':'clinic'};
+    })};
+    // Remover itens da lista errada baseado no tab das fixas
+    exp={...exp,
+      clinic:(exp.clinic||[]).filter(function(e){
+        if(!e.fixo)return true;
+        var fx=exp.fixas.find(function(f){return f.desc===e.desc;});
+        return !fx||fx.tab==='clinic';
+      }),
+      personal:(exp.personal||[]).filter(function(e){
+        if(!e.fixo)return true;
+        var fx=exp.fixas.find(function(f){return f.desc===e.desc;});
+        return !fx||fx.tab==='personal';
+      })
+    };
+  }
+  setExpenses(exp);
+}
       if(data.logs?.length)setLogs(data.logs);
       if(data.remarcar?.length)setRemarcar(data.remarcar);
       if(data.espera?.length)setEspera(data.espera);
