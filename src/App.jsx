@@ -604,6 +604,7 @@ if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);
+if(data.gastos)setGastos(data.gastos);
 if(data.expenses){
   var expData=data.expenses;
   setExpenses({
@@ -632,7 +633,7 @@ saveTimer.current=setTimeout(async()=>{
 if(isSaving.current)return;
 isSaving.current=true;
 try{
-const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks};
+const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
 await supabase.save(payload);
 lastSaved.current=JSON.stringify(payload);
 setSaveStatus("saved");
@@ -640,7 +641,7 @@ setTimeout(()=>setSaveStatus("idle"),2500);
 }catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
 finally{isSaving.current=false;saveTimer.current=null;}
 },2000);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos]);
 
 
 return <>
@@ -2655,25 +2656,49 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 // ══════════════════════════════════════════════════════════
 // DESPESAS - clinic + personal
 // ══════════════════════════════════════════════════════════
-function Despesas({expenses,setExpenses,user}){
-const [tab,setTab]=useState("clinic");
+function Gastos({gastos,setGastos,user}){
+const [tab,setTab]=useState("clinica");
 const [modal,setModal]=useState(false);
 const [edit,setEdit]=useState(null);
 const [mo,setMo]=useState(today().slice(0,7));
-const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false};
+const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false,recorrente:false,diaVenc:""};
 const [f,setF]=useState(blank);
 
 if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center"}}><p style={{color:G.red}}>{"Acesso restrito ao Administrador"}</p></div>;
 
-var list=(expenses[tab]||[]).filter(function(e){return e.date&&e.date.startsWith(mo);});
-list=list.slice().sort(function(a,b){return (a.date||"").localeCompare(b.date||"");});
-var total=list.reduce(function(s,e){return s+Number(e.value||0);},0);
-var pago=list.filter(function(e){return e.paid;}).reduce(function(s,e){return s+Number(e.value||0);},0);
+// Lista do mes atual na aba atual
+var baseList=gastos[tab]||[];
+var moList=baseList.filter(function(e){
+  if(e.recorrente&&e.diaVenc){
+    // Recorrente: aparece todo mes
+    return true;
+  }
+  return e.date&&e.date.startsWith(mo);
+}).sort(function(a,b){
+  var da=a.recorrente?Number(a.diaVenc||0):Number((a.date||"").slice(8));
+  var db=b.recorrente?Number(b.diaVenc||0):Number((b.date||"").slice(8));
+  return da-db;
+});
+
+var total=moList.reduce(function(s,e){return s+Number(e.value||0);},0);
+var pago=moList.filter(function(e){
+  if(e.recorrente){
+    // Verificar se foi marcado pago neste mes
+    var pagoMeses=e.pagoMeses||{};
+    return !!pagoMeses[mo];
+  }
+  return e.paid;
+}).reduce(function(s,e){return s+Number(e.value||0);},0);
+
+var CATS_CLINICA=["Aluguel","Agua","Luz","Internet","Telefone","Salarios","Material","Equipamento","Manutencao","Contabilidade","Outros"];
+var CATS_PESSOAL=["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario","Outros"];
+var CATS=tab==="clinica"?CATS_CLINICA:CATS_PESSOAL;
 
 var save=function(){
-  if(!f.desc||!f.value)return alert("Preencha descricao e valor");
-  var obj={...f,value:Number(f.value),id:edit?edit.id:Date.now()};
-  setExpenses(function(prev){
+  if(!f.desc)return alert("Informe a descricao");
+  if(!f.recorrente&&!f.value)return alert("Informe o valor");
+  var obj={...f,value:Number(f.value||0),id:edit?edit.id:Date.now()};
+  setGastos(function(prev){
     var lista=prev[tab]||[];
     return {...prev,[tab]:edit?lista.map(function(e){return e.id===obj.id?obj:e;}):[...lista,obj]};
   });
@@ -2681,75 +2706,126 @@ var save=function(){
 };
 
 var remove=function(id){
-  setExpenses(function(prev){
+  setGastos(function(prev){
     return {...prev,[tab]:(prev[tab]||[]).filter(function(e){return e.id!==id;})};
   });
 };
 
-var togglePaid=function(id){
-  setExpenses(function(prev){
-    return {...prev,[tab]:(prev[tab]||[]).map(function(e){return e.id===id?{...e,paid:!e.paid}:e;})};
-  });
+var togglePago=function(e){
+  if(e.recorrente){
+    // Toggle pago para este mes
+    setGastos(function(prev){
+      return {...prev,[tab]:(prev[tab]||[]).map(function(x){
+        if(x.id!==e.id)return x;
+        var pm={...(x.pagoMeses||{})};
+        pm[mo]=!pm[mo];
+        return {...x,pagoMeses:pm};
+      })};
+    });
+  } else {
+    setGastos(function(prev){
+      return {...prev,[tab]:(prev[tab]||[]).map(function(x){return x.id===e.id?{...x,paid:!x.paid}:x;})};
+    });
+  }
 };
 
-var CATS=tab==="clinic"
-  ?["Aluguel","Agua","Luz","Internet","Telefone","Salarios","Material","Equipamento","Manutencao","Contabilidade","Outros"]
-  :["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario","Outros"];
+var isPago=function(e){
+  if(e.recorrente){return !!(e.pagoMeses&&e.pagoMeses[mo]);}
+  return !!e.paid;
+};
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
+{/* Header */}
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-  <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Despesas</h2>
+  <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Gastos</h2>
   <div style={{display:"flex",gap:8}}>
-    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:14,outline:"none"}}/>
-    <Btn ch="+ Nova" onClick={function(){setEdit(null);setF({...blank,cat:CATS[0]});setModal(true);}}/>
+    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}}
+      style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:14,outline:"none"}}/>
+    <Btn ch="+ Novo" onClick={function(){setEdit(null);setF({...blank,cat:CATS[0]});setModal(true);}}/>
   </div>
 </div>
+
+{/* Abas */}
 <div style={{display:"flex",borderBottom:"2px solid "+G.border}}>
-  {[["clinic","Clinica"],["personal","Pessoal"]].map(function([k,l]){return(
-    <button key={k} onClick={function(){setTab(k);}} style={{border:"none",background:"none",padding:"9px 20px",fontWeight:700,fontSize:13,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,fontFamily:"'DM Sans'"}}>{l}</button>
+  {[["clinica","🏥 Clinica"],["pessoal","🏠 Pessoal"]].map(function([k,l]){return(
+    <button key={k} onClick={function(){setTab(k);}}
+      style={{border:"none",background:"none",padding:"9px 20px",fontWeight:700,fontSize:13,cursor:"pointer",
+              color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),
+              marginBottom:-2,fontFamily:"'DM Sans'"}}>{l}</button>
   );})}
 </div>
+
+{/* Resumo */}
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
   {[["Total",total,G.primary],["Pago",pago,G.success],["Pendente",total-pago,G.red]].map(function([l,v,c]){return(
-    <div key={l} style={{background:G.card,borderRadius:10,padding:"12px",textAlign:"center",borderTop:"3px solid "+c}}>
-      <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div>
+    <div key={l} style={{background:G.card,borderRadius:10,padding:"12px",textAlign:"center",borderTop:"3px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+      <div style={{fontSize:10,color:G.muted,fontWeight:700,textTransform:"uppercase"}}>{l}</div>
       <div style={{fontSize:18,fontWeight:700,color:c,marginTop:4}}>{cur(v)}</div>
     </div>
   );})}
 </div>
+
+{/* Lista */}
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-  {list.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted}}>{"Nenhuma despesa"}</div>}
-  {list.map(function(e){return(
-    <div key={e.id} style={{background:G.card,borderRadius:11,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-      <input type="checkbox" checked={!!e.paid} onChange={function(){togglePaid(e.id);}} style={{width:18,height:18,accentColor:G.primary,cursor:"pointer",flexShrink:0}}/>
+  {moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>{"Nenhum gasto em "+mo}</div>}
+  {moList.map(function(e){
+    var pago2=isPago(e);
+    return <div key={e.id} style={{background:G.card,borderRadius:11,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 1px 4px rgba(0,0,0,.07)",opacity:pago2?.75:1}}>
+      <input type="checkbox" checked={pago2} onChange={function(){togglePago(e);}}
+        style={{width:18,height:18,accentColor:G.primary,cursor:"pointer",flexShrink:0}}/>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontWeight:700,fontSize:13,textDecoration:e.paid?"line-through":"none",color:e.paid?G.muted:G.text}}>{e.desc}</div>
-        <div style={{fontSize:11,color:G.muted,marginTop:2}}>{e.cat+" · "+fmt(e.date)}</div>
+        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+          <span style={{fontWeight:700,fontSize:13,textDecoration:pago2?"line-through":"none",color:pago2?G.muted:G.text}}>{e.desc}</span>
+          {e.recorrente&&<span style={{background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:700}}>{"Recorrente"}</span>}
+        </div>
+        <div style={{fontSize:11,color:G.muted,marginTop:2}}>
+          {e.cat}
+          {e.recorrente&&e.diaVenc?" · Vence dia "+e.diaVenc:e.date?" · "+fmt(e.date):""}
+          {e.recorrente&&!e.value&&<span style={{color:"#FF9800",fontWeight:600}}>{" · Preencher valor"}</span>}
+        </div>
       </div>
-      <span style={{fontWeight:700,fontSize:14,minWidth:80,textAlign:"right"}}>{cur(Number(e.value||0))}</span>
-      <Bdg l={e.paid?"Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
-      <button onClick={function(){setEdit(e);setF({...e,value:String(e.value)});setModal(true);}} style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:14,flexShrink:0}}>{"edit"}</button>
-      <button onClick={function(){remove(e.id);}} style={{background:G.red,border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>{"X"}</button>
-    </div>
-  );})}
+      <span style={{fontWeight:700,fontSize:14,minWidth:80,textAlign:"right",color:pago2?G.success:G.text}}>{cur(Number(e.value||0))}</span>
+      <Bdg l={pago2?"Pago":"Pendente"} col={pago2?G.success:G.red} sm/>
+      <button onClick={function(){setEdit(e);setF({...e,value:String(e.value||"")});setModal(true);}}
+        style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:14,flexShrink:0}}>{"✏️"}</button>
+      <button onClick={function(){remove(e.id);}}
+        style={{background:G.red,border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>{"✕"}</button>
+    </div>;
+  })}
 </div>
+
+{/* Modal */}
 {modal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-  <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.2)"}}>
+  <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.2)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
-      <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{edit?"Editar":"Nova Despesa"}</span>
-      <button onClick={function(){setModal(false);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer"}}>{"x"}</button>
+      <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{edit?"Editar Gasto":"Novo Gasto"}</span>
+      <button onClick={function(){setModal(false);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>{"x"}</button>
     </div>
     <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-      <Inp lb="Descricao" val={f.desc} set={function(v){setF(function(p){return {...p,desc:v};});}} ph="Ex: Aluguel"/>
+      <Inp lb="Descricao *" val={f.desc} set={function(v){setF(function(p){return {...p,desc:v};});}} ph="Ex: Aluguel consultorio"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
         <Sel lb="Categoria" val={f.cat} set={function(v){setF(function(p){return {...p,cat:v};});}} opts={CATS}/>
         <Inp lb="Valor (R$)" val={String(f.value||"")} set={function(v){setF(function(p){return {...p,value:v};});}} type="number" ph="0,00"/>
       </div>
-      <Inp lb="Data" val={f.date} set={function(v){setF(function(p){return {...p,date:v};});}} type="date"/>
-      <label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",fontSize:13}}>
-        <input type="checkbox" checked={!!f.paid} onChange={function(e){setF(function(p){return {...p,paid:e.target.checked};});}} style={{width:15,height:15,accentColor:G.primary}}/>
-        {"Ja pago"}
+      {/* Recorrente toggle */}
+      <label style={{display:"flex",alignItems:"center",gap:10,background:f.recorrente?G.accent:G.bg,borderRadius:8,padding:"11px 12px",cursor:"pointer",border:"1.5px solid "+(f.recorrente?G.primary:G.border)}}>
+        <input type="checkbox" checked={!!f.recorrente} onChange={function(ev){setF(function(p){return {...p,recorrente:ev.target.checked};});}}
+          style={{width:16,height:16,accentColor:G.primary}}/>
+        <div>
+          <div style={{fontWeight:700,fontSize:13}}>{"Gasto Recorrente"}</div>
+          <div style={{fontSize:11,color:G.muted}}>{"Aparece todo mes automaticamente"}</div>
+        </div>
       </label>
+      {f.recorrente
+        ?<Inp lb="Dia de vencimento (1-31)" val={String(f.diaVenc||"")} set={function(v){setF(function(p){return {...p,diaVenc:v};});}} type="number" ph="Ex: 10"/>
+        :<Inp lb="Data" val={f.date} set={function(v){setF(function(p){return {...p,date:v};});}} type="date"/>
+      }
+      {!f.recorrente&&<label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",fontSize:13}}>
+        <input type="checkbox" checked={!!f.paid} onChange={function(ev){setF(function(p){return {...p,paid:ev.target.checked};});}}
+          style={{width:15,height:15,accentColor:G.primary}}/>
+        {"Ja pago"}
+      </label>}
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid "+G.border}}>
         <button onClick={function(){setModal(false);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={save} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Salvar</button>
@@ -2757,6 +2833,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
     </div>
   </div>
 </div>}
+
 </div>;
 }
 
@@ -5649,6 +5726,7 @@ const [user,setUser]=useState(null);const [view,setView]=useState("dash");
 const [agendaSelDate,setAgendaSelDate]=useState(today());
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [waTemplates,setWaTemplates]=useState({});
+const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [semTicks,setSemTicks]=useState({});
 // semTicks vem como prop global
 const [anivTicks,setAnivTicks]=useState({});
@@ -5718,7 +5796,7 @@ saveTimer.current=setTimeout(async()=>{
 if(isSaving.current)return;
 isSaving.current=true;
 try{
-const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks};
+const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
 await supabase.save(payload);
 lastSaved.current=JSON.stringify(payload);
 setSaveStatus("saved");
@@ -5726,7 +5804,7 @@ setTimeout(()=>setSaveStatus("idle"),2500);
 }catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
 finally{isSaving.current=false;saveTimer.current=null;}
 },2000);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos]);
 
 // ── SYNC: polling a cada 30s para sincronizar entre dispositivos ──
 useEffect(()=>{
@@ -5816,7 +5894,7 @@ const ALL_NAV=[
 {id:"pacs",l:"👥 Pacientes",lv:1},{id:"remarcar",l:"🔄 Remarcar",lv:2},{id:"pros",l:"🏥 Próteses",lv:2,b:prosBadge},
 {id:"impl",l:"🔩 Implantes",lv:2},{id:"lems",l:"📌 Lembretes",lv:1,b:remBadge},
 {id:"fin",l:"💰 Financeiro",lv:3},{id:"pixdent",l:"💸 Pix Dentistas",lv:1},{id:"rel",l:"📊 Relatórios",lv:2},
-{id:"desp",l:"💸 Despesas",lv:3},{id:"stk",l:"📦 Estoque",lv:2},
+{id:"desp",l:"💸 Gastos",lv:3},{id:"stk",l:"📦 Estoque",lv:2},
 {id:"rec",l:"📋 Receituário",lv:1},{id:"pdent",l:"💰 Recebimentos",lv:1},{id:"adm",l:"⚙️ Administrativo",lv:3},
 ];
 const NAV=ALL_NAV.filter(n=>n.lv<=user.level);
@@ -5888,7 +5966,7 @@ return <>
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
-      {view==="desp"&&<Despesas expenses={expenses} setExpenses={setExpenses} user={user}/>}
+      {view==="desp"&&<Gastos gastos={gastos} setGastos={setGastos} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
