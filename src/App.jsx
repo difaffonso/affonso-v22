@@ -576,6 +576,73 @@ setAddProcModal(null);
 const BSTATUS={pending:"Em espera",approved:"Aprovado",rejected:"Recusado"};
 const BCOLOR={pending:G.yellow,approved:G.success,rejected:G.red};
 
+const saveTimer=useRef(null);
+const isSaving=useRef(false);
+const lastSaved=useRef("");
+const initialized=useRef(false);
+const [saveStatus,setSaveStatus]=useState("idle");
+
+useEffect(()=>{
+supabase.load().then(data=>{
+if(data){
+try{
+if(data.pats?.length)setPats(data.pats);
+if(data.appts?.length)setAppts(data.appts);
+if(data.recs?.length)setRecs(data.recs);
+if(data.treats?.length)setTreats(data.treats);
+if(data.pros?.length)setPros(data.pros);
+if(data.rems?.length)setRems(data.rems);
+if(data.budgets?.length)setBudgets(data.budgets);
+if(data.users?.length)setUsers(data.users);
+if(data.dents?.length)setDents(data.dents);
+if(data.perms)setPerms(data.perms);
+if(data.labs?.length)setLabs(data.labs);
+if(data.procs?.length)setProcs(data.procs);
+if(data.stock?.length)setStock(data.stock);
+if(data.impl?.length&&data.impl.length>10)setImpl(data.impl);else setImpl(IMPL_DATA_SEED);
+if(data.semTicks)setSemTicks(data.semTicks);
+if(data.anivTicks)setAnivTicks(data.anivTicks);
+if(data.waTemplates)setWaTemplates(data.waTemplates);
+if(data.pacsTicks)setPacsTicks(data.pacsTicks);
+if(data.expenses){
+  var expData=data.expenses;
+  setExpenses({
+    clinic:(expData.clinic||[]).filter(function(e){return e.date&&e.value!==undefined;}),
+    personal:(expData.personal||[]).filter(function(e){return e.date&&e.value!==undefined;})
+  });
+}
+if(data.logs?.length)setLogs(data.logs);
+if(data.remarcar?.length)setRemarcar(data.remarcar);
+if(data.espera?.length)setEspera(data.espera);
+if(data.prosProcs?.length)setProsProcs(data.prosProcs);
+if(data.implCat?.length)setImplCat(data.implCat);
+if(data.implMov?.length)setImplMov(data.implMov);
+lastSaved.current=JSON.stringify(data);
+}catch(err){}
+}
+setTimeout(()=>{initialized.current=true;},1000);
+});
+},[]);
+
+useEffect(()=>{
+if(!initialized.current)return;
+if(saveTimer.current)clearTimeout(saveTimer.current);
+setSaveStatus("saving");
+saveTimer.current=setTimeout(async()=>{
+if(isSaving.current)return;
+isSaving.current=true;
+try{
+const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks};
+await supabase.save(payload);
+lastSaved.current=JSON.stringify(payload);
+setSaveStatus("saved");
+setTimeout(()=>setSaveStatus("idle"),2500);
+}catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
+finally{isSaving.current=false;saveTimer.current=null;}
+},2000);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks]);
+
+
 return <>
 
 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:10}}>
@@ -1478,6 +1545,7 @@ function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRec
 
 const [selDate,setSelDate]=useState(today());
 const [openFolder,setOpenFolder]=useState(null);
+
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(new Date().getFullYear());
 const [calM,setCalM]=useState(new Date().getMonth());
@@ -1869,6 +1937,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 );
 })()}
 
+{openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs||[]} setRecs={setRecs||(()=>{})} treats={treats||[]} setTreats={setTreats||(()=>{})} budgets={budgets||[]} setBudgets={setBudgets||(()=>{})} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Agendamento":"Novo Agendamento"} wide ch={
 
 <div style={{display:"flex",flexDirection:"column",gap:11}}>
@@ -1975,7 +2044,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 // ══════════════════════════════════════════════════════════
 function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog}){
 const [srch,setSrch]=useState("");
-const [openFolder,setOpenFolder]=useState(null);
+
 const [pm,setPm]=useState(false);const [ep,setEp]=useState(null);
 const b0={name:"",dob:"",phone:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insurance:"",notes:"",folder:"",since:today(),rx:"",nf:"",obs:"",origem:"",genero:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}};
 const [pf,setPf]=useState(b0);const fp=k=>v=>setPf(p=>({...p,[k]:v}));
@@ -2591,154 +2660,99 @@ const [tab,setTab]=useState("clinic");
 const [modal,setModal]=useState(false);
 const [edit,setEdit]=useState(null);
 const [mo,setMo]=useState(today().slice(0,7));
-const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false,fixo:false,diaVenc:""};
+const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false};
 const [f,setF]=useState(blank);
-const upd=k=>v=>setF(p=>({...p,[k]:v}));
-const CLINIC_CATS=["Aluguel","Agua","Luz","Internet","Telefone","Salarios","Material","Equipamento","Manutencao","Contabilidade","Outros"];
-const PERS_CATS=["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario","Outros"];
 
-if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center"}}><p style={{color:G.red,fontSize:15}}>{"Acesso restrito ao Administrador"}</p></div>;
+if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center"}}><p style={{color:G.red}}>{"Acesso restrito ao Administrador"}</p></div>;
 
-const currentList=expenses[tab]||[];
+var list=(expenses[tab]||[]).filter(function(e){return e.date&&e.date.startsWith(mo);});
+list=list.slice().sort(function(a,b){return (a.date||"").localeCompare(b.date||"");});
+var total=list.reduce(function(s,e){return s+Number(e.value||0);},0);
+var pago=list.filter(function(e){return e.paid;}).reduce(function(s,e){return s+Number(e.value||0);},0);
 
-useEffect(function(){
-  var toAdd=[];
-  var curList=expenses[tab]||[];
-  (expenses.fixas||[]).filter(function(fx){
-    // Se nao tem tab, inferir pela categoria
-    var fxTab=fx.tab;
-    if(!fxTab){
-      var persCATS=["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario"];
-      fxTab=persCATS.some(function(c){return fx.cat&&fx.cat.indexOf(c)>=0;})?'personal':'clinic';
-    }
-    return fxTab===tab;
-  }).forEach(function(fx){
-    var diaNum=Number(fx.diaVenc)||1;
-    var dataVenc=mo+"-"+String(diaNum).padStart(2,"0");
-    // Checar em clinic E personal para nao duplicar entre abas
-    var jaExiste=curList.some(function(e){return e.fixo&&e.desc===fx.desc&&e.date&&e.date.startsWith(mo);});
-    var jaExisteOutraAba=(expenses[tab==="clinic"?"personal":"clinic"]||[]).some(function(e){return e.fixo&&e.desc===fx.desc&&e.date&&e.date.startsWith(mo);});
-    if(!jaExiste&&!jaExisteOutraAba){toAdd.push({id:Date.now()+Math.random(),date:dataVenc,cat:fx.cat,desc:fx.desc,value:0,paid:false,fixo:true,diaVenc:fx.diaVenc,autoGerada:true});}
-  });
-  if(toAdd.length>0){setExpenses(function(prev){return {...prev,[tab]:[...(prev[tab]||[]),...toAdd]};});}
-},[mo,tab]);
-
-const moList=currentList.filter(function(e){return e.date&&e.date.startsWith(mo);});
-const total=moList.filter(function(e){return Number(e.value||0)>0;}).reduce(function(s,e){return s+Number(e.value||0);},0);
-const paid=moList.filter(function(e){return e.paid&&Number(e.value||0)>0;}).reduce(function(s,e){return s+Number(e.value||0);},0);
-
-const save=function(){
-  if(!f.desc)return alert("Preencha a descricao");
-  if(!f.fixo&&!f.value)return alert("Preencha o valor");
-  if(!edit&&f.value&&!f.fixo){
-    var moAtual=f.date?f.date.slice(0,7):"";
-    var dup=currentList.find(function(e){return e.desc.toLowerCase()===f.desc.toLowerCase()&&e.date&&e.date.slice(0,7)===moAtual&&Number(e.value)===Number(f.value);});
-    if(dup){alert("Duplicata! Ja existe: "+dup.desc+" neste mes.");return;}
-  }
-  var obj={...f,value:f.fixo&&!f.value?0:Number(f.value),id:edit?edit.id:nid(currentList)};
+var save=function(){
+  if(!f.desc||!f.value)return alert("Preencha descricao e valor");
+  var obj={...f,value:Number(f.value),id:edit?edit.id:Date.now()};
   setExpenses(function(prev){
-    var newTab=edit?prev[tab].map(function(e){return e.id===edit.id?obj:e;}):[...(prev[tab]||[]),obj];
-    var newFixas=prev.fixas||[];
-    if(obj.fixo){
-      var fx={id:obj.id,desc:obj.desc,cat:obj.cat,diaVenc:obj.diaVenc||"",tab:tab};
-      newFixas=newFixas.find(function(x){return x.id===obj.id;})?newFixas.map(function(x){return x.id===obj.id?fx:x;}):[...newFixas,fx];
-    } else if(edit&&edit.fixo){newFixas=newFixas.filter(function(x){return x.id!==obj.id;});}
-    return {...prev,[tab]:newTab,fixas:newFixas};
+    var lista=prev[tab]||[];
+    return {...prev,[tab]:edit?lista.map(function(e){return e.id===obj.id?obj:e;}):[...lista,obj]};
   });
   setModal(false);setEdit(null);setF(blank);
 };
 
-const remove=function(id){
+var remove=function(id){
   setExpenses(function(prev){
-    var item=(prev[tab]||[]).find(function(e){return e.id===id;});
-    var newTab=(prev[tab]||[]).filter(function(e){return e.id!==id;});
-    var newFixas=(prev.fixas||[]).filter(function(fx){return !(item&&item.fixo&&fx.desc===item.desc&&fx.tab===tab);});
-    return {...prev,[tab]:newTab,fixas:newFixas};
+    return {...prev,[tab]:(prev[tab]||[]).filter(function(e){return e.id!==id;})};
   });
 };
 
-const togglePaid=function(id){
+var togglePaid=function(id){
   setExpenses(function(prev){
     return {...prev,[tab]:(prev[tab]||[]).map(function(e){return e.id===id?{...e,paid:!e.paid}:e;})};
   });
 };
 
+var CATS=tab==="clinic"
+  ?["Aluguel","Agua","Luz","Internet","Telefone","Salarios","Material","Equipamento","Manutencao","Contabilidade","Outros"]
+  :["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario","Outros"];
+
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Despesas</h2>
-<div style={{display:"flex",gap:8}}>
-  <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:14,outline:"none",width:165}}/>
-  <Btn ch="+ Nova Despesa" onClick={function(){setEdit(null);setF({...blank,cat:tab==="clinic"?"Aluguel":"Moradia"});setModal(true);}}/>
-</div>
-</div>
-<div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border}}>
-{[["clinic","Clinica"],["personal","Pessoal"]].map(function([k,l]){return(
-  <button key={k} onClick={function(){setTab(k);}} style={{border:"none",background:"none",padding:"9px 18px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2}}>{l}</button>
-);})}
-</div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
-{[["Total",cur(total),G.primary],["Pago",cur(paid),G.success],["Pendente",cur(total-paid),G.red]].map(function([l,v,c]){return(
-  <div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-    <div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div>
-    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div>
+  <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Despesas</h2>
+  <div style={{display:"flex",gap:8}}>
+    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:14,outline:"none"}}/>
+    <Btn ch="+ Nova" onClick={function(){setEdit(null);setF({...blank,cat:CATS[0]});setModal(true);}}/>
   </div>
-);})}
+</div>
+<div style={{display:"flex",borderBottom:"2px solid "+G.border}}>
+  {[["clinic","Clinica"],["personal","Pessoal"]].map(function([k,l]){return(
+    <button key={k} onClick={function(){setTab(k);}} style={{border:"none",background:"none",padding:"9px 20px",fontWeight:700,fontSize:13,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,fontFamily:"'DM Sans'"}}>{l}</button>
+  );})}
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+  {[["Total",total,G.primary],["Pago",pago,G.success],["Pendente",total-pago,G.red]].map(function([l,v,c]){return(
+    <div key={l} style={{background:G.card,borderRadius:10,padding:"12px",textAlign:"center",borderTop:"3px solid "+c}}>
+      <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div>
+      <div style={{fontSize:18,fontWeight:700,color:c,marginTop:4}}>{cur(v)}</div>
+    </div>
+  );})}
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-{moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>{"Nenhuma despesa neste mes"}</div>}
-{moList.sort(function(a,b){
-  var da=a.fixo&&a.diaVenc?Number(a.diaVenc):Number((a.date||"").slice(8));
-  var db=b.fixo&&b.diaVenc?Number(b.diaVenc):Number((b.date||"").slice(8));
-  return da-db;
-}).map(function(e){
-  var isDup=moList.filter(function(x){return x.id!==e.id&&x.desc.toLowerCase()===e.desc.toLowerCase()&&Number(x.value)===Number(e.value);}).length>0;
-  return <div key={e.id} style={{background:G.card,borderRadius:11,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",alignItems:"center",gap:10,border:isDup?"2px solid #FF9800":"none"}}>
-    <input type="checkbox" checked={!!e.paid} onChange={function(){togglePaid(e.id);}} style={{accentColor:G.primary,width:17,height:17,flexShrink:0,cursor:"pointer"}}/>
-    <div style={{flex:1,minWidth:0}}>
-      <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
-        <span style={{fontWeight:700,fontSize:13,textDecoration:e.paid?"line-through":"none",color:e.paid?G.muted:G.text}}>{e.desc}</span>
-        {e.fixo&&<span style={{background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 5px",fontSize:9,fontWeight:700}}>{"Fixa"}</span>}
-        {isDup&&<span style={{background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 5px",fontSize:9,fontWeight:700}}>{"DUPLICATA"}</span>}
+  {list.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted}}>{"Nenhuma despesa"}</div>}
+  {list.map(function(e){return(
+    <div key={e.id} style={{background:G.card,borderRadius:11,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+      <input type="checkbox" checked={!!e.paid} onChange={function(){togglePaid(e.id);}} style={{width:18,height:18,accentColor:G.primary,cursor:"pointer",flexShrink:0}}/>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:700,fontSize:13,textDecoration:e.paid?"line-through":"none",color:e.paid?G.muted:G.text}}>{e.desc}</div>
+        <div style={{fontSize:11,color:G.muted,marginTop:2}}>{e.cat+" · "+fmt(e.date)}</div>
       </div>
-      <div style={{fontSize:11,color:G.muted,marginTop:2}}>
-        {e.cat}{e.fixo&&e.diaVenc?" · Vence dia "+e.diaVenc:e.date?" · "+fmt(e.date):""}
-        {e.fixo&&!Number(e.value)&&<span style={{color:"#FF9800",fontWeight:600}}>{" · Preencher valor"}</span>}
-      </div>
+      <span style={{fontWeight:700,fontSize:14,minWidth:80,textAlign:"right"}}>{cur(Number(e.value||0))}</span>
+      <Bdg l={e.paid?"Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
+      <button onClick={function(){setEdit(e);setF({...e,value:String(e.value)});setModal(true);}} style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:7,padding:"5px 9px",cursor:"pointer",fontSize:14,flexShrink:0}}>{"edit"}</button>
+      <button onClick={function(){remove(e.id);}} style={{background:G.red,border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>{"X"}</button>
     </div>
-    <Bdg l={e.paid?"Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
-    <span style={{fontWeight:700,fontSize:13,minWidth:68,textAlign:"right"}}>{cur(Number(e.value||0))}</span>
-    <button onClick={function(){setEdit(e);setF({...e,value:String(e.value||"")});setModal(true);}} style={{background:"none",border:"1.5px solid "+G.primary,borderRadius:7,padding:"5px 8px",cursor:"pointer",fontSize:14,flexShrink:0}}>{"✏️"}</button>
-    <button onClick={function(){remove(e.id);}} style={{background:G.red,border:"none",borderRadius:7,padding:"5px 10px",cursor:"pointer",color:"#fff",fontWeight:700,fontSize:12,flexShrink:0}}>{"✕"}</button>
-  </div>;
-})}
+  );})}
 </div>
-{modal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-  <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:480,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+{modal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.2)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
-      <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{edit?"Editar Despesa":"Nova Despesa"}</span>
-      <button onClick={function(){setModal(false);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>{"x"}</button>
+      <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{edit?"Editar":"Nova Despesa"}</span>
+      <button onClick={function(){setModal(false);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer"}}>{"x"}</button>
     </div>
     <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-      <Inp lb="Descricao *" val={f.desc} set={upd("desc")} ph="Ex: Aluguel consultorio"/>
+      <Inp lb="Descricao" val={f.desc} set={function(v){setF(function(p){return {...p,desc:v};});}} ph="Ex: Aluguel"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-        <Sel lb="Categoria" val={f.cat} set={upd("cat")} opts={tab==="clinic"?CLINIC_CATS:PERS_CATS}/>
-        <Inp lb="Valor (R$)" val={String(f.value||"")} set={upd("value")} type="number" ph="0,00"/>
+        <Sel lb="Categoria" val={f.cat} set={function(v){setF(function(p){return {...p,cat:v};});}} opts={CATS}/>
+        <Inp lb="Valor (R$)" val={String(f.value||"")} set={function(v){setF(function(p){return {...p,value:v};});}} type="number" ph="0,00"/>
       </div>
-      <label style={{display:"flex",alignItems:"center",gap:9,background:G.bg,borderRadius:8,padding:"10px 12px",cursor:"pointer"}}>
-        <input type="checkbox" checked={!!f.fixo} onChange={function(e){setF(function(p){return {...p,fixo:e.target.checked};});}} style={{accentColor:G.primary,width:15,height:15}}/>
-        <span style={{fontSize:13,fontWeight:600}}>{"Despesa fixa (recorrente todo mes)"}</span>
-      </label>
-      {f.fixo
-        ?<Inp lb="Dia de vencimento" val={String(f.diaVenc||"")} set={upd("diaVenc")} type="number" ph="Ex: 10"/>
-        :<Inp lb="Data" val={f.date} set={upd("date")} type="date"/>
-      }
-      <label style={{display:"flex",alignItems:"center",gap:9,background:G.bg,borderRadius:8,padding:"10px 12px",cursor:"pointer"}}>
-        <input type="checkbox" checked={!!f.paid} onChange={function(e){setF(function(p){return {...p,paid:e.target.checked};});}} style={{accentColor:G.primary,width:15,height:15}}/>
-        <span style={{fontSize:13}}>{"Ja pago"}</span>
+      <Inp lb="Data" val={f.date} set={function(v){setF(function(p){return {...p,date:v};});}} type="date"/>
+      <label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",fontSize:13}}>
+        <input type="checkbox" checked={!!f.paid} onChange={function(e){setF(function(p){return {...p,paid:e.target.checked};});}} style={{width:15,height:15,accentColor:G.primary}}/>
+        {"Ja pago"}
       </label>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid "+G.border}}>
         <button onClick={function(){setModal(false);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
-        <button onClick={save} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Salvar"}</button>
+        <button onClick={save} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Salvar</button>
       </div>
     </div>
   </div>
@@ -4876,8 +4890,6 @@ var [selDent,setSelDent]=useState(String(myDents[0]&&myDents[0].id||""));
 var [mo,setMo]=useState(today().slice(0,7));
 var dent=dents.find(function(d){return d.id===Number(selDent);})||dents[0];
 var COMM=(dent&&dent.commission||40)/100;
-
-// Coletar todos os procedimentos com baixa do dentista selecionado
 var items=[];
 (treats||[]).forEach(function(treat){
   var dentId=Number(selDent);
@@ -4890,93 +4902,58 @@ var items=[];
     if(!baixaDate.startsWith(mo))return;
     var pat=pats.find(function(x){return x.id===treat.patientId;});
     var val=Number(it.value||0);
-    items.push({
-      key:treat.id+"-"+idx,
-      treatId:treat.id,
-      itemIdx:idx,
-      patName:pat&&pat.name||"—",
-      proc:it.desc||treat.name||"Procedimento",
-      valor:val,
-      comissao:val*COMM,
-      baixaDate:baixaDate,
-      pago:it.recebido||false,
-      pagoDate:it.recebidoDate||"",
-    });
+    items.push({key:treat.id+"-"+idx,treatId:treat.id,itemIdx:idx,patName:pat&&pat.name||"—",proc:it.desc||treat.name||"Procedimento",valor:val,comissao:val*COMM,baixaDate:baixaDate,pago:it.recebido||false,pagoDate:it.recebidoDate||""});
   });
 });
-
 var totalComissao=items.reduce(function(s,i){return s+i.comissao;},0);
 var totalPago=items.filter(function(i){return i.pago;}).reduce(function(s,i){return s+i.comissao;},0);
-var totalPendente=totalComissao-totalPago;
-
 var marcarPago=function(key,pago){
-  var parts=key.split("-");
-  var treatId=Number(parts[0]);
-  var itemIdx=Number(parts[1]);
-  var hoje=today();
+  var parts=key.split("-");var treatId=Number(parts[0]);var itemIdx=Number(parts[1]);
   setTreats(function(prev){return prev.map(function(t){
     if(t.id!==treatId)return t;
-    return {...t,items:t.items.map(function(it,i){
-      if(i!==itemIdx)return it;
-      return {...it,recebido:pago,recebidoDate:pago?hoje:""};
-    })};
+    return {...t,items:t.items.map(function(it,i){if(i!==itemIdx)return it;return {...it,recebido:pago,recebidoDate:pago?today():""};})};
   });});
 };
-
 return(
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-    <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"💰 Recebimentos"}</h2>
+    <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"Recebimentos"}</h2>
     {!isDent&&<select value={selDent} onChange={function(e){setSelDent(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",background:"#fff"}}>
       {myDents.map(function(d){return <option key={d.id} value={String(d.id)}>{d.name}</option>;})}
     </select>}
   </div>
-
-  <div style={{display:"flex",gap:8,alignItems:"center"}}>
-    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}}
-      style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:14,outline:"none",flex:1}}/>
-  </div>
-
-  {/* Resumo */}
+  <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:14,outline:"none"}}/>
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-    {[["Total Comissão",totalComissao,G.primary],["Pago",totalPago,G.success],["Pendente",totalPendente,G.red]].map(function(row){return(
+    {[["Total Comissao",totalComissao,G.primary],["Pago",totalPago,G.success],["Pendente",totalComissao-totalPago,G.red]].map(function(row){return(
       <div key={row[0]} style={{background:G.card,borderRadius:12,padding:"11px 8px",textAlign:"center",borderTop:"3px solid "+row[2],boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
         <div style={{fontSize:9,color:G.muted,fontWeight:700,textTransform:"uppercase",marginBottom:3}}>{row[0]}</div>
         <div style={{fontSize:16,fontWeight:700,color:row[2]}}>{cur(row[1])}</div>
       </div>
     );})}
   </div>
-
-  {/* Lista de procedimentos */}
-  {items.length===0&&<div style={{background:G.card,borderRadius:12,padding:30,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-    Nenhum procedimento realizado neste mês
-  </div>}
-
+  {items.length===0&&<div style={{background:G.card,borderRadius:12,padding:30,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum procedimento realizado neste mes</div>}
   <div style={{display:"flex",flexDirection:"column",gap:8}}>
     {items.map(function(item){return(
       <div key={item.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+(item.pago?G.success:G.orange),opacity:item.pago?0.75:1}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
-          {/* Checkbox admin */}
-          {!isDent&&<div onClick={function(){marcarPago(item.key,!item.pago);}}
-            style={{width:26,height:26,borderRadius:6,border:"2px solid "+(item.pago?G.success:G.border),background:item.pago?G.success:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,transition:"all .15s"}}>
-            {item.pago&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>✓</span>}
+          {!isDent&&<div onClick={function(){marcarPago(item.key,!item.pago);}} style={{width:26,height:26,borderRadius:6,border:"2px solid "+(item.pago?G.success:G.border),background:item.pago?G.success:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+            {item.pago&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>{"checkmark"}</span>}
           </div>}
           <div style={{flex:1}}>
-            <div style={{fontWeight:700,fontSize:14,color:G.text}}>{item.patName}</div>
-            <div style={{fontSize:13,color:G.primary,fontWeight:600,marginTop:1}}>{item.proc}</div>
-            <div style={{fontSize:11,color:G.muted,marginTop:2}}>{"Baixa: "+fmt(item.baixaDate)}</div>
-            {item.pago&&item.pagoDate&&<div style={{fontSize:11,color:G.success,fontWeight:600,marginTop:2}}>{"✓ Pago em "+fmt(item.pagoDate)}</div>}
+            <div style={{fontWeight:700,fontSize:14}}>{item.patName}</div>
+            <div style={{fontSize:13,color:G.primary,fontWeight:600}}>{item.proc}</div>
+            <div style={{fontSize:11,color:G.muted}}>{"Baixa: "+fmt(item.baixaDate)}</div>
+            {item.pago&&item.pagoDate&&<div style={{fontSize:11,color:G.success,fontWeight:600}}>{"Pago em "+fmt(item.pagoDate)}</div>}
           </div>
-          <div style={{textAlign:"right",flexShrink:0}}>
+          <div style={{textAlign:"right"}}>
             <div style={{fontSize:11,color:G.muted}}>{"Valor: "+cur(item.valor)}</div>
             <div style={{fontSize:17,fontWeight:700,color:item.pago?G.success:G.primary}}>{cur(item.comissao)}</div>
-            <div style={{fontSize:10,color:G.muted}}>{"40% comissão"}</div>
+            <div style={{fontSize:10,color:G.muted}}>{"40% comissao"}</div>
           </div>
         </div>
       </div>
     );})}
   </div>
-
   {items.length>0&&<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
     <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total "+mo}</span>
     <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{cur(totalComissao)}</span>
@@ -4984,6 +4961,7 @@ return(
 </div>
 );
 }
+
 function WAAnamneseModal({pat,onClose}){
 const [sent,setSent]=useState(false);
 const send=function(){
@@ -4996,7 +4974,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex
 <div style={{background:"#075E54",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"📋"}</span>
 <div style={{flex:1}}><div style={{fontWeight:700,color:"#fff",fontSize:14}}>Anamnese por WhatsApp</div><div style={{fontSize:11,color:"rgba(255,255,255,.8)"}}>{pat.name}</div></div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"✕"}</button>
+<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"X"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
 {!sent?<div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -5102,7 +5080,7 @@ return(
 <div style={{background:G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"📋"}</span>
 <div style={{flex:1,color:"#fff"}}><div style={{fontWeight:700,fontSize:14}}>Motivo do Não Agendamento</div><div style={{fontSize:11,opacity:.8}}>{p&&p.name}</div></div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"✕"}</button>
+<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
 <div style={{fontSize:12,color:G.muted}}>{(appt.status==="missed"?"Faltou":"Cancelou")+" em "+fmt(appt.date)+" · "+appt.procedure}</div>
@@ -5237,7 +5215,7 @@ return(
 <div style={{background:"#7B1FA2",borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <span style={{fontSize:20}}>{"⏳"}</span>
 <div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>Nova Lista de Espera</div>
-<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"✕"}</button>
+<button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12,maxHeight:"75vh",overflowY:"auto"}}>
 <div>
@@ -5405,7 +5383,7 @@ return(
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:400}}>
 <div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>{editCat?"Editar Item":"Novo Item"}</div>
-<button onClick={function(){setShowCat(false);setEditCat(null);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"✕"}</button>
+<button onClick={function(){setShowCat(false);setEditCat(null);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
 <div>
@@ -5426,7 +5404,7 @@ return(
 <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:420,maxHeight:"90vh",overflowY:"auto"}}>
 <div style={{background:movF.tipo==="entrada"?"#27AE60":G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
 <div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>{movF.tipo==="entrada"?"Registrar Entrada":"Registrar Saida (Uso)"}</div>
-<button onClick={function(){setShowMov(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"✕"}</button>
+<button onClick={function(){setShowMov(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
 <div style={{display:"flex",gap:6}}>
@@ -5672,8 +5650,13 @@ const [agendaSelDate,setAgendaSelDate]=useState(today());
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [waTemplates,setWaTemplates]=useState({});
 const [semTicks,setSemTicks]=useState({});
+// semTicks vem como prop global
 const [anivTicks,setAnivTicks]=useState({});
 const [pacsTicks,setPacsTicks]=useState({});
+
+// semTicks vem como prop global
+
+
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
 const [budgets,setBudgets]=useState(BUDGETS0);
@@ -5712,38 +5695,7 @@ if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);
-if(data.expenses){
-  // Corrigir fixas sem tab: inferir pelo conteudo das listas
-  var exp=data.expenses;
-  if(exp.fixas&&exp.fixas.length>0){
-    var clinicDescs=new Set((exp.clinic||[]).map(function(e){return e.desc;}));
-    var personalDescs=new Set((exp.personal||[]).map(function(e){return e.desc;}));
-    exp={...exp,fixas:exp.fixas.map(function(fx){
-      if(fx.tab)return fx;
-      // Inferir tab pela lista onde aparece
-      if(clinicDescs.has(fx.desc)&&!personalDescs.has(fx.desc))return {...fx,tab:'clinic'};
-      if(personalDescs.has(fx.desc)&&!clinicDescs.has(fx.desc))return {...fx,tab:'personal'};
-      // Se em ambas ou nenhuma, usar categoria
-      var persCATS=['Moradia','Alimentacao','Transporte','Saude','Lazer','Educacao','Vestuario','Iphone','iPhone','Escola','Seguro','IPTU','FGTS','ARRECADACAO'];
-      var isPersoal=persCATS.some(function(c){return fx.desc&&fx.desc.toLowerCase().indexOf(c.toLowerCase())>=0;});
-      return {...fx,tab:isPersoal?'personal':'clinic'};
-    })};
-    // Remover itens da lista errada baseado no tab das fixas
-    exp={...exp,
-      clinic:(exp.clinic||[]).filter(function(e){
-        if(!e.fixo)return true;
-        var fx=exp.fixas.find(function(f){return f.desc===e.desc;});
-        return !fx||fx.tab==='clinic';
-      }),
-      personal:(exp.personal||[]).filter(function(e){
-        if(!e.fixo)return true;
-        var fx=exp.fixas.find(function(f){return f.desc===e.desc;});
-        return !fx||fx.tab==='personal';
-      })
-    };
-  }
-  setExpenses(exp);
-}
+if(data.expenses)setExpenses(data.expenses);
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
 if(data.espera?.length)setEspera(data.espera);
@@ -5805,38 +5757,7 @@ if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);
-      if(data.expenses){
-  // Corrigir fixas sem tab: inferir pelo conteudo das listas
-  var exp=data.expenses;
-  if(exp.fixas&&exp.fixas.length>0){
-    var clinicDescs=new Set((exp.clinic||[]).map(function(e){return e.desc;}));
-    var personalDescs=new Set((exp.personal||[]).map(function(e){return e.desc;}));
-    exp={...exp,fixas:exp.fixas.map(function(fx){
-      if(fx.tab)return fx;
-      // Inferir tab pela lista onde aparece
-      if(clinicDescs.has(fx.desc)&&!personalDescs.has(fx.desc))return {...fx,tab:'clinic'};
-      if(personalDescs.has(fx.desc)&&!clinicDescs.has(fx.desc))return {...fx,tab:'personal'};
-      // Se em ambas ou nenhuma, usar categoria
-      var persCATS=['Moradia','Alimentacao','Transporte','Saude','Lazer','Educacao','Vestuario','Iphone','iPhone','Escola','Seguro','IPTU','FGTS','ARRECADACAO'];
-      var isPersoal=persCATS.some(function(c){return fx.desc&&fx.desc.toLowerCase().indexOf(c.toLowerCase())>=0;});
-      return {...fx,tab:isPersoal?'personal':'clinic'};
-    })};
-    // Remover itens da lista errada baseado no tab das fixas
-    exp={...exp,
-      clinic:(exp.clinic||[]).filter(function(e){
-        if(!e.fixo)return true;
-        var fx=exp.fixas.find(function(f){return f.desc===e.desc;});
-        return !fx||fx.tab==='clinic';
-      }),
-      personal:(exp.personal||[]).filter(function(e){
-        if(!e.fixo)return true;
-        var fx=exp.fixas.find(function(f){return f.desc===e.desc;});
-        return !fx||fx.tab==='personal';
-      })
-    };
-  }
-  setExpenses(exp);
-}
+      if(data.expenses)setExpenses(data.expenses);
       if(data.logs?.length)setLogs(data.logs);
       if(data.remarcar?.length)setRemarcar(data.remarcar);
       if(data.espera?.length)setEspera(data.espera);
