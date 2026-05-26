@@ -2716,14 +2716,14 @@ return <div key={e.id} style={{background:G.card,borderRadius:11,padding:"11px 1
 // ══════════════════════════════════════════════════════════
 // LEMBRETES
 // ══════════════════════════════════════════════════════════
-function Lembretes({rems,setRems,pats,recs,appts,users,espera,setEspera,dents,user}){
+function Lembretes({rems,setRems,pats,recs,appts,users,espera,setEspera,dents,user,semTicks,setSemTicks,anivTicks,setAnivTicks}){
 const t=today();
 const isDentist=user?.level===1;
 const myUserId=user?.id;
 
 // Retorno Semestral state
 const [semTab,setSemTab]=useState(false);
-const [semTicks,setSemTicks]=useState({});
+// semTicks agora e prop global
 const [semMotivoModal,setSemMotivoModal]=useState(null);
 const [semMotivoText,setSemMotivoText]=useState('');
 const MOTIVOS_SEM=['Agendado','Ja marcou em outro lugar','Nao quer agendar agora','Sem resposta','Outro'];
@@ -3490,7 +3490,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // PACS TAB -- Patient reports component
 // ══════════════════════════════════════════════════════════
-function PacsTab({pats,recs,treats,appts,dents,mo,user}){
+function PacsTab({pats,recs,treats,appts,dents,mo,user,pacsTicks,setPacsTicks}){
   const t=today();
   const tDate=new Date(t+"T12:00");
   const weekEnd=new Date(tDate);weekEnd.setDate(tDate.getDate()+7);
@@ -3517,7 +3517,8 @@ const first=recs.filter(r=>r.patientId===p.id).sort((a,b)=>a.date.localeCompare(
 return first&&first.date.startsWith(mo);
 });
 
-const [ticks,setTicks]=useState({});
+const ticks=pacsTicks||{};
+const setTicks=setPacsTicks;
 const [noteModal,setNoteModal]=useState(null);
 const [noteText,setNoteText]=useState("");
 
@@ -3614,7 +3615,7 @@ return <PatCard key={sec.isTreat?x.id:p.id} p={p} badge={sec.label.slice(2)} bad
 // ══════════════════════════════════════════════════════════
 // RELATÓRIOS
 // ══════════════════════════════════════════════════════════
-function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,user,waTemplates,setWaTemplates}){
+function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks}){
 const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
@@ -3857,7 +3858,7 @@ return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14p
 </div>}
 
 {/* ── PACIENTES ── */}
-{tab==="pacs"&&<PacsTab pats={pats} recs={recs} treats={treats} appts={appts} dents={dents} mo={mo} user={user}/>}
+{tab==="pacs"&&<PacsTab pats={pats} recs={recs} treats={treats} appts={appts} dents={dents} mo={mo} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
 
 {/* ── WHATSAPP ── */}
 {tab==="msg"&&<MsgTab pats={pats} selMsg={selMsg} setSelMsg={setSelMsg} selPatsMsg={selPatsMsg} setSelPatsMsg={setSelPatsMsg} allSelMsg={allSelMsg} setAllSelMsg={setAllSelMsg} waTemplates={waTemplates} setWaTemplates={setWaTemplates} user={user}/>}
@@ -5637,6 +5638,9 @@ const [user,setUser]=useState(null);const [view,setView]=useState("dash");
 const [agendaSelDate,setAgendaSelDate]=useState(today());
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [waTemplates,setWaTemplates]=useState({});
+const [semTicks,setSemTicks]=useState({});
+const [anivTicks,setAnivTicks]=useState({});
+const [pacsTicks,setPacsTicks]=useState({});
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
 const [budgets,setBudgets]=useState(BUDGETS0);
@@ -5671,6 +5675,10 @@ if(data.labs?.length)setLabs(data.labs);
 if(data.procs?.length)setProcs(data.procs);
 if(data.stock?.length)setStock(data.stock);
 if(data.impl?.length&&data.impl.length>10)setImpl(data.impl);else setImpl(IMPL_DATA_SEED);
+if(data.semTicks)setSemTicks(data.semTicks);
+if(data.anivTicks)setAnivTicks(data.anivTicks);
+if(data.waTemplates)setWaTemplates(data.waTemplates);
+if(data.pacsTicks)setPacsTicks(data.pacsTicks);
 if(data.expenses)setExpenses(data.expenses);
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
@@ -5694,7 +5702,7 @@ saveTimer.current=setTimeout(async()=>{
 if(isSaving.current)return;
 isSaving.current=true;
 try{
-const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov};
+const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks};
 await supabase.save(payload);
 lastSaved.current=JSON.stringify(payload);
 setSaveStatus("saved");
@@ -5702,7 +5710,7 @@ setTimeout(()=>setSaveStatus("idle"),2500);
 }catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
 finally{isSaving.current=false;saveTimer.current=null;}
 },2000);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks]);
 
 // ── SYNC: polling a cada 30s para sincronizar entre dispositivos ──
 useEffect(()=>{
@@ -5729,6 +5737,10 @@ useEffect(()=>{
       if(data.procs?.length)setProcs(data.procs);
       if(data.stock?.length)setStock(data.stock);
       if(data.impl?.length&&data.impl.length>10)setImpl(data.impl);else setImpl(IMPL_DATA_SEED);
+if(data.semTicks)setSemTicks(data.semTicks);
+if(data.anivTicks)setAnivTicks(data.anivTicks);
+if(data.waTemplates)setWaTemplates(data.waTemplates);
+if(data.pacsTicks)setPacsTicks(data.pacsTicks);
       if(data.expenses)setExpenses(data.expenses);
       if(data.logs?.length)setLogs(data.logs);
       if(data.remarcar?.length)setRemarcar(data.remarcar);
@@ -5830,72 +5842,4 @@ return <>
     </div>
     {NAV.map(n=><button key={n.id} onClick={()=>go(n.id)} style={{background:view===n.id?"rgba(255,255,255,.2)":"transparent",border:"none",borderRadius:8,padding:"9px 11px",cursor:"pointer",color:"#fff",fontFamily:"'DM Sans'",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:8,textAlign:"left",transition:"background .15s"}}>
       <span style={{flex:1}}>{n.l}</span>
-      {n.b>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>{n.b}</span>}
-    </button>)}
-    <div style={{marginTop:"auto",borderTop:"1px solid rgba(255,255,255,.12)",paddingTop:10}}>
-      <div style={{fontSize:10,color:"rgba(255,255,255,.5)",marginBottom:4,paddingLeft:3}}>{user.name}</div>
-      <div style={{fontSize:9,color:"rgba(255,255,255,.3)",paddingLeft:3,marginBottom:6}}>{["","Básico","Intermediário","Total"][user.level]}</div>
-      <button onClick={()=>setUser(null)} style={{border:"none",background:"rgba(255,255,255,.1)",borderRadius:8,padding:"6px 11px",color:"rgba(255,255,255,.7)",fontSize:11,fontWeight:600,cursor:"pointer",width:"100%",textAlign:"left"}}>🚪 Sair</button>
-    </div>
-  </div>
-
-{/* Main content */}
-
-  <div className="main-content" style={{flex:1,overflowY:"auto",minWidth:0}}>
-    {/* Mobile top bar */}
-    <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:G.primary,position:"sticky",top:0,zIndex:100}} className="mobile-topbar">
-      <button onClick={()=>setSideOpen(true)} style={{border:"none",background:"rgba(255,255,255,.15)",borderRadius:8,color:"#fff",fontSize:18,cursor:"pointer",padding:"6px 10px",lineHeight:1,flexShrink:0}}>☰</button>
-      <div style={{flex:1,fontFamily:"'Cormorant Garamond'",fontSize:16,color:"#fff",fontWeight:700}}>
-        {NAV.find(n=>n.id===view)?.l||"🏠 Visão Geral"}
-      </div>
-      {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
-    </div>
-    <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} expenses={expenses}/>}
-      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
-      {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
-      {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
-      {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
-      {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user}/>}
-      {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
-      {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} user={user}/>}
-      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates}/>}
-      {view==="desp"&&<Despesas expenses={expenses} setExpenses={setExpenses} user={user}/>}
-      {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
-      {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
-      {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
-    {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
-    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl}/>}
-    </div>
-  </div>
-</div>
-
-{view==="agenda"&&(function(){
-  var d=new Date((agendaSelDate||today())+"T12:00");
-  var dias=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
-  var meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-  return <div style={{position:"fixed",top:48,left:0,right:0,background:"#164436",color:"rgba(255,255,255,.92)",padding:"5px 16px",fontSize:12,fontWeight:700,textAlign:"center",zIndex:98,boxShadow:"0 2px 6px rgba(0,0,0,.2)"}}>
-    {"📅 "+dias[d.getDay()]+", "+d.getDate()+" de "+meses[d.getMonth()]+" · "+d.getFullYear()}
-  </div>;
-})()}
-
-{/* Bottom navigation bar - mobile only */}
-
-<div className="bottom-nav" style={{position:"fixed",bottom:0,left:0,right:0,background:"#fff",borderTop:`1.5px solid ${G.border}`,display:"flex",zIndex:400,boxShadow:"0 -2px 12px rgba(0,0,0,.08)"}}>
-  {BOTTOM_NAV.map(n=>{
-    if(n.id==="menu")return <button key="menu" onClick={()=>setSideOpen(true)} style={{flex:1,border:"none",background:"transparent",padding:"10px 0 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:2,cursor:"pointer",color:G.muted}}>
-      <span style={{fontSize:20}}>☰</span>
-      <span style={{fontSize:9,fontWeight:700}}>Menu</span>
-    </button>;
-    const active=view===n.id;
-    return <button key={n.id} onClick={()=>go(n.id)} style={{flex:1,border:"none",background:"transparent",padding:"10px 0 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:2,cursor:"pointer",color:active?G.primary:G.muted,position:"relative"}}>
-      {n.b>0&&<span style={{position:"absolute",top:6,right:"18%",background:G.red,color:"#fff",borderRadius:10,padding:"0 4px",fontSize:8,fontWeight:700}}>{n.b}</span>}
-      <span style={{fontSize:20}}>{n.icon}</span>
-      <span style={{fontSize:9,fontWeight:700}}>{NAV.find(x=>x.id===n.id)?.l?.slice(2)||""}</span>
-      {active&&<div style={{position:"absolute",bottom:0,left:"20%",right:"20%",height:3,background:G.primary,borderRadius:"3px 3px 0 0"}}/>}
-    </button>;
-  })}
-</div>
-
-</>;
-}
+      {n.b>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"1px 6px",fontSiz
