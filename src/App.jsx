@@ -5465,6 +5465,9 @@ var [selDentId,setSelDentId]=useState(isAdmin?(dents[0]&&dents[0].id||null):user
 var [selMo,setSelMo]=useState(today().slice(0,7));
 var dent=dents.find(function(d){return d.id===selDentId;})||dents[0];
 
+var MONTHS_PT=["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+var fmtMo=function(mo){var p=mo.split("-");return(MONTHS_PT[Number(p[1])-1]||p[1])+" de "+p[0];};
+
 var isDentPay=function(payment,d){
   if(!payment||!d)return false;
   var sn=dentShortName(d).toLowerCase();
@@ -5486,98 +5489,74 @@ dentRecs.forEach(function(r){
   byMonth[mo].recs.push(r);
 });
 var months=Object.keys(byMonth).sort(function(a,b){return b.localeCompare(a);});
+
+// Mes ativo - se o mes selecionado nao tem dados, usar o mais recente
 var moAtivo=byMonth[selMo]?selMo:(months[0]||selMo);
 var moData=byMonth[moAtivo]||{pix:0,card:0,total:0,recs:[]};
-var MONTHS_PT=["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-var fmtMo=function(mo){var p=mo.split("-");return(MONTHS_PT[Number(p[1])-1]||p[1])+" "+p[0];};
-var [openRecs,setOpenRecs]=useState(false);
+
+var [showRecs,setShowRecs]=useState(false);
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-  <div>
-    <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"Pix Dentistas"}</h2>
-    <div style={{fontSize:12,color:G.muted,marginTop:2}}>{"Pagamentos diretos ao profissional"}</div>
-  </div>
+{/* Header igual ao Gastos */}
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+  <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"Pix Dentistas"}</h2>
+  {/* Seletor de mes - igual ao input month do Gastos */}
+  <input type="month" value={moAtivo} onChange={function(e){setSelMo(e.target.value);setShowRecs(false);}}
+    style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:14,outline:"none"}}/>
 </div>
 
-{/* Seletor dentistas */}
-{isAdmin&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{/* Abas de dentistas - igual abas Clinica/Pessoal */}
+{isAdmin&&<div style={{display:"flex",borderBottom:"2px solid "+G.border,flexWrap:"wrap"}}>
   {dents.map(function(d){
-    var dtotal=recs.filter(function(r){return isDentPay(r.payment,d);}).reduce(function(s,r){return s+Number(r.value||r.paid||0);},0);
+    var dtotal=recs.filter(function(r){return isDentPay(r.payment,d)&&r.date&&r.date.startsWith(moAtivo);}).reduce(function(s,r){return s+Number(r.value||r.paid||0);},0);
     var sel=selDentId===d.id;
-    return <button key={d.id} onClick={function(){setSelDentId(d.id);setOpenRecs(false);}}
-      style={{background:sel?G.primary:"#fff",color:sel?"#fff":G.text,border:"1.5px solid "+(sel?G.primary:G.border),borderRadius:10,padding:"10px 14px",cursor:"pointer",textAlign:"left",minWidth:120}}>
-      <div style={{fontWeight:700,fontSize:13}}>{d.name}</div>
-      <div style={{fontSize:11,color:sel?"rgba(255,255,255,.7)":G.muted}}>{cur(dtotal)}</div>
+    return <button key={d.id} onClick={function(){setSelDentId(d.id);setShowRecs(false);}}
+      style={{border:"none",background:"none",padding:"9px 16px",fontWeight:700,fontSize:12,cursor:"pointer",
+              color:sel?G.primary:G.muted,borderBottom:"3px solid "+(sel?G.primary:"transparent"),
+              marginBottom:-2,fontFamily:"'DM Sans'",whiteSpace:"nowrap"}}>
+      {d.name.replace("Dr. ","").replace("Dra. ","")}
+      {dtotal>0&&<span style={{marginLeft:6,fontSize:11,color:sel?G.primary:G.muted}}>{"("+cur(dtotal)+")"}</span>}
     </button>;
   })}
 </div>}
 
-{dent&&<>
-
-{/* Seletor de mes */}
-<div style={{background:G.card,borderRadius:12,padding:"12px 16px",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-  <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:".5px"}}>{"Mes"}</div>
-  {months.length===0
-    ?<div style={{color:G.muted,fontSize:13}}>{"Nenhum pagamento registrado"}</div>
-    :<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-      {months.map(function(mo){
-        var ativo=mo===moAtivo;
-        return <button key={mo} onClick={function(){setSelMo(mo);setOpenRecs(false);}}
-          style={{background:ativo?G.primary:G.bg,color:ativo?"#fff":G.text,border:"1.5px solid "+(ativo?G.primary:G.border),borderRadius:8,padding:"6px 14px",fontSize:12,fontWeight:ativo?700:400,cursor:"pointer"}}>
-          {fmtMo(mo)}
-        </button>;
-      })}
+{/* Totais do mes - igual Gastos */}
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+  {[["Total Geral",moData.total,G.primary],["PIX",moData.pix,G.success],["Cartao",moData.card,"#1565C0"]].map(function([l,v,c]){return(
+    <div key={l} style={{background:G.card,borderRadius:10,padding:"12px",textAlign:"center",borderTop:"3px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+      <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div>
+      <div style={{fontSize:18,fontWeight:700,color:c,marginTop:4}}>{cur(v)}</div>
     </div>
-  }
+  );})}
 </div>
 
-{/* Totais do mes */}
-<div style={{background:G.card,borderRadius:12,padding:"14px 16px",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-  <div style={{fontSize:12,color:G.muted,fontWeight:700,marginBottom:10}}>{fmtMo(moAtivo)+" — "+dent.name}</div>
-  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-    {[["Total Geral",moData.total,G.primary],["PIX",moData.pix,G.success],["Cartao",moData.card,"#1565C0"]].map(function([l,v,c]){return(
-      <div key={l} style={{background:G.bg,borderRadius:10,padding:"12px 8px",textAlign:"center",borderTop:"3px solid "+c}}>
-        <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div>
-        <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c,marginTop:4}}>{cur(v)}</div>
-      </div>
-    );})}
-  </div>
-</div>
-
-{/* Pagamentos do mes */}
-{moData.recs.length>0&&<div style={{background:G.card,borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-  <button onClick={function(){setOpenRecs(function(p){return !p;});}}
-    style={{width:"100%",background:"none",border:"none",padding:"13px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",fontFamily:"'DM Sans'"}}>
-    <span style={{fontWeight:700,fontSize:13,color:G.text}}>{"Pagamentos ("+moData.recs.length+")"}</span>
-    <span style={{color:G.primary,fontSize:16,transform:openRecs?"rotate(90deg)":"rotate(0deg)",transition:"transform .2s"}}>{">"}</span>
-  </button>
-  {openRecs&&<div style={{padding:"0 12px 12px",display:"flex",flexDirection:"column",gap:6}}>
+{/* Lista de pagamentos do mes */}
+{moData.recs.length===0
+  ?<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>{"Nenhum pagamento em "+fmtMo(moAtivo)}</div>
+  :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+    <div style={{fontSize:11,color:G.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:".5px",paddingLeft:2}}>{fmtMo(moAtivo)+" · "+moData.recs.length+" pagamento(s)"}</div>
     {moData.recs.map(function(r){
       var pat=pats.find(function(p){return p.id===r.patientId;});
       var isPix=(r.payment||"").toLowerCase().startsWith("pix");
-      return <div key={r.id} style={{background:G.bg,borderRadius:8,padding:"9px 12px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:600,fontSize:13}}>{pat&&pat.name||"—"}</div>
-          <div style={{fontSize:11,color:G.muted}}>{fmt(r.date)}</div>
+      return <div key={r.id} style={{background:G.card,borderRadius:11,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:13}}>{pat&&pat.name||"—"}</div>
+          <div style={{fontSize:11,color:G.muted,marginTop:2}}>{fmt(r.date)}</div>
         </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{fontWeight:700,fontSize:14,color:isPix?G.success:"#1565C0"}}>{cur(Number(r.value||r.paid||0))}</div>
-          <Bdg l={isPix?"PIX":"Cartao"} col={isPix?G.success:"#1565C0"} sm/>
-        </div>
+        <Bdg l={isPix?"PIX":"Cartao"} col={isPix?G.success:"#1565C0"} sm/>
+        <span style={{fontWeight:700,fontSize:14,color:isPix?G.success:"#1565C0",minWidth:80,textAlign:"right"}}>{cur(Number(r.value||r.paid||0))}</span>
       </div>;
     })}
-  </div>}
-</div>}
+  </div>
+}
 
 {/* Total geral todos os meses */}
-<div style={{background:G.primary,borderRadius:12,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-  <span style={{color:"#fff",fontWeight:700,fontSize:13}}>{dent.name+" · "+months.length+" "+(months.length===1?"mes":"meses")}</span>
-  <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{cur(dentRecs.reduce(function(s,r){return s+Number(r.value||r.paid||0);},0))}</span>
-</div>
+{months.length>0&&<div style={{background:G.primary,borderRadius:12,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}>
+  <span style={{color:"#fff",fontWeight:700,fontSize:13}}>{(dent&&dent.name||"")+" · todos os meses"}</span>
+  <span style={{color:"#fff",fontWeight:700,fontSize:18}}>{cur(dentRecs.reduce(function(s,r){return s+Number(r.value||r.paid||0);},0))}</span>
+</div>}
 
-</>}
 </div>;
 }
 
