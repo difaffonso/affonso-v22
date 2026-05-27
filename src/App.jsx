@@ -3,8 +3,10 @@ import { useState, useEffect, useRef } from "react";
 const SUPA_URL="https://ncfsepyzrqaljswjiuiv.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jZnNlcHl6cnFhbGpzd2ppdWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTg1NzYsImV4cCI6MjA5NDA5NDU3Nn0.j_7sctB2bP0zljxPbh3Q4I_MzEksgL8PO5QNdzbaJDM";
 const supabase={
-async load(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=data",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return rows[0].data;return null;}catch(e){return null;}},
-async save(data){try{await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});}catch(e){}}
+async loadFull(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=data,updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return {data:rows[0].data,updated_at:rows[0].updated_at};return null;}catch(e){return null;}},
+async load(){const f=await this.loadFull();return f?f.data:null;},
+async getTimestamp(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
+async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}}
 };
 const G = {
 bg:"#EEF3F0",card:"#FFF",primary:"#1B5E4A",accent:"#E3EFE9",accentDark:"#A8D5C0",
@@ -515,7 +517,9 @@ setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==did
 setConfirmDesfazer(null);
 };
 const addPayment=(tid)=>{
-const pv=Math.round(Number(payForm.value)*100)/100;if(!pv)return alert("Informe o valor");
+var rawVal=String(payForm.value||"").replace(",",".").replace(/[^0-9.]/g,"");
+const pv=Math.round((parseFloat(rawVal)||0)*100)/100;
+if(!pv)return alert("Informe o valor");
 const t=treats.find(x=>x.id===tid);
 // Save payment in treatment plan
 const instSave=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
@@ -1339,7 +1343,7 @@ return <>
         <button onClick={()=>{
           if(!bni.d){alert("Informe a descrição");return;}
           if(!bni.v||Number(bni.v)<=0){alert("Informe o valor");return;}
-          setBf(p=>({...p,items:[...p.items,{d:bni.d,v:Number(bni.v)}]}));
+          setBf(p=>({...p,items:[...p.items,{d:bni.d,v:Math.round((parseFloat(String(bni.v||"0").replace(",","."))||0)*100)/100}]}));
           setBni({d:"",v:""});
         }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"8px 15px",fontSize:13,fontWeight:700,cursor:"pointer",alignSelf:"flex-start"}}>➕ Adicionar Item</button>
       </div>
@@ -4853,11 +4857,20 @@ var COMM=(dent&&dent.commission||40)/100;
 var items=[];
 (treats||[]).forEach(function(treat){
   var dentId=Number(selDent);
-  var isDentTreat=treat.dentistId&&Number(treat.dentistId)===dentId;
   (treat.items||[]).forEach(function(it,idx){
     if(!(it.done||it.paid))return;
-    var doneByMe=isDentTreat||(it.doneByDentistId===dentId)||(it.doneBy&&dent&&it.doneBy===dent.name);
-    if(!doneByMe)return;
+    // Determinar de FORMA UNICA o dentista responsavel pela baixa
+    var responsavelId=null;
+    if(it.doneByDentistId!=null){
+      responsavelId=Number(it.doneByDentistId);
+    } else if(it.doneBy){
+      var foundDent=dents.find(function(dd){return dd.name===it.doneBy;});
+      if(foundDent)responsavelId=foundDent.id;
+    } else if(treat.dentistId){
+      // Fallback: itens antigos sem doneBy - usa dentistId do plano
+      responsavelId=Number(treat.dentistId);
+    }
+    if(responsavelId!==dentId)return;
     var baixaDate=it.doneDate||"";
     if(!baixaDate.startsWith(mo))return;
     var pat=pats.find(function(x){return x.id===treat.patientId;});
@@ -5624,13 +5637,27 @@ const lastSaved=useRef("");
 
 // ── CARREGAR do Supabase ──
 useEffect(()=>{
-supabase.load().then(data=>{
+supabase.loadFull().then(full=>{
+const data=full?full.data:null;
+if(full)lastServerTs.current=full.updated_at;
 if(data){
 try{
 if(data.pats?.length)setPats(data.pats);
 if(data.appts?.length)setAppts(data.appts);
 if(data.recs?.length)setRecs(data.recs);
-if(data.treats?.length)setTreats(data.treats);
+if(data.treats?.length){
+var treatsmig=data.treats.map(function(t){
+  if(!t.items)return t;
+  return Object.assign({},t,{items:t.items.map(function(it){
+    if((it.done||it.paid)&&it.doneBy&&it.doneByDentistId==null&&data.dents){
+      var foundDent=data.dents.find(function(dd){return dd.name===it.doneBy;});
+      if(foundDent)return Object.assign({},it,{doneByDentistId:foundDent.id});
+    }
+    return it;
+  })});
+});
+setTreats(treatsmig);
+}
 if(data.pros?.length)setPros(data.pros);
 if(data.rems?.length)setRems(data.rems);
 if(data.budgets?.length)setBudgets(data.budgets);
@@ -5666,18 +5693,60 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 });
 },[]);
 
-// ── SALVAR no Supabase (robusto com retry + fila) ──
+// ── SALVAR no Supabase (robusto com retry + fila + anti-sobrescrita) ──
 const pendingSave=useRef(false);
+const lastServerTs=useRef(null);
 useEffect(function(){
   if(!initialized.current)return;
   if(saveTimer.current)clearTimeout(saveTimer.current);
   setSaveStatus("saving");
   var doSave=async function(){
+    // ANTI-SOBRESCRITA: verificar se servidor tem versao mais nova que a nossa
+    try{
+      var serverTs=await supabase.getTimestamp();
+      if(serverTs&&lastServerTs.current&&serverTs!==lastServerTs.current){
+        // Outro computador salvou! Recarregar antes de gravar para nao perder dados
+        var fresh=await supabase.loadFull();
+        if(fresh&&fresh.data){
+          var sd=fresh.data;
+          // Merge automatico: adicionar registros que nao temos localmente
+          var mergeArr=function(localArr,serverArr,setter){
+            if(!serverArr||!serverArr.length)return;
+            var localIds={};
+            (localArr||[]).forEach(function(x){if(x&&x.id!=null)localIds[x.id]=true;});
+            var missing=serverArr.filter(function(x){return x&&x.id!=null&&!localIds[x.id];});
+            if(missing.length>0){
+              setter(function(prev){return [...(prev||[]),...missing];});
+            }
+          };
+          mergeArr(pats,sd.pats,setPats);
+          mergeArr(appts,sd.appts,setAppts);
+          mergeArr(recs,sd.recs,setRecs);
+          mergeArr(budgets,sd.budgets,setBudgets);
+          mergeArr(treats,sd.treats,setTreats);
+          mergeArr(pros,sd.pros,setPros);
+          mergeArr(rems,sd.rems,setRems);
+          mergeArr(logs,sd.logs,setLogs);
+          lastServerTs.current=fresh.updated_at;
+          // Cancelar este save - o useEffect vai disparar de novo com o estado mergeado
+          return "merged";
+        }
+      }
+    }catch(e){}
     const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
-      try{ await supabase.save(payload); lastSaved.current=JSON.stringify(payload); ok=true; }
-      catch(e){ if(i<2)await new Promise(function(r){setTimeout(r,1200);}); }
+      try{
+        var saved=await supabase.save(payload);
+        if(saved!==false){
+          lastSaved.current=JSON.stringify(payload);
+          // Atualizar timestamp do servidor para o nosso
+          var newTs=await supabase.getTimestamp();
+          if(newTs)lastServerTs.current=newTs;
+          ok=true;
+        }
+      }catch(e){}
+      if(!ok&&i<2)await new Promise(function(r){setTimeout(r,1200);});
     }
     return ok;
   };
@@ -5685,6 +5754,13 @@ useEffect(function(){
     if(isSaving.current){ pendingSave.current=true; return; }
     isSaving.current=true;
     var ok=await doSave();
+    if(ok==="merged"){
+      // Merge feito - useEffect vai re-disparar
+      setSaveStatus("idle");
+      isSaving.current=false;
+      saveTimer.current=null;
+      return;
+    }
     setSaveStatus(ok?"saved":"error");
     setTimeout(function(){setSaveStatus("idle");},ok?2000:4000);
     isSaving.current=false;
@@ -5693,12 +5769,54 @@ useEffect(function(){
       pendingSave.current=false;
       isSaving.current=true;
       var ok2=await doSave();
-      setSaveStatus(ok2?"saved":"error");
-      setTimeout(function(){setSaveStatus("idle");},ok2?2000:4000);
+      if(ok2!=="merged"){
+        setSaveStatus(ok2?"saved":"error");
+        setTimeout(function(){setSaveStatus("idle");},ok2?2000:4000);
+      }
       isSaving.current=false;
     }
   },800);
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos]);
+
+// ── SINCRONIZACAO entre dispositivos: polling a cada 15s ──
+useEffect(function(){
+  var poll=setInterval(async function(){
+    if(!initialized.current||isSaving.current||document.hidden)return;
+    try{
+      var serverTs=await supabase.getTimestamp();
+      if(!serverTs)return;
+      if(lastServerTs.current===null){lastServerTs.current=serverTs;return;}
+      if(serverTs===lastServerTs.current)return;
+      // Servidor mudou - carregar e fazer merge
+      var fresh=await supabase.loadFull();
+      if(!fresh||!fresh.data)return;
+      var sd=fresh.data;
+      var mergeArr=function(localArr,serverArr,setter){
+        if(!serverArr)return;
+        var localIds={};
+        (localArr||[]).forEach(function(x){if(x&&x.id!=null)localIds[x.id]=true;});
+        var serverIds={};
+        serverArr.forEach(function(x){if(x&&x.id!=null)serverIds[x.id]=true;});
+        // Pegar versao do servidor (mais recente) para ids comuns + adicionar missing
+        var merged=serverArr.slice();
+        (localArr||[]).forEach(function(x){if(x&&x.id!=null&&!serverIds[x.id])merged.push(x);});
+        setter(merged);
+      };
+      mergeArr(pats,sd.pats,setPats);
+      mergeArr(appts,sd.appts,setAppts);
+      mergeArr(recs,sd.recs,setRecs);
+      mergeArr(budgets,sd.budgets,setBudgets);
+      mergeArr(treats,sd.treats,setTreats);
+      mergeArr(pros,sd.pros,setPros);
+      mergeArr(rems,sd.rems,setRems);
+      mergeArr(logs,sd.logs,setLogs);
+      if(sd.expenses)setExpenses(sd.expenses);
+      if(sd.gastos)setGastos(sd.gastos);
+      lastServerTs.current=fresh.updated_at;
+    }catch(e){}
+  },15000);
+  return function(){clearInterval(poll);};
+},[]);
 
 // Polling removido - causava race condition sobrescrevendo dados locais;
 
