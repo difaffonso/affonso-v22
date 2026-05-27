@@ -440,7 +440,7 @@ const upR=k=>v=>setRf(p=>({...p,[k]:v}));
 const [treatModal,setTreatModal]=useState(false);
 const [ortoModal,setOrtoModal]=useState(false);
 const [ortoForm,setOrtoForm]=useState({valor:"",ano:new Date().getFullYear(),dentistId:""});
-const [tf,setTf]=useState({name:"",start:today(),items:[],payments:[]});
+const [tf,setTf]=useState({name:"",start:today(),dentistId:user.dentistId||dents[0]?.id||1,items:[],payments:[]});
 const [tni,setTni]=useState({d:"",procId:"",v:"",qty:""});
 
 // Budget modal
@@ -467,7 +467,7 @@ const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:Math.round
 setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
 setRecModal(false);
 };
-const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:user.dentistId||dents[0]?.id||1,id:nid(treats)}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
+const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:Number(tf.dentistId)||user.dentistId||dents[0]?.id||1,id:nid(treats)}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
 const addTItem=()=>{
 if(!tni.d&&!tni.procId)return alert("Selecione um procedimento");
 if(!tni.v)return alert("Informe o valor");
@@ -656,7 +656,7 @@ return <>
   {tab==="tratamento"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🦷 Planos de Tratamento</span>
-      {!isDentUser&&<Btn ch="+ Novo Plano" sm onClick={()=>{setTf({name:"",start:today(),items:[],payments:[]});setTreatModal(true);}}/>}
+      {!isDentUser&&<Btn ch="+ Novo Plano" sm onClick={()=>{setTf({name:"",start:today(),dentistId:user.dentistId||dents[0]?.id||1,items:[],payments:[]});setTreatModal(true);}}/>}
           {!isDentUser&&<Btn ch="🦷 Plano Orto" sm v="f" onClick={()=>{setOrtoForm({valor:"",ano:new Date().getFullYear(),dentistId:String(dents.find(d=>(d.specialty||"").toLowerCase().includes("orto"))?.id||dents[0]?.id||"")});setOrtoModal(true);}}/>}
     </div>
     {patTreats.length===0&&<div style={{background:G.bg,borderRadius:10,padding:"20px",textAlign:"center",color:G.muted,fontSize:13}}>Nenhum plano de tratamento</div>}
@@ -1217,6 +1217,13 @@ return <>
     <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
       <Inp lb="Nome do Plano *" val={tf.name} set={v=>setTf(p=>({...p,name:v}))} ph="Ex: Reabilitação oral completa"/>
       <Inp lb="Data de Início" val={tf.start} set={v=>setTf(p=>({...p,start:v}))} type="date"/>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Dentista Responsável</label>
+        <select value={String(tf.dentistId||"")} onChange={e=>setTf(p=>({...p,dentistId:e.target.value}))}
+          style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
+          {dents.map(d=><option key={d.id} value={String(d.id)}>{d.name}</option>)}
+        </select>
+      </div>
       <Div lb="Adicionar Procedimento"/>
       <div style={{background:G.bg,borderRadius:10,padding:"12px 14px",display:"flex",flexDirection:"column",gap:9}}>
         <div style={{display:"flex",flexDirection:"column",gap:4}}>
@@ -5491,7 +5498,7 @@ dentRecs.forEach(function(r){
 var months=Object.keys(byMonth).sort(function(a,b){return b.localeCompare(a);});
 
 // Mes ativo - se o mes selecionado nao tem dados, usar o mais recente
-var moAtivo=byMonth[selMo]?selMo:(months[0]||selMo);
+var moAtivo=selMo;
 var moData=byMonth[moAtivo]||{pix:0,card:0,total:0,recs:[]};
 
 var [showRecs,setShowRecs]=useState(false);
