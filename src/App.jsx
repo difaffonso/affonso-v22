@@ -5633,26 +5633,47 @@ lastSaved.current=JSON.stringify(data);
 }catch(err){}
 }
 setTimeout(()=>{initialized.current=true;},1000);
+// Salvar imediatamente ao sair/esconder a pagina
+var flushSave=function(){
+  if(!initialized.current||isSaving.current)return;
+  if(saveTimer.current){clearTimeout(saveTimer.current);saveTimer.current=null;}
+};
+document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flushSave();});
 });
 },[]);
 
-// ── SALVAR no Supabase (debounce 2s) ──
-useEffect(()=>{
-if(!initialized.current)return;
-if(saveTimer.current)clearTimeout(saveTimer.current);
-setSaveStatus("saving");
-saveTimer.current=setTimeout(async()=>{
-if(isSaving.current)return;
-isSaving.current=true;
-try{
-const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
-await supabase.save(payload);
-lastSaved.current=JSON.stringify(payload);
-setSaveStatus("saved");
-setTimeout(()=>setSaveStatus("idle"),2500);
-}catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
-finally{isSaving.current=false;saveTimer.current=null;}
-},800);
+// ── SALVAR no Supabase (robusto com retry + fila) ──
+const pendingSave=useRef(false);
+useEffect(function(){
+  if(!initialized.current)return;
+  if(saveTimer.current)clearTimeout(saveTimer.current);
+  setSaveStatus("saving");
+  var doSave=async function(){
+    const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
+    var ok=false;
+    for(var i=0;i<3&&!ok;i++){
+      try{ await supabase.save(payload); lastSaved.current=JSON.stringify(payload); ok=true; }
+      catch(e){ if(i<2)await new Promise(function(r){setTimeout(r,1200);}); }
+    }
+    return ok;
+  };
+  saveTimer.current=setTimeout(async function(){
+    if(isSaving.current){ pendingSave.current=true; return; }
+    isSaving.current=true;
+    var ok=await doSave();
+    setSaveStatus(ok?"saved":"error");
+    setTimeout(function(){setSaveStatus("idle");},ok?2000:4000);
+    isSaving.current=false;
+    saveTimer.current=null;
+    if(pendingSave.current){
+      pendingSave.current=false;
+      isSaving.current=true;
+      var ok2=await doSave();
+      setSaveStatus(ok2?"saved":"error");
+      setTimeout(function(){setSaveStatus("idle");},ok2?2000:4000);
+      isSaving.current=false;
+    }
+  },800);
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos]);
 
 // Polling removido - causava race condition sobrescrevendo dados locais;
