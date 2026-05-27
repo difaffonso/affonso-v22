@@ -427,6 +427,7 @@ const prevPatId=pat.id;
 
 // Payment modal for treatments
 const [payModal,setPayModal]=useState(null);
+const [confirmDesfazer,setConfirmDesfazer]=useState(null); // {tid, idx}
 const [payForm,setPayForm]=useState({date:today(),value:"",method:"Dinheiro",note:""});
 
 // Record modal
@@ -489,26 +490,29 @@ const item=treat.items[idx];
 if(!item.done){
 // Orto: ask payment method first
 if(item.orto){setOrtoPayModal({tid,idx});return;}
-// Qualquer dentista pode dar baixa
-// Calculate payment info for credit control
 const payments=treat.payments||[];
-const totalPaid=payments.reduce((s,p)=>s+p.value,0);
-const totalItems=treat.items.reduce((s,i)=>s+i.value,0);
-// If payments are via cartão parcelado, credit may be future
 const hasInstallment=payments.some(p=>p.installments>1||(p.method==="Cartão Crédito"&&p.installmentMonths?.length>1));
 setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==idx?it:{
 ...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,
 creditFuture:hasInstallment,
 })}));
 } else {
-// Undo baixa - only admin or same person
-if(user.level===1&&item.doneBy!==user.name&&user.level<3){
-alert("Apenas quem deu a baixa pode desfazê-la.");return;
+// Desfazer baixa: SOMENTE administrador (level>=3)
+if(user.level<3){
+alert("Apenas o administrador pode desfazer uma baixa. Procure o Dr. Diego.");return;
 }
-setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==idx?it:{
-...it,done:false,doneDate:null,doneBy:null,creditFuture:false
+// Abrir modal de confirmação (window.confirm bloqueado no iOS)
+setConfirmDesfazer({tid,idx});
+}
+};
+// Executar desfazer após confirmação no modal
+const execDesfazer=()=>{
+if(!confirmDesfazer)return;
+const {tid,idx:didx}=confirmDesfazer;
+setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==didx?it:{
+...it,done:false,doneDate:null,doneBy:null,doneByDentistId:null,creditFuture:false
 })}));
-}
+setConfirmDesfazer(null);
 };
 const addPayment=(tid)=>{
 const pv=Math.round(Number(payForm.value)*100)/100;if(!pv)return alert("Informe o valor");
@@ -696,12 +700,15 @@ return <>
           return <div key={i} style={{display:"flex",gap:9,alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap"}}>
             <div style={{position:"relative",flexShrink:0}}>
               <input type="checkbox" checked={!!isDone} onChange={()=>togItemPaid(t.id,i)}
-                disabled={!canCheck}
-                style={{accentColor:G.primary,width:17,height:17,cursor:canCheck?"pointer":"not-allowed"}}/>
+                disabled={isDone?user.level<3:!canCheck}
+                style={{accentColor:G.primary,width:17,height:17,cursor:(isDone?user.level>=3:canCheck)?"pointer":"not-allowed"}}/>
             </div>
             <div style={{flex:1,minWidth:100}}>
               <span style={{fontSize:13,textDecoration:isDone?"line-through":"none",color:isDone?G.muted:G.text,fontWeight:isDone?400:600}}>{it.desc}</span>
-              {isDone&&it.doneBy&&<div style={{fontSize:10,color:G.success,marginTop:1}}>✓ Realizado por {it.doneBy} em {fmt(it.doneDate)}</div>}
+              {isDone&&it.doneBy&&<div style={{fontSize:10,color:G.success,marginTop:1,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <span>✓ Realizado por {it.doneBy} em {fmt(it.doneDate)}</span>
+                  {user.level>=3&&<button onClick={()=>togItemPaid(t.id,i)} style={{background:"#FFF3E0",border:"1.5px solid "+G.orange,borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:700,color:G.orange,cursor:"pointer"}}>↩ Desfazer baixa</button>}
+                </div>}
               {isDone&&it.creditFuture&&<div style={{fontSize:10,color:G.blue,marginTop:1,display:"flex",alignItems:"center",gap:4}}>
                 <span>💳</span><span>Comissão aguarda crédito do cartão</span>
               </div>}
@@ -986,6 +993,22 @@ return <>
 </div>
 
 {/* Add procedure to existing plan modal */}
+{confirmDesfazer&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:380,boxShadow:"0 8px 32px rgba(0,0,0,.25)"}}>
+    <div style={{background:G.red,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
+      <span style={{fontSize:20}}>⚠️</span>
+      <div style={{flex:1,fontWeight:700,color:"#fff",fontSize:15}}>Desfazer Baixa</div>
+      <button onClick={()=>setConfirmDesfazer(null)} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>✕</button>
+    </div>
+    <div style={{padding:20,display:"flex",flexDirection:"column",gap:14}}>
+      <p style={{fontSize:14,color:G.text,margin:0,lineHeight:1.6}}>Tem certeza que deseja desfazer esta baixa? Isso vai <strong>remover</strong> este procedimento dos recebimentos do dentista que realizou.</p>
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={()=>setConfirmDesfazer(null)} style={{flex:1,background:"#f0f0f0",color:"#555",border:"none",borderRadius:10,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={execDesfazer} style={{flex:1,background:G.red,color:"#fff",border:"none",borderRadius:10,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>✓ Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>}
 {addProcModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 
   <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:480,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
@@ -1406,7 +1429,7 @@ return <>
           if(!treat2)return;
           var item2=treat2.items[idx2];
           var finalVal=Number(ortoPayVal)||item2.value;
-          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,payMethod:ortoPayMethod,value:finalVal})}));
+          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal})}));
           var recObj={id:nid(recs),patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2};
           setRecs(prev=>[...prev,recObj]);
           // Also register in treat.payments so it shows in pagamentos registrados
@@ -3627,7 +3650,8 @@ const donedItems=[];
 treats.forEach(t=>{
 t.items.forEach(it=>{
 if((it.done||it.paid)&&it.doneDate&&it.doneDate.startsWith(mo)){
-if(it.doneBy===d.name||(t.dentistId===d.id&&!it.doneBy)){
+const itDentId=it.doneByDentistId!=null?Number(it.doneByDentistId):(it.doneBy?(dents.find(dd=>dd.name===it.doneBy)?.id):t.dentistId);
+if(itDentId===d.id){
 const pat=pats.find(p=>p.id===t.patientId);
 // Find the payment method for this treat to apply card discount
 const tPayments=t.payments||[];
