@@ -5638,7 +5638,7 @@ saveTimer.current=setTimeout(async()=>{
 if(isSaving.current)return;
 isSaving.current=true;
 try{
-const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks};
+const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
 await supabase.save(payload);
 lastSaved.current=JSON.stringify(payload);
 setSaveStatus("saved");
@@ -5646,7 +5646,7 @@ setTimeout(()=>setSaveStatus("idle"),2500);
 }catch(e){setSaveStatus("error");setTimeout(()=>setSaveStatus("idle"),3000);}
 finally{isSaving.current=false;saveTimer.current=null;}
 },800);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos]);
 
 // Polling removido - causava race condition sobrescrevendo dados locais;
 
