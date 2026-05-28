@@ -1838,9 +1838,27 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
 {showCancel&&(()=>{const a=showCancel;const p=pats.find(x=>x.id===a.patientId);return p&&<CancelWA appt={a} pat={p} onCancel={function(id){setAppts(function(prev){return prev.filter(function(x){return x.id!==id;});});}} onClose={function(){setShowCancel(null);setViewA(null);}}/>;})()}
 {viewA&&(()=>{
 const a=viewA;const p=pats.find(x=>x.id===a.patientId);const d=dents.find(x=>x.id===a.dentistId)||dents[0];
-const hist=p?appts.filter(function(x){return x.patientId===p.id&&x.id!==a.id;}).sort(function(x,y){return y.date.localeCompare(x.date);}).slice(0,15):[];
-const HCOR={"done":"#27AE60","confirmed":"#2196F3","pending":"#FF9800","cancelled":"#F44336","missed":"#9E9E9E"};
-const HLBL={"done":"Realizada","confirmed":"Confirmada","pending":"Pendente","cancelled":"Cancelada","missed":"Faltou"};
+const _td=today();
+const _allHist=p?appts.filter(function(x){return x.patientId===p.id&&x.id!==a.id;}):[];
+// Próximas (futuras): data >= hoje, ordenadas da mais próxima para a mais distante
+const futuras=_allHist.filter(function(x){return x.date>=_td;}).sort(function(x,y){return x.date.localeCompare(y.date)||(x.time||"").localeCompare(y.time||"");});
+// Anteriores (passadas): data < hoje, ordenadas da mais recente para a mais antiga
+const passadas=_allHist.filter(function(x){return x.date<_td;}).sort(function(x,y){return y.date.localeCompare(x.date)||(y.time||"").localeCompare(x.time||"");}).slice(0,20);
+const hist=futuras.concat(passadas);
+const HCOR={"done":"#27AE60","confirmed":"#2196F3","pending":"#FF9800","cancelled":"#F44336","missed":"#9E9E9E","rescheduled":"#7F8C8D"};
+const HLBL={"done":"Realizada","confirmed":"Confirmada","pending":"Pendente","cancelled":"Cancelada","missed":"Faltou","rescheduled":"Desmarcada"};
+var renderItem=function(h){var hd=dents.find(function(x){return x.id===h.dentistId;})||dents[0];var cor=HCOR[h.status]||G.muted;
+return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 12px",borderLeft:"4px solid "+cor}}>
+<div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}>
+<div style={{flex:1}}>
+<div style={{fontWeight:700,fontSize:13}}>{h.procedure}</div>
+<div style={{fontSize:11,color:G.muted,marginTop:2}}>{fmt(h.date)+" às "+h.time+" · "+(hd&&hd.name||"—")}</div>
+{h.treatment&&<div style={{fontSize:11,color:G.muted}}>{"📝 "+h.treatment}</div>}
+</div>
+<span style={{fontSize:10,fontWeight:700,color:cor,background:cor+"20",borderRadius:6,padding:"2px 6px",whiteSpace:"nowrap"}}>{HLBL[h.status]||h.status}</span>
+</div>
+</div>;
+};
 return(
 <Modal open close={function(){setViewA(null);setHistTab("info");}} title="Consulta" wide ch={
 
@@ -1850,19 +1868,11 @@ return(
 <button onClick={function(){setHistTab("hist");}} style={{flex:1,border:"none",borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer",background:histTab==="hist"?G.primary:"#eee",color:histTab==="hist"?"#fff":G.muted}}>{"📅 Histórico ("+hist.length+")"}</button>
 </div>
 {histTab==="hist"&&<div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:340,overflowY:"auto"}}>
-{hist.length===0&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>Nenhuma consulta anterior</div>}
-{hist.map(function(h){var hd=dents.find(function(x){return x.id===h.dentistId;})||dents[0];var cor=HCOR[h.status]||G.muted;
-return <div key={h.id} style={{background:G.card,borderRadius:10,padding:"10px 12px",borderLeft:"4px solid "+cor}}>
-<div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"flex-start"}}>
-<div style={{flex:1}}>
-<div style={{fontWeight:700,fontSize:13}}>{h.procedure}</div>
-<div style={{fontSize:11,color:G.muted,marginTop:2}}>{fmt(h.date)+" às "+h.time+" · "+hd.name}</div>
-{h.treatment&&<div style={{fontSize:11,color:G.muted}}>{"📝 "+h.treatment}</div>}
-</div>
-<span style={{fontSize:10,fontWeight:700,color:cor,background:cor+"20",borderRadius:6,padding:"2px 6px",whiteSpace:"nowrap"}}>{HLBL[h.status]||h.status}</span>
-</div>
-</div>;
-})}
+{hist.length===0&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>Nenhuma outra consulta para este paciente</div>}
+{futuras.length>0&&<div style={{fontSize:10,fontWeight:700,color:G.blue,textTransform:"uppercase",letterSpacing:".5px",marginTop:2,paddingLeft:4}}>{"🔜 Próximas consultas ("+futuras.length+")"}</div>}
+{futuras.map(renderItem)}
+{passadas.length>0&&<div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginTop:futuras.length>0?6:2,paddingLeft:4}}>{"✅ Consultas anteriores ("+passadas.length+")"}</div>}
+{passadas.map(renderItem)}
 </div>}
 {histTab==="info"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
 {p&&p.obs&&<div style={{background:G.yellow+"18",border:"2px solid "+G.yellow,borderRadius:10,padding:"8px 12px",fontWeight:700,color:G.yellow}}>{"⚠ "+p.obs}</div>}
