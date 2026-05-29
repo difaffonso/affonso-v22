@@ -257,13 +257,15 @@ const PIXRECS0=[
 
 // ── Helpers ────────────────────────────────────────────────
 const fmt=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR"):"-";
-const today=()=>new Date().toISOString().split("T")[0];
-const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split("T")[0];};
-const tom=()=>{const d=new Date();d.setDate(d.getDate()+1);return d.toISOString().split("T")[0];};
+const _ld=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const today=()=>_ld(new Date());
+const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return _ld(d);};
+const tom=()=>{const d=new Date();d.setDate(d.getDate()+1);return _ld(d);};
 const cur=v=>`R$ ${Number(v||0).toFixed(2).replace(".",",")}`;
-const nid=a=>a.length?Math.max(...a.map(x=>x.id))+1:1;
+let _idLast=0;
+const nid=()=>{let t=Date.now()*1000+Math.floor(Math.random()*1000);if(t<=_idLast)t=_idLast+1;_idLast=t;return t;};
 const mkLog=function(logs,setLogs,user,tipo,desc,patName){
-var entry={id:Date.now(),ts:new Date().toISOString(),user:user&&user.name||"Sistema",tipo:tipo,desc:desc,patName:patName||""};
+var entry={id:nid(),ts:new Date().toISOString(),user:user&&user.name||"Sistema",tipo:tipo,desc:desc,patName:patName||""};
 setLogs(function(prev){return[entry,...prev].slice(0,500);});
 };
 const isBday=d=>{if(!d)return false;return d.slice(5)===today().slice(5);};
@@ -1502,7 +1504,7 @@ return <>
           var recObj={id:nid(recs),patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2};
           setRecs(prev=>[...prev,recObj]);
           // Also register in treat.payments so it shows in pagamentos registrados
-          var newPmt={id:Date.now(),date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc};
+          var newPmt={id:nid(),date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc};
           setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,payments:[...(t.payments||[]),newPmt]}));
           setOrtoPayModal(null);setOrtoPayVal("");
         }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"✓ Confirmar"}</button>
@@ -2298,7 +2300,7 @@ return <div key={p.id} style={late?{background:G.red+"10",borderRadius:12,paddin
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:4}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Procedimento a Realizar</label>
-<select value={prosProcs.find(p=>p.name===f.proc)?f.proc:"**custom**"} onChange={e=>{const v=e.target.value;if(v==="**custom**"||v==="__custom__"){setF(p=>({...p,proc:""}));}else{const selP=prosProcs.find(pp=>pp.name===v);setF(p=>({...p,proc:v,price:(selP&&selP.price>0)?String(selP.price):p.price}));}}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
+<select value={prosProcs.find(p=>p.name===f.proc)?f.proc:(f.proc?"__custom__":"")} onChange={e=>{const v=e.target.value;if(v==="__custom__"){setF(p=>({...p,proc:""}));}else if(v===""){setF(p=>({...p,proc:""}));}else{const selP=prosProcs.find(pp=>pp.name===v);setF(p=>({...p,proc:v,price:(selP&&selP.price>0)?String(selP.price):p.price}));}}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"#fff"}}>
 <option value="">Selecione o procedimento...</option>
 {prosProcs.map(p=><option key={p.id} value={p.name}>{p.name}{p.price>0?" — "+cur(p.price):""}</option>)}
 <option value="__custom__">✏️ Escrever manualmente...</option>
@@ -2731,7 +2733,7 @@ var CATS=tab==="clinica"?["Aluguel","Agua","Luz","Internet","Telefone","Salarios
 var save=function(){
   if(!f.desc)return alert("Informe a descricao");
   if(!f.recorrente&&!f.value)return alert("Informe o valor");
-  var obj={...f,value:Math.round(Number(f.value||0)*100)/100,id:edit?edit.id:Date.now()};
+  var obj={...f,value:Math.round(Number(f.value||0)*100)/100,id:edit?edit.id:nid()};
   setGastos(function(prev){var lista=prev[tab]||[];return {...prev,[tab]:edit?lista.map(function(e){return e.id===obj.id?obj:e;}):[...lista,obj]};});
   setModal(false);setEdit(null);setF(blank);
 };
@@ -5210,7 +5212,7 @@ var [aba,setAba]=useState("pendentes");
 function marcarRem(apptId){setAppts(function(prev){return prev.map(function(x){return x.id===apptId?{...x,noRebook:true}:x;});});}
 function registrar(appt,motivo){
 var p=pats.find(function(x){return x.id===appt.patientId;});
-setRemarcar(function(prev){return [...prev,{id:Date.now(),apptId:appt.id,patId:appt.patientId,patName:p&&p.name,proc:appt.procedure,apptDate:appt.date,status:appt.status,motivo:motivo,date:t}];});
+setRemarcar(function(prev){return [...prev,{id:nid(),apptId:appt.id,patId:appt.patientId,patName:p&&p.name,proc:appt.procedure,apptDate:appt.date,status:appt.status,motivo:motivo,date:t}];});
 marcarRem(appt.id);
 }
 function doWA(ph,msg){var a=document.createElement("a");a.href="https://wa.me/55"+ph.replace(/[^0-9]/g,"")+"?text="+encodeURIComponent(msg);a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);}
@@ -5346,7 +5348,7 @@ return(
 </div>
 );})}
 </div>
-<button onClick={function(){if(!canSave)return;onSave({id:Date.now(),patientId:Number(patId),patName:pat.name,patPhone:pat.phone||"",dentId:Number(dentId),dentName:(dents.find(function(d){return d.id===Number(dentId);})||{name:""}).name,proc:proc,tempo:Number(tempo),valido:valido,slots:slots,criado:today()});onClose();}}
+<button onClick={function(){if(!canSave)return;onSave({id:nid(),patientId:Number(patId),patName:pat.name,patPhone:pat.phone||"",dentId:Number(dentId),dentName:(dents.find(function(d){return d.id===Number(dentId);})||{name:""}).name,proc:proc,tempo:Number(tempo),valido:valido,slots:slots,criado:today()});onClose();}}
 disabled={!canSave} style={{background:canSave?"#7B1FA2":"#ccc",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:canSave?"pointer":"not-allowed"}}>
 {"Adicionar à Lista de Espera"}
 </button>
@@ -5373,7 +5375,7 @@ var totalUsado=movsDoMes.filter(function(m){return m.tipo==="saida";}).reduce(fu
 var saveCat=function(){
 if(!catF.desc.trim())return;
 if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...catF,id:x.id}:x;});});}
-else{setImplCat(function(prev){return[...prev,{...catF,id:Date.now()}];});}
+else{setImplCat(function(prev){return[...prev,{...catF,id:nid()}];});}
 setShowCat(false);setEditCat(null);setCatF({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2});
 };
 var saveMov=function(){
@@ -5382,7 +5384,7 @@ if(movF.tipo==="saida"&&(!movF.patId||!movF.dente)){alert("Informe paciente e de
 var item=implCat.find(function(x){return x.id===Number(movF.itemId);});
 var pat=pats.find(function(x){return x.id===Number(movF.patId);});
 var dent=dents.find(function(x){return x.id===Number(movF.dentId);});
-var entry={...movF,id:Date.now(),itemId:Number(movF.itemId),qty:Number(movF.qty),patId:Number(movF.patId)||null,dentId:Number(movF.dentId)||null,itemName:item&&item.desc,patName:pat&&pat.name,dentName:dent&&dent.name};
+var entry={...movF,id:nid(),itemId:Number(movF.itemId),qty:Number(movF.qty),patId:Number(movF.patId)||null,dentId:Number(movF.dentId)||null,itemName:item&&item.desc,patName:pat&&pat.name,dentName:dent&&dent.name};
 setImplMov(function(prev){return[...prev,entry];});
 if(addLog){if(movF.tipo==="saida")addLog("estoque","Saida: "+entry.itemName+" paciente "+entry.patName+" dente "+movF.dente,entry.patName);else addLog("estoque","Entrada: "+entry.qty+"x "+(item&&item.desc)+" Titaniofix","");}
 setShowMov(false);setMovF({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
