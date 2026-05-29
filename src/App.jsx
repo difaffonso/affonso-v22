@@ -259,6 +259,10 @@ const PIXRECS0=[
 const fmt=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR"):"-";
 const _ld=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 const today=()=>_ld(new Date());
+// Normaliza horário para "HH:MM" com zero à esquerda (ex: "8:15" -> "08:15"). Evita bug de ordenação alfabética na agenda.
+const pad2=t=>{if(!t||typeof t!=="string")return t;var p=t.split(":");if(p.length<2)return t;return String(p[0]).padStart(2,"0")+":"+String(p[1]).padStart(2,"0");};
+// Converte "HH:MM" em minutos, para ordenar horários numericamente (à prova de formato).
+const t2m=t=>{var p=String(t||"").split(":");return (Number(p[0])||0)*60+(Number(p[1])||0);};
 const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return _ld(d);};
 const tom=()=>{const d=new Date();d.setDate(d.getDate()+1);return _ld(d);};
 const cur=v=>`R$ ${Number(v||0).toFixed(2).replace(".",",")}`;
@@ -1618,7 +1622,7 @@ const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
 const save=()=>{
-const finalTime=(f.timeCustom||"").trim()||(f.time||"").trim();
+const finalTime=pad2((f.timeCustom||"").trim()||(f.time||"").trim());
 const hasPat=String(f.patientId||"").trim()||String(f.patientName||"").trim();
 // Permite salvar sem paciente - aparece como "A confirmar" na agenda
 if(!finalTime){alert("Preencha o horário");return;}
@@ -1728,7 +1732,7 @@ return (
 // Inclui horarios personalizados dos agendamentos do dia
 var d=vd[0];
 var customTimes=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&!activeSlots.includes(x.time);}).map(function(x){return x.time;});
-var allSlots=[...new Set([...activeSlots,...customTimes])].sort();
+var allSlots=[...new Set([...activeSlots,...customTimes])].sort(function(x,y){return t2m(x)-t2m(y);});
 var _slots=allSlots.map(function(slot){
 // Prefer active (non-cancelled/missed/rescheduled) appointments first
 var a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentistId===d.id&&x.status!=="cancelled"&&x.status!=="rescheduled"&&x.status!=="missed";});
@@ -1834,7 +1838,7 @@ return [_slots, _cancelled];
     <div style={{minWidth:vd.length>1?vd.length*130+55:250}}>
       {(function(){
         var customTimesAll=appts.filter(function(x){return x.date===selDate&&vd.some(function(d){return d.id===x.dentistId;})&&activeSlots.indexOf(x.time)<0;}).map(function(x){return x.time;});
-        var allSlotsMulti=activeSlots.concat(customTimesAll).filter(function(v,i,a){return a.indexOf(v)===i;}).sort();
+        var allSlotsMulti=activeSlots.concat(customTimesAll).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(x,y){return t2m(x)-t2m(y);});
         return allSlotsMulti.map(function(slot){
         const hasAny=vd.some(d=>appts.find(a=>a.date===selDate&&a.time===slot&&a.dentistId===d.id));
         return (
@@ -3925,7 +3929,7 @@ return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14p
           </div>
         </div>
         {dAppts.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum paciente este mês</p>}
-        {dAppts.sort(function(a,b){return a.date.localeCompare(b.date)||a.time.localeCompare(b.time);}).map(function(a){
+        {dAppts.sort(function(a,b){return a.date.localeCompare(b.date)||(t2m(a.time)-t2m(b.time));}).map(function(a){
           var p=pats.find(function(x){return x.id===a.patientId;});
           return <div key={a.id} style={{display:"flex",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border,alignItems:"center",flexWrap:"wrap"}}>
             <span style={{fontSize:11,color:G.muted,minWidth:80}}>{fmt(a.date)+" "+a.time}</span>
@@ -4484,7 +4488,7 @@ const despHoje=user.level>=3?(function(){
   });
 })():[];
 const myDent=dents.find(function(d){return d.id===user.dentistId;});
-const todayA=appts.filter(a=>a.date===t&&(!isDent||a.dentistId===user.dentistId)).sort((a,b)=>a.time.localeCompare(b.time));
+const todayA=appts.filter(a=>a.date===t&&(!isDent||a.dentistId===user.dentistId)).sort((a,b)=>t2m(a.time)-t2m(b.time));
 const mo=t.slice(0,7);
 const rev=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0).reduce((s,r)=>s+r.paid,0);
 // Per-dentist today counts (for admin view)
@@ -5732,7 +5736,7 @@ if(full)lastServerTs.current=full.updated_at;
 if(data){
 try{
 if(data.pats?.length)setPats(data.pats);
-if(data.appts?.length)setAppts(data.appts);
+if(data.appts?.length)setAppts(data.appts.map(function(a){return a&&a.time?Object.assign({},a,{time:pad2(a.time)}):a;}));
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
 var treatsmig=data.treats.map(function(t){
