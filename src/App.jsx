@@ -3900,7 +3900,7 @@ return <PatCard key={sec.isTreat?x.id:p.id} p={p} badge={sec.label.slice(2)} bad
 // ══════════════════════════════════════════════════════════
 // RELATÓRIOS
 // ══════════════════════════════════════════════════════════
-function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks}){
+function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks}){
 const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
@@ -3959,11 +3959,13 @@ return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom};
 
 });
 const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&p.sent.startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
-const clinicExp=(expenses.clinic||[]).filter(e=>e.date.startsWith(mo));
-const persExp=(expenses.personal||[]).filter(e=>e.date.startsWith(mo));
+const gastoMes=arr=>(arr||[]).filter(e=>(e.recorrente&&e.diaVenc)?true:(e.date&&e.date.startsWith(mo)));
+const isPagoG=e=>e.recorrente?!!(e.pagoMeses&&e.pagoMeses[mo]):!!e.paid;
+const clinicaG=gastoMes(gastos&&gastos.clinica);
+const pessoalG=gastoMes(gastos&&gastos.pessoal);
 
 const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
-if(user.level>=3)TABS.push(["exp","Despesas"]);
+if(user.level>=3)TABS.push(["gastos","💸 Gastos"]);
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
@@ -4127,18 +4129,18 @@ return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14p
   </div>;
 })()}
 
-{tab==="exp"&&user.level>=3&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+{tab==="gastos"&&user.level>=3&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-{[["Despesas Clínica",clinicExp,G.red],["Despesas Pessoais",persExp,G.purple]].map(([title,list,color])=><div key={title} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+{[["Gastos Clínica",clinicaG,G.red],["Gastos Pessoais",pessoalG,G.purple]].map(([title,list,color])=><div key={title} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
 <div style={{fontWeight:700,fontSize:14,color,marginBottom:10}}>{title}</div>
 <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color,marginBottom:12}}>{cur(list.reduce((s,e)=>s+Number(e.value||0),0))}</div>
 {list.map(e=><div key={e.id} style={{display:"flex",gap:8,fontSize:12,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}>
-<span style={{color:G.muted,minWidth:70}}>{fmt(e.date)}</span>
-<span style={{flex:1}}>{e.desc} <span style={{color:G.muted}}>({e.cat})</span></span>
-<Bdg l={e.paid?"Pago":"Pendente"} col={e.paid?G.success:G.red} sm/>
+<span style={{color:G.muted,minWidth:78}}>{e.recorrente?("Todo dia "+(e.diaVenc||"?")):fmt(e.date)}</span>
+<span style={{flex:1}}>{e.desc} <span style={{color:G.muted}}>({e.cat})</span>{e.recorrente?<span style={{color:G.blue,fontWeight:700}}> · recorrente</span>:""}</span>
+<Bdg l={isPagoG(e)?"Pago":"Pendente"} col={isPagoG(e)?G.success:G.red} sm/>
 <span style={{fontWeight:700}}>{cur(e.value)}</span>
 </div>)}
-{list.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhuma despesa</p>}
+{list.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum gasto</p>}
 </div>)}
 </div>
 </div>}
@@ -6214,7 +6216,7 @@ return <>
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} user={user}/>}
-      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
+      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={setGastos} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
