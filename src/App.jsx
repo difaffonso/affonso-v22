@@ -3308,7 +3308,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 // ══════════════════════════════════════════════════════════
 // FINANCEIRO
 // ══════════════════════════════════════════════════════════
-function Financeiro({recs,setRecs,pats,dents,expenses,user}){
+function Financeiro({recs,setRecs,pats,dents,expenses,gastos,user}){
 const [modo,setModo]=useState("mensal"); // "mensal" | "diario"
 const [mo,setMo]=useState(today().slice(0,7));
 const [dia,setDia]=useState(today());
@@ -3326,7 +3326,7 @@ return r.date===dia;
 
 const raw=mr.reduce((s,r)=>s+r.paid,0);
 const liq=mr.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
-const clinicExp=(expenses.clinic||[]).filter(e=>modo==="mensal"?e.date.startsWith(mo):e.date===dia).reduce((s,e)=>s+Number(e.value||0),0);
+const clinicExp=(gastos&&gastos.clinica||[]).filter(e=>{if(modo==="mensal")return (e.recorrente&&e.diaVenc)?true:(e.date&&e.date.startsWith(mo));if(e.recorrente&&e.diaVenc)return Number(e.diaVenc)===Number(dia.slice(8,10));return e.date===dia;}).reduce((s,e)=>s+Number(e.value||0),0);
 const byP=PAY.map(pt=>({pt,v:mr.filter(r=>r.payment===pt).reduce((s,r)=>s+r.paid,0)})).filter(x=>x.v>0);
 const mx=Math.max(...byP.map(x=>x.v),1);
 
@@ -3381,7 +3381,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {/* Cards resumo */}
 
 <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
-  {[["Receita Bruta",raw,G.primary],["Receita Líquida",liq,G.success],["Despesas",clinicExp,G.red],["Resultado",liq-clinicExp,liq-clinicExp>=0?G.success:G.red]].map(([l,v,c])=>(
+  {[["Receita Bruta",raw,G.primary],["Receita Líquida",liq,G.success],["Gastos Clínica",clinicExp,G.red],["Resultado",liq-clinicExp,liq-clinicExp>=0?G.success:G.red]].map(([l,v,c])=>(
     <div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
       <div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div>
       <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{cur(v)}</div>
@@ -6215,7 +6215,7 @@ return <>
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
-      {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} user={user}/>}
+      {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={setGastos} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
