@@ -5151,7 +5151,11 @@ var items=[];
     }
     if(responsavelId!==dentId)return;
     var baixaDate=it.doneDate||"";
-    if(!baixaDate.startsWith(mo))return;
+    var baixaMo=baixaDate.slice(0,7);
+    var recebido=it.recebido||false;
+    if(!baixaMo)return;
+    if(baixaMo>mo)return;             // baixa em mes futuro: nao mostra
+    if(baixaMo<mo&&recebido)return;   // mes anterior ja recebido: fica so no historico do mes dele
     var pat=pats.find(function(x){return x.id===treat.patientId;});
     var val=Number(it.value||0);
     items.push({
@@ -5163,11 +5167,15 @@ var items=[];
       valor:val,
       comissao:val*COMM,
       baixaDate:baixaDate,
+      baixaMo:baixaMo,
+      atrasado:baixaMo<mo,
       pago:it.recebido||false,
       pagoDate:it.recebidoDate||"",
     });
   });
 });
+
+items.sort(function(a,b){return (a.patName||"").localeCompare(b.patName||"","pt");});
 
 var totalComissao=items.reduce(function(s,i){return s+i.comissao;},0);
 var totalPago=items.filter(function(i){return i.pago;}).reduce(function(s,i){return s+i.comissao;},0);
@@ -5218,7 +5226,7 @@ return(
 
   <div style={{display:"flex",flexDirection:"column",gap:8}}>
     {items.map(function(item){return(
-      <div key={item.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+(item.pago?G.success:G.orange),opacity:item.pago?0.75:1}}>
+      <div key={item.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+(item.pago?G.success:item.atrasado?G.red:G.orange),opacity:item.pago?0.75:1}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           {/* Checkbox admin */}
           {!isDent&&<div onClick={function(){marcarPago(item.key,!item.pago);}}
@@ -5226,9 +5234,9 @@ return(
             {item.pago&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>✓</span>}
           </div>}
           <div style={{flex:1}}>
-            <div style={{fontWeight:700,fontSize:14,color:G.text}}>{item.patName}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span style={{fontWeight:700,fontSize:14,color:G.text}}>{item.patName}</span>{item.atrasado&&<span style={{background:G.red+"20",color:G.red,borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"⚠ Mês anterior"}</span>}</div>
             <div style={{fontSize:13,color:G.primary,fontWeight:600,marginTop:1}}>{item.proc}</div>
-            <div style={{fontSize:11,color:G.muted,marginTop:2}}>{"Baixa: "+fmt(item.baixaDate)}</div>
+            <div style={{fontSize:11,color:item.atrasado?G.red:G.muted,marginTop:2,fontWeight:item.atrasado?700:400}}>{"Baixa: "+fmt(item.baixaDate)+(item.atrasado?" (pendente)":"")}</div>
             {item.pago&&item.pagoDate&&<div style={{fontSize:11,color:G.success,fontWeight:600,marginTop:2}}>{"✓ Pago em "+fmt(item.pagoDate)}</div>}
           </div>
           <div style={{textAlign:"right",flexShrink:0}}>
