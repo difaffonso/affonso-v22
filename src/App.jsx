@@ -266,6 +266,7 @@ const t2m=t=>{var p=String(t||"").split(":");return (Number(p[0])||0)*60+(Number
 const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return _ld(d);};
 const tom=()=>{const d=new Date();d.setDate(d.getDate()+1);return _ld(d);};
 const cur=v=>{var n=Number(v||0),neg=n<0,s=Math.abs(n).toFixed(2).split("."),i=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");return (neg?"-":"")+"R$ "+i+","+s[1];};
+const MOTIVOS_ORC=["Preço / Achou caro","Vai pensar","Problema financeiro","Atendimento","Foi para outra clínica","Outro"];
 let _idLast=0;
 const nid=()=>{let t=Date.now()*1000+Math.floor(Math.random()*1000);if(t<=_idLast)t=_idLast+1;_idLast=t;return t;};
 const mkLog=function(logs,setLogs,user,tipo,desc,patName){
@@ -575,7 +576,7 @@ const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:Math.round
 setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
 setRecModal(false);
 };
-const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:Number(tf.dentistId)||user.dentistId||dents[0]?.id||1,id:nid(treats)}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
+const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:Number(tf.dentistId)||user.dentistId||dents[0]?.id||1,orcStatus:tf.orcStatus||"espera",id:nid(treats)}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
 const addTItem=()=>{
 if(!tni.d&&!tni.procId)return alert("Selecione um procedimento");
 if(!tni.v)return alert("Informe o valor");
@@ -819,6 +820,27 @@ return <>
             {!isDentUser&&<button onClick={()=>{setTreats(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️</button>}
           </div>
         </div>
+        {/* ORCAMENTO: status controlado pela secretaria */}
+        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:8,padding:"7px 10px",background:G.bg,borderRadius:9}}>
+          <span style={{fontSize:11,fontWeight:700,color:G.muted}}>Orçamento:</span>
+          {[["aprovado","Aprovado",G.success],["espera","Em espera",G.yellow],["parcial","Parcial",G.blue],["naofechado","Não fechado",G.red]].map(function(o){var sv=o[0],sl=o[1],sc=o[2];var active=(t.orcStatus||"espera")===sv;
+            return isDentUser
+              ?(active?<span key={sv} style={{background:sc,color:"#fff",borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700}}>{sl}</span>:null)
+              :<button key={sv} onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,orcStatus:sv}))} style={{background:active?sc:"#fff",color:active?"#fff":G.muted,border:"1.5px solid "+(active?sc:G.border),borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{sl}</button>;
+          })}
+        </div>
+        {(t.orcStatus==="naofechado")&&<div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
+          <span style={{fontSize:11,fontWeight:700,color:G.red}}>Motivo:</span>
+          {isDentUser
+            ?<span style={{fontSize:12,color:G.text}}>{t.orcMotivo||"--"}{(t.orcMotivo==="Outro"&&t.orcMotivoObs)?(" — "+t.orcMotivoObs):""}</span>
+            :<>
+              <select value={t.orcMotivo||""} onChange={e=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,orcMotivo:e.target.value}))} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"5px 9px",fontSize:12,background:"#fff",outline:"none"}}>
+                <option value="">Selecione...</option>
+                {MOTIVOS_ORC.map(m=><option key={m} value={m}>{m}</option>)}
+              </select>
+              {t.orcMotivo==="Outro"&&<input value={t.orcMotivoObs||""} onChange={e=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,orcMotivoObs:e.target.value}))} placeholder="Descreva o motivo" style={{flex:1,minWidth:150,border:"1.5px solid "+G.border,borderRadius:8,padding:"5px 9px",fontSize:12,outline:"none"}}/>}
+            </>}
+        </div>}
         <div style={{background:G.border,borderRadius:4,height:5,marginBottom:10}}><div style={{background:G.primary,height:5,borderRadius:4,width:`${total?Math.min(100,paid/total*100):0}%`,transition:"width .3s"}}/></div>
         {t.items.map((it,i)=>{
           const canCheck=user.level>=2||(user.level===1); // dentist can check
@@ -4050,40 +4072,73 @@ return <div key={o} style={{background:G.accent,borderRadius:9,padding:"8px 14px
 })}
 </div>
 </div>
-{/* Budgets by dentist */}
+{/* Filtro dentista */}
 <div style={{display:"flex",flexDirection:"column",gap:4}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Filtrar dentista</label>
-<select onChange={e=>setOrcDent(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none",background:"#fff",maxWidth:250}}>
+<select value={orcDent} onChange={e=>setOrcDent(e.target.value)} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none",background:"#fff",maxWidth:250}}>
 <option value="all">Todos os dentistas</option>
 {dents.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
 </select>
 </div>
 {(()=>{
-const filtB=budgets.filter(b=>orcDent==="all"||String(b.dentistId)===String(orcDent));
-const moB=filtB.filter(b=>b.date.startsWith(mo));
-const totApproved=moB.filter(b=>b.status==="approved").reduce((s,b)=>s+b.items.reduce((ss,i)=>ss+i.v,0)-(b.disc||0),0);
-const totPending=moB.filter(b=>b.status==="pending").reduce((s,b)=>s+b.items.reduce((ss,i)=>ss+i.v,0)-(b.disc||0),0);
-const totRej=moB.filter(b=>b.status==="rejected").reduce((s,b)=>s+b.items.reduce((ss,i)=>ss+i.v,0)-(b.disc||0),0);
-const BCOLOR2={approved:G.success,pending:G.yellow,rejected:G.red};
-const BLABEL={approved:"Aprovados",pending:"Em espera",rejected:"Recusados"};
+const orcs=treats.filter(t=>(t.start||"").startsWith(mo)&&(orcDent==="all"||String(t.dentistId)===String(orcDent)));
+const valOf=t=>(t.items||[]).reduce((s,i)=>s+Number(i.value||0),0);
+const stOf=t=>t.orcStatus||"espera";
+const STLABEL={aprovado:"Aprovados",espera:"Em espera",parcial:"Parcial",naofechado:"Não fechados"};
+const BADGE={aprovado:"Aprovado",espera:"Em espera",parcial:"Parcial",naofechado:"Não fechado"};
+const STCOLOR={aprovado:G.success,espera:G.yellow,parcial:G.blue,naofechado:G.red};
+const byStatus={aprovado:[],espera:[],parcial:[],naofechado:[]};
+orcs.forEach(t=>{(byStatus[stOf(t)]||byStatus.espera).push(t);});
+const sumV=arr=>arr.reduce((s,t)=>s+valOf(t),0);
+const byDent={};
+orcs.forEach(t=>{byDent[t.dentistId]=(byDent[t.dentistId]||0)+1;});
+const motivos={};
+byStatus.naofechado.forEach(t=>{var m=t.orcMotivo||"Sem motivo informado";motivos[m]=(motivos[m]||0)+1;});
 return <>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:11}}>
-{[["Aprovados",totApproved,G.success],["Em Espera",totPending,G.yellow],["Recusados",totRej,G.red]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"11px",textAlign:"center",borderTop:`4px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c}}>{cur(v)}</div></div>)}
+<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<div><div style={{fontSize:12,opacity:.9,fontWeight:700}}>Orçamentos no mês</div><div style={{fontSize:11,opacity:.8}}>Cada plano de tratamento = 1 orçamento</div></div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:38,fontWeight:700,lineHeight:1}}>{orcs.length}</div>
 </div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
+{["aprovado","espera","parcial","naofechado"].map(sv=><div key={sv} style={{background:G.card,borderRadius:11,padding:"12px",textAlign:"center",borderTop:"4px solid "+STCOLOR[sv],boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div style={{fontSize:11,color:G.muted,fontWeight:700}}>{STLABEL[sv]}</div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:30,color:STCOLOR[sv],lineHeight:1.05,fontWeight:700}}>{byStatus[sv].length}</div>
+<div style={{fontSize:12,color:STCOLOR[sv],fontWeight:700}}>{cur(sumV(byStatus[sv]))}</div>
+</div>)}
+</div>
+{Object.keys(byDent).length>0&&<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div style={{fontWeight:700,fontSize:14,marginBottom:10,color:G.primary}}>🦷 Orçamentos por dentista</div>
+<div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+{Object.keys(byDent).map(id=>{var d=dents.find(x=>String(x.id)===String(id));return <div key={id} style={{background:((d&&d.color)||G.primary)+"15",borderRadius:9,padding:"7px 13px",display:"flex",alignItems:"center",gap:8}}>
+<span style={{fontSize:13,fontWeight:700,color:(d&&d.color)||G.primary}}>{d?d.name:"--"}</span>
+<span style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700,color:(d&&d.color)||G.primary}}>{byDent[id]}</span>
+</div>;})}
+</div>
+</div>}
+{byStatus.naofechado.length>0&&<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+G.red}}>
+<div style={{fontWeight:700,fontSize:14,marginBottom:10,color:G.red}}>❌ Por que não fecharam ({byStatus.naofechado.length})</div>
 <div style={{display:"flex",flexDirection:"column",gap:7}}>
-{moB.length===0&&<div style={{background:G.card,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum orçamento neste mês</div>}
-{moB.map((b,bi)=>{const pat=pats.find(p=>p.id===b.patientId);const tot=b.items.reduce((s,i)=>s+i.v,0)-(b.disc||0);const den=dents.find(d=>d.id===b.dentistId);
-return <div key={bi} style={{background:G.card,borderRadius:10,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:`4px solid ${BCOLOR2[b.status]||G.muted}`}}>
-<div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
-<div><div style={{fontWeight:700,fontSize:13}}>{pat?.name||"--"}</div><div style={{fontSize:11,color:G.muted}}>{fmt(b.date)}{den?` · ${den.name}`:""}</div></div>
-<div style={{display:"flex",gap:7,alignItems:"center"}}><Bdg l={BLABEL[b.status]||b.status} col={BCOLOR2[b.status]||G.muted} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(tot)}</span></div>
+{Object.keys(motivos).sort((a,b)=>motivos[b]-motivos[a]).map(m=><div key={m} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:G.red+"12",borderRadius:8}}>
+<span style={{fontSize:13,color:G.text,fontWeight:600}}>{m}</span>
+<span style={{fontFamily:"'Cormorant Garamond'",fontSize:21,fontWeight:700,color:G.red}}>{motivos[m]}</span>
+</div>)}
 </div>
-{b.items.map((it,i)=><div key={i} style={{fontSize:11,color:G.muted,display:"flex",justifyContent:"space-between",marginTop:3}}><span>{it.d}</span><span>{cur(it.v)}</span></div>)}
+</div>}
+<div style={{display:"flex",flexDirection:"column",gap:7}}>
+{orcs.length===0&&<div style={{background:G.card,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum orçamento neste mês</div>}
+{orcs.slice().sort((a,b)=>(b.start||"").localeCompare(a.start||"")).map(t=>{var pat=pats.find(p=>p.id===t.patientId);var den=dents.find(d=>String(d.id)===String(t.dentistId));var sv=stOf(t);var v=valOf(t);
+return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+STCOLOR[sv]}}>
+<div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
+<div><div style={{fontWeight:700,fontSize:13}}>{pat?pat.name:"--"}</div><div style={{fontSize:11,color:G.muted}}>{fmt(t.start)}{den?(" · "+den.name):""}{t.name?(" · "+t.name):""}</div></div>
+<div style={{display:"flex",gap:7,alignItems:"center"}}><Bdg l={BADGE[sv]} col={STCOLOR[sv]} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(v)}</span></div>
+</div>
+{sv==="naofechado"&&t.orcMotivo&&<div style={{fontSize:11,color:G.red,marginTop:5,fontWeight:600}}>Motivo: {t.orcMotivo}{(t.orcMotivo==="Outro"&&t.orcMotivoObs)?(" — "+t.orcMotivoObs):""}</div>}
 </div>;})}
 </div>
 </>;
 })()}
 </div>}
+
 {tab==="orto"&&(function(){
   var ortoDents=dents.filter(function(d){return (d.specialty||"").toLowerCase().indexOf("orto")>=0;});
   if(ortoDents.length===0)return <div style={{background:G.card,borderRadius:12,padding:20,textAlign:"center",color:G.muted}}>{"Nenhum dentista com especialidade Ortodontia cadastrado."}</div>;
