@@ -629,7 +629,7 @@ if(!pv)return alert("Informe o valor");
 const t=treats.find(x=>x.id===tid);
 // Save payment in treatment plan
 const instSave=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
-setTreats(prev=>prev.map(tr=>tr.id!==tid?tr:{...tr,payments:[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave}]}));
+setTreats(prev=>prev.map(function(tr){if(tr.id!==tid)return tr;var newPays=[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave}];var totIt=(tr.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);var totPg=newPays.reduce(function(s,p){return s+Number(p.value||0);},0);var ns=tr.orcStatus||"espera";if((ns==="parcial"||ns==="espera")&&totIt>0&&totPg>=totIt-0.005)ns="aprovado";return {...tr,payments:newPays,orcStatus:ns};}));
 // Also create a rec entry so Financeiro sees it
 const inst=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
 const recObj={
@@ -793,6 +793,7 @@ return <>
     {patTreats.map(t=>{
       const total=t.items.reduce((s,i)=>s+i.value,0);
       const paid=(t.payments||[]).reduce((s,p)=>s+p.value,0);
+      const effOrc=(function(){var s=(t.orcStatus||"espera");if((s==="parcial"||s==="espera")&&total>0&&paid>=total-0.005)return "aprovado";return s;})();
       return <div key={t.id} style={{background:t.finalizado?"#F1F8E9":G.bg,borderRadius:12,padding:"14px 16px",border:"1px solid "+(t.finalizado?G.success:G.border),opacity:t.finalizado?0.85:1}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:6}}>
           <div>
@@ -823,7 +824,7 @@ return <>
         {/* ORCAMENTO: status controlado pela secretaria */}
         <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:8,padding:"7px 10px",background:G.bg,borderRadius:9}}>
           <span style={{fontSize:11,fontWeight:700,color:G.muted}}>Orçamento:</span>
-          {[["aprovado","Aprovado",G.success],["espera","Em espera",G.yellow],["parcial","Parcial",G.blue],["naofechado","Não fechado",G.red]].map(function(o){var sv=o[0],sl=o[1],sc=o[2];var active=(t.orcStatus||"espera")===sv;
+          {[["aprovado","Aprovado",G.success],["espera","Em espera",G.yellow],["parcial","Parcial",G.blue],["naofechado","Não fechado",G.red]].map(function(o){var sv=o[0],sl=o[1],sc=o[2];var active=effOrc===sv;
             return isDentUser
               ?(active?<span key={sv} style={{background:sc,color:"#fff",borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700}}>{sl}</span>:null)
               :<button key={sv} onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,orcStatus:sv}))} style={{background:active?sc:"#fff",color:active?"#fff":G.muted,border:"1.5px solid "+(active?sc:G.border),borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{sl}</button>;
@@ -4082,14 +4083,16 @@ return <div key={o} style={{background:G.accent,borderRadius:9,padding:"8px 14px
 </div>
 {(()=>{
 const orcs=treats.filter(t=>(t.start||"").startsWith(mo)&&(orcDent==="all"||String(t.dentistId)===String(orcDent)));
-const valOf=t=>(t.items||[]).reduce((s,i)=>s+Number(i.value||0),0);
-const stOf=t=>t.orcStatus||"espera";
+const totOf=t=>(t.items||[]).reduce((s,i)=>s+Number(i.value||0),0);
+const paidOf=t=>(t.payments||[]).reduce((s,p)=>s+Number(p.value||0),0);
+const stOf=t=>{var s=t.orcStatus||"espera";if((s==="parcial"||s==="espera")&&totOf(t)>0&&paidOf(t)>=totOf(t)-0.005)return "aprovado";return s;};
+const dispVal=t=>{var e=stOf(t);return e==="parcial"?paidOf(t):totOf(t);};
 const STLABEL={aprovado:"Aprovados",espera:"Em espera",parcial:"Parcial",naofechado:"Não fechados"};
 const BADGE={aprovado:"Aprovado",espera:"Em espera",parcial:"Parcial",naofechado:"Não fechado"};
 const STCOLOR={aprovado:G.success,espera:G.yellow,parcial:G.blue,naofechado:G.red};
 const byStatus={aprovado:[],espera:[],parcial:[],naofechado:[]};
 orcs.forEach(t=>{(byStatus[stOf(t)]||byStatus.espera).push(t);});
-const sumV=arr=>arr.reduce((s,t)=>s+valOf(t),0);
+const sumV=arr=>arr.reduce((s,t)=>s+dispVal(t),0);
 const byDent={};
 orcs.forEach(t=>{byDent[t.dentistId]=(byDent[t.dentistId]||0)+1;});
 const motivos={};
@@ -4126,11 +4129,11 @@ return <>
 </div>}
 <div style={{display:"flex",flexDirection:"column",gap:7}}>
 {orcs.length===0&&<div style={{background:G.card,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum orçamento neste mês</div>}
-{orcs.slice().sort((a,b)=>(b.start||"").localeCompare(a.start||"")).map(t=>{var pat=pats.find(p=>p.id===t.patientId);var den=dents.find(d=>String(d.id)===String(t.dentistId));var sv=stOf(t);var v=valOf(t);
+{orcs.slice().sort((a,b)=>(b.start||"").localeCompare(a.start||"")).map(t=>{var pat=pats.find(p=>p.id===t.patientId);var den=dents.find(d=>String(d.id)===String(t.dentistId));var sv=stOf(t);var v=dispVal(t);var tt=totOf(t);
 return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+STCOLOR[sv]}}>
 <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
 <div><div style={{fontWeight:700,fontSize:13}}>{pat?pat.name:"--"}</div><div style={{fontSize:11,color:G.muted}}>{fmt(t.start)}{den?(" · "+den.name):""}{t.name?(" · "+t.name):""}</div></div>
-<div style={{display:"flex",gap:7,alignItems:"center"}}><Bdg l={BADGE[sv]} col={STCOLOR[sv]} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(v)}</span></div>
+<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}><div style={{display:"flex",gap:7,alignItems:"center"}}><Bdg l={BADGE[sv]} col={STCOLOR[sv]} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(v)}</span></div>{sv==="parcial"&&<span style={{fontSize:10,color:G.blue,fontWeight:700}}>{"pago · de "+cur(tt)}</span>}</div>
 </div>
 {sv==="naofechado"&&t.orcMotivo&&<div style={{fontSize:11,color:G.red,marginTop:5,fontWeight:600}}>Motivo: {t.orcMotivo}{(t.orcMotivo==="Outro"&&t.orcMotivoObs)?(" — "+t.orcMotivoObs):""}</div>}
 </div>;})}
