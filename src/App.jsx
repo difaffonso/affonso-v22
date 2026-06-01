@@ -265,7 +265,8 @@ const pad2=t=>{if(!t||typeof t!=="string")return t;var p=t.split(":");if(p.lengt
 const t2m=t=>{var p=String(t||"").split(":");return (Number(p[0])||0)*60+(Number(p[1])||0);};
 const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return _ld(d);};
 const tom=()=>{const d=new Date();d.setDate(d.getDate()+1);return _ld(d);};
-const cur=v=>{var n=Number(v||0),neg=n<0,s=Math.abs(n).toFixed(2).split("."),i=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");return (neg?"-":"")+"R$ "+i+","+s[1];};
+const cur=v=>{var n=Math.round((Number(v)||0)*100)/100,neg=n<0,s=Math.abs(n).toFixed(2).split("."),i=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");return (neg?"-":"")+"R$ "+i+","+s[1];};
+const pmoney=x=>{var r=String(x==null?"":x).replace(",",".").replace(/[^0-9.]/g,"");var n=parseFloat(r);return isNaN(n)?0:Math.round(n*100)/100;};
 const MOTIVOS_ORC=["Preço / Achou caro","Vai pensar","Problema financeiro","Atendimento","Foi para outra clínica","Outro"];
 let _idLast=0;
 const nid=()=>{let t=Date.now()*1000+Math.floor(Math.random()*1000);if(t<=_idLast)t=_idLast+1;_idLast=t;return t;};
@@ -469,7 +470,7 @@ const BENEF=[["clareamento","devolve o brilho e a beleza natural do seu sorriso"
 const benefDe=nome=>{const n=(nome||"").toLowerCase();for(var i=0;i<BENEF.length;i++){if(n.indexOf(BENEF[i][0])>=0)return BENEF[i][1];}return "";};
 const genOrcamentoPDF=()=>{
 const b=pdfBudget;if(!b)return;
-const brl=v=>{var n=Number(v||0),neg=n<0,s=Math.abs(n).toFixed(2).split("."),i=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");return (neg?"-":"")+"R$ "+i+","+s[1];};
+const brl=v=>{var n=Math.round((Number(v)||0)*100)/100,neg=n<0,s=Math.abs(n).toFixed(2).split("."),i=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");return (neg?"-":"")+"R$ "+i+","+s[1];};
 const subtotal=b.items.reduce((s,i)=>s+i.v,0);
 const desc0=b.disc||0;
 const tot=subtotal-desc0;
@@ -572,7 +573,7 @@ const genM=(d,n)=>{const ms=[];const x=new Date(d+"T12:00");for(let i=1;i<=n;i++
 const saveRec=()=>{
 if(Number(rf.paid)>0&&!rf.closed)return alert("Marque 'Confirmar baixa financeira'.");
 const ms=rf.payment==="Cartão Crédito"&&Number(rf.inst)>1?genM(rf.date,Number(rf.inst)):[];
-const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:Math.round(Number(rf.paid)*100)/100,inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs)};
+const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:pmoney(rf.paid),inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs)};
 setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
 setRecModal(false);
 };
@@ -583,7 +584,7 @@ if(!tni.v)return alert("Informe o valor");
 const procName=procs.find(p=>String(p.id)===String(tni.procId))?.name||"";
 const detail=tni.d&&tni.d!==procName?tni.d:"";
 const desc=procName?(detail?`${procName} -- ${detail}`:procName):(tni.d||"Procedimento");
-setTf(p=>({...p,items:[...p.items,{desc,value:Math.round(Number(tni.v)*100)/100,paid:false}]}));
+setTf(p=>({...p,items:[...p.items,{desc,value:pmoney(tni.v),paid:false}]}));
 setTni({d:"",procId:"",v:""});
 };
 // Baixa de procedimento pelo dentista
@@ -623,8 +624,7 @@ setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==did
 setConfirmDesfazer(null);
 };
 const addPayment=(tid)=>{
-var rawVal=String(payForm.value||"").replace(",",".").replace(/[^0-9.]/g,"");
-const pv=Math.round((parseFloat(rawVal)||0)*100)/100;
+const pv=pmoney(payForm.value);
 if(!pv)return alert("Informe o valor");
 const t=treats.find(x=>x.id===tid);
 // Save payment in treatment plan
@@ -648,7 +648,7 @@ fromTreat:tid,
 setRecs(prev=>[...prev,recObj]);
 setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",note:""});
 };
-const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:Math.round(Number(bf.disc)*100)/100,items:bf.items.map(function(it){return {...it,v:Math.round(Number(it.v)*100)/100};}),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
+const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
 const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["evolucao","📝 Evolução"],["historico","📅 Histórico"],["atestado","📄 Atestado"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
 // NF (Nota Fiscal) state
@@ -667,7 +667,7 @@ const [nff,setNff]=useState(blankNF);
 const patNFs=(pat.nfs||[]);
 const saveNF=()=>{
 if(!nff.procedure||!nff.value)return alert("Informe procedimento e valor");
-const obj={...nff,value:Number(nff.value),tax:Number(nff.tax||0),id:nfEdit?nfEdit.id:nid(patNFs)};
+const obj={...nff,value:pmoney(nff.value),tax:pmoney(nff.tax),id:nfEdit?nfEdit.id:nid(patNFs)};
 const newNFs=nfEdit?patNFs.map(n=>n.id===nfEdit.id?obj:n):[...patNFs,obj];
 setPats(prev=>prev.map(p=>p.id===pat.id?{...p,nfs:newNFs}:p));
 setNfModal(false);
@@ -1497,7 +1497,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           var meses=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
           var items=meses.map(function(m,i){
             var mes=String(i+1).padStart(2,"0");
-            return {desc:m+" "+ortoForm.ano,value:Number(ortoForm.valor),paid:false,orto:true,mesRef:ortoForm.ano+"-"+mes};
+            return {desc:m+" "+ortoForm.ano,value:pmoney(ortoForm.valor),paid:false,orto:true,mesRef:ortoForm.ano+"-"+mes};
           });
           var newTreat={name:"Ortodontia "+ortoForm.ano,start:today(),items:items,payments:[],patientId:pat.id,dentistId:Number(ortoForm.dentistId)||dents[0]?.id,id:nid(treats),orto:true,ano:ortoForm.ano};
           setTreats(prev=>[...prev,newTreat]);
@@ -1710,7 +1710,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           var treat2=treats.find(t=>t.id===tid2);
           if(!treat2)return;
           var item2=treat2.items[idx2];
-          var finalVal=Number(ortoPayVal)||item2.value;
+          var finalVal=pmoney(ortoPayVal)||item2.value;
           setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal})}));
           var recObj={id:nid(recs),patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2};
           setRecs(prev=>[...prev,recObj]);
@@ -1825,6 +1825,7 @@ const vd=isDent
 // Use 20-min slots when viewing a single orto dentist
 const viewingOrto=vd.length===1&&isOrto(vd[0]);
 const activeSlots=viewingOrto?SLOTS_ORTO:SLOTS;
+const hiddenToday=denF==="all"?appts.filter(function(a){return a.date===selDate&&!vd.some(function(d){return d.id===a.dentistId;})&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed";}):[];
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
@@ -1926,6 +1927,8 @@ return (
       );
     })}
   </div>
+
+{hiddenToday.length>0&&<div onClick={function(){var od=dents.find(function(d){return d.id===hiddenToday[0].dentistId;});if(od)setDenF(String(od.id));}} style={{background:"#FFF8E1",border:"1.5px solid #FFB300",borderRadius:10,padding:"9px 13px",fontSize:12,fontWeight:700,color:"#E65100",cursor:"pointer",display:"flex",alignItems:"center",gap:6,margin:"2px 0"}}>{"⚠ "+hiddenToday.length+" consulta(s) de Ortodontia neste dia não aparecem aqui. Toque para ver →"}</div>}
 
 {vd.length>1&&<div style={{display:"grid",gridTemplateColumns:"48px repeat("+vd.length+",1fr)",gap:2}}>
 
@@ -2944,7 +2947,7 @@ var CATS=tab==="clinica"?["Aluguel","Agua","Luz","Internet","Telefone","Salarios
 var save=function(){
   if(!f.desc)return alert("Informe a descricao");
   if(!f.recorrente&&!f.value)return alert("Informe o valor");
-  var obj={...f,value:Math.round(Number(f.value||0)*100)/100,id:edit?edit.id:nid()};
+  var obj={...f,value:pmoney(f.value),id:edit?edit.id:nid()};
   setGastos(function(prev){var lista=prev[tab]||[];return {...prev,[tab]:edit?lista.map(function(e){return e.id===obj.id?obj:e;}):[...lista,obj]};});
   setModal(false);setEdit(null);setF(blank);
 };
