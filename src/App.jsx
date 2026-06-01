@@ -4716,23 +4716,29 @@ return(
 // ══════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════
-function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,expenses}){
+function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos}){
 const t=today();
 const isDent=user.level===1;
 // Despesas vencendo hoje ou atrasadas (so admin)
 const despHoje=user.level>=3?(function(){
-  var all=[...(expenses&&expenses.clinic||[]),...(expenses&&expenses.personal||[])];
-  return all.filter(function(e){
-    if(e.paid)return false;
-    if(e.fixo){
-      // fixa: vence exatamente no dia de hoje do mes
-      var dia=Number(e.diaVenc||0);
-      var diaHoje=Number(t.slice(8));
-      return dia===diaHoje;
+  var mo=t.slice(0,7);
+  var diaHoje=Number(t.slice(8));
+  var all=[...((gastos&&gastos.clinica)||[]),...((gastos&&gastos.pessoal)||[])];
+  var due=all.filter(function(e){
+    if(e.recorrente&&e.diaVenc){
+      if(e.pagoMeses&&e.pagoMeses[mo])return false; // ja pago neste mes
+      return Number(e.diaVenc)===diaHoje;
     }
-    // normal: apenas se a data for HOJE exatamente (nao atrasadas)
+    if(e.paid)return false;
     return e.date===t;
   });
+  // deduplica: mesma despesa nao aparece repetida
+  var seen={},out=[];
+  due.forEach(function(e){
+    var k=(e.desc||"").trim().toLowerCase()+"|"+(e.recorrente?("r"+e.diaVenc):("d"+(e.date||"")));
+    if(seen[k])return;seen[k]=1;out.push(e);
+  });
+  return out;
 })():[];
 const myDent=dents.find(function(d){return d.id===user.dentistId;});
 const todayA=appts.filter(a=>a.date===t&&(!isDent||a.dentistId===user.dentistId)).sort((a,b)=>t2m(a.time)-t2m(b.time));
@@ -6277,7 +6283,7 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} expenses={expenses}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos}/>}
       {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
