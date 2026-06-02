@@ -265,7 +265,8 @@ const pad2=t=>{if(!t||typeof t!=="string")return t;var p=t.split(":");if(p.lengt
 const t2m=t=>{var p=String(t||"").split(":");return (Number(p[0])||0)*60+(Number(p[1])||0);};
 const yest=()=>{const d=new Date();d.setDate(d.getDate()-1);return _ld(d);};
 const tom=()=>{const d=new Date();d.setDate(d.getDate()+1);return _ld(d);};
-const cur=v=>{var n=Number(v||0),neg=n<0,s=Math.abs(n).toFixed(2).split("."),i=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");return (neg?"-":"")+"R$ "+i+","+s[1];};
+const cur=v=>{var n=Math.round((Number(v)||0)*100)/100,neg=n<0,s=Math.abs(n).toFixed(2).split("."),i=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");return (neg?"-":"")+"R$ "+i+","+s[1];};
+const pmoney=x=>{var r=String(x==null?"":x).replace(",",".").replace(/[^0-9.]/g,"");var n=parseFloat(r);return isNaN(n)?0:Math.round(n*100)/100;};
 const MOTIVOS_ORC=["Preço / Achou caro","Vai pensar","Problema financeiro","Atendimento","Foi para outra clínica","Outro"];
 let _idLast=0;
 const nid=()=>{let t=Date.now()*1000+Math.floor(Math.random()*1000);if(t<=_idLast)t=_idLast+1;_idLast=t;return t;};
@@ -469,7 +470,7 @@ const BENEF=[["clareamento","devolve o brilho e a beleza natural do seu sorriso"
 const benefDe=nome=>{const n=(nome||"").toLowerCase();for(var i=0;i<BENEF.length;i++){if(n.indexOf(BENEF[i][0])>=0)return BENEF[i][1];}return "";};
 const genOrcamentoPDF=()=>{
 const b=pdfBudget;if(!b)return;
-const brl=v=>{var n=Number(v||0),neg=n<0,s=Math.abs(n).toFixed(2).split("."),i=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");return (neg?"-":"")+"R$ "+i+","+s[1];};
+const brl=v=>{var n=Math.round((Number(v)||0)*100)/100,neg=n<0,s=Math.abs(n).toFixed(2).split("."),i=s[0].replace(/\B(?=(\d{3})+(?!\d))/g,".");return (neg?"-":"")+"R$ "+i+","+s[1];};
 const subtotal=b.items.reduce((s,i)=>s+i.v,0);
 const desc0=b.disc||0;
 const tot=subtotal-desc0;
@@ -572,7 +573,7 @@ const genM=(d,n)=>{const ms=[];const x=new Date(d+"T12:00");for(let i=1;i<=n;i++
 const saveRec=()=>{
 if(Number(rf.paid)>0&&!rf.closed)return alert("Marque 'Confirmar baixa financeira'.");
 const ms=rf.payment==="Cartão Crédito"&&Number(rf.inst)>1?genM(rf.date,Number(rf.inst)):[];
-const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:Math.round(Number(rf.paid)*100)/100,inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs)};
+const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:pmoney(rf.paid),inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs)};
 setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
 setRecModal(false);
 };
@@ -583,7 +584,7 @@ if(!tni.v)return alert("Informe o valor");
 const procName=procs.find(p=>String(p.id)===String(tni.procId))?.name||"";
 const detail=tni.d&&tni.d!==procName?tni.d:"";
 const desc=procName?(detail?`${procName} -- ${detail}`:procName):(tni.d||"Procedimento");
-setTf(p=>({...p,items:[...p.items,{desc,value:Math.round(Number(tni.v)*100)/100,paid:false}]}));
+setTf(p=>({...p,items:[...p.items,{desc,value:pmoney(tni.v),paid:false}]}));
 setTni({d:"",procId:"",v:""});
 };
 // Baixa de procedimento pelo dentista
@@ -623,8 +624,7 @@ setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==did
 setConfirmDesfazer(null);
 };
 const addPayment=(tid)=>{
-var rawVal=String(payForm.value||"").replace(",",".").replace(/[^0-9.]/g,"");
-const pv=Math.round((parseFloat(rawVal)||0)*100)/100;
+const pv=pmoney(payForm.value);
 if(!pv)return alert("Informe o valor");
 const t=treats.find(x=>x.id===tid);
 // Save payment in treatment plan
@@ -648,7 +648,7 @@ fromTreat:tid,
 setRecs(prev=>[...prev,recObj]);
 setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",note:""});
 };
-const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:Math.round(Number(bf.disc)*100)/100,items:bf.items.map(function(it){return {...it,v:Math.round(Number(it.v)*100)/100};}),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
+const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
 const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["evolucao","📝 Evolução"],["historico","📅 Histórico"],["atestado","📄 Atestado"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
 // NF (Nota Fiscal) state
@@ -667,7 +667,7 @@ const [nff,setNff]=useState(blankNF);
 const patNFs=(pat.nfs||[]);
 const saveNF=()=>{
 if(!nff.procedure||!nff.value)return alert("Informe procedimento e valor");
-const obj={...nff,value:Number(nff.value),tax:Number(nff.tax||0),id:nfEdit?nfEdit.id:nid(patNFs)};
+const obj={...nff,value:pmoney(nff.value),tax:pmoney(nff.tax),id:nfEdit?nfEdit.id:nid(patNFs)};
 const newNFs=nfEdit?patNFs.map(n=>n.id===nfEdit.id?obj:n):[...patNFs,obj];
 setPats(prev=>prev.map(p=>p.id===pat.id?{...p,nfs:newNFs}:p));
 setNfModal(false);
@@ -1497,7 +1497,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           var meses=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
           var items=meses.map(function(m,i){
             var mes=String(i+1).padStart(2,"0");
-            return {desc:m+" "+ortoForm.ano,value:Number(ortoForm.valor),paid:false,orto:true,mesRef:ortoForm.ano+"-"+mes};
+            return {desc:m+" "+ortoForm.ano,value:pmoney(ortoForm.valor),paid:false,orto:true,mesRef:ortoForm.ano+"-"+mes};
           });
           var newTreat={name:"Ortodontia "+ortoForm.ano,start:today(),items:items,payments:[],patientId:pat.id,dentistId:Number(ortoForm.dentistId)||dents[0]?.id,id:nid(treats),orto:true,ano:ortoForm.ano};
           setTreats(prev=>[...prev,newTreat]);
@@ -1710,7 +1710,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           var treat2=treats.find(t=>t.id===tid2);
           if(!treat2)return;
           var item2=treat2.items[idx2];
-          var finalVal=Number(ortoPayVal)||item2.value;
+          var finalVal=pmoney(ortoPayVal)||item2.value;
           setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal})}));
           var recObj={id:nid(recs),patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2};
           setRecs(prev=>[...prev,recObj]);
@@ -1817,14 +1817,18 @@ const week=getWeek(selDate);
 const prevW=()=>{const d=new Date(week[0]+"T12:00");d.setDate(d.getDate()-7);setSelDate(d.toISOString().split("T")[0]);};
 const nextW=()=>{const d=new Date(week[6]+"T12:00");d.setDate(d.getDate()+1);setSelDate(d.toISOString().split("T")[0]);};
 const isOrto=function(d){var s=(d.specialty||"").toLowerCase();return s.indexOf("orto")>=0;};
+const selDayNum=new Date(selDate+"T12:00").getDay();
+const worksToday=function(d){return (d.dias||[1,2,3,4,5]).indexOf(selDayNum)>=0;};
+const hasApptToday=function(d){return appts.some(function(a){return a.date===selDate&&a.dentistId===d.id;});};
 const vd=isDent
   ?dents.filter(d=>d.id===user.dentistId)
   :denF==="all"
-    ?dents.filter(d=>!isOrto(d))
+    ?dents.filter(d=>!isOrto(d)&&(worksToday(d)||hasApptToday(d)))
     :dents.filter(d=>d.id===Number(denF));
 // Use 20-min slots when viewing a single orto dentist
 const viewingOrto=vd.length===1&&isOrto(vd[0]);
 const activeSlots=viewingOrto?SLOTS_ORTO:SLOTS;
+const hiddenToday=denF==="all"?appts.filter(function(a){return a.date===selDate&&!vd.some(function(d){return d.id===a.dentistId;})&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed";}):[];
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
@@ -1926,6 +1930,10 @@ return (
       );
     })}
   </div>
+
+{hiddenToday.length>0&&<div onClick={function(){var od=dents.find(function(d){return d.id===hiddenToday[0].dentistId;});if(od)setDenF(String(od.id));}} style={{background:"#FFF8E1",border:"1.5px solid #FFB300",borderRadius:10,padding:"9px 13px",fontSize:12,fontWeight:700,color:"#E65100",cursor:"pointer",display:"flex",alignItems:"center",gap:6,margin:"2px 0"}}>{"⚠ "+hiddenToday.length+" consulta(s) de Ortodontia neste dia não aparecem aqui. Toque para ver →"}</div>}
+
+{denF==="all"&&!isDent&&vd.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>{"Nenhum dentista clínico trabalhando neste dia. Selecione um dentista no filtro para agendar."}</div>}
 
 {vd.length>1&&<div style={{display:"grid",gridTemplateColumns:"48px repeat("+vd.length+",1fr)",gap:2}}>
 
@@ -2944,7 +2952,7 @@ var CATS=tab==="clinica"?["Aluguel","Agua","Luz","Internet","Telefone","Salarios
 var save=function(){
   if(!f.desc)return alert("Informe a descricao");
   if(!f.recorrente&&!f.value)return alert("Informe o valor");
-  var obj={...f,value:Math.round(Number(f.value||0)*100)/100,id:edit?edit.id:nid()};
+  var obj={...f,value:pmoney(f.value),id:edit?edit.id:nid()};
   setGastos(function(prev){var lista=prev[tab]||[];return {...prev,[tab]:edit?lista.map(function(e){return e.id===obj.id?obj:e;}):[...lista,obj]};});
   setModal(false);setEdit(null);setF(blank);
 };
@@ -4713,23 +4721,29 @@ return(
 // ══════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════
-function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,expenses}){
+function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos}){
 const t=today();
 const isDent=user.level===1;
 // Despesas vencendo hoje ou atrasadas (so admin)
 const despHoje=user.level>=3?(function(){
-  var all=[...(expenses&&expenses.clinic||[]),...(expenses&&expenses.personal||[])];
-  return all.filter(function(e){
-    if(e.paid)return false;
-    if(e.fixo){
-      // fixa: vence exatamente no dia de hoje do mes
-      var dia=Number(e.diaVenc||0);
-      var diaHoje=Number(t.slice(8));
-      return dia===diaHoje;
+  var mo=t.slice(0,7);
+  var diaHoje=Number(t.slice(8));
+  var all=[...((gastos&&gastos.clinica)||[]),...((gastos&&gastos.pessoal)||[])];
+  var due=all.filter(function(e){
+    if(e.recorrente&&e.diaVenc){
+      if(e.pagoMeses&&e.pagoMeses[mo])return false; // ja pago neste mes
+      return Number(e.diaVenc)===diaHoje;
     }
-    // normal: apenas se a data for HOJE exatamente (nao atrasadas)
+    if(e.paid)return false;
     return e.date===t;
   });
+  // deduplica: mesma despesa nao aparece repetida
+  var seen={},out=[];
+  due.forEach(function(e){
+    var k=(e.desc||"").trim().toLowerCase()+"|"+(e.recorrente?("r"+e.diaVenc):("d"+(e.date||"")));
+    if(seen[k])return;seen[k]=1;out.push(e);
+  });
+  return out;
 })():[];
 const myDent=dents.find(function(d){return d.id===user.dentistId;});
 const todayA=appts.filter(a=>a.date===t&&(!isDent||a.dentistId===user.dentistId)).sort((a,b)=>t2m(a.time)-t2m(b.time));
@@ -6274,7 +6288,7 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} expenses={expenses}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos}/>}
       {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
