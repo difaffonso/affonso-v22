@@ -5634,7 +5634,7 @@ var [aba,setAba]=useState("estoque");
 var [showCat,setShowCat]=useState(false);
 var [showMov,setShowMov]=useState(false);
 var [editCat,setEditCat]=useState(null);
-var [catF,setCatF]=useState({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2});
+var [catF,setCatF]=useState({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2,preco:""});
 var [movF,setMovF]=useState({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
 var [filtMes,setFiltMes]=useState(t.slice(0,7));
 var TIPOS_ITEM=["Implante","Componente","UCLA","Cicatrizador","Pilar","Coping","Outro"];
@@ -5642,11 +5642,13 @@ var stockMap={};
 implMov.forEach(function(m){if(!stockMap[m.itemId])stockMap[m.itemId]=0;if(m.tipo==="entrada")stockMap[m.itemId]+=Number(m.qty);else stockMap[m.itemId]-=Number(m.qty);});
 var movsDoMes=implMov.filter(function(m){return m.date.startsWith(filtMes);});
 var totalUsado=movsDoMes.filter(function(m){return m.tipo==="saida";}).reduce(function(s,m){return s+Number(m.qty);},0);
+var totalPagarMes=movsDoMes.filter(function(m){return m.tipo==="saida";}).reduce(function(s,m){var it=implCat.find(function(x){return x.id===m.itemId;});return s+(it?Number(it.preco||0):0)*Number(m.qty);},0);
 var saveCat=function(){
 if(!catF.desc.trim())return;
-if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...catF,id:x.id}:x;});});}
-else{setImplCat(function(prev){return[...prev,{...catF,id:nid()}];});}
-setShowCat(false);setEditCat(null);setCatF({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2});
+var obj={...catF,preco:pmoney(catF.preco)};
+if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...obj,id:x.id}:x;});});}
+else{setImplCat(function(prev){return[...prev,{...obj,id:nid()}];});}
+setShowCat(false);setEditCat(null);setCatF({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2,preco:""});
 };
 var saveMov=function(){
 if(!movF.itemId||!movF.qty)return;
@@ -5689,6 +5691,7 @@ return(
 </div>
 <div style={{fontWeight:700,fontSize:13}}>{item.desc}</div>
 <div style={{fontSize:11,color:G.muted}}>{item.marca+(item.codigo?" · Cód: "+item.codigo:"")}</div>
+{Number(item.preco)>0&&<div style={{fontSize:11,color:G.primary,fontWeight:700,marginTop:2}}>{cur(item.preco)+" / un"}</div>}
 </div>
 <div style={{textAlign:"right"}}>
 <div style={{fontSize:24,fontWeight:800,color:baixo?G.red:G.primary}}>{qty}</div>
@@ -5696,8 +5699,9 @@ return(
 </div>
 </div>
 <div style={{display:"flex",gap:5,marginTop:8}}>
-<button onClick={function(){setEditCat(item);setCatF({tipo:item.tipo,marca:item.marca,desc:item.desc,estoque_min:item.estoque_min});setShowCat(true);}} style={{background:G.bg,border:"1px solid "+G.border,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.muted}}>{"Editar"}</button>
+<button onClick={function(){setEditCat(item);setCatF({tipo:item.tipo,marca:item.marca,desc:item.desc,codigo:item.codigo||"",estoque_min:item.estoque_min,preco:item.preco!=null?String(item.preco):""});setShowCat(true);}} style={{background:G.bg,border:"1px solid "+G.border,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.muted}}>{"Editar"}</button>
 <button onClick={function(){setShowMov(true);setMovF({tipo:"saida",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"#FFEBEE",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700}}>{"- Usar"}</button>
+<button onClick={function(){if(window.confirm("Excluir "+item.desc+"? Esta acao nao pode ser desfeita."))setImplCat(function(prev){return prev.filter(function(x){return x.id!==item.id;});});}} style={{background:"#fff",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700,marginLeft:"auto"}}>{"🗑 Excluir"}</button>
 </div>
 </div>
 );})}
@@ -5726,15 +5730,16 @@ return(
 <div style={{fontSize:12,color:G.muted}}>Total usado no mes</div>
 <div style={{fontSize:28,fontWeight:800,color:"#2E7D32"}}>{totalUsado}</div>
 <div style={{fontSize:11,color:G.muted}}>peca(s) a pagar</div>
+{totalPagarMes>0&&<div style={{fontSize:18,fontWeight:800,color:"#2E7D32",marginTop:6,borderTop:"1px solid #A5D6A7",paddingTop:6}}>{"Total: "+cur(totalPagarMes)}</div>}
 </div>
 {implCat.map(function(item){
 var saidas=movsDoMes.filter(function(m){return m.tipo==="saida"&&m.itemId===item.id;});
 if(saidas.length===0)return null;
 return(
 <div key={item.id} style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
-<div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-<div style={{fontWeight:700,fontSize:13}}>{item.desc}</div>
-<span style={{fontWeight:800,color:G.red}}>{saidas.length+"x"}</span>
+<div style={{display:"flex",justifyContent:"space-between",marginBottom:6,alignItems:"center",gap:8}}>
+<div style={{fontWeight:700,fontSize:13,flex:1}}>{item.desc}</div>
+<div style={{textAlign:"right"}}><div style={{fontWeight:800,color:G.red}}>{saidas.length+"x"}</div>{Number(item.preco)>0&&<div style={{fontSize:11,color:G.primary,fontWeight:700}}>{cur(item.preco*saidas.length)}</div>}</div>
 </div>
 {saidas.map(function(s){return(
 <div key={s.id} style={{fontSize:11,color:G.muted,padding:"3px 0",borderBottom:"1px solid "+G.border}}>
@@ -5762,6 +5767,7 @@ return(
 <Inp lb="Codigo do implante" val={catF.codigo||""} set={function(v){setCatF(function(p){return{...p,codigo:v};});}} ph="Ex: TF-3508, CM-456..."/>
 <Inp lb="Marca" val={catF.marca} set={function(v){setCatF(function(p){return{...p,marca:v};});}} ph="Titaniofix"/>
 <Inp lb="Estoque minimo" val={String(catF.estoque_min)} set={function(v){setCatF(function(p){return{...p,estoque_min:Number(v)};});}} type="number"/>
+<Inp lb="Preco unitario (R$)" val={String(catF.preco||"")} set={function(v){setCatF(function(p){return{...p,preco:v};});}} type="number" ph="0,00"/>
 <button onClick={saveCat} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Salvar"}</button>
 </div>
 </div>
