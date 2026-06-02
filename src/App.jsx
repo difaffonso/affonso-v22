@@ -2933,32 +2933,36 @@ const [tab,setTab]=useState("clinica");
 const [modal,setModal]=useState(false);
 const [edit,setEdit]=useState(null);
 const [mo,setMo]=useState(today().slice(0,7));
-const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false,recorrente:false,diaVenc:""};
+const blank={date:today(),cat:"Aluguel",desc:"",value:"",paid:false,recorrente:false,diaVenc:"",parcelado:false,parcelas:""};
 const [f,setF]=useState(blank);
 if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center"}}><p style={{color:G.red}}>{"Acesso restrito ao Administrador"}</p></div>;
 var baseList=gastos[tab]||[];
+var mIdx=function(ym){var pp=(ym||"").split("-");return Number(pp[0])*12+Number(pp[1]);};
+var parcelaK=function(e){return mIdx(mo)-mIdx((e.date||"").slice(0,7));};
 var moList=baseList.filter(function(e){
   if(e.recorrente&&e.diaVenc)return true;
+  if(e.parcelado){var k=parcelaK(e);return k>=0&&k<Number(e.parcelas||1);}
   return e.date&&e.date.startsWith(mo);
 }).slice().sort(function(a,b){
   var da=a.recorrente?Number(a.diaVenc||0):Number((a.date||"").slice(8));
   var db=b.recorrente?Number(b.diaVenc||0):Number((b.date||"").slice(8));
   return da-db;
 });
-var isPago=function(e){if(e.recorrente)return !!(e.pagoMeses&&e.pagoMeses[mo]);return !!e.paid;};
+var isPago=function(e){if(e.recorrente||e.parcelado)return !!(e.pagoMeses&&e.pagoMeses[mo]);return !!e.paid;};
 var total=moList.reduce(function(s,e){return s+Number(e.value||0);},0);
 var pago=moList.filter(isPago).reduce(function(s,e){return s+Number(e.value||0);},0);
 var CATS=tab==="clinica"?["Aluguel","Agua","Luz","Internet","Telefone","Salarios","Material","Equipamento","Manutencao","Contabilidade","Outros"]:["Moradia","Alimentacao","Transporte","Saude","Lazer","Educacao","Vestuario","Outros"];
 var save=function(){
   if(!f.desc)return alert("Informe a descricao");
   if(!f.recorrente&&!f.value)return alert("Informe o valor");
-  var obj={...f,value:pmoney(f.value),id:edit?edit.id:nid()};
+  if(f.parcelado&&(!f.parcelas||Number(f.parcelas)<2))return alert("Informe o numero de parcelas (2 ou mais)");
+  var obj={...f,value:pmoney(f.value),parcelas:f.parcelado?Number(f.parcelas):f.parcelas,id:edit?edit.id:nid()};
   setGastos(function(prev){var lista=prev[tab]||[];return {...prev,[tab]:edit?lista.map(function(e){return e.id===obj.id?obj:e;}):[...lista,obj]};});
   setModal(false);setEdit(null);setF(blank);
 };
 var remove=function(id){setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).filter(function(e){return e.id!==id;})};});};
 var togglePago=function(e){
-  if(e.recorrente){setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).map(function(x){if(x.id!==e.id)return x;var pm={...(x.pagoMeses||{})};pm[mo]=!pm[mo];return {...x,pagoMeses:pm};})};});}
+  if(e.recorrente||e.parcelado){setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).map(function(x){if(x.id!==e.id)return x;var pm={...(x.pagoMeses||{})};pm[mo]=!pm[mo];return {...x,pagoMeses:pm};})};});}
   else{setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).map(function(x){return x.id===e.id?{...x,paid:!x.paid}:x;})};});}
 };
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -2984,15 +2988,16 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
   {moList.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted}}>{"Nenhum gasto em "+mo}</div>}
-  {moList.map(function(e){var pg=isPago(e);return(
+  {moList.map(function(e){var pg=isPago(e);var pk=e.parcelado?parcelaK(e)+1:0;return(
     <div key={e.id} style={{background:G.card,borderRadius:11,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,boxShadow:"0 1px 4px rgba(0,0,0,.07)",opacity:pg?.75:1}}>
       <input type="checkbox" checked={pg} onChange={function(){togglePago(e);}} style={{width:18,height:18,accentColor:G.primary,cursor:"pointer",flexShrink:0}}/>
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
           <span style={{fontWeight:700,fontSize:13,textDecoration:pg?"line-through":"none",color:pg?G.muted:G.text}}>{e.desc}</span>
           {e.recorrente&&<span style={{background:"#FFF3E0",color:"#E65100",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:700}}>{"Recorrente"}</span>}
+          {e.parcelado&&<span style={{background:"#E3F2FD",color:"#1565C0",borderRadius:4,padding:"1px 6px",fontSize:9,fontWeight:700}}>{"Parcela "+pk+"/"+e.parcelas}</span>}
         </div>
-        <div style={{fontSize:11,color:G.muted,marginTop:2}}>{e.cat}{e.recorrente&&e.diaVenc?" · Vence dia "+e.diaVenc:e.date?" · "+fmt(e.date):""}{e.recorrente&&!e.value&&<span style={{color:"#FF9800",fontWeight:600}}>{" · Preencher valor"}</span>}</div>
+        <div style={{fontSize:11,color:G.muted,marginTop:2}}>{e.cat}{e.recorrente&&e.diaVenc?" · Vence dia "+e.diaVenc:e.parcelado?" · Vence dia "+Number((e.date||"").slice(8)):e.date?" · "+fmt(e.date):""}{e.recorrente&&!e.value&&<span style={{color:"#FF9800",fontWeight:600}}>{" · Preencher valor"}</span>}</div>
       </div>
       <span style={{fontWeight:700,fontSize:14,minWidth:75,textAlign:"right",color:pg?G.success:G.text}}>{cur(Number(e.value||0))}</span>
       <Bdg l={pg?"Pago":"Pendente"} col={pg?G.success:G.red} sm/>
@@ -3014,11 +3019,16 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
         <Inp lb="Valor (R$)" val={String(f.value||"")} set={function(v){setF(function(p){return {...p,value:v};});}} type="number" ph="0,00"/>
       </div>
       <label style={{display:"flex",alignItems:"center",gap:10,background:f.recorrente?G.accent:G.bg,borderRadius:8,padding:"11px 12px",cursor:"pointer",border:"1.5px solid "+(f.recorrente?G.primary:G.border)}}>
-        <input type="checkbox" checked={!!f.recorrente} onChange={function(ev){setF(function(p){return {...p,recorrente:ev.target.checked};});}} style={{width:16,height:16,accentColor:G.primary}}/>
+        <input type="checkbox" checked={!!f.recorrente} onChange={function(ev){setF(function(p){return {...p,recorrente:ev.target.checked,parcelado:ev.target.checked?false:p.parcelado};});}} style={{width:16,height:16,accentColor:G.primary}}/>
         <div><div style={{fontWeight:700,fontSize:13}}>{"Gasto Recorrente"}</div><div style={{fontSize:11,color:G.muted}}>{"Aparece todo mes automaticamente"}</div></div>
       </label>
-      {f.recorrente?<Inp lb="Dia de vencimento" val={String(f.diaVenc||"")} set={function(v){setF(function(p){return {...p,diaVenc:v};});}} type="number" ph="Ex: 10"/>:<Inp lb="Data" val={f.date} set={function(v){setF(function(p){return {...p,date:v};});}} type="date"/>}
-      {!f.recorrente&&<label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",fontSize:13}}><input type="checkbox" checked={!!f.paid} onChange={function(ev){setF(function(p){return {...p,paid:ev.target.checked};});}} style={{width:15,height:15,accentColor:G.primary}}/>{"Ja pago"}</label>}
+      <label style={{display:"flex",alignItems:"center",gap:10,background:f.parcelado?"#E3F2FD":G.bg,borderRadius:8,padding:"11px 12px",cursor:"pointer",border:"1.5px solid "+(f.parcelado?"#1565C0":G.border)}}>
+        <input type="checkbox" checked={!!f.parcelado} onChange={function(ev){setF(function(p){return {...p,parcelado:ev.target.checked,recorrente:ev.target.checked?false:p.recorrente};});}} style={{width:16,height:16,accentColor:"#1565C0"}}/>
+        <div><div style={{fontWeight:700,fontSize:13}}>{"Parcelado (boleto/cartao)"}</div><div style={{fontSize:11,color:G.muted}}>{"Aparece por X meses; o valor e de cada parcela"}</div></div>
+      </label>
+      {f.parcelado&&<Inp lb="Numero de parcelas" val={String(f.parcelas||"")} set={function(v){setF(function(p){return {...p,parcelas:v};});}} type="number" ph="Ex: 5"/>}
+      {f.recorrente?<Inp lb="Dia de vencimento" val={String(f.diaVenc||"")} set={function(v){setF(function(p){return {...p,diaVenc:v};});}} type="number" ph="Ex: 10"/>:<Inp lb={f.parcelado?"Data da 1a parcela":"Data"} val={f.date} set={function(v){setF(function(p){return {...p,date:v};});}} type="date"/>}
+      {!f.recorrente&&!f.parcelado&&<label style={{display:"flex",alignItems:"center",gap:9,cursor:"pointer",fontSize:13}}><input type="checkbox" checked={!!f.paid} onChange={function(ev){setF(function(p){return {...p,paid:ev.target.checked};});}} style={{width:15,height:15,accentColor:G.primary}}/>{"Ja pago"}</label>}
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid "+G.border}}>
         <button onClick={function(){setModal(false);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={save} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Salvar</button>
@@ -3357,7 +3367,8 @@ return r.date===dia;
 
 const raw=mr.reduce((s,r)=>s+r.paid,0);
 const liq=mr.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
-const clinicExp=(gastos&&gastos.clinica||[]).filter(e=>{if(modo==="mensal")return (e.recorrente&&e.diaVenc)?true:(e.date&&e.date.startsWith(mo));if(e.recorrente&&e.diaVenc)return Number(e.diaVenc)===Number(dia.slice(8,10));return e.date===dia;}).reduce((s,e)=>s+Number(e.value||0),0);
+const parcAtivaMes=(e,ym)=>{if(!e.parcelado)return false;var k=(Number(ym.slice(0,4))*12+Number(ym.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));return k>=0&&k<Number(e.parcelas||1);};
+const clinicExp=(gastos&&gastos.clinica||[]).filter(e=>{if(modo==="mensal")return (e.recorrente&&e.diaVenc)?true:e.parcelado?parcAtivaMes(e,mo):(e.date&&e.date.startsWith(mo));if(e.recorrente&&e.diaVenc)return Number(e.diaVenc)===Number(dia.slice(8,10));if(e.parcelado)return parcAtivaMes(e,dia.slice(0,7))&&Number((e.date||"").slice(8))===Number(dia.slice(8,10));return e.date===dia;}).reduce((s,e)=>s+Number(e.value||0),0);
 const byP=PAY.map(pt=>({pt,v:mr.filter(r=>r.payment===pt).reduce((s,r)=>s+r.paid,0)})).filter(x=>x.v>0);
 const mx=Math.max(...byP.map(x=>x.v),1);
 
@@ -3990,8 +4001,8 @@ return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom};
 
 });
 const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&p.sent.startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
-const gastoMes=arr=>(arr||[]).filter(e=>(e.recorrente&&e.diaVenc)?true:(e.date&&e.date.startsWith(mo)));
-const isPagoG=e=>e.recorrente?!!(e.pagoMeses&&e.pagoMeses[mo]):!!e.paid;
+const gastoMes=arr=>(arr||[]).filter(e=>(e.recorrente&&e.diaVenc)?true:e.parcelado?(function(){var k=(Number(mo.slice(0,4))*12+Number(mo.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));return k>=0&&k<Number(e.parcelas||1);})():(e.date&&e.date.startsWith(mo)));
+const isPagoG=e=>(e.recorrente||e.parcelado)?!!(e.pagoMeses&&e.pagoMeses[mo]):!!e.paid;
 const clinicaG=gastoMes(gastos&&gastos.clinica);
 const pessoalG=gastoMes(gastos&&gastos.pessoal);
 
@@ -4734,13 +4745,21 @@ const despHoje=user.level>=3?(function(){
       if(e.pagoMeses&&e.pagoMeses[mo])return false; // ja pago neste mes
       return Number(e.diaVenc)===diaHoje;
     }
+    if(e.parcelado){
+      if(e.pagoMeses&&e.pagoMeses[mo])return false;
+      var sIdx=Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7));
+      var cIdx=Number(mo.slice(0,4))*12+Number(mo.slice(5,7));
+      var kk=cIdx-sIdx;
+      if(kk<0||kk>=Number(e.parcelas||1))return false;
+      return Number((e.date||"").slice(8))===diaHoje;
+    }
     if(e.paid)return false;
     return e.date===t;
   });
   // deduplica: mesma despesa nao aparece repetida
   var seen={},out=[];
   due.forEach(function(e){
-    var k=(e.desc||"").trim().toLowerCase()+"|"+(e.recorrente?("r"+e.diaVenc):("d"+(e.date||"")));
+    var k=(e.desc||"").trim().toLowerCase()+"|"+(e.recorrente?("r"+e.diaVenc):e.parcelado?("p"+(e.date||"")):("d"+(e.date||"")));
     if(seen[k])return;seen[k]=1;out.push(e);
   });
   return out;
@@ -5634,7 +5653,7 @@ var [aba,setAba]=useState("estoque");
 var [showCat,setShowCat]=useState(false);
 var [showMov,setShowMov]=useState(false);
 var [editCat,setEditCat]=useState(null);
-var [catF,setCatF]=useState({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2});
+var [catF,setCatF]=useState({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2,preco:"",qtdIni:""});
 var [movF,setMovF]=useState({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
 var [filtMes,setFiltMes]=useState(t.slice(0,7));
 var TIPOS_ITEM=["Implante","Componente","UCLA","Cicatrizador","Pilar","Coping","Outro"];
@@ -5642,11 +5661,19 @@ var stockMap={};
 implMov.forEach(function(m){if(!stockMap[m.itemId])stockMap[m.itemId]=0;if(m.tipo==="entrada")stockMap[m.itemId]+=Number(m.qty);else stockMap[m.itemId]-=Number(m.qty);});
 var movsDoMes=implMov.filter(function(m){return m.date.startsWith(filtMes);});
 var totalUsado=movsDoMes.filter(function(m){return m.tipo==="saida";}).reduce(function(s,m){return s+Number(m.qty);},0);
+var totalPagarMes=movsDoMes.filter(function(m){return m.tipo==="saida";}).reduce(function(s,m){var it=implCat.find(function(x){return x.id===m.itemId;});return s+(it?Number(it.preco||0):0)*Number(m.qty);},0);
 var saveCat=function(){
 if(!catF.desc.trim())return;
-if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...catF,id:x.id}:x;});});}
-else{setImplCat(function(prev){return[...prev,{...catF,id:nid()}];});}
-setShowCat(false);setEditCat(null);setCatF({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2});
+var obj={...catF,preco:pmoney(catF.preco)};
+delete obj.qtdIni;
+if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...obj,id:x.id}:x;});});}
+else{
+var newId=nid();
+setImplCat(function(prev){return[...prev,{...obj,id:newId}];});
+var qIni=Number(catF.qtdIni||0);
+if(qIni>0){setImplMov(function(prev){return[...prev,{id:nid(),tipo:"entrada",itemId:newId,qty:qIni,patId:null,dentId:null,obs:"Estoque inicial",date:t,itemName:obj.desc}];});}
+}
+setShowCat(false);setEditCat(null);setCatF({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2,preco:"",qtdIni:""});
 };
 var saveMov=function(){
 if(!movF.itemId||!movF.qty)return;
@@ -5689,15 +5716,18 @@ return(
 </div>
 <div style={{fontWeight:700,fontSize:13}}>{item.desc}</div>
 <div style={{fontSize:11,color:G.muted}}>{item.marca+(item.codigo?" · Cód: "+item.codigo:"")}</div>
+{Number(item.preco)>0&&<div style={{fontSize:11,color:G.primary,fontWeight:700,marginTop:2}}>{cur(item.preco)+" / un"}</div>}
 </div>
 <div style={{textAlign:"right"}}>
 <div style={{fontSize:24,fontWeight:800,color:baixo?G.red:G.primary}}>{qty}</div>
 <div style={{fontSize:10,color:G.muted}}>{"min: "+item.estoque_min}</div>
 </div>
 </div>
-<div style={{display:"flex",gap:5,marginTop:8}}>
-<button onClick={function(){setEditCat(item);setCatF({tipo:item.tipo,marca:item.marca,desc:item.desc,estoque_min:item.estoque_min});setShowCat(true);}} style={{background:G.bg,border:"1px solid "+G.border,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.muted}}>{"Editar"}</button>
-<button onClick={function(){setShowMov(true);setMovF({tipo:"saida",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"#FFEBEE",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700}}>{"- Usar"}</button>
+<div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>
+<button onClick={function(){setEditCat(item);setCatF({tipo:item.tipo,marca:item.marca,desc:item.desc,codigo:item.codigo||"",estoque_min:item.estoque_min,preco:item.preco!=null?String(item.preco):""});setShowCat(true);}} style={{background:G.bg,border:"1px solid "+G.border,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.muted}}>{"Editar"}</button>
+<button onClick={function(){setShowMov(true);setMovF({tipo:"entrada",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"#E8F5E9",border:"1px solid #27AE60",borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:"#1E7D45",fontWeight:700}}>{"+ Entrada"}</button>
+<button onClick={function(){setShowMov(true);setMovF({tipo:"saida",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"#FFEBEE",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700}}>{"- Saida"}</button>
+<button onClick={function(){if(window.confirm("Excluir "+item.desc+"? Esta acao nao pode ser desfeita."))setImplCat(function(prev){return prev.filter(function(x){return x.id!==item.id;});});}} style={{background:"#fff",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700,marginLeft:"auto"}}>{"🗑 Excluir"}</button>
 </div>
 </div>
 );})}
@@ -5726,15 +5756,16 @@ return(
 <div style={{fontSize:12,color:G.muted}}>Total usado no mes</div>
 <div style={{fontSize:28,fontWeight:800,color:"#2E7D32"}}>{totalUsado}</div>
 <div style={{fontSize:11,color:G.muted}}>peca(s) a pagar</div>
+{totalPagarMes>0&&<div style={{fontSize:18,fontWeight:800,color:"#2E7D32",marginTop:6,borderTop:"1px solid #A5D6A7",paddingTop:6}}>{"Total: "+cur(totalPagarMes)}</div>}
 </div>
 {implCat.map(function(item){
 var saidas=movsDoMes.filter(function(m){return m.tipo==="saida"&&m.itemId===item.id;});
 if(saidas.length===0)return null;
 return(
 <div key={item.id} style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
-<div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-<div style={{fontWeight:700,fontSize:13}}>{item.desc}</div>
-<span style={{fontWeight:800,color:G.red}}>{saidas.length+"x"}</span>
+<div style={{display:"flex",justifyContent:"space-between",marginBottom:6,alignItems:"center",gap:8}}>
+<div style={{fontWeight:700,fontSize:13,flex:1}}>{item.desc}</div>
+<div style={{textAlign:"right"}}><div style={{fontWeight:800,color:G.red}}>{saidas.length+"x"}</div>{Number(item.preco)>0&&<div style={{fontSize:11,color:G.primary,fontWeight:700}}>{cur(item.preco*saidas.length)}</div>}</div>
 </div>
 {saidas.map(function(s){return(
 <div key={s.id} style={{fontSize:11,color:G.muted,padding:"3px 0",borderBottom:"1px solid "+G.border}}>
@@ -5762,6 +5793,8 @@ return(
 <Inp lb="Codigo do implante" val={catF.codigo||""} set={function(v){setCatF(function(p){return{...p,codigo:v};});}} ph="Ex: TF-3508, CM-456..."/>
 <Inp lb="Marca" val={catF.marca} set={function(v){setCatF(function(p){return{...p,marca:v};});}} ph="Titaniofix"/>
 <Inp lb="Estoque minimo" val={String(catF.estoque_min)} set={function(v){setCatF(function(p){return{...p,estoque_min:Number(v)};});}} type="number"/>
+<Inp lb="Preco unitario (R$)" val={String(catF.preco||"")} set={function(v){setCatF(function(p){return{...p,preco:v};});}} type="number" ph="0,00"/>
+{!editCat&&<Inp lb="Quantidade atual" val={String(catF.qtdIni||"")} set={function(v){setCatF(function(p){return{...p,qtdIni:v};});}} type="number" ph="0"/>}
 <button onClick={saveCat} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Salvar"}</button>
 </div>
 </div>
