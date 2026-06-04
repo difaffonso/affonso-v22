@@ -7,6 +7,8 @@ async loadFull(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.ma
 async load(){const f=await this.loadFull();return f?f.data:null;},
 async getTimestamp(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
 async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}},
+async loadPatients(){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/patients?select=data,updated_at&order=id",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});if(!r.ok)return null;const rows=await r.json();return (rows||[]).map(function(x){return x.data;});}catch(e){return null;}},
+async upsertPatients(arr){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!arr||!arr.length)return {ok:true};var now=new Date().toISOString();var CH=400;for(var i=0;i<arr.length;i+=CH){var chunk=arr.slice(i,i+CH).map(function(p){return {id:p.id,data:p,updated_at:now};});try{var r=await fetch(SUPA_URL+"/rest/v1/patients",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(chunk)});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}return {ok:true};},
 async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao com o banco"};try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,payload:payload})});if(r.ok)return {ok:true};var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}},
 async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
 };
@@ -6437,6 +6439,12 @@ const saveTimer=useRef(null);
 const initialized=useRef(false);
 const isSaving=useRef(false);
 const lastSaved=useRef("");
+const patTableOk=useRef(false);
+const lastSavedPats=useRef({});
+const patSaveTimer=useRef(null);
+const patSaving=useRef(false);
+const patPending=useRef(false);
+const patsRef=useRef([]);
 
 // ── CARREGAR do Supabase ──
 useEffect(()=>{
@@ -6445,7 +6453,6 @@ const data=full?full.data:null;
 if(full)lastServerTs.current=full.updated_at;
 if(data){
 try{
-if(data.pats?.length)setPats(data.pats);
 if(data.appts?.length)setAppts(data.appts.map(function(a){return a&&a.time?Object.assign({},a,{time:pad2(a.time)}):a;}));
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
@@ -6486,6 +6493,14 @@ if(data.implMov?.length)setImplMov(data.implMov);
 lastSaved.current=JSON.stringify(data);
 }catch(err){}
 }
+// === PACIENTES: tabela propria (migracao automatica + fallback seguro) ===
+var oldPats=(data&&data.pats)||[];
+supabase.loadPatients().then(function(tp){
+if(tp===null){patTableOk.current=false;if(oldPats.length)setPats(oldPats);return;}
+if(tp.length>0){patTableOk.current=true;setPats(tp);var mm={};tp.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;}
+else if(oldPats.length>0){setPats(oldPats);supabase.upsertPatients(oldPats).then(function(res){if(res&&res.ok){var mm={};oldPats.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;patTableOk.current=true;}else{patTableOk.current=false;}});}
+else{patTableOk.current=true;lastSavedPats.current={};}
+});
 setTimeout(()=>{initialized.current=true;},1000);
 // Salvar imediatamente ao sair/esconder a pagina
 var flushSave=function(){
@@ -6522,7 +6537,6 @@ useEffect(function(){
               setter(function(prev){return [...(prev||[]),...missing];});
             }
           };
-          mergeArr(pats,sd.pats,setPats);
           mergeArr(appts,sd.appts,setAppts);
           mergeArr(recs,sd.recs,setRecs);
           mergeArr(budgets,sd.budgets,setBudgets);
@@ -6536,7 +6550,8 @@ useEffect(function(){
         }
       }
     }catch(e){}
-    const payload={pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
+    if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
       try{
@@ -6581,6 +6596,28 @@ useEffect(function(){
   },800);
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos]);
 
+// ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
+patsRef.current=pats;
+useEffect(function(){
+  if(!initialized.current||!patTableOk.current)return;
+  if(patSaveTimer.current)clearTimeout(patSaveTimer.current);
+  patSaveTimer.current=setTimeout(async function syncPats(){
+    if(patSaving.current){patPending.current=true;return;}
+    patSaving.current=true;
+    do{
+      patPending.current=false;
+      var cur=patsRef.current||[];
+      var prev=lastSavedPats.current||{};
+      var changed=[];
+      cur.forEach(function(p){if(!p||p.id==null)return;var sj=JSON.stringify(p);if(prev[p.id]!==sj)changed.push(p);});
+      var okAll=true;
+      if(changed.length){var r=await supabase.upsertPatients(changed);if(!(r&&r.ok))okAll=false;}
+      if(okAll){var mm={};cur.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;}
+    }while(patPending.current);
+    patSaving.current=false;
+  },1000);
+},[pats]);
+
 // ── SINCRONIZACAO entre dispositivos: polling a cada 15s ──
 useEffect(function(){
   var poll=setInterval(async function(){
@@ -6605,7 +6642,6 @@ useEffect(function(){
         (localArr||[]).forEach(function(x){if(x&&x.id!=null&&!serverIds[x.id])merged.push(x);});
         setter(merged);
       };
-      mergeArr(pats,sd.pats,setPats);
       mergeArr(appts,sd.appts,setAppts);
       mergeArr(recs,sd.recs,setRecs);
       mergeArr(budgets,sd.budgets,setBudgets);
