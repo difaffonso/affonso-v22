@@ -6,7 +6,9 @@ const supabase={
 async loadFull(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=data,updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return {data:rows[0].data,updated_at:rows[0].updated_at};return null;}catch(e){return null;}},
 async load(){const f=await this.loadFull();return f?f.data:null;},
 async getTimestamp(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
-async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}}
+async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}},
+async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao com o banco"};try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,payload:payload})});if(r.ok)return {ok:true};var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}},
+async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
 };
 const G = {
 bg:"#EEF3F0",card:"#FFF",primary:"#1B5E4A",accent:"#E3EFE9",accentDark:"#A8D5C0",
@@ -87,6 +89,9 @@ return true;
 }catch(e){console.error("WA fetch error:",e);return false;}
 };
 const ANAM_LINK="https://claude.ai/public/artifacts/134f3434-6997-4396-ab62-3d37bae9d44e";
+const CLINICA_INFO={nome:"Affonso Odontologia",endereco:"Rua Sabbado D Angelo, 1980 - Itaquera, Sao Paulo",telefone:"(11) 2524-9975"};
+const ANAM_CONDS=[["hypertension","Pressao alta"],["diabetes","Diabetes"],["heartDisease","Problema no coracao"],["rheumaticFever","Febre reumatica / valvula"],["bleeding","Problema de coagulacao"],["anticoagulant","Usa anticoagulante"],["osteoporosis","Osteoporose"],["bisphosphonate","Usa/usou bifosfonato"],["kidneyDisease","Doenca renal"],["liverDisease","Doenca no figado"],["hepatitis","Hepatite (B ou C)"],["hiv","HIV"],["infectious","Doenca infectocontagiosa"],["thyroid","Tireoide"],["epilepsy","Epilepsia / convulsoes"],["cancer","Cancer / quimioterapia"],["pregnant","Gestante"],["smoking","Fumante"]];
+const ANAM_ALERT=["heartDisease","rheumaticFever","bleeding","anticoagulant","bisphosphonate","hepatitis","hiv","infectious","cancer"];
 const UCOLS=["#1B5E4A","#6C3483","#1A5276","#CA6F1E","#C0392B","#148F77","#D68910"];
 
 const WA_TEMPLATES_DEFAULT={
@@ -423,13 +428,139 @@ onMouseLeave={function(e){e.currentTarget.style.background="#fff";}}>
 );
 }
 
+// ══════════════════════════════════════════════════════════
+// ANAMNESE — assinatura digital + envio por WhatsApp (Supabase)
+// ══════════════════════════════════════════════════════════
+function SignaturePad({value,onChange,disabled}){
+  const ref=useRef(null);
+  const drawing=useRef(false);
+  const last=useRef(null);
+  const skip=useRef(false);
+  useEffect(function(){
+    var c=ref.current; if(!c)return;
+    if(skip.current){skip.current=false;return;}
+    var ctx=c.getContext("2d");
+    ctx.clearRect(0,0,c.width,c.height);
+    if(value){var img=new Image();img.onload=function(){ctx.drawImage(img,0,0,c.width,c.height);};img.src=value;}
+  },[value]);
+  function pos(e){
+    var c=ref.current; var r=c.getBoundingClientRect(); var cx,cy;
+    if(e.touches&&e.touches[0]){cx=e.touches[0].clientX;cy=e.touches[0].clientY;}else{cx=e.clientX;cy=e.clientY;}
+    return {x:(cx-r.left)*(c.width/r.width),y:(cy-r.top)*(c.height/r.height)};
+  }
+  function start(e){if(disabled)return;if(e.cancelable)e.preventDefault();drawing.current=true;last.current=pos(e);}
+  function move(e){if(disabled||!drawing.current)return;if(e.cancelable)e.preventDefault();var c=ref.current;var ctx=c.getContext("2d");var p=pos(e);ctx.strokeStyle="#1a2733";ctx.lineWidth=2.2;ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(last.current.x,last.current.y);ctx.lineTo(p.x,p.y);ctx.stroke();last.current=p;}
+  function end(){if(disabled||!drawing.current)return;drawing.current=false;var c=ref.current;skip.current=true;if(onChange)onChange(c.toDataURL("image/png"));}
+  function clear(){if(disabled)return;var c=ref.current;var ctx=c.getContext("2d");ctx.clearRect(0,0,c.width,c.height);skip.current=true;if(onChange)onChange("");}
+  return <div>
+    <canvas ref={ref} width={520} height={170} style={{width:"100%",height:150,border:"1.5px dashed "+G.border,borderRadius:10,background:"#fff",touchAction:"none",display:"block",cursor:disabled?"default":"crosshair"}}
+      onMouseDown={start} onMouseMove={move} onMouseUp={end} onMouseLeave={end}
+      onTouchStart={start} onTouchMove={move} onTouchEnd={end}/>
+    {!disabled&&<div style={{display:"flex",justifyContent:"flex-end",marginTop:6}}><button onClick={clear} style={{border:"1.5px solid "+G.border,background:"#fff",color:G.muted,borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Limpar assinatura</button></div>}
+  </div>;
+}
+
+function anamHTML(pat){
+  var a=pat.anamnese||{};
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function brd(d){if(!d)return "";var p=String(d).split("-");return p.length===3?(p[2]+"/"+p[1]+"/"+p[0]):d;}
+  var conds=ANAM_CONDS;
+  var rows=conds.map(function(c){var s=a[c[0]];return "<tr><td>"+c[1]+"</td><td style='font-weight:700;color:"+(s?"#c0392b":"#2c3e50")+"'>"+(s?"Sim":"Nao")+"</td></tr>";}).join("");
+  var nome=CLINICA_INFO.nome;
+  var ender=CLINICA_INFO.endereco;
+  var sig=a.signature?("<img src='"+a.signature+"' style='max-height:90px;max-width:300px'/>"):"<div style='height:64px'></div>";
+  var info=a.signedAt?("Assinado por "+esc(a.signedBy||pat.name)+" em "+brd(a.signedAt)):"Assinatura do paciente";
+  return "<!doctype html><html><head><meta charset='utf-8'><title>Anamnese - "+esc(pat.name)+"</title>"+
+    "<style>body{font-family:Arial,Helvetica,sans-serif;color:#2c3e50;padding:30px;max-width:760px;margin:auto}h1{font-size:20px;text-align:center;margin:6px 0 2px}.sub{text-align:center;color:#888;font-size:12px;margin-bottom:16px}.hd{display:flex;justify-content:space-between;font-size:12px;color:#555;border-bottom:2px solid #2c3e50;padding-bottom:8px}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}td{padding:6px 8px;border-bottom:1px solid #eee}.box{margin-top:12px;font-size:13px}.lab{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.5px}.sigl{margin-top:6px;border-top:1px solid #999;width:300px;text-align:center;padding-top:6px;font-size:12px;color:#555}@media print{.np{display:none}}</style>"+
+    "</head><body><div class='hd'><div><b>"+esc(nome)+"</b><br>"+esc(ender)+"</div><div>"+(new Date().toLocaleDateString("pt-BR"))+"</div></div>"+
+    "<h1>Ficha de Anamnese</h1><div class='sub'>"+esc(pat.name)+(pat.cpf?(" &middot; CPF "+esc(pat.cpf)):"")+(pat.dob?(" &middot; Nasc. "+brd(pat.dob)):"")+"</div>"+
+    "<table><tr><td class='lab'>Condicao</td><td class='lab'>Resposta</td></tr>"+rows+"</table>"+
+    "<div class='box'><span class='lab'>Alergias a Medicamentos</span><br>"+esc(a.allergicMeds||"-")+"</div>"+
+    "<div class='box'><span class='lab'>Medicamentos em Uso</span><br>"+esc(a.medications||"-")+"</div>"+
+    "<div class='box'><span class='lab'>Outras Condicoes de Saude</span><br>"+esc(a.otherConditions||"-")+"</div>"+
+    "<div class='box'><span class='lab'>Observacoes</span><br>"+esc(a.notes||"-")+"</div>"+
+    "<div style='margin-top:36px'>"+sig+"<div class='sigl'>"+info+"</div></div>"+
+    "<div class='np' style='margin-top:28px;text-align:center'><button onclick='window.print()' style='padding:10px 22px;font-size:14px;background:#2c3e50;color:#fff;border:none;border-radius:8px;cursor:pointer'>Imprimir / Salvar PDF</button></div>"+
+    "</body></html>";
+}
+
+function AnamForm({patientName,initial,onSubmit,onCancel,submitting}){
+  const conds=ANAM_CONDS;
+  const [a,setA]=useState(function(){var base={allergicMeds:"",medications:"",otherConditions:"",notes:"",signature:"",signedAt:"",signedBy:patientName||""};conds.forEach(function(c){base[c[0]]=false;});return Object.assign(base,initial||{});});
+  function set(k,v){setA(function(p){var n=Object.assign({},p);n[k]=v;return n;});}
+  var canSubmit=!!a.signature;
+  return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+    <div style={{textAlign:"center"}}>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:G.primary}}>{CLINICA_INFO.nome}</div>
+      <div style={{fontSize:13,color:G.muted}}>Ficha de Anamnese{patientName?(" · "+patientName):""}</div>
+    </div>
+    <div style={{background:G.accent,borderRadius:10,padding:"10px 13px",fontSize:12.5,color:G.primary}}>Responda SIM ou NÃO em cada item. Leva menos de 2 minutos.</div>
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {conds.map(function(c){var v=a[c[0]];return <div key={c[0]} style={{display:"flex",alignItems:"center",gap:10,background:G.bg,borderRadius:10,padding:"9px 12px"}}>
+        <span style={{flex:1,fontSize:13.5,color:G.text}}>{c[1]}</span>
+        <button onClick={function(){set(c[0],true);}} style={{border:"2px solid "+(v?G.red:G.border),background:v?G.red:"#fff",color:v?"#fff":G.muted,borderRadius:8,padding:"6px 15px",fontSize:13,fontWeight:700,cursor:"pointer"}}>SIM</button>
+        <button onClick={function(){set(c[0],false);}} style={{border:"2px solid "+(!v?G.success:G.border),background:!v?G.success:"#fff",color:!v?"#fff":G.muted,borderRadius:8,padding:"6px 15px",fontSize:13,fontWeight:700,cursor:"pointer"}}>NÃO</button>
+      </div>;})}
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Alergias a medicamentos</label>
+      <input value={a.allergicMeds} onChange={function(e){set("allergicMeds",e.target.value);}} placeholder="Ex: penicilina, dipirona (ou deixe em branco)" style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 11px",fontSize:14,outline:"none"}}/>
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Medicamentos em uso</label>
+      <input value={a.medications} onChange={function(e){set("medications",e.target.value);}} placeholder="Remédios que toma com frequência" style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 11px",fontSize:14,outline:"none"}}/>
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Observações</label>
+      <textarea value={a.notes} onChange={function(e){set("notes",e.target.value);}} rows={2} placeholder="Algo mais que o dentista deva saber?" style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 11px",fontSize:14,outline:"none",resize:"vertical",fontFamily:"inherit"}}/>
+    </div>
+    <div>
+      <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Assinatura</label>
+      <div style={{marginTop:6}}><SignaturePad value={a.signature} disabled={false} onChange={function(v){setA(function(p){var n=Object.assign({},p);n.signature=v;n.signedAt=v?(p.signedAt||today()):"";n.signedBy=v?(patientName||p.signedBy||""):"";return n;});}}/></div>
+    </div>
+    <div style={{display:"flex",gap:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
+      {onCancel&&<button onClick={onCancel} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:9,padding:"10px 18px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>}
+      <button disabled={!canSubmit||submitting} onClick={function(){if(canSubmit&&onSubmit)onSubmit(a);}} style={{background:(!canSubmit||submitting)?G.muted:G.success,color:"#fff",border:"none",borderRadius:9,padding:"11px 22px",fontSize:14,fontWeight:700,cursor:(!canSubmit||submitting)?"not-allowed":"pointer"}}>{submitting?"Enviando...":"✓ Enviar ficha"}</button>
+    </div>
+    {!canSubmit&&<div style={{fontSize:11.5,color:G.muted,textAlign:"right"}}>Assine no quadro acima para enviar.</div>}
+  </div>;
+}
+
+function PublicAnamnese({token}){
+  const [done,setDone]=useState(false);
+  const [submitting,setSubmitting]=useState(false);
+  const [err,setErr]=useState("");
+  function submit(a){
+    setErr("");
+    if(!SUPA_URL){setDone(true);return;}
+    setSubmitting(true);
+    supabase.submitAnam(token,a).then(function(res){setSubmitting(false);if(res&&res.ok){setDone(true);}else{var m=(res&&res.msg)?res.msg:"Verifique a conexao e tente novamente.";setErr("Nao foi possivel enviar. "+m+((res&&res.status)?(" (codigo "+res.status+")"):""));}});
+  }
+  return <div style={{minHeight:"100vh",background:G.bg,padding:"24px 16px"}}>
+    <div style={{maxWidth:560,margin:"0 auto",background:G.card,borderRadius:16,boxShadow:"0 4px 24px rgba(0,0,0,.1)",padding:"22px 20px"}}>
+      {done
+        ? <div style={{textAlign:"center",display:"flex",flexDirection:"column",gap:12,padding:"24px 0"}}>
+            <div style={{fontSize:48}}>{"\u2705"}</div>
+            <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:G.primary}}>Ficha enviada!</div>
+            <div style={{fontSize:14,color:G.text}}>Obrigado! Sua ficha de saúde foi registrada{" para "+CLINICA_INFO.nome}.</div>
+            {!SUPA_URL&&<div style={{fontSize:11.5,color:G.muted}}>(Modo demonstração: sem banco conectado, os dados não foram salvos.)</div>}
+          </div>
+        : <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <AnamForm patientName={""} initial={null} submitting={submitting} onSubmit={submit}/>
+            {err&&<div style={{background:"#FDEDEC",border:"1px solid "+G.red,color:G.red,borderRadius:8,padding:"9px 12px",fontSize:12.5}}>{err}</div>}
+          </div>}
+    </div>
+  </div>;
+}
+
+
 function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose}){
 // Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
 const isDentUser=user&&user.level===1;
 const [tab,setTab]=useState("ficha");
 const [editMode,setEditMode]=useState(false);
-const [pf,setPf]=useState({...pat});const [showWAanam,setShowWAanam]=useState(false);const [showIARX,setShowIARX]=useState(false);
+const [pf,setPf]=useState({...pat});const [showWAanam,setShowWAanam]=useState(false);const [showIARX,setShowIARX]=useState(false);const [fillAnam,setFillAnam]=useState(false);const [buscaMsg,setBuscaMsg]=useState("");
 
 // Keep pf in sync when pat updates externally (e.g. after NF save)
 // But don't override if user is actively editing
@@ -760,13 +891,16 @@ return <>
   {/* ── ANAMNESE ── */}
   {tab==="anamnese"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
     {showWAanam&&<WAAnamneseModal pat={pf} onClose={function(){setShowWAanam(false);}}/>}
+    {buscaMsg&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:12.5,color:G.primary}}>{buscaMsg}</div>}
+    {fillAnam&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:9000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:16,overflowY:"auto"}}><div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,margin:"16px auto",padding:"20px"}}><AnamForm patientName={pat.name} initial={pf.anamnese} onCancel={function(){setFillAnam(false);}} onSubmit={function(a){setPf(prev=>Object.assign({},prev,{anamnese:Object.assign({},prev.anamnese||{},a)}));setPats(prev=>prev.map(pp=>pp.id===pf.id?Object.assign({},pp,{anamnese:Object.assign({},pp.anamnese||{},a)}):pp));setFillAnam(false);}}/></div></div>}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🩺 Anamnese Clínica</span>
-      {!editMode?<div style={{display:"flex",gap:6}}><Btn ch="📋 WA" v="w" sm onClick={function(){setShowWAanam(true);}}/>{!isDentUser&&<Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/>}</div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={()=>{setPats(prev=>prev.map(p=>p.id===pf.id?{...pf}:p));setEditMode(false);}}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
+      {!editMode?<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn ch="📋 WA" v="w" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="📝 Na tela" v="g" sm onClick={function(){setFillAnam(true);}}/>{SUPA_URL&&<Btn ch="🔄 Buscar" v="g" sm onClick={function(){setBuscaMsg("Buscando...");supabase.fetchAnam(btoa("orbe:"+pat.id)).then(function(pp){if(pp){setPf(prev=>Object.assign({},prev,{anamnese:Object.assign({},prev.anamnese||{},pp)}));setEditMode(true);setBuscaMsg("Ficha recebida do paciente! Revise e salve.");}else{setBuscaMsg("Nenhuma ficha enviada ainda.");}});}}/>}{!isDentUser&&<Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/>}</div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={()=>{setPats(prev=>prev.map(p=>p.id===pf.id?{...pf}:p));setEditMode(false);}}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
     </div>
+    {(function(){var fl=ANAM_ALERT.filter(function(k){return pf.anamnese&&pf.anamnese[k];}).map(function(k){var c=ANAM_CONDS.find(function(x){return x[0]===k;});return c?c[1]:k;});return fl.length>0?<div style={{background:G.red+"15",border:"1.5px solid "+G.red,borderRadius:10,padding:"10px 13px",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{fontSize:16}}>⚠️</span><div style={{fontSize:12.5,color:G.red,fontWeight:600,lineHeight:1.5}}>Atencao especial: {fl.join(", ")}. Reforce a biosseguranca e avalie as precaucoes necessarias antes do procedimento.</div></div>:null;})()}
     <Div lb="Condições Sistêmicas"/>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-      {[["hypertension","Hipertensão"],["diabetes","Diabetes"],["heartDisease","Cardiopatia"],["bleeding","Coagulação"],["osteoporosis","Osteoporose"],["kidneyDisease","Doença Renal"],["liverDisease","Doença Hepática"],["thyroid","Tireóide"],["epilepsy","Epilepsia"],["cancer","Câncer/Quimio"],["pregnant","Gestante"],["smoking","Tabagismo"]].map(([k,l])=>{
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      {ANAM_CONDS.map(([k,l])=>{
         const v=pf.anamnese?.[k]||false;
         return <label key={k} style={{display:"flex",alignItems:"center",gap:9,background:v?G.red+"12":G.bg,borderRadius:9,padding:"10px 13px",cursor:"pointer",border:`1.5px solid ${v?G.red:G.border}`}}>
           <input type="checkbox" checked={v} disabled={!editMode} onChange={e=>setPf(p=>({...p,anamnese:{...p.anamnese,[k]:e.target.checked}}))} style={{accentColor:G.red,width:15,height:15}}/>
@@ -780,6 +914,11 @@ return <>
         b={<Inp lb="Medicamentos em Uso" val={pf.anamnese?.medications||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,medications:v}}))} ro={!editMode}/>}/>
     <Txt lb="Outras Condições de Saúde" val={pf.anamnese?.otherConditions||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,otherConditions:v}}))} ro={!editMode} rows={2}/>
     <Txt lb="Observações Clínicas" val={pf.anamnese?.notes||""} set={v=>setPf(p=>({...p,anamnese:{...p.anamnese,notes:v}}))} ro={!editMode} rows={2}/>
+    <Div lb="Assinatura do Paciente"/>
+    {(editMode||pf.anamnese?.signature)?<SignaturePad value={pf.anamnese?.signature||""} disabled={!editMode} onChange={v=>setPf(p=>({...p,anamnese:{...p.anamnese,signature:v,signedAt:v?(p.anamnese&&p.anamnese.signedAt||today()):"",signedBy:v?pat.name:""}}))}/>:<div style={{fontSize:13,color:G.muted,background:G.bg,borderRadius:9,padding:"12px 14px"}}>Sem assinatura registrada. Use o botao Editar para o paciente assinar com o dedo.</div>}
+    {pf.anamnese?.signature&&<div style={{fontSize:11.5,color:G.muted}}>{"Assinado por "+(pf.anamnese?.signedBy||pat.name)+(pf.anamnese?.signedAt?(" em "+fmt(pf.anamnese.signedAt)):"")}</div>}
+    {editMode&&<div style={{fontSize:11,color:G.muted}}>Peca ao paciente assinar no quadro acima. A assinatura fica salva e sai na ficha impressa.</div>}
+    <Btn ch="🖨️ Imprimir Ficha de Anamnese" v="g" sm onClick={function(){var w=window.open("","_blank");if(!w){alert("Permita pop-ups para abrir a ficha.");return;}w.document.write(anamHTML(pf));w.document.close();}} style={{alignSelf:"flex-start"}}/>
   </div>}
 
   {/* ── TRATAMENTO ── */}
@@ -2305,6 +2444,8 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 // ══════════════════════════════════════════════════════════
 function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog}){
 const [srch,setSrch]=useState("");
+const [pPage,setPPage]=useState(0);
+const PER_PAGE=50;
 const [openFolder,setOpenFolder]=useState(null);
 const [pm,setPm]=useState(false);const [ep,setEp]=useState(null);
 const b0={name:"",dob:"",phone:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insurance:"",notes:"",folder:"",since:today(),rx:"",nf:"",obs:"",origem:"",genero:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}};
@@ -2317,6 +2458,7 @@ const [ed,setEd]=useState(null);
 const [df,setDf]=useState(bd);
 const upDf=k=>v=>setDf(p=>({...p,[k]:v}));
 const ft=pats.filter(p=>p.name.toLowerCase().includes(srch.toLowerCase())||p.phone.includes(srch)||(p.folder||"").includes(srch)||(p.cpf||"").includes(srch));
+const totalFt=ft.length;const maxPage=Math.max(0,Math.ceil(totalFt/PER_PAGE)-1);const curPage=Math.min(pPage,maxPage);const pageItems=ft.slice(curPage*PER_PAGE,curPage*PER_PAGE+PER_PAGE);
 const normNome=function(s){return(s||"").toLowerCase().trim();};
 const [dupModal,setDupModal]=useState(null);
 const [delModal,setDelModal]=useState(null);
@@ -2356,8 +2498,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Pacientes</h2>
 <Btn ch="+ Novo Paciente" onClick={()=>{setEp(null);setPf(b0);setPm(true);}}/>
 </div>
-<Inp val={srch} set={setSrch} ph="🔍 Nome, CPF, telefone ou nº pasta"/>
-{ft.map(p=><div key={p.id} style={{background:G.card,borderRadius:13,boxShadow:"0 1px 5px rgba(0,0,0,.07)",padding:"12px 15px",display:"flex",alignItems:"center",gap:11}}>
+<Inp val={srch} set={v=>{setSrch(v);setPPage(0);}} ph="🔍 Nome, CPF, telefone ou nº pasta"/>
+{pageItems.map(p=><div key={p.id} style={{background:G.card,borderRadius:13,boxShadow:"0 1px 5px rgba(0,0,0,.07)",padding:"12px 15px",display:"flex",alignItems:"center",gap:11}}>
 <div style={{width:42,height:42,borderRadius:"50%",background:G.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Cormorant Garamond'",fontSize:20,color:G.primary,flexShrink:0,cursor:"pointer"}} onClick={()=>setOpenFolder(p)}>{p.name[0]}</div>
 <div style={{flex:1,minWidth:0}}>
 <div style={{fontWeight:700,fontSize:13,cursor:"pointer"}} onClick={()=>setOpenFolder(p)}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {age(p.dob)} · Ficha: {p.folder||"--"}</span></div>
@@ -2373,6 +2515,13 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {user.level>=2&&<Btn ch="🗑️" v="r" sm onClick={()=>{const td=appts.some(a=>a.patientId===p.id)||recs.some(r=>r.patientId===p.id);setDelModal({pat:p,temDados:td});}}/>}
 </div>
 </div>)}
+
+{totalFt>PER_PAGE&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,padding:"4px 0 2px"}}>
+{curPage>0&&<Btn ch="‹ Anterior" v="g" sm onClick={()=>setPPage(p=>Math.max(0,p-1))}/>}
+<div style={{fontSize:12.5,color:G.muted,fontWeight:600}}>{(curPage*PER_PAGE+1)+" a "+Math.min(totalFt,curPage*PER_PAGE+PER_PAGE)+" de "+totalFt+" pacientes"}</div>
+{curPage<maxPage&&<Btn ch="Próxima ›" v="g" sm onClick={()=>setPPage(p=>Math.min(maxPage,p+1))}/>}
+</div>}
+{totalFt===0&&<div style={{textAlign:"center",color:G.muted,fontSize:13,padding:"10px 0"}}>Nenhum paciente encontrado.</div>}
 
 {dupModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 
@@ -4298,6 +4447,266 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // ADMIN
 // ══════════════════════════════════════════════════════════
+function ImportWizard({pats,setPats}){
+  const [step,setStep]=useState(1);
+  const [fileName,setFileName]=useState("");
+  const [headers,setHeaders]=useState([]);
+  const [rows,setRows]=useState([]);
+  const [mapping,setMapping]=useState({});
+  const [err,setErr]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [skipDup,setSkipDup]=useState(true);
+  const [done,setDone]=useState(null);
+
+  const FIELDS=[
+    {k:"name",label:"Nome",req:true,hints:["nome completo","nome","paciente","name","cliente"]},
+    {k:"phone",label:"Telefone / Celular",hints:["telefone","celular","fone","whatsapp","tel","phone","contato"]},
+    {k:"dob",label:"Data de nascimento",hints:["data de nascimento","data nasc","nascimento","nasc","dob","aniversario","birth"]},
+    {k:"genero",label:"Genero (M/F)",hints:["genero","sexo","gender"]},
+    {k:"email",label:"E-mail",hints:["email","e-mail","mail"]},
+    {k:"cpf",label:"CPF",hints:["cpf","documento","doc"]},
+    {k:"rg",label:"RG",hints:["rg","identidade"]},
+    {k:"insurance",label:"Convenio / Plano",hints:["convenio","plano","seguro","insurance","conv"]},
+    {k:"blood",label:"Tipo sanguineo",hints:["tipo sanguineo","sanguineo","sangue","blood"]},
+    {k:"allergy",label:"Alergias",hints:["alergias","alergia","allerg"]},
+    {k:"notes",label:"Observacoes",hints:["observacoes","observacao","obs","anotacao","comentario","note"]},
+    {k:"folder",label:"Nº da Ficha",hints:["ficha","pasta","prontuario","prontuário","folder","nº da ficha","numero da ficha","n da ficha"]},
+    {k:"rx",label:"Nº do RX",hints:["rx","raio-x","raio x","radiografia","nº do rx","numero do rx","n do rx"]}
+  ];
+
+  function pad(n){n=String(n);return n.length<2?"0"+n:n;}
+  function pad4(n){n=String(n);while(n.length<4)n="0"+n;return n;}
+  function normGen(v){var s=(v||"").toLowerCase().trim();if(s.indexOf("m")===0)return "M";if(s.indexOf("f")===0)return "F";return "";}
+  function normDate(v){
+    if(!v)return "";
+    v=String(v).trim();
+    var m=v.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+    if(m)return m[1]+"-"+pad(m[2])+"-"+pad(m[3]);
+    m=v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+    if(m){var d=m[1],mo=m[2],y=m[3];if(y.length===2){var yy=parseInt(y,10);y=(yy>25?"19":"20")+y;}return y+"-"+pad(mo)+"-"+pad(d);}
+    return v;
+  }
+  function detectDelim(t){
+    var fl=(t.split(/\r?\n/)[0])||"";
+    var co=(fl.match(/,/g)||[]).length,sc=(fl.match(/;/g)||[]).length,tb=(fl.match(/\t/g)||[]).length;
+    if(sc>=co&&sc>=tb&&sc>0)return ";";
+    if(tb>co&&tb>sc)return "\t";
+    return ",";
+  }
+  function parseCSV(t){
+    if(t.charCodeAt(0)===0xFEFF)t=t.slice(1);
+    var d=detectDelim(t);
+    var rows=[],row=[],cur="",i=0,inQ=false;
+    while(i<t.length){
+      var c=t[i];
+      if(inQ){
+        if(c==='"'){ if(t[i+1]==='"'){cur+='"';i+=2;continue;} inQ=false;i++;continue; }
+        cur+=c;i++;continue;
+      }
+      if(c==='"'){inQ=true;i++;continue;}
+      if(c===d){row.push(cur);cur="";i++;continue;}
+      if(c==='\n'){row.push(cur);rows.push(row);row=[];cur="";i++;continue;}
+      if(c==='\r'){i++;continue;}
+      cur+=c;i++;
+    }
+    if(cur!==""||row.length>0){row.push(cur);rows.push(row);}
+    return rows.filter(function(r){return r.some(function(x){return (x||"").trim()!=="";});});
+  }
+  function loadXLSX(){
+    return new Promise(function(resolve,reject){
+      if(window.XLSX)return resolve(window.XLSX);
+      var urls=["https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js","https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"];
+      var idx=0;
+      function tryNext(){
+        if(idx>=urls.length){reject(new Error("nao carregou"));return;}
+        var s=document.createElement("script");
+        s.src=urls[idx++];
+        s.onload=function(){window.XLSX?resolve(window.XLSX):tryNext();};
+        s.onerror=function(){tryNext();};
+        document.head.appendChild(s);
+      }
+      tryNext();
+    });
+  }
+  function autoMap(hs){
+    var m={};
+    FIELDS.forEach(function(f){
+      var found="";
+      hs.forEach(function(h,idx){
+        if(found!=="")return;
+        var hl=(h||"").toLowerCase().trim();
+        if(!hl)return;
+        for(var j=0;j<f.hints.length;j++){var hint=f.hints[j];if(hl===hint||hl.indexOf(hint)>=0){found=String(idx);break;}}
+      });
+      m[f.k]=found;
+    });
+    return m;
+  }
+  function ingest(hs,rs){setHeaders(hs);setRows(rs);setMapping(autoMap(hs));setErr("");setStep(2);}
+  function onFile(file){
+    setErr("");setDone(null);
+    if(!file)return;
+    setFileName(file.name);
+    var lower=file.name.toLowerCase();
+    if(lower.match(/\.(csv|txt)$/)){
+      var r=new FileReader();
+      r.onload=function(e){
+        try{var rs=parseCSV(String(e.target.result));if(rs.length<2){setErr("O arquivo precisa de um cabecalho e pelo menos 1 linha de dados.");return;}ingest(rs[0].map(function(x){return String(x||"");}),rs.slice(1));}
+        catch(ex){setErr("Nao consegui ler o CSV: "+ex.message);}
+      };
+      r.onerror=function(){setErr("Erro ao ler o arquivo.");};
+      r.readAsText(file,"UTF-8");
+    } else if(lower.match(/\.(xlsx|xls)$/)){
+      setLoading(true);
+      loadXLSX().then(function(XLSX){
+        var r=new FileReader();
+        r.onload=function(e){
+          try{
+            var data=new Uint8Array(e.target.result);
+            var wb=XLSX.read(data,{type:"array"});
+            var ws=wb.Sheets[wb.SheetNames[0]];
+            var arr=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
+            var rs=arr.filter(function(rr){return Array.isArray(rr)&&rr.some(function(x){return String(x==null?"":x).trim()!=="";});});
+            setLoading(false);
+            if(rs.length<2){setErr("A planilha precisa de um cabecalho e pelo menos 1 linha de dados.");return;}
+            ingest(rs[0].map(function(x){return String(x==null?"":x);}),rs.slice(1).map(function(rr){return rr.map(function(x){return String(x==null?"":x);});}));
+          }catch(ex){setLoading(false);setErr("Nao consegui ler o Excel: "+ex.message+". Tente salvar como CSV no Excel (Arquivo > Salvar como > CSV).");}
+        };
+        r.onerror=function(){setLoading(false);setErr("Erro ao ler o arquivo.");};
+        r.readAsArrayBuffer(file);
+      }).catch(function(){setLoading(false);setErr("Nao consegui abrir o Excel aqui (o leitor precisa de internet/permissao). Solucao rapida: abra a planilha e salve como CSV — no Excel: Arquivo > Salvar Como > CSV UTF-8; no Google Sheets: Arquivo > Fazer download > CSV. Depois envie o CSV.");});
+    } else {
+      setErr("Formato nao suportado. Envie um arquivo CSV ou Excel (.xlsx).");
+    }
+  }
+  function getCell(row,k){var i=mapping[k];if(i===""||i==null)return "";var val=row[Number(i)];return String(val==null?"":val).trim();}
+  function buildMapped(){
+    return rows.map(function(r){return {
+      name:getCell(r,"name"),phone:getCell(r,"phone"),dob:normDate(getCell(r,"dob")),genero:normGen(getCell(r,"genero")),
+      email:getCell(r,"email"),cpf:getCell(r,"cpf"),rg:getCell(r,"rg"),insurance:getCell(r,"insurance"),
+      blood:getCell(r,"blood"),allergy:getCell(r,"allergy"),notes:getCell(r,"notes"),
+      folder:getCell(r,"folder"),rx:getCell(r,"rx")
+    };});
+  }
+  function doImport(){
+    var mp=buildMapped().filter(function(p){return p.name;});
+    var existing=pats.slice();
+    var nextId=existing.reduce(function(mx,p){return Math.max(mx,p.id||0);},0)+1;
+    function norm(s){return (s||"").toLowerCase().replace(/\s+/g," ").trim();}
+    var existNames={};existing.forEach(function(p){existNames[norm(p.name)]=true;});
+    var existCpf={};existing.forEach(function(p){var c=(p.cpf||"").replace(/\D/g,"");if(c)existCpf[c]=true;});
+    var add=[],skipped=0;
+    mp.forEach(function(p){
+      var c=(p.cpf||"").replace(/\D/g,"");
+      if(skipDup&&((c&&existCpf[c])||existNames[norm(p.name)])){skipped++;return;}
+      add.push({id:nextId,name:p.name,dob:p.dob||"",genero:p.genero||"",phone:(p.phone||"").replace(/\D/g,""),email:p.email||"",cpf:p.cpf||"",rg:p.rg||"",blood:p.blood||"",allergy:p.allergy||"",insurance:p.insurance||"",notes:p.notes||"",folder:(p.folder&&String(p.folder).trim())?String(p.folder).trim():"F-"+pad4(nextId),rx:p.rx||"",nf:"",obs:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,allergicMeds:"",otherConditions:"",medications:"",pregnant:false,smoking:false,notes:""}});
+      existNames[norm(p.name)]=true;if(c)existCpf[c]=true;nextId++;
+    });
+    if(add.length)setPats(function(prev){return prev.concat(add);});
+    setDone({imported:add.length,skipped:skipped});
+    setStep(4);
+  }
+  function reset(){setStep(1);setFileName("");setHeaders([]);setRows([]);setMapping({});setErr("");setDone(null);}
+  function downloadModel(){
+    var h=["Nome","Telefone","Data de nascimento","Genero","Email","CPF","RG","Convenio","Tipo sanguineo","Alergias","Observacoes"];
+    var s=["Maria Silva","(11) 91234-5678","15/03/1985","F","maria@email.com","123.456.789-00","","Unimed","O+","Penicilina","Paciente exemplo"];
+    var csv=h.join(";")+"\n"+s.join(";")+"\n";
+    var blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8;"});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement("a");a.href=url;a.download="modelo_pacientes.csv";document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},120);
+  }
+
+  var card={background:G.card,borderRadius:13,padding:"16px 18px",boxShadow:"0 1px 4px rgba(0,0,0,.07)"};
+  var btnPrimary={background:G.primary,color:"#fff",border:"2px solid "+G.primary,borderRadius:9,padding:"10px 20px",fontSize:14,fontWeight:700,cursor:"pointer"};
+  var btnGhost={background:"transparent",color:G.primary,border:"1.5px solid "+G.primary,borderRadius:9,padding:"9px 18px",fontSize:14,fontWeight:600,cursor:"pointer"};
+  var mapped=step>=3?buildMapped():[];
+  var validRows=mapped.filter(function(p){return p.name;});
+  var noName=mapped.length-validRows.length;
+
+  return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+    <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Importar Pacientes</h2>
+    <div style={{display:"flex",gap:4,flexWrap:"wrap",fontSize:11.5}}>
+      {[[1,"Enviar"],[2,"Mapear"],[3,"Revisar"],[4,"Concluir"]].map(function(s,i){return <span key={s[0]} style={{fontWeight:step===s[0]?700:400,color:step>=s[0]?G.primary:G.muted}}>{(i>0?"  >  ":"")+s[0]+". "+s[1]}</span>;})}
+    </div>
+
+    {step===1&&<div style={{display:"flex",flexDirection:"column",gap:14,maxWidth:620}}>
+      <div style={{background:G.accent,borderRadius:10,padding:"11px 14px",fontSize:12.5,color:G.primary,lineHeight:1.5}}>
+        Migre os pacientes do seu sistema antigo. No outro programa, exporte a lista de pacientes em <b>CSV</b> (formato mais garantido) ou <b>Excel</b> e envie o arquivo aqui. O sistema identifica as colunas automaticamente.
+      </div>
+      <label style={{border:"2px dashed "+G.accentDark,borderRadius:14,padding:"28px 18px",textAlign:"center",cursor:"pointer",background:"#fff",display:"block"}}>
+        <input type="file" accept=".csv,.txt,.xlsx,.xls,text/csv,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/excel" style={{display:"none"}} onChange={function(e){var fl=e.target.files&&e.target.files[0];onFile(fl);e.target.value="";}}/>
+        <div style={{fontSize:34,marginBottom:6}}>{"\uD83D\uDCC2"}</div>
+        <div style={{fontWeight:700,color:G.primary,fontSize:15}}>{loading?"Lendo arquivo...":"Toque para escolher o arquivo"}</div>
+        <div style={{fontSize:12,color:G.muted,marginTop:4}}>CSV ou Excel (.xlsx)</div>
+        {fileName&&<div style={{fontSize:12,color:G.muted,marginTop:8}}>{"Selecionado: "+fileName}</div>}
+      </label>
+      {err&&<div style={{background:"#FDEDEC",border:"1px solid "+G.red,color:G.red,borderRadius:8,padding:"9px 12px",fontSize:12.5}}>{err}</div>}
+      <div style={{display:"flex",alignItems:"center",gap:10,fontSize:12,color:G.muted,flexWrap:"wrap"}}>
+        <span>Nao sabe o formato?</span>
+        <button onClick={downloadModel} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>Baixar modelo CSV</button>
+      </div>
+      <div style={{fontSize:11.5,color:G.muted,lineHeight:1.55,background:G.bg,borderRadius:8,padding:"9px 12px"}}><b style={{color:G.text}}>Colunas reconhecidas:</b> Nome (obrigatorio), Telefone/Celular, Data de nascimento, Sexo (M/F), E-mail, CPF, RG, Convenio, Tipo sanguineo, Alergias, Observacoes. Podem estar em qualquer ordem e com nomes parecidos — o sistema identifica sozinho.</div>
+    </div>}
+
+    {step===2&&<div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:620}}>
+      <div style={{fontSize:13,color:G.muted}}>{"Arquivo lido: "+rows.length+" registro(s). Escolha de qual coluna vem cada informacao. Deixe como ignorar o que seu arquivo nao tiver."}</div>
+      <div style={card}>
+        {FIELDS.map(function(f){return <div key={f.k} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:"1px solid "+G.border}}>
+          <div style={{flex:"0 0 42%",fontSize:13,fontWeight:f.req?700:600,color:f.req?G.primary:G.text}}>{f.label}{f.req?" *":""}</div>
+          <select value={mapping[f.k]==null?"":mapping[f.k]} onChange={function(e){var v=e.target.value;setMapping(function(m){var n=Object.assign({},m);n[f.k]=v;return n;});}} style={{flex:1,minWidth:0,border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 9px",fontSize:13,background:"#fff",color:G.text,outline:"none"}}>
+            <option value="">— ignorar —</option>
+            {headers.map(function(h,idx){return <option key={idx} value={String(idx)}>{h||("Coluna "+(idx+1))}</option>;})}
+          </select>
+        </div>;})}
+      </div>
+      {err&&<div style={{color:G.red,fontSize:12.5}}>{err}</div>}
+      <div style={{display:"flex",justifyContent:"space-between",gap:10}}>
+        <button onClick={reset} style={btnGhost}>Voltar</button>
+        <button onClick={function(){if(mapping.name===""||mapping.name==null){setErr("Selecione a coluna do Nome para continuar.");return;}setErr("");setStep(3);}} style={btnPrimary}>Continuar</button>
+      </div>
+    </div>}
+
+    {step===3&&<div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:680}}>
+      <div style={{background:G.accent,borderRadius:10,padding:"10px 13px",fontSize:13,color:G.primary}}>
+        <b>{validRows.length}</b> paciente(s) prontos para importar.{noName>0?" "+noName+" linha(s) sem nome serao ignoradas.":""}
+      </div>
+      <div style={{background:G.card,borderRadius:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)",overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead><tr style={{background:G.bg}}>
+            {["Nome","Telefone","Nascimento","Convenio"].map(function(h){return <th key={h} style={{textAlign:"left",padding:"8px 10px",color:G.muted,fontWeight:700,whiteSpace:"nowrap"}}>{h}</th>;})}
+          </tr></thead>
+          <tbody>
+            {validRows.slice(0,8).map(function(p,i){return <tr key={i} style={{borderTop:"1px solid "+G.border}}>
+              <td style={{padding:"7px 10px",fontWeight:600}}>{p.name}</td>
+              <td style={{padding:"7px 10px"}}>{p.phone||"—"}</td>
+              <td style={{padding:"7px 10px"}}>{p.dob||"—"}</td>
+              <td style={{padding:"7px 10px"}}>{p.insurance||"—"}</td>
+            </tr>;})}
+          </tbody>
+        </table>
+      </div>
+      {validRows.length>8&&<div style={{fontSize:11.5,color:G.muted}}>{"... e mais "+(validRows.length-8)+" paciente(s)."}</div>}
+      <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:G.text,cursor:"pointer"}}>
+        <input type="checkbox" checked={skipDup} onChange={function(e){setSkipDup(e.target.checked);}}/>
+        Nao importar pacientes que ja existem (mesmo nome ou CPF)
+      </label>
+      <div style={{display:"flex",justifyContent:"space-between",gap:10}}>
+        <button onClick={function(){setStep(2);}} style={btnGhost}>Voltar</button>
+        <button onClick={doImport} disabled={validRows.length===0} style={{background:validRows.length===0?G.muted:G.success,color:"#fff",border:"none",borderRadius:9,padding:"10px 20px",fontSize:14,fontWeight:700,cursor:validRows.length===0?"not-allowed":"pointer"}}>{"Importar "+validRows.length+" paciente(s)"}</button>
+      </div>
+    </div>}
+
+    {step===4&&done&&<div style={{display:"flex",flexDirection:"column",gap:14,maxWidth:560,alignItems:"center",textAlign:"center",padding:"14px 0"}}>
+      <div style={{fontSize:46}}>{"\u2705"}</div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:G.primary}}>Importacao concluida!</div>
+      <div style={{fontSize:14,color:G.text}}><b>{done.imported}</b> paciente(s) adicionados ao sistema.{done.skipped>0?" "+done.skipped+" ja existiam e foram ignorados.":""}</div>
+      <div style={{fontSize:12.5,color:G.muted}}>Eles ja aparecem na aba <b>Pacientes</b>.</div>
+      <button onClick={reset} style={btnPrimary}>Importar outro arquivo</button>
+    </div>}
+  </div>;
+}
+
+
 function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl}){
 const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
 const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
@@ -4349,8 +4758,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
 <div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border,overflowX:"auto"}}>
-{[["users","Usuarios"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
+{[["users","Usuarios"],["import","Importar Dados"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
+{tab==="import"&&<ImportWizard pats={pats} setPats={setPats}/>}
 {tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
 <div style={{background:G.accent,borderRadius:10,padding:"9px 12px",fontSize:12,color:G.primary}}>
 Para adicionar dentista use a aba <strong>Dentistas</strong>. Aqui crie apenas credenciais de acesso.
@@ -5350,7 +5760,8 @@ return(
 function WAAnamneseModal({pat,onClose}){
 const [sent,setSent]=useState(false);
 const send=function(){
-const msg="Ola, "+pat.name+"! 😊\n\nPara seu atendimento na Affonso Odontologia, clique no link abaixo e preencha sua ficha de saude. Sao perguntas com botoes SIM e NAO, leva menos de 2 minutos!\n\n"+ANAM_LINK+"\n\nObrigado! 🦷 Affonso Odontologia";
+const link=(window.location.origin+window.location.pathname)+"?anam="+encodeURIComponent(btoa("orbe:"+pat.id));
+const msg="Ola, "+pat.name+"! 😊\n\nPara seu atendimento na Affonso Odontologia, clique no link abaixo e preencha sua ficha de saude. Sao perguntas com botoes SIM e NAO, leva menos de 2 minutos!\n\n"+link+"\n\nObrigado! 🦷 Affonso Odontologia";
 wa(pat.phone,msg);setSent(true);
 };
 return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -5364,7 +5775,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
 {!sent?<div style={{display:"flex",flexDirection:"column",gap:12}}>
 <p style={{fontSize:13,color:"#555",margin:0}}>Envia um link para <strong>{pat.name}</strong> preencher a ficha de saude pelo celular com botoes SIM e NAO.</p>
-<div style={{background:"#f0f4f0",borderRadius:10,padding:"10px 12px",fontSize:11,color:"#1B5E4A",wordBreak:"break-all",fontWeight:600}}>{ANAM_LINK}</div>
+<div style={{background:"#f0f4f0",borderRadius:10,padding:"10px 12px",fontSize:11,color:"#1B5E4A",wordBreak:"break-all",fontWeight:600}}>{(window.location.origin+window.location.pathname)+"?anam="+encodeURIComponent(btoa("orbe:"+pat.id))}</div>
 <button onClick={send} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{"📱 Enviar por WhatsApp"}</button>
 <button onClick={onClose} style={{background:"none",border:"1.5px solid #ddd",borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",color:"#888"}}>Cancelar</button>
 </div>:<div style={{textAlign:"center",display:"flex",flexDirection:"column",gap:12}}>
@@ -6212,6 +6623,8 @@ useEffect(function(){
 
 // Polling removido - causava race condition sobrescrevendo dados locais;
 
+const anamToken=(function(){try{return new URLSearchParams(window.location.search).get("anam");}catch(e){return null;}})();
+if(anamToken)return <PublicAnamnese token={anamToken}/>;
 if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>
 
 // Bloqueio de horário para nível 2 (Recepção/Secretaria)
