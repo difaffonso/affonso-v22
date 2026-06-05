@@ -2705,7 +2705,7 @@ setModal(false);
 </div>
 </div>}
 {procModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:440,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+<div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
 <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Procedimentos de Prótese</span>
 <button onClick={()=>setProcModal(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
