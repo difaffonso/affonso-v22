@@ -3225,9 +3225,9 @@ const t2=today();
 const todayMD=t2.slice(5);
 const anivHoje=pats.filter(p=>p.dob&&p.dob.slice(5)===todayMD);
 const anivMes=pats.filter(p=>p.dob&&p.dob.slice(5,7)===t2.slice(5,7));
-const PCIR2=['Exodontia','Extracao','Implante','Cirurgia','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia'];
+const PCIR2=['Exodontia','Extracao','Extração','Exo','Implante','Cirurgia','Cirurgico','Cirúrgico','Cirúrgica','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia','Urgencia','Urgência','Emergencia','Emergência'];
 const yst2=new Date(new Date(t2)-86400000).toISOString().split('T')[0];
-const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>a.procedure&&a.procedure.toLowerCase().includes(p.toLowerCase()))&&(!isDentist||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
+const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>{var kw=p.toLowerCase();return (a.procedure&&a.procedure.toLowerCase().includes(kw))||(a.treatment&&a.treatment.toLowerCase().includes(kw));})&&(!isDentist||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
 const semAtras2=pats.filter(function(p){
 // Use recs (atendimentos com baixa registrada) as source of truth
 var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
@@ -3338,10 +3338,10 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 {/* POS-CIRURGICO */}
 {posCir2.length>0&&<div style={{background:'#EDE7F6',border:'2px solid #9FA8DA',borderRadius:14,padding:'14px 16px'}}>
 
-  <div style={{fontWeight:700,fontSize:13,color:'#283593',marginBottom:10}}>{'Pos-Cirurgico ('+posCir2.length+')'}</div>
+  <div style={{fontWeight:700,fontSize:13,color:'#283593',marginBottom:10}}>{'🩺 Pós-Cirurgia / Urgência ('+posCir2.length+')'}</div>
   {posCir2.map(x=><div key={x.a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #C5CAE9'}}>
-    <div><div style={{fontWeight:600,fontSize:13}}>{x.p.name}</div><div style={{fontSize:11,color:'#5C6BC0'}}>{x.a.procedure}</div></div>
-    {x.p.phone&&<button onClick={()=>sendWA2(x.p.phone,'Ola, '+x.p.name+'! Como esta apos o procedimento de ontem? Affonso Odontologia')} style={{background:'#5C6BC0',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}
+    <div><div style={{fontWeight:600,fontSize:13}}>{x.p.name}</div><div style={{fontSize:11,color:'#5C6BC0'}}>{(x.a.procedure||'Atendimento')+' · '+fmt(x.a.date)}</div></div>
+    {x.p.phone&&<button onClick={()=>sendWA2(x.p.phone,'Olá, '+x.p.name+'! 😊 Aqui é da Affonso Odontologia. Você realizou '+(x.a.procedure||'seu procedimento')+' no dia '+fmt(x.a.date)+' e passamos para saber como está se sentindo. Está tudo bem com a recuperação, sem dores ou desconforto? Qualquer dúvida, é só responder por aqui que vamos te orientar com todo cuidado. Cuide-se bem! 🦷')} style={{background:'#5C6BC0',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}
   </div>)}
 </div>}
 
@@ -5188,7 +5188,7 @@ const todayP=pros.filter(p=>p.due===t&&p.status==="waiting");
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div><div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div></div>
-{urgent.filter(r=>r.type==="surg").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.red+"15",border:`2px solid ${G.red}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🔴</span><span style={{fontWeight:700,color:G.red,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! Como está se sentindo após o procedimento de ontem? 😊`)}/>}</div>;})}
+{(()=>{const yd=new Date(new Date(t)-86400000).toISOString().split("T")[0];const KW=["Exodontia","Extracao","Extração","Exo","Implante","Cirurgia","Cirurgico","Cirúrgico","Cirúrgica","Enxerto","Sinus","Gengivoplastia","Apicectomia","Frenectomia","Biopsia","Urgencia","Urgência","Emergencia","Emergência"];const isD=user.level===1;const posC=appts.filter(a=>a.date===yd&&(a.status==="done"||a.status==="confirmed")&&KW.some(k=>{var kw=k.toLowerCase();return (a.procedure&&a.procedure.toLowerCase().includes(kw))||(a.treatment&&a.treatment.toLowerCase().includes(kw));})&&(!isD||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);return posC.map(x=><div key={"pc"+x.a.id} style={{background:"#EDE7F6",border:"2px solid #9FA8DA",borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🩺</span><span style={{fontWeight:700,color:"#283593",flex:1}}>{"Pós-atendimento — "+x.p.name+" ("+(x.a.procedure||"Atendimento")+")"}</span>{x.p.phone&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(x.p.phone,"Olá, "+x.p.name+"! 😊 Aqui é da Affonso Odontologia. Você realizou "+(x.a.procedure||"seu procedimento")+" no dia "+fmt(x.a.date)+" e passamos para saber como está se sentindo. Está tudo bem com a recuperação, sem dores ou desconforto? Qualquer dúvida, é só responder por aqui que vamos te orientar com todo cuidado. Cuide-se bem! 🦷")}/>}</div>);})()}
 {despHoje.length>0&&<div style={{background:"#FFF3E0",border:"2px solid #FF9800",borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={()=>setView("desp")}>
 <div style={{fontWeight:700,color:"#E65100",fontSize:13,marginBottom:4}}>{"💸 "+despHoje.length+" despesa(s) vence(m) hoje!"}</div>
 {despHoje.slice(0,3).map(function(e,i){return <div key={i} style={{fontSize:12,color:"#E65100"}}>{"• "+(e.desc||"")+" — "+(Number(e.value||0)>0?cur(Number(e.value)):"preencher valor")}</div>;})}
