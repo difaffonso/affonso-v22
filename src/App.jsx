@@ -2220,6 +2220,12 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                   <span style={{fontSize:9,color:G.muted}}>{"+"}</span>
                 </div>;
               }
+              if(a&&a.blocked)return(
+                <div key={d.id} onClick={function(){if(!isDent&&window.confirm("Desbloquear este horario?"))setAppts(function(prev){return prev.filter(function(x){return x.id!==a.id;});});}} style={{background:"#FFEBEE",border:"1.5px solid "+G.red,borderRadius:8,minHeight:48,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:isDent?"default":"pointer",padding:"4px",gap:2}}>
+                  <span style={{fontSize:14}}>🔒</span>
+                  <span style={{fontSize:9,fontWeight:700,color:G.red,textAlign:"center",lineHeight:1.15,overflow:"hidden"}}>{a.blockReason||"Bloqueado"}</span>
+                </div>
+              );
               if(a&&(p||a.patientName))return(
                 <div key={d.id} onClick={()=>setViewA(a)} style={{background:SC_BG[a.status]||SC[a.status]+"18",border:"2px solid "+SC[a.status],borderRadius:8,padding:"5px 8px",cursor:"pointer",minHeight:48,boxShadow:a.status==="pending"?"0 2px 6px rgba(230,81,0,.2)":a.status==="confirmed"?"0 2px 6px rgba(21,101,192,.15)":"none"}}>
                   <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
@@ -2705,7 +2711,7 @@ setModal(false);
 </div>
 </div>}
 {procModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-<div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:440,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+<div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:440,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
 <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Procedimentos de Prótese</span>
 <button onClick={()=>setProcModal(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
@@ -3225,9 +3231,9 @@ const t2=today();
 const todayMD=t2.slice(5);
 const anivHoje=pats.filter(p=>p.dob&&p.dob.slice(5)===todayMD);
 const anivMes=pats.filter(p=>p.dob&&p.dob.slice(5,7)===t2.slice(5,7));
-const PCIR2=['Exodontia','Extracao','Implante','Cirurgia','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia'];
+const PCIR2=['Exodontia','Extracao','Extração','Exo','Implante','Cirurgia','Cirurgico','Cirúrgico','Cirúrgica','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia','Urgencia','Urgência','Emergencia','Emergência'];
 const yst2=new Date(new Date(t2)-86400000).toISOString().split('T')[0];
-const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>a.procedure&&a.procedure.toLowerCase().includes(p.toLowerCase()))&&(!isDentist||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
+const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>{var kw=p.toLowerCase();return (a.procedure&&a.procedure.toLowerCase().includes(kw))||(a.treatment&&a.treatment.toLowerCase().includes(kw));})&&(!isDentist||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
 const semAtras2=pats.filter(function(p){
 // Use recs (atendimentos com baixa registrada) as source of truth
 var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
@@ -3338,10 +3344,10 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 {/* POS-CIRURGICO */}
 {posCir2.length>0&&<div style={{background:'#EDE7F6',border:'2px solid #9FA8DA',borderRadius:14,padding:'14px 16px'}}>
 
-  <div style={{fontWeight:700,fontSize:13,color:'#283593',marginBottom:10}}>{'Pos-Cirurgico ('+posCir2.length+')'}</div>
+  <div style={{fontWeight:700,fontSize:13,color:'#283593',marginBottom:10}}>{'🩺 Pós-Cirurgia / Urgência ('+posCir2.length+')'}</div>
   {posCir2.map(x=><div key={x.a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #C5CAE9'}}>
-    <div><div style={{fontWeight:600,fontSize:13}}>{x.p.name}</div><div style={{fontSize:11,color:'#5C6BC0'}}>{x.a.procedure}</div></div>
-    {x.p.phone&&<button onClick={()=>sendWA2(x.p.phone,'Ola, '+x.p.name+'! Como esta apos o procedimento de ontem? Affonso Odontologia')} style={{background:'#5C6BC0',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}
+    <div><div style={{fontWeight:600,fontSize:13}}>{x.p.name}</div><div style={{fontSize:11,color:'#5C6BC0'}}>{(x.a.procedure||'Atendimento')+' · '+fmt(x.a.date)}</div></div>
+    {x.p.phone&&<button onClick={()=>sendWA2(x.p.phone,'Olá, '+x.p.name+'! 😊 Aqui é da Affonso Odontologia. Você realizou '+(x.a.procedure||'seu procedimento')+' no dia '+fmt(x.a.date)+' e passamos para saber como está se sentindo. Está tudo bem com a recuperação, sem dores ou desconforto? Qualquer dúvida, é só responder por aqui que vamos te orientar com todo cuidado. Cuide-se bem! 🦷')} style={{background:'#5C6BC0',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}
   </div>)}
 </div>}
 
@@ -6514,8 +6520,10 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 // ── SALVAR no Supabase (robusto com retry + fila + anti-sobrescrita) ──
 const pendingSave=useRef(false);
 const lastServerTs=useRef(null);
+const lastLocalChangeTs=useRef(0);
 useEffect(function(){
   if(!initialized.current)return;
+  lastLocalChangeTs.current=Date.now();
   if(saveTimer.current)clearTimeout(saveTimer.current);
   setSaveStatus("saving");
   var doSave=async function(){
@@ -6621,7 +6629,8 @@ useEffect(function(){
 // ── SINCRONIZACAO entre dispositivos: polling a cada 15s ──
 useEffect(function(){
   var poll=setInterval(async function(){
-    if(!initialized.current||isSaving.current||document.hidden)return;
+    if(!initialized.current||isSaving.current||pendingSave.current||document.hidden)return;
+    if(Date.now()-lastLocalChangeTs.current<12000)return;
     try{
       var serverTs=await supabase.getTimestamp();
       if(!serverTs)return;
@@ -6631,26 +6640,28 @@ useEffect(function(){
       var fresh=await supabase.loadFull();
       if(!fresh||!fresh.data)return;
       var sd=fresh.data;
-      var mergeArr=function(localArr,serverArr,setter){
+      // re-checa: se o usuario mexeu durante o carregamento, nao sobrescreve
+      if(Date.now()-lastLocalChangeTs.current<12000)return;
+      var mergeArr=function(serverArr,setter){
         if(!serverArr)return;
-        var localIds={};
-        (localArr||[]).forEach(function(x){if(x&&x.id!=null)localIds[x.id]=true;});
-        var serverIds={};
-        serverArr.forEach(function(x){if(x&&x.id!=null)serverIds[x.id]=true;});
-        // Pegar versao do servidor (mais recente) para ids comuns + adicionar missing
-        var merged=serverArr.slice();
-        (localArr||[]).forEach(function(x){if(x&&x.id!=null&&!serverIds[x.id])merged.push(x);});
-        setter(merged);
+        setter(function(prev){
+          prev=prev||[];
+          var serverIds={};
+          serverArr.forEach(function(x){if(x&&x.id!=null)serverIds[x.id]=true;});
+          var merged=serverArr.slice();
+          prev.forEach(function(x){if(x&&x.id!=null&&!serverIds[x.id])merged.push(x);});
+          return JSON.stringify(merged)===JSON.stringify(prev)?prev:merged;
+        });
       };
-      mergeArr(appts,sd.appts,setAppts);
-      mergeArr(recs,sd.recs,setRecs);
-      mergeArr(budgets,sd.budgets,setBudgets);
-      mergeArr(treats,sd.treats,setTreats);
-      mergeArr(pros,sd.pros,setPros);
-      mergeArr(rems,sd.rems,setRems);
-      mergeArr(logs,sd.logs,setLogs);
-      if(sd.expenses)setExpenses(sd.expenses);
-      if(sd.gastos)setGastos(sd.gastos);
+      mergeArr(sd.appts,setAppts);
+      mergeArr(sd.recs,setRecs);
+      mergeArr(sd.budgets,setBudgets);
+      mergeArr(sd.treats,setTreats);
+      mergeArr(sd.pros,setPros);
+      mergeArr(sd.rems,setRems);
+      mergeArr(sd.logs,setLogs);
+      if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
+      if(sd.gastos)setGastos(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.gastos)?prev:sd.gastos;});
       lastServerTs.current=fresh.updated_at;
     }catch(e){}
   },15000);
