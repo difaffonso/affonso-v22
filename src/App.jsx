@@ -6460,6 +6460,8 @@ if(full)lastServerTs.current=full.updated_at;
 if(data){
 try{
 if(data.appts?.length)setAppts(data.appts.map(function(a){return a&&a.time?Object.assign({},a,{time:pad2(a.time)}):a;}));
+{var _ai={};(data.appts||[]).forEach(function(a){if(a&&a.id!=null)_ai[a.id]=true;});lastSavedApptIds.current=_ai;}
+delAptsRef.current=data.delApts||[];
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
 var treatsmig=data.treats.map(function(t){
@@ -6522,12 +6524,22 @@ const pendingSave=useRef(false);
 const lastServerTs=useRef(null);
 const lastLocalChangeTs=useRef(0);
 const lastSaveFailed=useRef(false);
+const delAptsRef=useRef([]);
+const lastSavedApptIds=useRef(null);
 useEffect(function(){
   if(!initialized.current)return;
   lastLocalChangeTs.current=Date.now();
   if(saveTimer.current)clearTimeout(saveTimer.current);
   setSaveStatus("saving");
   var doSave=async function(){
+    // detectar exclusoes/recriacoes de agendamentos desde a ultima sincronizacao
+    if(lastSavedApptIds.current){
+      var _cur={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_cur[a.id]=true;});
+      var _dl=delAptsRef.current||[];
+      Object.keys(lastSavedApptIds.current).forEach(function(id){if(!_cur[id]){var ni=Number(id);if(_dl.indexOf(ni)<0)_dl.push(ni);}});
+      _dl=_dl.filter(function(id){return !_cur[id];});
+      delAptsRef.current=_dl.length>3000?_dl.slice(-3000):_dl;
+    }
     // ANTI-SOBRESCRITA: verificar se servidor tem versao mais nova que a nossa
     try{
       var serverTs=await supabase.getTimestamp();
@@ -6536,17 +6548,20 @@ useEffect(function(){
         var fresh=await supabase.loadFull();
         if(fresh&&fresh.data){
           var sd=fresh.data;
-          // Merge automatico: adicionar registros que nao temos localmente
-          var mergeArr=function(localArr,serverArr,setter){
+          // unir exclusoes do servidor com as nossas
+          if(sd.delApts&&sd.delApts.length){var _dd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_dd.indexOf(id)<0)_dd.push(id);});delAptsRef.current=_dd.length>3000?_dd.slice(-3000):_dd;}
+          var _skip={};(delAptsRef.current||[]).forEach(function(id){_skip[id]=true;});
+          // Merge automatico: adicionar registros que nao temos localmente (menos os apagados)
+          var mergeArr=function(localArr,serverArr,setter,skip){
             if(!serverArr||!serverArr.length)return;
             var localIds={};
             (localArr||[]).forEach(function(x){if(x&&x.id!=null)localIds[x.id]=true;});
-            var missing=serverArr.filter(function(x){return x&&x.id!=null&&!localIds[x.id];});
+            var missing=serverArr.filter(function(x){return x&&x.id!=null&&!localIds[x.id]&&!(skip&&skip[x.id]);});
             if(missing.length>0){
               setter(function(prev){return [...(prev||[]),...missing];});
             }
           };
-          mergeArr(appts,sd.appts,setAppts);
+          mergeArr(appts,sd.appts,setAppts,_skip);
           mergeArr(recs,sd.recs,setRecs);
           mergeArr(budgets,sd.budgets,setBudgets);
           mergeArr(treats,sd.treats,setTreats);
@@ -6559,7 +6574,7 @@ useEffect(function(){
         }
       }
     }catch(e){}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos,delApts:delAptsRef.current};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -6567,6 +6582,7 @@ useEffect(function(){
         var saved=await supabase.save(payload);
         if(saved!==false){
           lastSaved.current=JSON.stringify(payload);
+          {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
           // Atualizar timestamp do servidor para o nosso
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
@@ -6645,6 +6661,8 @@ useEffect(function(){
       var sd=fresh.data;
       // re-checa: se o usuario mexeu durante o carregamento, nao sobrescreve
       if(Date.now()-lastLocalChangeTs.current<12000)return;
+      // une exclusoes do servidor com as nossas
+      if(sd.delApts&&sd.delApts.length){var _pd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_pd.indexOf(id)<0)_pd.push(id);});delAptsRef.current=_pd.length>3000?_pd.slice(-3000):_pd;}
       // adota a versao do servidor (reflete exclusoes). itens novos ainda nao salvos
       // estao protegidos pelas travas (12s recente / save pendente / falha de save) acima.
       var mergeArr=function(serverArr,setter){
@@ -6655,6 +6673,7 @@ useEffect(function(){
         });
       };
       mergeArr(sd.appts,setAppts);
+      {var _ai3={};(sd.appts||[]).forEach(function(a){if(a&&a.id!=null)_ai3[a.id]=true;});lastSavedApptIds.current=_ai3;}
       mergeArr(sd.recs,setRecs);
       mergeArr(sd.budgets,setBudgets);
       mergeArr(sd.treats,setTreats);
