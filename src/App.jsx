@@ -5194,7 +5194,7 @@ const todayP=pros.filter(p=>p.due===t&&p.status==="waiting");
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div><div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div></div>
-{(()=>{const yd=new Date(new Date(t)-86400000).toISOString().split("T")[0];const KW=["Exodontia","Extracao","Extração","Exo","Implante","Cirurgia","Cirurgico","Cirúrgico","Cirúrgica","Enxerto","Sinus","Gengivoplastia","Apicectomia","Frenectomia","Biopsia","Urgencia","Urgência","Emergencia","Emergência"];const isD=user.level===1;const posC=appts.filter(a=>a.date===yd&&(a.status==="done"||a.status==="confirmed")&&KW.some(k=>{var kw=k.toLowerCase();return (a.procedure&&a.procedure.toLowerCase().includes(kw))||(a.treatment&&a.treatment.toLowerCase().includes(kw));})&&(!isD||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);return posC.map(x=><div key={"pc"+x.a.id} style={{background:"#EDE7F6",border:"2px solid #9FA8DA",borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🩺</span><span style={{fontWeight:700,color:"#283593",flex:1}}>{"Pós-atendimento — "+x.p.name+" ("+(x.a.procedure||"Atendimento")+")"}</span>{x.p.phone&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(x.p.phone,"Olá, "+x.p.name+"! 😊 Aqui é da Affonso Odontologia. Você realizou "+(x.a.procedure||"seu procedimento")+" no dia "+fmt(x.a.date)+" e passamos para saber como está se sentindo. Está tudo bem com a recuperação, sem dores ou desconforto? Qualquer dúvida, é só responder por aqui que vamos te orientar com todo cuidado. Cuide-se bem! 🦷")}/>}</div>);})()}
+{urgent.filter(r=>r.type==="surg").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.red+"15",border:`2px solid ${G.red}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🔴</span><span style={{fontWeight:700,color:G.red,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! Como está se sentindo após o procedimento de ontem? 😊`)}/>}</div>;})}
 {despHoje.length>0&&<div style={{background:"#FFF3E0",border:"2px solid #FF9800",borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={()=>setView("desp")}>
 <div style={{fontWeight:700,color:"#E65100",fontSize:13,marginBottom:4}}>{"💸 "+despHoje.length+" despesa(s) vence(m) hoje!"}</div>
 {despHoje.slice(0,3).map(function(e,i){return <div key={i} style={{fontSize:12,color:"#E65100"}}>{"• "+(e.desc||"")+" — "+(Number(e.value||0)>0?cur(Number(e.value)):"preencher valor")}</div>;})}
@@ -6521,6 +6521,7 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 const pendingSave=useRef(false);
 const lastServerTs=useRef(null);
 const lastLocalChangeTs=useRef(0);
+const lastSaveFailed=useRef(false);
 useEffect(function(){
   if(!initialized.current)return;
   lastLocalChangeTs.current=Date.now();
@@ -6588,6 +6589,7 @@ useEffect(function(){
       return;
     }
     setSaveStatus(ok?"saved":"error");
+    lastSaveFailed.current=!ok;
     setTimeout(function(){setSaveStatus("idle");},ok?2000:4000);
     isSaving.current=false;
     saveTimer.current=null;
@@ -6596,6 +6598,7 @@ useEffect(function(){
       isSaving.current=true;
       var ok2=await doSave();
       if(ok2!=="merged"){
+        lastSaveFailed.current=!ok2;
         setSaveStatus(ok2?"saved":"error");
         setTimeout(function(){setSaveStatus("idle");},ok2?2000:4000);
       }
@@ -6629,7 +6632,7 @@ useEffect(function(){
 // ── SINCRONIZACAO entre dispositivos: polling a cada 15s ──
 useEffect(function(){
   var poll=setInterval(async function(){
-    if(!initialized.current||isSaving.current||pendingSave.current||document.hidden)return;
+    if(!initialized.current||isSaving.current||pendingSave.current||lastSaveFailed.current||document.hidden)return;
     if(Date.now()-lastLocalChangeTs.current<12000)return;
     try{
       var serverTs=await supabase.getTimestamp();
@@ -6642,15 +6645,13 @@ useEffect(function(){
       var sd=fresh.data;
       // re-checa: se o usuario mexeu durante o carregamento, nao sobrescreve
       if(Date.now()-lastLocalChangeTs.current<12000)return;
+      // adota a versao do servidor (reflete exclusoes). itens novos ainda nao salvos
+      // estao protegidos pelas travas (12s recente / save pendente / falha de save) acima.
       var mergeArr=function(serverArr,setter){
         if(!serverArr)return;
         setter(function(prev){
           prev=prev||[];
-          var serverIds={};
-          serverArr.forEach(function(x){if(x&&x.id!=null)serverIds[x.id]=true;});
-          var merged=serverArr.slice();
-          prev.forEach(function(x){if(x&&x.id!=null&&!serverIds[x.id])merged.push(x);});
-          return JSON.stringify(merged)===JSON.stringify(prev)?prev:merged;
+          return JSON.stringify(serverArr)===JSON.stringify(prev)?prev:serverArr.slice();
         });
       };
       mergeArr(sd.appts,setAppts);
