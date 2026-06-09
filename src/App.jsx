@@ -2147,9 +2147,7 @@ var flags=[];
 if(p&&p.obs)flags.push("⚠️ "+p.obs);
 if(p&&p.allergy&&p.allergy!=="Nenhuma")flags.push("💊 "+p.allergy);
 var anObj=p&&p.anamnese||{};
-if(anObj.hypertension)flags.push("HAS");
-if(anObj.diabetes)flags.push("Diabetes");
-if(anObj.heartDisease)flags.push("Cardio");
+ANAM_CONDS.forEach(function(c){if(anObj[c[0]])flags.push(c[1]);});
 // Card visual aprimorado por status
 var cardBg=isPartial?"#FFEBEE":SC_BG[a.status]||SC[a.status]+"15";
 var cardBorder=isPartial?G.red:SC[a.status];
@@ -2212,7 +2210,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
               }
               const p=a?pats.find(function(x){return x.id===a.patientId;}):null;
               const an=p&&p.anamnese||{};
-              const CONDS=[["hypertension","HAS"],["diabetes","Diabetes"],["heartDisease","Cardio"],["bleeding","Coagulação"],["osteoporosis","Osteoporose"],["kidneyDisease","Renal"],["liverDisease","Hepática"],["thyroid","Tireóide"],["epilepsy","Epilepsia"],["cancer","Câncer"],["pregnant","Gestante"],["smoking","Tabagismo"]];
+              const CONDS=ANAM_CONDS;
               const healthFlags=[p&&p.obs&&("⚠ "+p.obs),p&&p.allergy&&p.allergy!=="Nenhuma"&&("💊 "+p.allergy),an.allergicMeds&&("💊 Alergia Med: "+an.allergicMeds)].concat(CONDS.filter(function(c){return an[c[0]];}).map(function(c){return c[1];})).filter(Boolean);
               // Cancelado/desmarcado: libera o horário visualmente
               if(a&&(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed")){
@@ -5263,7 +5261,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {todayA.length===0&&<p style={{color:G.muted,fontSize:13}}>Nenhum agendamento</p>}
 {todayA.map(a=>{const p=pats.find(x=>x.id===a.patientId);const d=dents.find(x=>x.id===a.dentistId)||dents[0];
 const an=p?.anamnese||{};
-const hasAlert=p?.obs||(p?.allergy&&p.allergy!=="Nenhuma")||an.hypertension||an.diabetes||an.heartDisease||an.allergicMeds;
+const hasAlert=p?.obs||(p?.allergy&&p.allergy!=="Nenhuma")||an.allergicMeds||ANAM_CONDS.some(function(c){return an[c[0]];});
 return <div key={a.id} style={{borderBottom:`1px solid ${G.border}`,overflow:"hidden"}}>
 <div style={{background:SC[a.status],padding:"3px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"0 0 0 0"}}>
 <span style={{fontSize:9,fontWeight:700,color:"#fff",textTransform:"uppercase"}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
