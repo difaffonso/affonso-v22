@@ -5220,102 +5220,137 @@ return(
 // ══════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════
-function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos}){
+function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks}){
 const t=today();
-const isDent=user.level===1;
-// Despesas vencendo hoje ou atrasadas (so admin)
-const despHoje=user.level>=3?(function(){
-  var mo=t.slice(0,7);
+const yd=yest();
+const mo=t.slice(0,7);
+const per=mo;
+const [oBday,setOBday]=useState(false);
+const [oFalt,setOFalt]=useState(false);
+const [oPros,setOPros]=useState(false);
+const [oStk,setOStk]=useState(false);
+const [oCir,setOCir]=useState(false);
+const [vBdayDone,setVBdayDone]=useState(false);
+const rev=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0).reduce((s,r)=>s+r.paid,0);
+const todayCount=appts.filter(a=>a.date===t&&!a.blocked&&a.status!=="cancelled").length;
+const despHoje=(function(){
   var diaHoje=Number(t.slice(8));
   var all=[...((gastos&&gastos.clinica)||[]),...((gastos&&gastos.pessoal)||[])];
   var due=all.filter(function(e){
-    if(e.recorrente&&e.diaVenc){
-      if(e.pagoMeses&&e.pagoMeses[mo])return false; // ja pago neste mes
-      return Number(e.diaVenc)===diaHoje;
-    }
-    if(e.parcelado){
-      if(e.pagoMeses&&e.pagoMeses[mo])return false;
-      var sIdx=Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7));
-      var cIdx=Number(mo.slice(0,4))*12+Number(mo.slice(5,7));
-      var kk=cIdx-sIdx;
-      if(kk<0||kk>=Number(e.parcelas||1))return false;
-      return Number((e.date||"").slice(8))===diaHoje;
-    }
-    if(e.paid)return false;
-    return e.date===t;
+    if(e.recorrente&&e.diaVenc){ if(e.pagoMeses&&e.pagoMeses[mo])return false; return Number(e.diaVenc)===diaHoje; }
+    if(e.parcelado){ if(e.pagoMeses&&e.pagoMeses[mo])return false; var sIdx=Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)); var cIdx=Number(mo.slice(0,4))*12+Number(mo.slice(5,7)); var kk=cIdx-sIdx; if(kk<0||kk>=Number(e.parcelas||1))return false; return Number((e.date||"").slice(8))===diaHoje; }
+    if(e.paid)return false; return e.date===t;
   });
-  // deduplica: mesma despesa nao aparece repetida
-  var seen={},out=[];
-  due.forEach(function(e){
-    var k=(e.desc||"").trim().toLowerCase()+"|"+(e.recorrente?("r"+e.diaVenc):e.parcelado?("p"+(e.date||"")):("d"+(e.date||"")));
-    if(seen[k])return;seen[k]=1;out.push(e);
-  });
-  return out;
-})():[];
-const myDent=dents.find(function(d){return d.id===user.dentistId;});
-const todayA=appts.filter(a=>a.date===t&&(!isDent||a.dentistId===user.dentistId)).sort((a,b)=>t2m(a.time)-t2m(b.time));
-const mo=t.slice(0,7);
-const rev=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0).reduce((s,r)=>s+r.paid,0);
-// Per-dentist today counts (for admin view)
-const dentTodayCounts=dents.map(function(d){return{dent:d,count:appts.filter(function(a){return a.date===t&&a.dentistId===d.id&&a.status!=="cancelled"&&a.status!=="missed";}).length};}).filter(function(x){return x.count>0;});
+  var seen={},out=[]; due.forEach(function(e){ var k=(e.desc||"").trim().toLowerCase()+"|"+(e.recorrente?("r"+e.diaVenc):e.parcelado?("p"+(e.date||"")):("d"+(e.date||""))); if(seen[k])return;seen[k]=1;out.push(e); }); return out;
+})();
+const _bdayDone=function(p){return !!(pacsTicks&&pacsTicks["bday_week_"+p.id+"_"+per]&&pacsTicks["bday_week_"+p.id+"_"+per].done);};
+const bdayAll=pats.filter(function(p){return p.dob&&p.dob.slice(5)===t.slice(5);});
+const bdayPend=bdayAll.filter(function(p){return !_bdayDone(p);});
+const bdayDone=bdayAll.filter(_bdayDone);
+const marcarBday=function(p){setPacsTicks(function(prev){var n=Object.assign({},prev);var rec={done:true,note:"Parabens enviado",doneBy:user.name,doneAt:t};n["bday_week_"+p.id+"_"+per]=rec;n["bday_month_"+p.id+"_"+per]=rec;return n;});};
+const restaurarBday=function(p){setPacsTicks(function(prev){var n=Object.assign({},prev);delete n["bday_week_"+p.id+"_"+per];delete n["bday_month_"+p.id+"_"+per];return n;});};
+const faltOntem=appts.filter(function(a){return a.date===yd&&a.status==="missed";});
+const prosPend=pros.filter(function(p){return p.status==="waiting";}).sort(function(a,b){return (a.due||"").localeCompare(b.due||"");});
+const prosAtras=prosPend.filter(function(p){return p.due&&p.due<t;}).length;
+const stkBaixo=((stock||[]).filter(function(s){return Number(s.qty)<=Number(s.min);}));
 const ar=autoRems(pats,recs,appts);
-const urgent=[...ar,...rems.filter(r=>!r.done)].filter(r=>r.date<=t);
-const todayP=pros.filter(p=>p.due===t&&p.status==="waiting");
-return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+const cir=ar.filter(function(r){return r.type==="surg";});
+const head=function(open,setOpen,icon,label,count,color){
+  return <button onClick={function(){setOpen(function(v){return !v;});}} style={{width:"100%",border:"none",background:color+"15",borderLeft:"4px solid "+color,borderRadius:open?"12px 12px 0 0":12,padding:"11px 14px",display:"flex",alignItems:"center",gap:9,cursor:"pointer"}}>
+    <span style={{fontSize:16}}>{icon}</span>
+    <span style={{flex:1,textAlign:"left",fontWeight:700,fontSize:13,color:color}}>{label}</span>
+    <span style={{background:color,color:"#fff",borderRadius:20,padding:"1px 9px",fontSize:12,fontWeight:700}}>{count}</span>
+    <span style={{color:color,fontSize:13,fontWeight:700,transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>{">"}</span>
+  </button>;
+};
+const bodyWrap=function(children,color){return <div style={{border:"1.5px solid "+color+"55",borderTop:"none",borderRadius:"0 0 12px 12px",padding:"10px 12px",display:"flex",flexDirection:"column",gap:7,background:"#fff"}}>{children}</div>;};
+return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi">
 
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div><div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div></div>
-{urgent.filter(r=>r.type==="surg").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.red+"15",border:`2px solid ${G.red}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🔴</span><span style={{fontWeight:700,color:G.red,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! Como está se sentindo após o procedimento de ontem? 😊`)}/>}</div>;})}
-{despHoje.length>0&&<div style={{background:"#FFF3E0",border:"2px solid #FF9800",borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={()=>setView("desp")}>
-<div style={{fontWeight:700,color:"#E65100",fontSize:13,marginBottom:4}}>{"💸 "+despHoje.length+" despesa(s) vence(m) hoje!"}</div>
-{despHoje.slice(0,3).map(function(e,i){return <div key={i} style={{fontSize:12,color:"#E65100"}}>{"• "+(e.desc||"")+" — "+(Number(e.value||0)>0?cur(Number(e.value)):"preencher valor")}</div>;})}
-{despHoje.length>3&&<div style={{fontSize:11,color:"#E65100",marginTop:2}}>{"+ "+(despHoje.length-3)+" mais..."}</div>}
-<div style={{fontSize:11,color:"#BF360C",marginTop:4,fontWeight:600}}>{"Toque para ver Despesas →"}</div>
-</div>}
-{urgent.filter(r=>r.type==="bday").map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{background:G.gold+"15",border:`2px solid ${G.gold}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🎂</span><span style={{fontWeight:700,color:G.gold,flex:1}}>{r.title}</span>{p?.phone&&<Btn ch="📱 Parabéns" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! 🎂 Feliz aniversário da equipe Affonso Odontologia! 😊`)}/>}</div>;})}
-{todayP.length>0&&<div style={{background:G.orange+"15",border:`2px solid ${G.orange}`,borderRadius:10,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}><span>🏥</span><span style={{fontWeight:700,color:G.orange,flex:1}}>{todayP.length} prótese(s) prevista(s) para hoje!</span><Btn ch="Ver" v="y" sm onClick={()=>setView("pros")}/></div>}
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-{[{l:"Pacientes",v:pats.length,i:"👥",c:G.primary},{l:"Hoje",v:todayA.length,i:"📅",c:G.blue},{l:"Próteses em Lab",v:pros.filter(p=>p.status==="waiting").length,i:"🏥",c:G.purple},{l:"Receita Mês",v:cur(rev),i:"💰",c:G.yellow}].map(({l,v,i,c})=><div key={l} style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:`4px solid ${c}`}}><div style={{fontSize:19,marginBottom:4}}>{i}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div><div style={{fontSize:11,color:G.muted,fontWeight:600,marginTop:1}}>{l}</div></div>)}
-</div>
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:9}}>{dents.map(d=>{const cnt=appts.filter(a=>a.date===t&&a.dentistId===d.id).length;return <div key={d.id} style={{background:G.card,borderRadius:11,padding:11,textAlign:"center",borderTop:`3px solid ${d.color}`,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontWeight:700,color:d.color,fontSize:11}}>{d.name}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:d.color,marginTop:2}}>{cnt}</div><div style={{fontSize:10,color:G.muted}}>hoje</div></div>;})}</div>
-<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 5px rgba(0,0,0,.07)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-<div style={{fontWeight:700,fontSize:13}}>{isDent?"Minha Agenda Hoje":"Agenda de Hoje"}</div>
-{isDent&&myDent&&<div style={{fontSize:12,color:G.primary,fontWeight:600,background:G.accent,borderRadius:8,padding:"3px 10px"}}>{todayA.length+" paciente(s)"}</div>}
-</div>
-{!isDent&&dentTodayCounts.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
-{dentTodayCounts.map(function(x){return(
-<div key={x.dent.id} style={{background:"#fff",border:"1.5px solid "+x.dent.color,borderRadius:10,padding:"4px 10px",display:"flex",alignItems:"center",gap:5}}>
-<div style={{width:8,height:8,borderRadius:"50%",background:x.dent.color}}/>
-<span style={{fontSize:11,fontWeight:700,color:x.dent.color}}>{x.dent.name.split(" ")[0]+": "+x.count}</span>
-</div>
-);})}
-</div>}
-{todayA.length===0&&<p style={{color:G.muted,fontSize:13}}>Nenhum agendamento</p>}
-{todayA.map(a=>{const p=pats.find(x=>x.id===a.patientId);const d=dents.find(x=>x.id===a.dentistId)||dents[0];
-const an=p?.anamnese||{};
-const hasAlert=p?.obs||(p?.allergy&&p.allergy!=="Nenhuma")||an.allergicMeds||ANAM_CONDS.some(function(c){return an[c[0]];});
-return <div key={a.id} style={{borderBottom:`1px solid ${G.border}`,overflow:"hidden"}}>
-<div style={{background:SC[a.status],padding:"3px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"0 0 0 0"}}>
-<span style={{fontSize:9,fontWeight:700,color:"#fff",textTransform:"uppercase"}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
-<span style={{fontWeight:700,color:"#fff",fontSize:13}}>{a.time}</span>
-</div>
-<div style={{display:"flex",alignItems:"flex-start",gap:9,padding:"8px 10px",flexWrap:"wrap"}}>
-<div style={{flex:1,minWidth:90}}>
-<div style={{fontWeight:600,fontSize:13}}>{p?.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · P.{p?.folder}</span></div>
-{hasAlert&&<div style={{fontSize:10,background:G.red+"20",color:G.red,borderRadius:4,padding:"1px 6px",fontWeight:700,marginTop:1,display:"inline-block"}}>⚠ Atenção</div>}
-<div style={{fontSize:11,color:G.muted}}>{a.procedure}</div>
-</div>
-<span style={{fontSize:11,color:d.color,fontWeight:600,flexShrink:0}}>{d.name.split(" ")[0]}</span>
-</div>
-</div>;})}
-</div>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div>
+    <div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div>
+  </div>
 
-  </div>;
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
+    {[["👥",pats.length,"Pacientes",G.primary],["📅",todayCount,"Hoje",G.blue],["💰",cur(rev),"Receita mês",G.success]].map(function(c){return <div key={c[2]} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c[3]}}><div style={{fontSize:17}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c[3]}}>{c[1]}</div><div style={{fontSize:10,color:G.muted,fontWeight:600}}>{c[2]}</div></div>;})}
+  </div>
+
+  {bdayAll.length>0&&<div>
+    {head(oBday,setOBday,"🎂","Aniversariantes hoje",bdayPend.length,G.gold)}
+    {oBday&&bodyWrap(<>
+      {bdayPend.length===0&&<div style={{fontSize:12,color:G.success,fontWeight:600}}>✅ Todos já contatados!</div>}
+      {bdayPend.map(function(p){return <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
+        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{p.name}</div><div style={{fontSize:11,color:G.muted}}>{age(p.dob)+(p.phone?" · "+p.phone:"")}</div></div>
+        {p.phone&&<button onClick={function(){wa(p.phone,"Olá "+p.name+"! 🎂 A equipe Affonso Odontologia deseja um feliz aniversário! 🦷");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📱 WA</button>}
+        <button onClick={function(){marcarBday(p);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✓ Feito</button>
+      </div>;})}
+      {bdayDone.length>0&&<button onClick={function(){setVBdayDone(function(v){return !v;});}} style={{alignSelf:"flex-start",background:"none",border:"none",color:G.muted,fontSize:11,fontWeight:700,cursor:"pointer",marginTop:2}}>{(vBdayDone?"▾ ":"▸ ")+"✓ "+bdayDone.length+" já contatado(s)"}</button>}
+      {vBdayDone&&bdayDone.map(function(p){var tk=pacsTicks["bday_week_"+p.id+"_"+per]||{};return <div key={"d"+p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",opacity:.7}}>
+        <div style={{flex:1}}><div style={{fontSize:12,textDecoration:"line-through",color:G.muted}}>{p.name}</div><div style={{fontSize:10,color:G.success}}>{"✓ "+(tk.doneBy||"")+(tk.doneAt?" em "+fmt(tk.doneAt):"")}</div></div>
+        <button onClick={function(){restaurarBday(p);}} style={{background:"none",border:"1px solid "+G.border,borderRadius:6,padding:"2px 8px",fontSize:10,color:G.muted,cursor:"pointer"}}>↩ Restaurar</button>
+      </div>;})}
+    </>,G.gold)}
+  </div>}
+
+  {faltOntem.length>0&&<div>
+    {head(oFalt,setOFalt,"🚫","Faltaram ontem",faltOntem.length,G.red)}
+    {oFalt&&bodyWrap(<>
+      {faltOntem.map(function(a){var p=pats.find(function(x){return x.id===a.patientId;});var d=dents.find(function(x){return x.id===a.dentistId;})||dents[0];if(!p)return null;return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
+        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{p.name}</div><div style={{fontSize:11,color:G.muted}}>{a.procedure+" · "+d.name.split(" ")[0]}</div></div>
+        {p.phone&&<button onClick={function(){wa(p.phone,"Olá "+p.name+"! Notamos que faltou à consulta de ontem. Quer remarcar? Responda SIM! Affonso Odontologia");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📱 WA</button>}
+      </div>;})}
+      <button onClick={function(){setView("remarcar");}} style={{alignSelf:"flex-start",background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",marginTop:3}}>Ver Remarcar →</button>
+    </>,G.red)}
+  </div>}
+
+  {prosPend.length>0&&<div>
+    {head(oPros,setOPros,"🏥",("Próteses pendentes"+(prosAtras>0?" ("+prosAtras+" atrasada"+(prosAtras>1?"s":"")+")":"")),prosPend.length,G.red)}
+    {oPros&&bodyWrap(<>
+      {prosPend.slice(0,12).map(function(p){var pat=pats.find(function(x){return x.id===p.patientId;});var lab=(labs||[]).find(function(x){return x.id===p.labId;});var late=p.due&&p.due<t;return <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
+        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{((pat&&pat.name)||"—")}{late?<span style={{background:G.red,color:"#fff",borderRadius:6,padding:"0 6px",fontSize:9,fontWeight:700,marginLeft:6}}>ATRASADA</span>:null}</div><div style={{fontSize:11,color:G.muted}}>{p.type+(lab?" · "+lab.name:"")+" · prev: "+fmt(p.due)}</div></div>
+      </div>;})}
+      <button onClick={function(){setView("pros");}} style={{alignSelf:"flex-start",background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",marginTop:3}}>Ver Próteses →</button>
+    </>,G.red)}
+  </div>}
+
+  {stkBaixo.length>0&&<div>
+    {head(oStk,setOStk,"📦","Estoque baixo",stkBaixo.length,G.orange)}
+    {oStk&&bodyWrap(<>
+      {stkBaixo.map(function(s){return <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
+        <div style={{flex:1,fontWeight:700,fontSize:13}}>{s.name}</div>
+        <span style={{fontSize:12,color:G.red,fontWeight:700}}>{s.qty+" "+s.unit}</span>
+        <span style={{fontSize:10,color:G.muted}}>{"min: "+s.min}</span>
+      </div>;})}
+      <button onClick={function(){setView("stk");}} style={{alignSelf:"flex-start",background:G.orange,color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",marginTop:3}}>Ver Estoque →</button>
+    </>,G.orange)}
+  </div>}
+
+  {cir.length>0&&<div>
+    {head(oCir,setOCir,"🔴","Pós-cirurgia (contato)",cir.length,G.red)}
+    {oCir&&bodyWrap(<>
+      {cir.map(function(r){var p=pats.find(function(x){return x.id===r.patientId;});return <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
+        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{(p&&p.name)||r.title}</div><div style={{fontSize:11,color:G.muted}}>{r.desc||""}</div></div>
+        {p&&p.phone&&<button onClick={function(){wa(p.phone,"Olá "+p.name+"! Como está se sentindo após o procedimento de ontem? 😊 Affonso Odontologia");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📱 WA</button>}
+      </div>;})}
+    </>,G.red)}
+  </div>}
+
+  {despHoje.length>0&&<div style={{background:"#FFF3E0",border:"2px solid #FF9800",borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={function(){setView("desp");}}>
+    <div style={{fontWeight:700,color:"#E65100",fontSize:13,marginBottom:4}}>{"💸 "+despHoje.length+" despesa(s) vence(m) hoje!"}</div>
+    {despHoje.slice(0,3).map(function(e,i){return <div key={i} style={{fontSize:12,color:"#E65100"}}>{"• "+(e.desc||"")+" — "+(Number(e.value||0)>0?cur(Number(e.value)):"preencher valor")}</div>;})}
+    {despHoje.length>3&&<div style={{fontSize:11,color:"#E65100",marginTop:2}}>{"+ "+(despHoje.length-3)+" mais..."}</div>}
+    <div style={{fontSize:11,color:"#BF360C",marginTop:4,fontWeight:600}}>{"Toque para ver Despesas →"}</div>
+  </div>}
+
+  {bdayAll.length===0&&faltOntem.length===0&&prosPend.length===0&&stkBaixo.length===0&&cir.length===0&&despHoje.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>✅ Tudo em dia! Nenhuma pendência hoje.</div>}
+
+</div>;
 }
 
 // ══════════════════════════════════════════════════════════
 // WA PREVIEW MODAL - global, shown before sending
 // ══════════════════════════════════════════════════════════
+
 function WaPreview({data,onClose}){
 if(!data)return null;
 const {ph,msg}=data;
@@ -6905,7 +6940,7 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
       {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
