@@ -8,6 +8,7 @@ async load(){const f=await this.loadFull();return f?f.data:null;},
 async getTimestamp(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
 async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}},
 async loadPatients(){if(!SUPA_URL)return null;try{var all=[];var lastId=0;var step=1000;for(var guard=0;guard<500;guard++){var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=id.asc&limit="+step+"&id=gt."+lastId,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});if(!r.ok)return all.length?all:null;var rows=await r.json();if(!rows||!rows.length)break;for(var k=0;k<rows.length;k++){all.push(rows[k].data);}lastId=rows[rows.length-1].id;if(rows.length<step)break;}return all;}catch(e){return null;}},
+async loadPatientsSince(ts){if(!SUPA_URL)return null;try{var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=updated_at.asc&updated_at=gt."+encodeURIComponent(ts)+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});if(!r.ok)return null;var d=await r.json();return (d||[]).map(function(row){return {id:row.id,data:row.data,ts:row.updated_at};});}catch(e){return null;}},
 async upsertPatients(arr){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!arr||!arr.length)return {ok:true};var now=new Date().toISOString();var CH=400;for(var i=0;i<arr.length;i+=CH){var chunk=arr.slice(i,i+CH).map(function(p){return {id:p.id,data:p,updated_at:now};});try{var r=await fetch(SUPA_URL+"/rest/v1/patients",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(chunk)});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}return {ok:true};},
 async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao com o banco"};try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,payload:payload})});if(r.ok)return {ok:true};var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}},
 async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
@@ -2481,8 +2482,14 @@ const sim=pats.filter(function(p){
 const pnm=normNome(p.name);
 const pf2=(p.phone||"").replace(/\D/g,"");
 const pc=(p.cpf||"").replace(/\D/g,"");
-const nomeP=nm.length>3&&(pnm.indexOf(nm)>=0||nm.indexOf(pnm)>=0||(nm.split(" ")[0]===pnm.split(" ")[0]&&nm.split(" ").slice(-1)[0]===pnm.split(" ").slice(-1)[0]));
-return nomeP||(fone.length>=8&&pf2===fone)||(cpf2.length>=11&&pc===cpf2);
+const partsN=nm.split(" ").filter(Boolean);
+const partsP=pnm.split(" ").filter(Boolean);
+const contido=nm.length>3&&pnm.length>3&&Math.min(nm.length,pnm.length)>=5&&(nm.indexOf(pnm)>=0||pnm.indexOf(nm)>=0);
+const primUlt=partsN.length>=2&&partsP.length>=2&&partsN[0]===partsP[0]&&partsN[partsN.length-1]===partsP[partsP.length-1]&&partsN[0].length>=3;
+const nomeP=(nm.length>3&&pnm.length>3&&pnm===nm)||contido||primUlt;
+const foneP=fone.length>=10&&pf2===fone;
+const cpfP=cpf2.length>=11&&pc===cpf2;
+return nomeP||foneP||cpfP;
 });
 if(sim.length>0){
 setDupModal({similares:sim,onConfirm:function(){
@@ -2533,11 +2540,14 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 {dupModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 
-<div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+<div style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:460,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
 <div style={{background:"#D68910",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>⚠️ Possível Duplicidade</div></div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
 <div style={{fontSize:13}}>Paciente(s) com dados similares encontrado(s):</div>
-{dupModal.similares.map(function(p){return(<div key={p.id} style={{background:"#EEF3F0",borderRadius:10,padding:"10px 13px"}}><div style={{fontWeight:700,fontSize:13}}>{p.name}</div><div style={{fontSize:12,color:"#6B8880"}}>{p.folder?("Ficha: "+p.folder):""}{p.phone?(" · "+p.phone):""}</div></div>);})}
+<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:"45vh",overflowY:"auto"}}>
+{dupModal.similares.slice(0,10).map(function(p){return(<div key={p.id} style={{background:"#EEF3F0",borderRadius:10,padding:"10px 13px"}}><div style={{fontWeight:700,fontSize:13,wordBreak:"break-word"}}>{p.name}</div><div style={{fontSize:12,color:"#6B8880"}}>{p.folder?("Ficha: "+p.folder):""}{p.phone?(" · "+p.phone):""}</div></div>);})}
+{dupModal.similares.length>10&&<div style={{fontSize:12,color:"#6B8880"}}>{"+ "+(dupModal.similares.length-10)+" outro(s)"}</div>}
+</div>
 <div style={{fontSize:12,color:"#6B8880"}}>Deseja cadastrar mesmo assim?</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid #D5E8DF"}}>
 <button onClick={()=>setDupModal(null)} style={{border:"1.5px solid #1B5E4A",background:"transparent",color:"#1B5E4A",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
@@ -6451,6 +6461,40 @@ const patSaveTimer=useRef(null);
 const patSaving=useRef(false);
 const patPending=useRef(false);
 const patsRef=useRef([]);
+const lastPatPollTs=useRef(null);
+useEffect(function(){
+  var pp=setInterval(async function(){
+    if(!initialized.current||document.hidden)return;
+    if(!patTableOk.current)return;
+    if(Date.now()-lastLocalChangeTs.current<12000)return;
+    if(patSaving.current||patPending.current)return;
+    try{
+      if(!lastPatPollTs.current){lastPatPollTs.current=new Date().toISOString();return;}
+      var chg=await supabase.loadPatientsSince(lastPatPollTs.current);
+      if(!chg||!chg.length)return;
+      var maxTs=lastPatPollTs.current;
+      chg.forEach(function(c){if(c&&c.ts&&c.ts>maxTs)maxTs=c.ts;});
+      lastPatPollTs.current=maxTs;
+      setPats(function(prev){
+        prev=prev||[];
+        var idx={};prev.forEach(function(p,i){if(p&&p.id!=null)idx[p.id]=i;});
+        var next=prev.slice();var mut=false;
+        chg.forEach(function(c){
+          if(!c||c.id==null||!c.data)return;
+          var sj=JSON.stringify(c.data);
+          if(idx[c.id]!=null){if(JSON.stringify(next[idx[c.id]])!==sj){next[idx[c.id]]=c.data;mut=true;}}
+          else{next.push(c.data);mut=true;}
+        });
+        if(!mut)return prev;
+        var mm=lastSavedPats.current||{};
+        chg.forEach(function(c){if(c&&c.id!=null&&c.data)mm[c.id]=JSON.stringify(c.data);});
+        lastSavedPats.current=mm;
+        return next;
+      });
+    }catch(e){}
+  },20000);
+  return function(){clearInterval(pp);};
+},[]);
 
 // ── CARREGAR do Supabase ──
 useEffect(()=>{
