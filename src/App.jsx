@@ -4019,6 +4019,7 @@ const setTicks=setPacsTicks;
 const [noteModal,setNoteModal]=useState(null);
 const [noteText,setNoteText]=useState("");
 const [showDone,setShowDone]=useState({});
+const [openSec,setOpenSec]=useState({});
 const period=t.slice(0,7);
 const pendCount=(listId,list,isTreat)=>list.filter(function(x){var pp=isTreat?pats.find(function(z){return z.id===x.patientId;}):x;return pp&&!isHandled(listId,pp.id+(isTreat?x.id:""));}).length;
 
@@ -4061,7 +4062,6 @@ return <div style={{background:overdue||todayB?"#FDECEA":G.card,borderRadius:10,
 
 const sections=[
 {id:"bday_week",label:"🎂 Aniversariantes esta semana",col:G.gold,list:bdayWeek,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
-{id:"bday_month",label:"🎉 Aniversariantes este mês",col:G.gold,list:bdayMonth,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
 {id:"semestral",label:"📅 Controle Semestral",col:G.orange,list:semestral,sub:"Mais de 6 meses sem atendimento",extra:p=>{const l=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];return`Último atend: ${fmt(l?.date)}`;},wa:waSemestral},
 {id:"sem_ret",label:"⚠️ Em tratamento sem agendamento",col:G.red,list:semRetorno,sub:"Plano ativo sem consulta futura",extra:x=>{const pend=x.items.filter(i=>!i.done).length;return`Plano: ${x.name} · ${pend} proc. pendente${pend>1?"s":""}`;},wa:waSemRet,isTreat:true},
 {id:"new_pats",label:"✨ Novos pacientes no mês",col:G.primary,list:newPats,extra:()=>"",wa:null},
@@ -4076,11 +4076,17 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 const doneItems=sec.list.filter(x=>{const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;return p&&isHandled(sec.id,p.id+(sec.isTreat?x.id:""));});
 const pendItems=sec.list.filter(x=>{const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;return p&&!isHandled(sec.id,p.id+(sec.isTreat?x.id:""));});
 const sdone=!!showDone[sec.id];
-return <div key={sec.id} style={{background:G.card,borderRadius:13,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:6}}>
-<div><span style={{fontWeight:700,fontSize:14,color:sec.col}}>{sec.label} ({pendItems.length})</span>{sec.sub&&<div style={{fontSize:11,color:G.muted}}>{sec.sub}</div>}</div>
-{doneItems.length>0&&<button onClick={()=>setShowDone(prev=>Object.assign({},prev,{[sec.id]:!prev[sec.id]}))} style={{background:"none",border:"none",fontSize:11,color:G.success,fontWeight:700,cursor:"pointer"}}>{sdone?"ocultar concluídos":"✓ "+doneItems.length+" concluído(s) — ver"}</button>}
+const isOpen=!!openSec[sec.id];
+return <div key={sec.id} style={{background:G.card,borderRadius:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)",overflow:"hidden"}}>
+<div onClick={()=>setOpenSec(prev=>Object.assign({},prev,{[sec.id]:!prev[sec.id]}))} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 14px",cursor:"pointer",userSelect:"none"}}>
+<div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+<span style={{fontSize:12,color:sec.col,transition:"transform .15s",transform:isOpen?"rotate(90deg)":"none",flexShrink:0}}>▶</span>
+<div style={{minWidth:0}}><span style={{fontWeight:700,fontSize:14,color:sec.col}}>{sec.label}</span>{sec.sub&&<div style={{fontSize:11,color:G.muted}}>{sec.sub}</div>}</div>
 </div>
+<span style={{background:sec.col+"22",color:sec.col,borderRadius:20,padding:"2px 13px",fontSize:14,fontWeight:700,flexShrink:0,minWidth:34,textAlign:"center"}}>{pendItems.length}</span>
+</div>
+{isOpen&&<div style={{padding:"0 14px 14px"}}>
+{doneItems.length>0&&<div style={{textAlign:"right",marginBottom:8}}><button onClick={()=>setShowDone(prev=>Object.assign({},prev,{[sec.id]:!prev[sec.id]}))} style={{background:"none",border:"none",fontSize:11,color:G.success,fontWeight:700,cursor:"pointer"}}>{sdone?"ocultar concluídos":"✓ "+doneItems.length+" concluído(s) — ver"}</button></div>}
 {pendItems.length===0&&<p style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhum pendente 👍</p>}
 {pendItems.map(x=>{
 const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;
@@ -4099,6 +4105,7 @@ return <div key={"d"+(sec.isTreat?x.id:p.id)} style={{background:"#f0faf4",borde
 <button onClick={()=>doTick(sec.id,pid2)} style={{background:"none",border:`1px solid ${G.border}`,borderRadius:6,padding:"3px 9px",fontSize:10,color:G.muted,cursor:"pointer"}}>↩ Restaurar</button>
 </div>;
 })}
+</div>}
 </div>;
 })}
 {noteModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
