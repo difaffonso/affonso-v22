@@ -1069,6 +1069,38 @@ return <>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📅 Histórico de Atendimentos</span>
       <Btn ch="+ Registrar Atendimento" sm onClick={()=>{setRecEdit(null);setRf(blankR);setRecModal(true);}}/>
     </div>
+    {(function(){
+      var td=today();
+      var prox=patAppts.filter(function(a){return a.date>=td&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled"&&a.status!=="done";}).sort(function(a,b){return (a.date+(a.time||"")).localeCompare(b.date+(b.time||""));})[0];
+      var dp=prox?(dents.find(function(x){return x.id===prox.dentistId;})||dents[0]):null;
+      var actTreat=treats.filter(function(tt){return tt.patientId===pat.id&&(tt.items||[]).some(function(it){return !(it.done||it.paid);});}).sort(function(a,b){return (b.start||"").localeCompare(a.start||"");})[0];
+      var since=actTreat?actTreat.start:null;
+      var scoped=since?patAppts.filter(function(a){return a.date>=since;}):patAppts;
+      var compareceu=scoped.filter(function(a){return a.status==="done"||(a.status==="confirmed"&&a.date<td);}).length;
+      var faltou=scoped.filter(function(a){return a.status==="missed";}).length;
+      var desmarc=scoped.filter(function(a){return a.status==="cancelled"||a.status==="rescheduled";}).length;
+      return <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {prox
+          ?<div style={{background:G.primary,borderRadius:12,padding:"12px 15px",color:"#fff",boxShadow:"0 3px 12px rgba(27,94,74,.35)"}}>
+            <div style={{fontSize:11,fontWeight:700,opacity:.85,textTransform:"uppercase",letterSpacing:".5px",marginBottom:3}}>📅 Próxima consulta</div>
+            <div style={{fontSize:21,fontWeight:700,fontFamily:"'Cormorant Garamond'",lineHeight:1.1}}>{fmt(prox.date)} às {prox.time}</div>
+            <div style={{fontSize:12,opacity:.92,marginTop:3}}>{(prox.procedureCustom||prox.procedure||"Consulta")+(dp?" · "+dp.name:"")} · {SL[prox.status]}</div>
+          </div>
+          :<div style={{background:G.yellow+"18",border:"1.5px solid "+G.yellow,borderRadius:12,padding:"11px 15px"}}>
+            <div style={{fontSize:13,fontWeight:700,color:G.yellow}}>📅 Sem consulta futura agendada</div>
+            <div style={{fontSize:12,color:G.muted,marginTop:2}}>Este paciente não tem retorno marcado.</div>
+          </div>}
+        <div>
+          <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>{since?("FREQUÊNCIA NO TRATAMENTO ATUAL (desde "+fmt(since)+")"):"FREQUÊNCIA (HISTÓRICO COMPLETO)"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+            <div style={{background:G.success+"15",borderRadius:10,padding:"9px",textAlign:"center"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:25,color:G.success,lineHeight:1}}>{compareceu}</div><div style={{fontSize:10,color:G.muted,fontWeight:700,marginTop:3}}>✅ Compareceu</div></div>
+            <div style={{background:G.red+"15",borderRadius:10,padding:"9px",textAlign:"center"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:25,color:G.red,lineHeight:1}}>{faltou}</div><div style={{fontSize:10,color:G.muted,fontWeight:700,marginTop:3}}>❌ Faltou</div></div>
+            <div style={{background:G.muted+"22",borderRadius:10,padding:"9px",textAlign:"center"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:25,color:G.muted,lineHeight:1}}>{desmarc}</div><div style={{fontSize:10,color:G.muted,fontWeight:700,marginTop:3}}>🔄 Desmarcou</div></div>
+          </div>
+        </div>
+        {faltou>=3&&<div style={{background:G.red+"12",border:"1px solid "+G.red,borderRadius:8,padding:"7px 12px",fontSize:12,color:G.red,fontWeight:600}}>⚠️ Paciente faltou {faltou}x — reforce a confirmação.</div>}
+      </div>;
+    })()}
     {patAppts.length>0&&<>
       <Div lb="Consultas Agendadas"/>
       {patAppts.map(a=>{const d=dents.find(x=>x.id===a.dentistId)||dents[0];return <div key={a.id} style={{display:"flex",gap:9,padding:"6px 0",borderBottom:`1px solid ${G.border}`,alignItems:"center",flexWrap:"wrap"}}>
@@ -2147,9 +2179,7 @@ var flags=[];
 if(p&&p.obs)flags.push("⚠️ "+p.obs);
 if(p&&p.allergy&&p.allergy!=="Nenhuma")flags.push("💊 "+p.allergy);
 var anObj=p&&p.anamnese||{};
-if(anObj.hypertension)flags.push("HAS");
-if(anObj.diabetes)flags.push("Diabetes");
-if(anObj.heartDisease)flags.push("Cardio");
+ANAM_CONDS.forEach(function(c){if(anObj[c[0]])flags.push(c[1]);});
 // Card visual aprimorado por status
 var cardBg=isPartial?"#FFEBEE":SC_BG[a.status]||SC[a.status]+"15";
 var cardBorder=isPartial?G.red:SC[a.status];
@@ -2212,7 +2242,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
               }
               const p=a?pats.find(function(x){return x.id===a.patientId;}):null;
               const an=p&&p.anamnese||{};
-              const CONDS=[["hypertension","HAS"],["diabetes","Diabetes"],["heartDisease","Cardio"],["bleeding","Coagulação"],["osteoporosis","Osteoporose"],["kidneyDisease","Renal"],["liverDisease","Hepática"],["thyroid","Tireóide"],["epilepsy","Epilepsia"],["cancer","Câncer"],["pregnant","Gestante"],["smoking","Tabagismo"]];
+              const CONDS=ANAM_CONDS;
               const healthFlags=[p&&p.obs&&("⚠ "+p.obs),p&&p.allergy&&p.allergy!=="Nenhuma"&&("💊 "+p.allergy),an.allergicMeds&&("💊 Alergia Med: "+an.allergicMeds)].concat(CONDS.filter(function(c){return an[c[0]];}).map(function(c){return c[1];})).filter(Boolean);
               // Cancelado/desmarcado: libera o horário visualmente
               if(a&&(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed")){
@@ -3209,13 +3239,15 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // LEMBRETES
 // ══════════════════════════════════════════════════════════
-function Lembretes({rems,setRems,pats,recs,appts,users,espera,setEspera,dents,user,semTicks,setSemTicks,anivTicks,setAnivTicks}){
+function Lembretes({rems,setRems,pats,recs,appts,users,espera,setEspera,dents,user,semTicks,setSemTicks,anivTicks,setAnivTicks,pacsTicks,setPacsTicks}){
 const t=today();
 const isDentist=user?.level===1;
 const myUserId=user?.id;
 
 // Retorno Semestral state
 const [semTab,setSemTab]=useState(false);
+const [anivTab,setAnivTab]=useState(false);
+const [posTab,setPosTab]=useState(false);
 // semTicks agora e prop global
 const [semMotivoModal,setSemMotivoModal]=useState(null);
 const [semMotivoText,setSemMotivoText]=useState('');
@@ -3239,7 +3271,9 @@ const upd=k=>v=>setF(p=>({...p,[k]:v}));
 // Calculos
 const t2=today();
 const todayMD=t2.slice(5);
-const anivHoje=pats.filter(p=>p.dob&&p.dob.slice(5)===todayMD);
+const _perAniv=today().slice(0,7);
+const _anivDone=function(p){return !!(pacsTicks&&pacsTicks["bday_week_"+p.id+"_"+_perAniv]&&pacsTicks["bday_week_"+p.id+"_"+_perAniv].done);};
+const anivHoje=pats.filter(p=>p.dob&&p.dob.slice(5)===todayMD&&!_anivDone(p));
 const anivMes=pats.filter(p=>p.dob&&p.dob.slice(5,7)===t2.slice(5,7));
 const PCIR2=['Exodontia','Extracao','Extração','Exo','Implante','Cirurgia','Cirurgico','Cirúrgico','Cirúrgica','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia','Urgencia','Urgência','Emergencia','Emergência'];
 const yst2=new Date(new Date(t2)-86400000).toISOString().split('T')[0];
@@ -3341,24 +3375,34 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 </div>}
 
 {/* ANIVERSARIANTES */}
-{anivHoje.length>0&&<div style={{background:'#FFF8E1',border:'2px solid #FFD54F',borderRadius:14,padding:'14px 16px'}}>
+{anivHoje.length>0&&<div style={{background:'#FFF8E1',border:'2px solid #FFD54F',borderRadius:14,overflow:'hidden'}}>
 
-  <div style={{fontWeight:700,fontSize:13,color:'#E65100',marginBottom:10}}>{'Aniversariantes hoje ('+anivHoje.length+')'}</div>
+  <button onClick={()=>setAnivTab(v=>!v)} style={{width:'100%',background:'none',border:'none',padding:'13px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
+    <span style={{fontWeight:700,fontSize:13,color:'#E65100'}}>{'Aniversariantes hoje ('+anivHoje.length+')'}</span>
+    <span style={{color:'#E65100',fontSize:18,fontWeight:700,transition:'transform .2s',transform:anivTab?'rotate(90deg)':'rotate(0deg)'}}>{'>'}</span>
+  </button>
+  {anivTab&&<div style={{padding:'0 16px 14px'}}>
   {anivHoje.map(p=><div key={p.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #FFD54F'}}>
     <div><div style={{fontWeight:600,fontSize:13}}>{p.name}</div><div style={{fontSize:11,color:'#E65100'}}>{(new Date(t2).getFullYear()-Number(p.dob.slice(0,4)))+' anos'}</div></div>
-    {p.phone&&<button onClick={()=>sendWA2(p.phone,'Ola, '+p.name+'! A equipe Affonso Odontologia deseja um feliz aniversario! Affonso Odontologia')} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}
+    <div style={{display:'flex',gap:6}}>{p.phone&&<button onClick={()=>sendWA2(p.phone,'Ola, '+p.name+'! A equipe Affonso Odontologia deseja um feliz aniversario! Affonso Odontologia')} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}<button onClick={function(){var per=today().slice(0,7);setPacsTicks(function(prev){var n=Object.assign({},prev);var rec={done:true,note:'Parabens enviado',doneBy:user.name,doneAt:today()};n['bday_week_'+p.id+'_'+per]=rec;n['bday_month_'+p.id+'_'+per]=rec;return n;});}} style={{background:'#1B5E4A',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>✓ Feito</button></div>
   </div>)}
   <div style={{fontSize:11,color:'#E65100',marginTop:4}}>{'Este mes: '+anivMes.length+' aniversariante(s)'}</div>
+  </div>}
 </div>}
 
 {/* POS-CIRURGICO */}
-{posCir2.length>0&&<div style={{background:'#EDE7F6',border:'2px solid #9FA8DA',borderRadius:14,padding:'14px 16px'}}>
+{posCir2.length>0&&<div style={{background:'#EDE7F6',border:'2px solid #9FA8DA',borderRadius:14,overflow:'hidden'}}>
 
-  <div style={{fontWeight:700,fontSize:13,color:'#283593',marginBottom:10}}>{'🩺 Pós-Cirurgia / Urgência ('+posCir2.length+')'}</div>
+  <button onClick={()=>setPosTab(v=>!v)} style={{width:'100%',background:'none',border:'none',padding:'13px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
+    <span style={{fontWeight:700,fontSize:13,color:'#283593'}}>{'🩺 Pós-Cirurgia / Urgência ('+posCir2.length+')'}</span>
+    <span style={{color:'#283593',fontSize:18,fontWeight:700,transition:'transform .2s',transform:posTab?'rotate(90deg)':'rotate(0deg)'}}>{'>'}</span>
+  </button>
+  {posTab&&<div style={{padding:'0 16px 14px'}}>
   {posCir2.map(x=><div key={x.a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #C5CAE9'}}>
     <div><div style={{fontWeight:600,fontSize:13}}>{x.p.name}</div><div style={{fontSize:11,color:'#5C6BC0'}}>{(x.a.procedure||'Atendimento')+' · '+fmt(x.a.date)}</div></div>
     {x.p.phone&&<button onClick={()=>sendWA2(x.p.phone,'Olá, '+x.p.name+'! 😊 Aqui é da Affonso Odontologia. Você realizou '+(x.a.procedure||'seu procedimento')+' no dia '+fmt(x.a.date)+' e passamos para saber como está se sentindo. Está tudo bem com a recuperação, sem dores ou desconforto? Qualquer dúvida, é só responder por aqui que vamos te orientar com todo cuidado. Cuide-se bem! 🦷')} style={{background:'#5C6BC0',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}
   </div>)}
+  </div>}
 </div>}
 
 {/* RETORNO SEMESTRAL - aba expansivel */}
@@ -3991,7 +4035,8 @@ function PacsTab({pats,recs,treats,appts,dents,mo,user,pacsTicks,setPacsTicks}){
   const weekEndStr=weekEnd.toISOString().split("T")[0];
   const thisMonth=t.slice(5,7);
 
-const bdayWeek=pats.filter(p=>p.dob&&p.dob.slice(5)>=t.slice(5)&&p.dob.slice(5)<=weekEndStr.slice(5));
+const bdiff=function(dob){var md=(dob||"").slice(5);if(!md)return 999;var d=new Date(tDate.getFullYear()+"-"+md+"T12:00");var df=Math.round((d-tDate)/86400000);if(df>182)df-=365;else if(df<-182)df+=365;return df;};
+const bdayWeek=pats.filter(function(p){if(!p.dob)return false;var df=bdiff(p.dob);return df>=-7&&df<=7;}).sort(function(a,b){var da=bdiff(a.dob),db=bdiff(b.dob);var ra=da<0?(-da-1):(da+7),rb=db<0?(-db-1):(db+7);return ra-rb;});
 const bdayMonth=pats.filter(p=>p.dob&&p.dob.slice(5,7)===thisMonth);
 const semestral=pats.filter(function(p){
 // Only recs with payment (confirmed attendance)
@@ -4015,9 +4060,13 @@ const ticks=pacsTicks||{};
 const setTicks=setPacsTicks;
 const [noteModal,setNoteModal]=useState(null);
 const [noteText,setNoteText]=useState("");
+const [showDone,setShowDone]=useState({});
+const period=t.slice(0,7);
+const pendCount=(listId,list,isTreat)=>list.filter(function(x){var pp=isTreat?pats.find(function(z){return z.id===x.patientId;}):x;return pp&&!isHandled(listId,pp.id+(isTreat?x.id:""));}).length;
 
-const tickKey=(listId,patId)=>`${listId}_${patId}`;
+const tickKey=(listId,patId)=>`${listId}_${patId}_${period}`;
 const isTicked=(listId,patId)=>!!ticks[tickKey(listId,patId)]?.done;
+const isHandled=(listId,patId)=>!!ticks[tickKey(listId,patId)]?.done;
 const getTick=(listId,patId)=>ticks[tickKey(listId,patId)];
 const doTick=(listId,patId,note="")=>{
 const k=tickKey(listId,patId);
@@ -4029,27 +4078,25 @@ const waBday="Olá, {nome}! A equipe Affonso Odontologia deseja um feliz anivers
 const waSemestral="Olá, {nome}! Já faz alguns meses desde sua última consulta. Que tal agendar seu controle semestral? 😊 Affonso Odontologia";
 const waSemRet="Olá, {nome}! Notamos que você está em tratamento e ainda não remarcou. Podemos ajudar a agendar? 😊 Affonso Odontologia";
 
-const PatCard=({p,badge,badgeCol,extra,listId,waMsg,treatId})=>{
+const PatCard=({p,badge,badgeCol,extra,listId,waMsg,treatId,overdue,todayB})=>{
 const pid=p.id+(treatId||"");
-const ticked=isTicked(listId,pid);
-const tick=getTick(listId,pid);
 const d=dents.find(x=>x.id===recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0]?.dentistId)||dents[0];
-return <div style={{background:ticked?"#f0faf4":G.card,borderRadius:10,padding:"10px 13px",borderLeft:`4px solid ${ticked?G.success:badgeCol}`,display:"flex",gap:9,alignItems:"flex-start",boxShadow:"0 1px 4px rgba(0,0,0,.05)",transition:"all .2s",marginBottom:6}}>
-<button onClick={()=>doTick(listId,pid)} style={{width:24,height:24,borderRadius:"50%",border:`2px solid ${ticked?G.success:G.border}`,background:ticked?G.success:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:13,flexShrink:0,marginTop:1,transition:"all .2s"}}>{ticked?"✓":""}</button>
+return <div style={{background:overdue||todayB?"#FDECEA":G.card,borderRadius:10,padding:"10px 13px",borderLeft:`4px solid ${badgeCol}`,display:"flex",gap:9,alignItems:"flex-start",boxShadow:overdue?"0 0 0 2px "+G.red:"0 1px 4px rgba(0,0,0,.05)",transition:"all .2s",marginBottom:6}}>
+<button onClick={()=>doTick(listId,pid)} title="Concluir e remover" style={{width:24,height:24,borderRadius:"50%",border:`2px solid ${G.border}`,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:13,flexShrink:0,marginTop:1,transition:"all .2s"}}></button>
 
 <div style={{flex:1}}>
-<div style={{fontWeight:700,fontSize:13,textDecoration:ticked?"line-through":"none",color:ticked?G.muted:G.text}}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {p.folder}</span></div>
-{extra&&<div style={{fontSize:11,color:G.muted,marginTop:1}}>{extra}</div>}
+{overdue&&<div style={{display:"inline-block",background:G.red,color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700,marginBottom:3}}>⚠️ ATRASADO</div>}
+<div style={{fontWeight:700,fontSize:13,color:overdue||todayB?G.red:G.text}}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {p.folder}</span></div>
+{extra&&<div style={{fontSize:11,color:overdue?G.red:G.muted,marginTop:1,fontWeight:overdue?700:400}}>{extra}</div>}
 {d&&<div style={{fontSize:10,color:d.color,marginTop:1}}>👨‍⚕️ {d.name}</div>}
-{ticked&&tick&&<div style={{fontSize:10,color:G.success,marginTop:3,fontWeight:600}}>✓ {tick.note||"Resolvido"} -- {tick.doneBy} em {fmt(tick.doneAt)}</div>}
+
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end",flexShrink:0}}>
-<Bdg l={ticked?"✓ Resolvido":badge} col={ticked?G.success:badgeCol} sm/>
-{!ticked&&<div style={{display:"flex",gap:4}}>
+<Bdg l={badge} col={badgeCol} sm/>
+<div style={{display:"flex",gap:4}}>
 {p.phone&&waMsg&&<button onClick={()=>wa(p.phone,waMsg.replace(/{nome}/g,p.name))} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>WA</button>}
-<button onClick={()=>{setNoteModal({listId,pid,label:`${p.name} -- ${badge}`});setNoteText("");}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✓ Marcar</button>
-</div>}
-{ticked&&<button onClick={()=>doTick(listId,pid)} style={{background:"none",border:`1px solid ${G.border}`,borderRadius:6,padding:"2px 7px",fontSize:10,color:G.muted,cursor:"pointer"}}>↩</button>}
+<button onClick={()=>{setNoteModal({listId,pid,label:`${p.name} -- ${badge}`});setNoteText("");}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,cursor:"pointer"}}>✓ Concluir</button>
+</div>
 </div>
 </div>;
 };
@@ -4065,22 +4112,35 @@ const sections=[
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:9}}>
-{[["Aniv. semana",bdayWeek.length,G.gold],["Semestral",semestral.length,G.orange],["Sem retorno",semRetorno.length,G.red],["Novos mês",newPats.length,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"10px",textAlign:"center",borderTop:`3px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div></div>)}
+{[["Aniv. semana",pendCount("bday_week",bdayWeek,false),G.gold],["Semestral",pendCount("semestral",semestral,false),G.orange],["Sem retorno",pendCount("sem_ret",semRetorno,true),G.red],["Novos mês",pendCount("new_pats",newPats,false),G.primary]].map(([l,v,c])=><div key={l} style={{background:G.card,borderRadius:10,padding:"10px",textAlign:"center",borderTop:`3px solid ${c}`,boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div></div>)}
 </div>
 {sections.map(sec=>{
-const done=sec.list.filter(x=>{const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;return p&&isTicked(sec.id,p.id+(sec.isTreat?x.id:""));});
+const doneItems=sec.list.filter(x=>{const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;return p&&isHandled(sec.id,p.id+(sec.isTreat?x.id:""));});
+const pendItems=sec.list.filter(x=>{const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;return p&&!isHandled(sec.id,p.id+(sec.isTreat?x.id:""));});
+const sdone=!!showDone[sec.id];
 return <div key={sec.id} style={{background:G.card,borderRadius:13,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:6}}>
-<div><span style={{fontWeight:700,fontSize:14,color:sec.col}}>{sec.label} ({sec.list.length})</span>{sec.sub&&<div style={{fontSize:11,color:G.muted}}>{sec.sub}</div>}</div>
-{sec.list.length>0&&<span style={{fontSize:11,color:G.success,fontWeight:700}}>{done.length}/{sec.list.length} resolvidos</span>}
+<div><span style={{fontWeight:700,fontSize:14,color:sec.col}}>{sec.label} ({pendItems.length})</span>{sec.sub&&<div style={{fontSize:11,color:G.muted}}>{sec.sub}</div>}</div>
+{doneItems.length>0&&<button onClick={()=>setShowDone(prev=>Object.assign({},prev,{[sec.id]:!prev[sec.id]}))} style={{background:"none",border:"none",fontSize:11,color:G.success,fontWeight:700,cursor:"pointer"}}>{sdone?"ocultar concluídos":"✓ "+doneItems.length+" concluído(s) — ver"}</button>}
 </div>
-{sec.list.length===0&&<p style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhum no momento 👍</p>}
-{sec.list.map(x=>{
+{pendItems.length===0&&<p style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhum pendente 👍</p>}
+{pendItems.map(x=>{
 const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;
 if(!p)return null;
-return <PatCard key={sec.isTreat?x.id:p.id} p={p} badge={sec.label.slice(2)} badgeCol={sec.col} extra={sec.extra(x)} listId={sec.id} waMsg={sec.wa} treatId={sec.isTreat?x.id:undefined}/>;
+var badge=sec.label.slice(2),col=sec.col,extra=sec.extra(x),ov=false,tdB=false;
+if(sec.id==="bday_week"){var df=bdiff(p.dob);if(df<0){ov=true;col=G.red;badge="ATRASADO";extra="Fez "+fmt(p.dob).slice(0,5)+" (há "+(-df)+" dia"+((-df)>1?"s":"")+") · "+age(p.dob);}else if(df===0){tdB=true;col=G.red;badge="🎂 HOJE";extra="Aniversário HOJE · "+age(p.dob);}else{badge="em "+df+"d";extra="Aniversário "+fmt(p.dob).slice(0,5)+" · "+age(p.dob);}}
+return <PatCard key={sec.isTreat?x.id:p.id} p={p} badge={badge} badgeCol={col} extra={extra} listId={sec.id} waMsg={sec.wa} treatId={sec.isTreat?x.id:undefined} overdue={ov} todayB={tdB}/>;
 })}
-{sec.list.length>0&&<div style={{marginTop:9,background:G.border,borderRadius:4,height:4}}><div style={{background:G.success,height:4,borderRadius:4,width:`${done.length/sec.list.length*100}%`,transition:"width .4s"}}/></div>}
+{sdone&&doneItems.map(x=>{
+const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;
+if(!p)return null;
+var pid2=p.id+(sec.isTreat?x.id:"");
+var tk=getTick(sec.id,pid2);
+return <div key={"d"+(sec.isTreat?x.id:p.id)} style={{background:"#f0faf4",borderRadius:10,padding:"8px 12px",display:"flex",gap:9,alignItems:"center",marginBottom:5,borderLeft:`4px solid ${G.success}`}}>
+<div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:G.muted,textDecoration:"line-through"}}>{p.name}</div>{tk&&<div style={{fontSize:10,color:G.success}}>✓ {tk.note||"Concluído"}{tk.doneBy?" — "+tk.doneBy:""}</div>}</div>
+<button onClick={()=>doTick(sec.id,pid2)} style={{background:"none",border:`1px solid ${G.border}`,borderRadius:6,padding:"3px 9px",fontSize:10,color:G.muted,cursor:"pointer"}}>↩ Restaurar</button>
+</div>;
+})}
 </div>;
 })}
 {noteModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -5233,7 +5293,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {todayA.length===0&&<p style={{color:G.muted,fontSize:13}}>Nenhum agendamento</p>}
 {todayA.map(a=>{const p=pats.find(x=>x.id===a.patientId);const d=dents.find(x=>x.id===a.dentistId)||dents[0];
 const an=p?.anamnese||{};
-const hasAlert=p?.obs||(p?.allergy&&p.allergy!=="Nenhuma")||an.hypertension||an.diabetes||an.heartDisease||an.allergicMeds;
+const hasAlert=p?.obs||(p?.allergy&&p.allergy!=="Nenhuma")||an.allergicMeds||ANAM_CONDS.some(function(c){return an[c[0]];});
 return <div key={a.id} style={{borderBottom:`1px solid ${G.border}`,overflow:"hidden"}}>
 <div style={{background:SC[a.status],padding:"3px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"0 0 0 0"}}>
 <span style={{fontSize:9,fontWeight:700,color:"#fff",textTransform:"uppercase"}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
@@ -6850,7 +6910,7 @@ return <>
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
-      {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks}/>}
+      {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
