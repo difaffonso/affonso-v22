@@ -2039,7 +2039,7 @@ setAppts(prev=>prev.map(a=>a.id===id?{...a,status:st}:a));
 const a=appts.find(x=>x.id===id);const p=pats.find(x=>x.id===(a&&a.patientId));
 const ST={confirmed:"Confirmou",pending:"Pendente",done:"Realizou",cancelled:"Cancelou",missed:"Faltou",rescheduled:"Desmarcou"};
 if(addLog&&a)addLog("agenda",(ST[st]||st)+" consulta de "+(p&&p.name||"paciente")+" - "+fmt(a.date)+" "+a.time,p&&p.name);
-if(waEvent&&a&&p&&(st==="missed"||st==="cancelled"||st==="rescheduled"))waEvent("reagendamento",{appt:a,pat:p});
+if(waEvent&&a&&p&&(st==="missed"||st==="cancelled"||st==="rescheduled"))waEvent("reagendamento",{appt:a,pat:p,st:st});
 };
 
 return (
@@ -6391,9 +6391,9 @@ const WA_TPL=[
 {k:"vespera",tpl:"lembrete_vespera",label:"Lembrete de véspera",quando:"Um dia antes, para consultas Pendentes ou Confirmadas",sample:["Maria Silva","15/06/2026","14:00","Diego Affonso"]},
 {k:"aniversario",tpl:"aniversario_paciente",label:"Aniversário",quando:"No dia do aniversário do paciente",sample:["Maria Silva"]},
 {k:"semestral",tpl:"controle_semestral",label:"Controle semestral",quando:"6 meses após o último atendimento, se não tiver consulta futura",sample:["Maria Silva","Diego Affonso"]},
-{k:"reagendamento",tpl:"reagendamento",label:"Reagendamento",quando:"Quando a consulta é marcada como Faltou, Cancelou ou Desmarcou",sample:["Maria Silva","Diego Affonso"]},
-{k:"poscirurgia",tpl:"pos_cirurgia",label:"Pós-cirurgia",quando:"No dia seguinte a procedimentos cirúrgicos",sample:["Maria Silva","Diego Affonso","Extração"]},
-{k:"posconsulta",tpl:"pos_consulta",label:"Pós-consulta",quando:"No dia seguinte a consultas Realizadas (não cirúrgicas)",sample:["Maria Silva","Diego Affonso"]},
+{k:"reagendamento",tpl:"falta_cancelamento",label:"Reagendamento (falta/cancelamento)",quando:"Quando a consulta é marcada como Faltou, Cancelou ou Desmarcou",sample:["Maria Silva","Cancelou","Diego Affonso"]},
+{k:"poscirurgia",tpl:"pos__procedimento_",label:"Pós-cirurgia",quando:"No dia seguinte a procedimentos cirúrgicos",sample:["Maria Silva","Diego Affonso","Extração"]},
+{k:"posconsulta",tpl:"pos__consulta",label:"Pós-consulta",quando:"No dia seguinte a consultas Realizadas (não cirúrgicas)",sample:["Maria Silva","Diego Affonso"]},
 {k:"orcamento",tpl:"orcamento_pendente",label:"Orçamento pendente",quando:"3 dias após criar um orçamento que continua Em espera",sample:["Maria Silva","Diego Affonso"]},
 ];
 async function dispararWA(template,fone,params){
@@ -6976,7 +6976,8 @@ dispararWA("confirmacao_consulta",p.phone,[p.name,d.name,fmt(a.date),a.time]).th
 if(tipo==="reagendamento"&&cfg.reagendamento){
 var k2="r_"+a.id;if(sent[k2])return;
 setWaSent(function(prev){var n=Object.assign({},prev);n[k2]=today();return n;});
-dispararWA("reagendamento",p.phone,[p.name,d.name]).then(function(r){waPushLog({ts:new Date().toISOString(),tipo:"Reagendamento",pat:p.name,fone:p.phone,ok:r.ok,err:r.err||""});});
+var acao=info.st==="missed"?"Faltou":(info.st==="rescheduled"?"Desmarcou":"Cancelou");
+dispararWA("falta_cancelamento",p.phone,[p.name,acao,d.name]).then(function(r){waPushLog({ts:new Date().toISOString(),tipo:"Reagendamento",pat:p.name,fone:p.phone,ok:r.ok,err:r.err||""});});
 }
 }catch(e){}
 };
@@ -7048,8 +7049,8 @@ if(!okSt)return;
 var p=(D.pats||[]).find(function(x){return x.id===a.patientId;});if(!p||!p.phone)return;
 var isCir=PCIR_WA.some(function(w){return (a.procedure||"").toLowerCase().indexOf(w)>=0;});
 var d=dOf(a.dentistId);
-if(isCir&&cfg.poscirurgia)addJob("Pós-cirurgia","pc_"+a.id,"pos_cirurgia",p.phone,[p.name,d.name,a.procedure||"procedimento"],p.name);
-else if(!isCir&&cfg.posconsulta&&a.status==="done")addJob("Pós-consulta","ps_"+a.id,"pos_consulta",p.phone,[p.name,d.name],p.name);
+if(isCir&&cfg.poscirurgia)addJob("Pós-cirurgia","pc_"+a.id,"pos__procedimento_",p.phone,[p.name,d.name,a.procedure||"procedimento"],p.name);
+else if(!isCir&&cfg.posconsulta&&a.status==="done")addJob("Pós-consulta","ps_"+a.id,"pos__consulta",p.phone,[p.name,d.name],p.name);
 });
 }
 if(cfg.orcamento){
