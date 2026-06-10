@@ -4044,7 +4044,10 @@ var last=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(fun
 if(!last)return false; // no record = don't show
 // Show on the exact day that completes 6 months
 var sixMonthsAfter=mo6(last.date);
-return sixMonthsAfter<=t;
+if(sixMonthsAfter>t)return false;
+var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
+if(futura)return false;
+return true;
 });
 const emTrat=treats.filter(t2=>t2.items.some(it=>!it.done));
 const semRetorno=emTrat.filter(t2=>{
@@ -4060,7 +4063,7 @@ const ticks=pacsTicks||{};
 const setTicks=setPacsTicks;
 const [noteModal,setNoteModal]=useState(null);
 const [noteText,setNoteText]=useState("");
-const [showDone,setShowDone]=useState({});
+const [showDone,setShowDone]=useState({});const [openSec,setOpenSec]=useState({});
 const period=t.slice(0,7);
 const pendCount=(listId,list,isTreat)=>list.filter(function(x){var pp=isTreat?pats.find(function(z){return z.id===x.patientId;}):x;return pp&&!isHandled(listId,pp.id+(isTreat?x.id:""));}).length;
 
@@ -4118,29 +4121,33 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 const doneItems=sec.list.filter(x=>{const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;return p&&isHandled(sec.id,p.id+(sec.isTreat?x.id:""));});
 const pendItems=sec.list.filter(x=>{const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;return p&&!isHandled(sec.id,p.id+(sec.isTreat?x.id:""));});
 const sdone=!!showDone[sec.id];
-return <div key={sec.id} style={{background:G.card,borderRadius:13,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,flexWrap:"wrap",gap:6}}>
-<div><span style={{fontWeight:700,fontSize:14,color:sec.col}}>{sec.label} ({pendItems.length})</span>{sec.sub&&<div style={{fontSize:11,color:G.muted}}>{sec.sub}</div>}</div>
-{doneItems.length>0&&<button onClick={()=>setShowDone(prev=>Object.assign({},prev,{[sec.id]:!prev[sec.id]}))} style={{background:"none",border:"none",fontSize:11,color:G.success,fontWeight:700,cursor:"pointer"}}>{sdone?"ocultar concluídos":"✓ "+doneItems.length+" concluído(s) — ver"}</button>}
-</div>
+const open=!!openSec[sec.id];
+return <div key={sec.id} style={{background:G.card,borderRadius:13,padding:"2px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<button onClick={function(){setOpenSec(function(prev){var n=Object.assign({},prev);n[sec.id]=!prev[sec.id];return n;});}} style={{width:"100%",border:"none",background:"none",padding:"11px 0",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+<div style={{textAlign:"left"}}><span style={{fontWeight:700,fontSize:14,color:sec.col}}>{sec.label} ({pendItems.length})</span>{sec.sub&&<div style={{fontSize:11,color:G.muted,fontWeight:400}}>{sec.sub}</div>}</div>
+<span style={{color:sec.col,fontSize:15,fontWeight:700,transform:open?"rotate(90deg)":"none",transition:"transform .15s"}}>{">"}</span>
+</button>
+{open&&<div style={{paddingBottom:10}}>
+{doneItems.length>0&&<div style={{textAlign:"right",marginBottom:6}}><button onClick={function(){setShowDone(function(prev){return Object.assign({},prev,{[sec.id]:!prev[sec.id]});});}} style={{background:"none",border:"none",fontSize:11,color:G.success,fontWeight:700,cursor:"pointer"}}>{sdone?"ocultar concluídos":"✓ "+doneItems.length+" concluído(s) — ver"}</button></div>}
 {pendItems.length===0&&<p style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhum pendente 👍</p>}
-{pendItems.map(x=>{
-const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;
+{pendItems.map(function(x){
+const p=sec.isTreat?pats.find(function(pt){return pt.id===x.patientId;}):x;
 if(!p)return null;
 var badge=sec.label.slice(2),col=sec.col,extra=sec.extra(x),ov=false,tdB=false;
 if(sec.id==="bday_week"){var df=bdiff(p.dob);if(df<0){ov=true;col=G.red;badge="ATRASADO";extra="Fez "+fmt(p.dob).slice(0,5)+" (há "+(-df)+" dia"+((-df)>1?"s":"")+") · "+age(p.dob);}else if(df===0){tdB=true;col=G.red;badge="🎂 HOJE";extra="Aniversário HOJE · "+age(p.dob);}else{badge="em "+df+"d";extra="Aniversário "+fmt(p.dob).slice(0,5)+" · "+age(p.dob);}}
 return <PatCard key={sec.isTreat?x.id:p.id} p={p} badge={badge} badgeCol={col} extra={extra} listId={sec.id} waMsg={sec.wa} treatId={sec.isTreat?x.id:undefined} overdue={ov} todayB={tdB}/>;
 })}
-{sdone&&doneItems.map(x=>{
-const p=sec.isTreat?pats.find(pt=>pt.id===x.patientId):x;
+{sdone&&doneItems.map(function(x){
+const p=sec.isTreat?pats.find(function(pt){return pt.id===x.patientId;}):x;
 if(!p)return null;
 var pid2=p.id+(sec.isTreat?x.id:"");
 var tk=getTick(sec.id,pid2);
-return <div key={"d"+(sec.isTreat?x.id:p.id)} style={{background:"#f0faf4",borderRadius:10,padding:"8px 12px",display:"flex",gap:9,alignItems:"center",marginBottom:5,borderLeft:`4px solid ${G.success}`}}>
-<div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:G.muted,textDecoration:"line-through"}}>{p.name}</div>{tk&&<div style={{fontSize:10,color:G.success}}>✓ {tk.note||"Concluído"}{tk.doneBy?" — "+tk.doneBy:""}</div>}</div>
-<button onClick={()=>doTick(sec.id,pid2)} style={{background:"none",border:`1px solid ${G.border}`,borderRadius:6,padding:"3px 9px",fontSize:10,color:G.muted,cursor:"pointer"}}>↩ Restaurar</button>
+return <div key={"d"+(sec.isTreat?x.id:p.id)} style={{background:"#f0faf4",borderRadius:10,padding:"8px 12px",display:"flex",gap:9,alignItems:"center",marginBottom:5,borderLeft:"4px solid "+G.success}}>
+<div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:G.muted,textDecoration:"line-through"}}>{p.name}</div>{tk&&<div style={{fontSize:10,color:G.success}}>{"✓ "+(tk.note||"Concluído")+(tk.doneBy?" — "+tk.doneBy:"")}</div>}</div>
+<button onClick={function(){doTick(sec.id,pid2);}} style={{background:"none",border:"1px solid "+G.border,borderRadius:6,padding:"3px 9px",fontSize:10,color:G.muted,cursor:"pointer"}}>↩ Restaurar</button>
 </div>;
 })}
+</div>}
 </div>;
 })}
 {noteModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
