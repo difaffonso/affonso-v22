@@ -1960,7 +1960,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent}){
 
 const [selDate,setSelDate]=useState(today());
 const [openFolder,setOpenFolder]=useState(null);
@@ -2026,6 +2026,7 @@ setAppts(prev=>edit?prev.map(a=>a.id===edit.id?obj:a):[...prev,obj]);
 const p=pats.find(x=>x.id===Number(f.patientId));
 const nome=p?.name||f.patientName||"";
 if(addLog)addLog("agenda",(edit?"Editou":"Criou")+" consulta de "+nome+" - "+fmt(f.date)+" "+finalTime,nome);
+if(!edit&&waEvent&&p&&p.phone&&!obj.blocked)waEvent("confirmacao",{appt:obj,pat:p});
 setModal(false);setEdit(null);setF(blank);
 };
 const saveBlock=(date,time,dentistId)=>{
@@ -2038,6 +2039,7 @@ setAppts(prev=>prev.map(a=>a.id===id?{...a,status:st}:a));
 const a=appts.find(x=>x.id===id);const p=pats.find(x=>x.id===(a&&a.patientId));
 const ST={confirmed:"Confirmou",pending:"Pendente",done:"Realizou",cancelled:"Cancelou",missed:"Faltou",rescheduled:"Desmarcou"};
 if(addLog&&a)addLog("agenda",(ST[st]||st)+" consulta de "+(p&&p.name||"paciente")+" - "+fmt(a.date)+" "+a.time,p&&p.name);
+if(waEvent&&a&&p&&(st==="missed"||st==="cancelled"||st==="rescheduled"))waEvent("reagendamento",{appt:a,pat:p});
 };
 
 return (
@@ -4792,7 +4794,7 @@ function ImportWizard({pats,setPats}){
 }
 
 
-function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl}){
+function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog}){
 const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
 const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
 const TIPO_L_LOG={all:"Todos",agenda:"Agenda",paciente:"Paciente",financeiro:"Financeiro",estoque:"Estoque",protese:"Protese",lembrete:"Lembrete",remarcar:"Remarcar",admin:"Admin"};
@@ -4843,7 +4845,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
 <div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border,overflowX:"auto"}}>
-{[["users","Usuarios"],["import","Importar Dados"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
+{[["users","Usuarios"],["import","Importar Dados"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["wa","🤖 WhatsApp"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'DM Sans'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
 {tab==="import"&&<ImportWizard pats={pats} setPats={setPats}/>}
 {tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
@@ -5017,6 +5019,8 @@ return novo;
 );
 })}
 </div>}
+
+{tab==="wa"&&<WaAutoTab waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog}/>}
 
 {tab==="log"&&
 
@@ -6377,6 +6381,115 @@ return(
 }
 
 // ══════════════════════════════════════════════════════════
+// WHATSAPP AUTO — integração com servidor Railway (templates Meta)
+// ══════════════════════════════════════════════════════════
+const RAILWAY_URL="https://whatsapp-webhook-production-d5be.up.railway.app";
+const WA_DISPARO_KEY="affonso2025";
+const PCIR_WA=["extra","exodont","cirurg","implante","enxerto","sinus","frenectomia","apicectomia","biopsia","gengivo"];
+const WA_TPL=[
+{k:"confirmacao",tpl:"confirmacao_consulta",label:"Confirmação ao agendar",quando:"Na hora em que a consulta é criada na Agenda",sample:["Maria Silva","Diego Affonso","15/06/2026","14:00"]},
+{k:"vespera",tpl:"lembrete_vespera",label:"Lembrete de véspera",quando:"Um dia antes, para consultas Pendentes ou Confirmadas",sample:["Maria Silva","15/06/2026","14:00","Diego Affonso"]},
+{k:"aniversario",tpl:"aniversario_paciente",label:"Aniversário",quando:"No dia do aniversário do paciente",sample:["Maria Silva"]},
+{k:"semestral",tpl:"controle_semestral",label:"Controle semestral",quando:"6 meses após o último atendimento, se não tiver consulta futura",sample:["Maria Silva","Diego Affonso"]},
+{k:"reagendamento",tpl:"reagendamento",label:"Reagendamento",quando:"Quando a consulta é marcada como Faltou, Cancelou ou Desmarcou",sample:["Maria Silva","Diego Affonso"]},
+{k:"poscirurgia",tpl:"pos_cirurgia",label:"Pós-cirurgia",quando:"No dia seguinte a procedimentos cirúrgicos",sample:["Maria Silva","Diego Affonso","Extração"]},
+{k:"posconsulta",tpl:"pos_consulta",label:"Pós-consulta",quando:"No dia seguinte a consultas Realizadas (não cirúrgicas)",sample:["Maria Silva","Diego Affonso"]},
+{k:"orcamento",tpl:"orcamento_pendente",label:"Orçamento pendente",quando:"3 dias após criar um orçamento que continua Em espera",sample:["Maria Silva","Diego Affonso"]},
+];
+async function dispararWA(template,fone,params){
+try{
+var n=String(fone||"").replace(/\D/g,"");
+if(n.length===11||n.length===10)n="55"+n;
+var r=await fetch(RAILWAY_URL+"/api/disparar",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":WA_DISPARO_KEY},body:JSON.stringify({template:template,telefone:n,params:params||[]})});
+var d=await r.json().catch(function(){return{};});
+if(d&&d.ok)return{ok:true};
+return{ok:false,err:(d&&(d.error||d.err))||("HTTP "+r.status)};
+}catch(e){return{ok:false,err:"sem conexão com o servidor"};}
+}
+function WaAutoTab({waAuto,setWaAuto,waAutoLog}){
+var cfg=waAuto||{};
+var [testStatus,setTestStatus]=useState("");
+var [testFone,setTestFone]=useState("");
+var [testTpl,setTestTpl]=useState(WA_TPL[0].k);
+var [sendingTest,setSendingTest]=useState(false);
+var tog=function(k){setWaAuto(function(prev){var n=Object.assign({},prev||{});n[k]=!n[k];return n;});};
+var testarConexao=async function(){
+setTestStatus("testando...");
+try{var r=await fetch(RAILWAY_URL);var tx=await r.text();setTestStatus(r.ok?"✅ Servidor ativo: "+tx.slice(0,40):"❌ Erro HTTP "+r.status);}catch(e){setTestStatus("❌ Sem conexão com o servidor");}
+};
+var enviarTeste=async function(){
+if(!testFone||testFone.replace(/\D/g,"").length<10){alert("Digite um número válido com DDD");return;}
+var t=WA_TPL.find(function(x){return x.k===testTpl;});
+setSendingTest(true);
+var r=await dispararWA(t.tpl,testFone,t.sample);
+setSendingTest(false);
+alert(r.ok?"✅ Mensagem de teste enviada! Confira o WhatsApp.":"❌ Erro: "+(r.err||"desconhecido"));
+};
+var Sw=function(props){
+var on=!!props.on;
+return <button onClick={props.onClick} style={{border:"none",width:46,height:26,borderRadius:20,background:on?G.success:"#cfd8d3",position:"relative",cursor:"pointer",flexShrink:0,transition:"background .15s"}}>
+<span style={{position:"absolute",top:3,left:on?23:3,width:20,height:20,borderRadius:"50%",background:"#fff",boxShadow:"0 1px 3px rgba(0,0,0,.3)",transition:"left .15s"}}/>
+</button>;
+};
+return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+<div style={{background:G.accent,borderRadius:12,padding:"12px 14px",fontSize:12,color:G.primary,lineHeight:1.5}}>
+{"🤖 Mensagens automáticas pelo WhatsApp oficial da clínica (+55 11 2524-9975). Tudo começa DESLIGADO — o sistema continua como está até você ligar. Ligue o interruptor geral e depois só os tipos que quiser automatizar."}
+</div>
+<div style={{background:"#FFF8E1",border:"1.5px solid #FFD54F",borderRadius:10,padding:"9px 13px",fontSize:11,color:"#8a6d00",lineHeight:1.5}}>
+{"⚠️ Importante: mensagens de template (fora da janela de 24h) são cobradas pela Meta por conversa. Para evitar custo alto e bloqueio, o sistema envia no máximo 25 mensagens por dia de cada tipo — o restante sai nos dias seguintes. Os envios diários acontecem com o sistema aberto, entre 8h e 19h."}
+</div>
+<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+<button onClick={testarConexao} style={{background:G.blue,color:"#fff",border:"none",borderRadius:8,padding:"7px 13px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📡 Testar conexão com o servidor"}</button>
+{testStatus&&<span style={{fontSize:12,fontWeight:600,color:testStatus.indexOf("✅")===0?G.success:G.red}}>{testStatus}</span>}
+</div>
+<div style={{background:cfg.master?G.success+"15":G.bg,border:"2px solid "+(cfg.master?G.success:G.border),borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:11}}>
+<div style={{flex:1}}>
+<div style={{fontWeight:700,fontSize:14,color:cfg.master?G.success:G.text}}>{"Disparos automáticos "+(cfg.master?"LIGADOS":"desligados")}</div>
+<div style={{fontSize:11,color:G.muted}}>{"Interruptor geral. Desligado = nada é enviado automaticamente."}</div>
+</div>
+<Sw on={cfg.master} onClick={function(){tog("master");}}/>
+</div>
+<div style={{display:"flex",flexDirection:"column",gap:8,opacity:cfg.master?1:.55}}>
+{WA_TPL.map(function(t){
+return <div key={t.k} style={{background:G.card,borderRadius:11,padding:"11px 13px",boxShadow:"0 1px 4px rgba(0,0,0,.06)",display:"flex",alignItems:"center",gap:11,borderLeft:"4px solid "+(cfg[t.k]?G.success:G.border)}}>
+<div style={{flex:1}}>
+<div style={{fontWeight:700,fontSize:13}}>{t.label}</div>
+<div style={{fontSize:11,color:G.muted,marginTop:1}}>{t.quando}</div>
+<div style={{fontSize:10,color:G.blue,marginTop:2}}>{"Template: "+t.tpl}</div>
+</div>
+<Sw on={cfg[t.k]} onClick={function(){tog(t.k);}}/>
+</div>;
+})}
+</div>
+<Div lb="Enviar mensagem de teste"/>
+<div style={{background:G.bg,borderRadius:11,padding:"11px 13px",display:"flex",flexDirection:"column",gap:9}}>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+<Inp lb="Seu WhatsApp (com DDD)" val={testFone} set={setTestFone} ph="11999990000"/>
+<div style={{display:"flex",flexDirection:"column",gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Template</label>
+<select value={testTpl} onChange={function(e){setTestTpl(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:13,outline:"none",background:"#fff"}}>
+{WA_TPL.map(function(t){return <option key={t.k} value={t.k}>{t.label}</option>;})}
+</select>
+</div>
+</div>
+<button onClick={enviarTeste} disabled={sendingTest} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:9,padding:"10px",fontSize:13,fontWeight:700,cursor:sendingTest?"wait":"pointer",opacity:sendingTest?.7:1}}>{sendingTest?"Enviando...":"📱 Enviar teste (dados fictícios)"}</button>
+</div>
+<Div lb="Últimos envios automáticos"/>
+{(!waAutoLog||waAutoLog.length===0)&&<div style={{background:G.bg,borderRadius:10,padding:16,textAlign:"center",color:G.muted,fontSize:12}}>{"Nenhum envio automático ainda"}</div>}
+{(waAutoLog||[]).slice(0,60).map(function(l,i){
+var dt=new Date(l.ts);
+return <div key={i} style={{background:G.card,borderRadius:9,padding:"8px 12px",display:"flex",gap:8,alignItems:"center",borderLeft:"3px solid "+(l.ok?G.success:G.red),boxShadow:"0 1px 3px rgba(0,0,0,.05)"}}>
+<div style={{flex:1}}>
+<div style={{fontSize:12,fontWeight:700}}>{(l.ok?"✅ ":"❌ ")+l.tipo+" — "+(l.pat||"")}</div>
+<div style={{fontSize:10,color:G.muted}}>{(l.fone||"")+(l.err?" · Erro: "+l.err:"")}</div>
+</div>
+<div style={{fontSize:10,color:G.muted,textAlign:"right",flexShrink:0}}>{dt.toLocaleDateString("pt-BR")+" "+dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</div>
+</div>;
+})}
+</div>;
+}
+
+// ══════════════════════════════════════════════════════════
 // LOGIN
 // ══════════════════════════════════════════════════════════
 function Login({users,onLogin}){
@@ -6542,6 +6655,7 @@ const [waTemplates,setWaTemplates]=useState({});
 const [semTicks,setSemTicks]=useState({});
 const [anivTicks,setAnivTicks]=useState({});
 const [pacsTicks,setPacsTicks]=useState({});
+const [waAuto,setWaAuto]=useState({});const [waSent,setWaSent]=useState({});const [waAutoLog,setWaAutoLog]=useState([]);
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
 const [budgets,setBudgets]=useState(BUDGETS0);
@@ -6636,6 +6750,9 @@ if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);
+if(data.waAuto)setWaAuto(data.waAuto);
+if(data.waSent)setWaSent(data.waSent);
+if(data.waAutoLog)setWaAutoLog(data.waAutoLog);
 if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
 if(data.logs?.length)setLogs(data.logs);
@@ -6720,7 +6837,7 @@ useEffect(function(){
         }
       }
     }catch(e){}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos,delApts:delAptsRef.current};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,waAuto,waSent,waAutoLog,gastos,delApts:delAptsRef.current};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -6767,7 +6884,7 @@ useEffect(function(){
       isSaving.current=false;
     }
   },800);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos,waAuto,waSent,waAutoLog]);
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -6828,6 +6945,9 @@ useEffect(function(){
       mergeArr(sd.logs,setLogs);
       if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
       if(sd.gastos)setGastos(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.gastos)?prev:sd.gastos;});
+      if(sd.waAuto)setWaAuto(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAuto)?prev:sd.waAuto;});
+      if(sd.waSent)setWaSent(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waSent)?prev:sd.waSent;});
+      if(sd.waAutoLog)setWaAutoLog(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAutoLog)?prev:sd.waAutoLog;});
       lastServerTs.current=fresh.updated_at;
     }catch(e){}
   },15000);
@@ -6838,6 +6958,128 @@ useEffect(function(){
 
 const anamToken=(function(){try{return new URLSearchParams(window.location.search).get("anam");}catch(e){return null;}})();
 if(anamToken)return <PublicAnamnese token={anamToken}/>;
+// === WHATSAPP AUTO: eventos + motor diário ===
+const waRef=useRef({});
+useEffect(function(){waRef.current={appts:appts,pats:pats,recs:recs,budgets:budgets,dents:dents,user:user,waAuto:waAuto,waSent:waSent,waAutoLog:waAutoLog};});
+const waPushLog=function(entry){setWaAutoLog(function(prev){return [entry].concat(prev||[]).slice(0,300);});};
+const waEvent=function(tipo,info){
+try{
+var cfg=waAuto||{};if(!cfg.master)return;
+var a=info.appt,p=info.pat;if(!a||!p||!p.phone)return;
+var d=dents.find(function(x){return x.id===Number(a.dentistId);})||dents[0]||{name:"Diego Affonso"};
+var sent=waSent||{};
+if(tipo==="confirmacao"&&cfg.confirmacao){
+var k="c_"+a.id;if(sent[k])return;
+setWaSent(function(prev){var n=Object.assign({},prev);n[k]=today();return n;});
+dispararWA("confirmacao_consulta",p.phone,[p.name,d.name,fmt(a.date),a.time]).then(function(r){waPushLog({ts:new Date().toISOString(),tipo:"Confirmação",pat:p.name,fone:p.phone,ok:r.ok,err:r.err||""});});
+}
+if(tipo==="reagendamento"&&cfg.reagendamento){
+var k2="r_"+a.id;if(sent[k2])return;
+setWaSent(function(prev){var n=Object.assign({},prev);n[k2]=today();return n;});
+dispararWA("reagendamento",p.phone,[p.name,d.name]).then(function(r){waPushLog({ts:new Date().toISOString(),tipo:"Reagendamento",pat:p.name,fone:p.phone,ok:r.ok,err:r.err||""});});
+}
+}catch(e){}
+};
+useEffect(function(){
+var running=false;
+var run=async function(){
+if(running)return;running=true;
+try{
+var D=waRef.current||{};var cfg=D.waAuto||{};var u=D.user;
+if(!cfg.master||!u||u.level<2){running=false;return;}
+var h=new Date().getHours();
+if(h<8||h>=19){running=false;return;}
+var t=today();
+var sent=Object.assign({},D.waSent||{});
+// limpeza de chaves antigas
+var keep={};var purged=false;
+Object.keys(sent).forEach(function(k){
+var ds=sent[k];var days=Math.floor((new Date(t+"T12:00")-new Date(ds+"T12:00"))/86400000);
+var max=k.slice(0,2)==="a_"?400:(k.slice(0,2)==="s_"?200:120);
+if(days<=max)keep[k]=ds;else purged=true;
+});
+if(purged){sent=keep;setWaSent(keep);}
+var logHoje={};(D.waAutoLog||[]).forEach(function(l){if((l.ts||"").slice(0,10)===t)logHoje[l.tipo]=(logHoje[l.tipo]||0)+1;});
+var fila=[];
+var addJob=function(tipoLabel,key,template,fone,params,patName){
+if(sent[key])return;
+if((logHoje[tipoLabel]||0)>=25)return;
+logHoje[tipoLabel]=(logHoje[tipoLabel]||0)+1;
+sent[key]=t;
+fila.push({tipoLabel:tipoLabel,key:key,template:template,fone:fone,params:params,patName:patName});
+};
+var dOf=function(id){return (D.dents||[]).find(function(x){return x.id===Number(id);})||(D.dents||[])[0]||{name:"Diego Affonso"};};
+if(cfg.vespera){
+var tm=tom();
+(D.appts||[]).forEach(function(a){
+if(a.date!==tm||a.blocked)return;
+if(a.status!=="pending"&&a.status!=="confirmed")return;
+var p=(D.pats||[]).find(function(x){return x.id===a.patientId;});if(!p||!p.phone)return;
+var d=dOf(a.dentistId);
+addJob("Véspera","v_"+a.id+"_"+a.date,"lembrete_vespera",p.phone,[p.name,fmt(a.date),a.time,d.name],p.name);
+});
+}
+if(cfg.aniversario){
+var ano=t.slice(0,4);
+(D.pats||[]).forEach(function(p){
+if(!p.dob||p.dob.slice(5)!==t.slice(5))return;
+if(!p.phone)return;
+addJob("Aniversário","a_"+p.id+"_"+ano,"aniversario_paciente",p.phone,[p.name],p.name);
+});
+}
+if(cfg.semestral){
+(D.pats||[]).forEach(function(p){
+if(!p.phone)return;
+var last=(D.recs||[]).filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+if(!last)return;
+if(mo6(last.date)>t)return;
+var fut=(D.appts||[]).find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
+if(fut)return;
+var d=dOf(last.dentistId);
+addJob("Semestral","s_"+p.id,"controle_semestral",p.phone,[p.name,d.name],p.name);
+});
+}
+if(cfg.poscirurgia||cfg.posconsulta){
+var y=yest();
+(D.appts||[]).forEach(function(a){
+if(a.date!==y||a.blocked)return;
+var okSt=a.status==="done"||a.status==="confirmed";
+if(!okSt)return;
+var p=(D.pats||[]).find(function(x){return x.id===a.patientId;});if(!p||!p.phone)return;
+var isCir=PCIR_WA.some(function(w){return (a.procedure||"").toLowerCase().indexOf(w)>=0;});
+var d=dOf(a.dentistId);
+if(isCir&&cfg.poscirurgia)addJob("Pós-cirurgia","pc_"+a.id,"pos_cirurgia",p.phone,[p.name,d.name,a.procedure||"procedimento"],p.name);
+else if(!isCir&&cfg.posconsulta&&a.status==="done")addJob("Pós-consulta","ps_"+a.id,"pos_consulta",p.phone,[p.name,d.name],p.name);
+});
+}
+if(cfg.orcamento){
+var lim=new Date(t+"T12:00");lim.setDate(lim.getDate()-3);
+var limS=lim.toISOString().split("T")[0];
+(D.budgets||[]).forEach(function(b){
+if(b.status!=="pending")return;
+if((b.date||"")>limS)return;
+var p=(D.pats||[]).find(function(x){return x.id===b.patientId;});if(!p||!p.phone)return;
+var d=dOf(b.dentistId);
+addJob("Orçamento","o_"+b.id,"orcamento_pendente",p.phone,[p.name,d.name],p.name);
+});
+}
+if(fila.length){
+setWaSent(function(prev){var n=Object.assign({},prev);fila.forEach(function(j){n[j.key]=t;});return n;});
+for(var i=0;i<fila.length;i++){
+var j=fila[i];
+var r=await dispararWA(j.template,j.fone,j.params);
+waPushLog({ts:new Date().toISOString(),tipo:j.tipoLabel,pat:j.patName,fone:j.fone,ok:r.ok,err:r.err||""});
+await new Promise(function(res){setTimeout(res,1300);});
+}
+}
+}catch(e){}
+running=false;
+};
+var t0=setTimeout(run,45000+Math.floor(Math.random()*90000));
+var iv=setInterval(run,10*60*1000);
+return function(){clearTimeout(t0);clearInterval(iv);};
+},[]);
+
 if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>
 
 // Bloqueio de horário para nível 2 (Recepção/Secretaria)
@@ -6894,7 +7136,7 @@ if(n.lv>user.level){alert("Acesso não autorizado.");return;}
 setView(v);
 setSideOpen(false); // close menu on mobile after navigation
 };
-const cp={pats,dents,procs,user,addLog:function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}};
+const cp={pats,dents,procs,user,waEvent:waEvent,addLog:function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}};
 
 // Bottom nav shortcuts (most used)
 const BOTTOM_NAV=user.level>=3
@@ -6961,7 +7203,7 @@ return <>
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
-    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl}/>}
+    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog}/>}
     </div>
   </div>
 </div>
