@@ -4188,7 +4188,7 @@ return <div key={"d"+(sec.isTreat?x.id:p.id)} style={{background:"#f0faf4",borde
 // RELATÓRIOS
 // ══════════════════════════════════════════════════════════
 function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks}){
-const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");
+const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [openOrto,setOpenOrto]=useState({});
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
 const [allSelMsg,setAllSelMsg]=useState(false);
@@ -4411,10 +4411,13 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
   if(ortoDents.length===0)return <div style={{background:G.card,borderRadius:12,padding:20,textAlign:"center",color:G.muted}}>{"Nenhum dentista com especialidade Ortodontia cadastrado."}</div>;
   return <div style={{display:"flex",flexDirection:"column",gap:14}}>
     {ortoDents.map(function(d){
-      var dAppts=appts.filter(function(a){return a.dentistId===d.id&&a.date.startsWith(mo)&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});
+      var dAppts=appts.filter(function(a){return a.dentistId===d.id&&a.date.startsWith(mo)&&!a.blocked;});
       var dDone=dAppts.filter(function(a){return a.status==="done";}).length;
       var dConf=dAppts.filter(function(a){return a.status==="confirmed";}).length;
       var dPend=dAppts.filter(function(a){return a.status==="pending";}).length;
+      var dFalt=dAppts.filter(function(a){return a.status==="missed";}).length;
+      var dDesm=dAppts.filter(function(a){return a.status==="cancelled"||a.status==="rescheduled";}).length;
+      var isOp=!!openOrto[d.id];
       // Group by week
       var byWeek={};
       dAppts.forEach(function(a){
@@ -4424,18 +4427,22 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
         byWeek[week].push(a);
       });
       return <div key={d.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+d.color}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-          <div>
-            <div style={{fontWeight:700,fontSize:15,color:d.color}}>{d.name}</div>
-            <div style={{fontSize:11,color:G.muted}}>{d.specialty} · {dAppts.length} pacientes no mês</div>
+        <div onClick={function(){setOpenOrto(function(p){var n={...p};n[d.id]=!n[d.id];return n;});}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:isOp?12:0,flexWrap:"wrap",gap:8,cursor:"pointer"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:13,color:d.color,fontWeight:700}}>{isOp?"▾":"▸"}</span>
+            <div>
+              <div style={{fontWeight:700,fontSize:15,color:d.color}}>{d.name}</div>
+              <div style={{fontSize:11,color:G.muted}}>{d.specialty} · {dAppts.length} pacientes no mês{isOp?"":" · toque para abrir"}</div>
+            </div>
           </div>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            {[["Realizados",dDone,G.success],["Confirmados",dConf,G.blue],["Pendentes",dPend,G.yellow]].map(function(item){return <div key={item[0]} style={{background:item[2]+"15",borderRadius:9,padding:"6px 12px",textAlign:"center"}}>
-              <div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:item[2],fontWeight:700}}>{item[1]}</div>
-              <div style={{fontSize:10,color:G.muted,fontWeight:700}}>{item[0]}</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {[["Realizados",dDone,G.success],["Confirmados",dConf,G.blue],["Pendentes",dPend,G.yellow],["Faltaram",dFalt,G.red],["Desmarcaram",dDesm,"#7F8C8D"]].map(function(item){return <div key={item[0]} style={{background:item[2]+"15",borderRadius:9,padding:"5px 9px",textAlign:"center"}}>
+              <div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:item[2],fontWeight:700}}>{item[1]}</div>
+              <div style={{fontSize:9,color:G.muted,fontWeight:700}}>{item[0]}</div>
             </div>;})}
           </div>
         </div>
+        {isOp&&<>
         {dAppts.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum paciente este mês</p>}
         {dAppts.sort(function(a,b){return a.date.localeCompare(b.date)||(t2m(a.time)-t2m(b.time));}).map(function(a){
           var p=pats.find(function(x){return x.id===a.patientId;});
@@ -4446,6 +4453,7 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
             <span style={{fontSize:10,fontWeight:700,color:SC[a.status],background:SC_BG[a.status],borderRadius:10,padding:"1px 7px"}}>{SL[a.status]}</span>
           </div>;
         })}
+        </>}
       </div>;
     })}
   </div>;
