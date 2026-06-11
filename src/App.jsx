@@ -1960,7 +1960,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera}){
 
 const [selDate,setSelDate]=useState(today());
 const [openFolder,setOpenFolder]=useState(null);
@@ -2002,6 +2002,8 @@ const vd=isDent
 // Use 20-min slots when viewing a single orto dentist
 const viewingOrto=vd.length===1&&isOrto(vd[0]);
 const activeSlots=viewingOrto?SLOTS_ORTO:SLOTS;
+const espMatches=(user.level>=2)?esperaMatchDia(espera||[],appts,dents,selDate):[];
+const slotMatch=function(dentId,slot){if(viewingOrto)return null;for(var i=0;i<espMatches.length;i++){var m=espMatches[i];if(m.dent.id===dentId&&m.times.indexOf(slot)>=0)return m;}return null;};
 const hiddenToday=denF==="all"?appts.filter(function(a){return a.date===selDate&&!vd.some(function(d){return d.id===a.dentistId;})&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed";}):[];
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
@@ -2118,6 +2120,11 @@ return (
 
   </div>}
 
+{user.level>=2&&espMatches.length>0&&<div style={{background:"#F3E5F5",border:"2px solid #7B1FA2",borderRadius:10,padding:"8px 12px"}}>
+<div style={{fontWeight:700,color:"#7B1FA2",fontSize:12,marginBottom:3}}>{"⏳ Encaixe da Lista de Espera possível neste dia:"}</div>
+{espMatches.slice(0,3).map(function(m){return <div key={m.esp.id} style={{fontSize:12,color:"#4A148C"}}>{"• "+m.esp.patName+(m.esp.proc?" ("+m.esp.proc+")":"")+" — "+m.times.slice(0,3).join(", ")+(m.times.length>3?"...":"")+" · "+m.dent.name.split(" ").slice(0,2).join(" ")}</div>;})}
+{espMatches.length>3&&<div style={{fontSize:11,color:"#7B1FA2"}}>{"+ "+(espMatches.length-3)+" paciente(s) com encaixe"}</div>}
+</div>}
 {vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:1}}>
 {(()=>{
 // Inclui horarios personalizados dos agendamentos do dia
@@ -2150,15 +2157,20 @@ if(isExtraSlot&&!a)return(
 <span style={{fontSize:11,color:"#6A1B9A"}}>⏱️ Em consulta</span>
 </div>
 );
-if(!a)return(
-<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:viewingOrto?"1px 6px":"1px 6px",borderRadius:5,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
-<span style={{fontSize:10,color:G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
+if(!a){
+var _em=isDent?null:slotMatch(d.id,slot);
+return(
+<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;var _pre=_em?{patientId:String(_em.esp.patientId),treatment:_em.esp.proc||""}:{};setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id,..._pre});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:"1px 6px",borderRadius:5,background:_em?"#F3E5F5":"#f8fbf9",border:_em?"1.5px dashed #7B1FA2":"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
+<span style={{fontSize:10,color:_em?"#7B1FA2":G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
 {isDent
 ?<span style={{fontSize:11,color:G.border}}>──────</span>
-:<span style={{fontSize:11,color:G.border,flex:1}}>{"+ agendar"}</span>}
+:(_em
+?<span style={{fontSize:11,color:"#7B1FA2",flex:1,fontWeight:700}}>{"⏳ "+_em.esp.patName.split(" ")[0]+" (espera)"}</span>
+:<span style={{fontSize:11,color:G.border,flex:1}}>{"+ agendar"}</span>)}
 {!isDent&&<button onClick={e=>{e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{marginLeft:"auto",background:"#FFEBEE",border:"1px solid #FFCDD2",borderRadius:6,padding:"2px 7px",fontSize:10,color:G.red,cursor:"pointer",fontWeight:700}} title="Bloquear horário">🔒</button>}
 </div>
 );
+}
 // Slot bloqueado
 if(a&&a.blocked)return(
 <div key={slot} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:7,background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
@@ -2292,7 +2304,8 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                 var bloqTxtColor=isOffDay?"#C62828":isAlmoco?"#E65100":"#6A1B9A";
                 return <div key={d.id} style={{background:bloqColor,border:"1.5px solid "+bloqBorder,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:bloqTxtColor,fontWeight:700}}>{bloqText}</div>;
               }
-              return <div key={d.id} onClick={function(){if(isDent)return;setEdit(null);var _isStdE=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdE?slot:"",timeCustom:_isStdE?"":slot,dentistId:d.id});setModal(true);}} style={{background:isDent?"transparent":"#f8fbf9",border:"1.5px dashed "+G.border,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:10,color:G.border}} onMouseEnter={e=>{e.currentTarget.style.background=G.accent;e.currentTarget.style.color=G.primary;}} onMouseLeave={e=>{e.currentTarget.style.background="#f8fbf9";e.currentTarget.style.color=G.border;}}>+</div>;
+              var _em2=isDent?null:slotMatch(d.id,slot);
+              return <div key={d.id} onClick={function(){if(isDent)return;setEdit(null);var _isStdE=activeSlots.indexOf(slot)>=0;var _pre2=_em2?{patientId:String(_em2.esp.patientId),treatment:_em2.esp.proc||""}:{};setF({...blank,date:selDate,time:_isStdE?slot:"",timeCustom:_isStdE?"":slot,dentistId:d.id,..._pre2});setModal(true);}} style={{background:_em2?"#F3E5F5":(isDent?"transparent":"#f8fbf9"),border:_em2?"1.5px dashed #7B1FA2":"1.5px dashed "+G.border,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:10,color:_em2?"#7B1FA2":G.border,fontWeight:_em2?700:400}} onMouseEnter={e=>{if(_em2)return;e.currentTarget.style.background=G.accent;e.currentTarget.style.color=G.primary;}} onMouseLeave={e=>{if(_em2)return;e.currentTarget.style.background="#f8fbf9";e.currentTarget.style.color=G.border;}}>{_em2?("⏳ "+_em2.esp.patName.split(" ")[0]):"+"}</div>;
             })}
           </div>
         );
@@ -5231,7 +5244,7 @@ return(
 // ══════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════
-function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks}){
+function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera}){
 const t=today();
 const yd=yest();
 const mo=t.slice(0,7);
@@ -5241,6 +5254,7 @@ const [oFalt,setOFalt]=useState(false);
 const [oPros,setOPros]=useState(false);
 const [oStk,setOStk]=useState(false);
 const [oCir,setOCir]=useState(false);
+const [oEsp,setOEsp]=useState(false);
 const [vBdayDone,setVBdayDone]=useState(false);
 const rev=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0).reduce((s,r)=>s+r.paid,0);
 const todayCount=appts.filter(a=>a.date===t&&!a.blocked&&a.status!=="cancelled").length;
@@ -5266,6 +5280,20 @@ const prosAtras=prosPend.filter(function(p){return p.due&&p.due<t;}).length;
 const stkBaixo=((stock||[]).filter(function(s){return Number(s.qty)<=Number(s.min);}));
 const ar=autoRems(pats,recs,appts);
 const cir=ar.filter(function(r){return r.type==="surg";});
+const encaixes=(function(){
+var by={};
+for(var i=0;i<7;i++){
+var dd=new Date(t+"T12:00");dd.setDate(dd.getDate()+i);
+var ds=dd.toISOString().split("T")[0];
+esperaMatchDia(espera||[],appts,dents,ds).forEach(function(m){
+var k=m.esp.id;
+if(!by[k])by[k]={esp:m.esp,dent:m.dent,ops:[]};
+m.times.forEach(function(tm){if(by[k].ops.length<8)by[k].ops.push({date:ds,time:tm});});
+});
+}
+return Object.keys(by).map(function(k){return by[k];});
+})();
+const DSEM=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 const head=function(open,setOpen,icon,label,count,color){
   return <button onClick={function(){setOpen(function(v){return !v;});}} style={{width:"100%",border:"none",background:color+"15",borderLeft:"4px solid "+color,borderRadius:open?"12px 12px 0 0":12,padding:"11px 14px",display:"flex",alignItems:"center",gap:9,cursor:"pointer"}}>
     <span style={{fontSize:16}}>{icon}</span>
@@ -5346,6 +5374,26 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     </>,G.red)}
   </div>}
 
+  {encaixes.length>0&&<div>
+    {head(oEsp,setOEsp,"⏳","Encaixes — Lista de Espera",encaixes.length,"#7B1FA2")}
+    {oEsp&&bodyWrap(<>
+      {encaixes.map(function(x){return <div key={x.esp.id} style={{padding:"7px 0",borderBottom:"1px solid "+G.border}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:120}}>
+            <div style={{fontWeight:700,fontSize:13}}>{x.esp.patName}</div>
+            <div style={{fontSize:11,color:G.muted}}>{(x.esp.proc||"")+" · "+x.dent.name.split(" ").slice(0,2).join(" ")+" · "+x.esp.tempo+"min"}</div>
+          </div>
+          {(function(){var p=pats.find(function(pp){return pp.id===Number(x.esp.patientId);});var fone=(p&&p.phone)||"";if(!fone)return null;var op=x.ops[0];var msg="Olá "+x.esp.patName+"! 😊 Surgiu um horário disponível"+(op?" dia "+fmt(op.date)+" às "+op.time:"")+" com "+x.dent.name+" para "+(x.esp.proc||"sua consulta")+". Quer aproveitar? Responda SIM! Affonso Odontologia 🦷";return <button onClick={function(){wa(fone,msg);}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📱 WA</button>;})()}
+        </div>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:5}}>
+          {x.ops.slice(0,5).map(function(op,i){var dw=new Date(op.date+"T12:00").getDay();return <span key={i} style={{background:"#EDE7F6",color:"#7B1FA2",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700}}>{DSEM[dw]+" "+fmt(op.date).slice(0,5)+" "+op.time}</span>;})}
+          {x.ops.length>5&&<span style={{fontSize:10,color:"#7B1FA2"}}>{"+"+(x.ops.length-5)}</span>}
+        </div>
+      </div>;})}
+      <button onClick={function(){setView("agenda");}} style={{alignSelf:"flex-start",background:"#7B1FA2",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",marginTop:3}}>Ver Agenda →</button>
+    </>,"#7B1FA2")}
+  </div>}
+
   {despHoje.length>0&&<div style={{background:"#FFF3E0",border:"2px solid #FF9800",borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={function(){setView("desp");}}>
     <div style={{fontWeight:700,color:"#E65100",fontSize:13,marginBottom:4}}>{"💸 "+despHoje.length+" despesa(s) vence(m) hoje!"}</div>
     {despHoje.slice(0,3).map(function(e,i){return <div key={i} style={{fontSize:12,color:"#E65100"}}>{"• "+(e.desc||"")+" — "+(Number(e.value||0)>0?cur(Number(e.value)):"preencher valor")}</div>;})}
@@ -5353,7 +5401,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     <div style={{fontSize:11,color:"#BF360C",marginTop:4,fontWeight:600}}>{"Toque para ver Despesas →"}</div>
   </div>}
 
-  {bdayAll.length===0&&faltOntem.length===0&&prosPend.length===0&&stkBaixo.length===0&&cir.length===0&&despHoje.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>✅ Tudo em dia! Nenhuma pendência hoje.</div>}
+  {bdayAll.length===0&&faltOntem.length===0&&prosPend.length===0&&stkBaixo.length===0&&cir.length===0&&despHoje.length===0&&encaixes.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>✅ Tudo em dia! Nenhuma pendência hoje.</div>}
 
 </div>;
 }
@@ -6383,6 +6431,52 @@ return(
 // ══════════════════════════════════════════════════════════
 // WHATSAPP AUTO — integração com servidor Railway (templates Meta)
 // ══════════════════════════════════════════════════════════
+// ── LISTA DE ESPERA: encontrar encaixes em horários vagos ──
+function esperaSlotLivre(appts,dent,dateStr,slot){
+var d=new Date(dateStr+"T12:00");var wd=d.getDay();
+var dias=dent.dias||[1,2,3,4,5];
+if(dias.indexOf(wd)<0)return false;
+var ent=dent.entrada||"08:00";var sai=dent.saida||"18:00";
+if(slot<ent||slot>=sai)return false;
+var alI=(dent.almoco&&dent.almoco.ini)||"";var alF=(dent.almoco&&dent.almoco.fim)||"";
+if(alI&&alF&&slot>=alI&&slot<alF)return false;
+var occ=(appts||[]).some(function(a){
+if(!a||a.date!==dateStr||a.dentistId!==dent.id)return false;
+if(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed")return false;
+if(a.time===slot)return true;
+if((a.extraSlots||[]).indexOf(slot)>=0)return true;
+return false;
+});
+return !occ;
+}
+function esperaMatchDia(espera,appts,dents,dateStr){
+var t=today();var out=[];
+if(!dateStr||dateStr<t)return out;
+var d=new Date(dateStr+"T12:00");var wd=d.getDay();
+(espera||[]).forEach(function(e){
+if(!e||!e.slots||!e.slots.length)return;
+if(e.valido&&(e.valido<t||dateStr>e.valido))return;
+var dent=(dents||[]).find(function(x){return x.id===Number(e.dentId);});
+if(!dent)return;
+var need=Math.max(1,Math.ceil(Number(e.tempo||30)/30));
+var times=[];
+e.slots.forEach(function(sl){
+if((sl.dias||[]).indexOf(wd)<0)return;
+SLOTS.forEach(function(slot,idx){
+if(slot<(sl.ini||"00:00")||slot>=(sl.fim||"23:59"))return;
+var ok=true;
+for(var i=0;i<need;i++){
+var s2=SLOTS[idx+i];
+if(!s2||!esperaSlotLivre(appts,dent,dateStr,s2)){ok=false;break;}
+}
+if(ok&&times.indexOf(slot)<0)times.push(slot);
+});
+});
+if(times.length)out.push({esp:e,dent:dent,times:times.sort()});
+});
+return out;
+}
+
 const RAILWAY_URL="https://whatsapp-webhook-production-d5be.up.railway.app";
 const WA_DISPARO_KEY="affonso2025";
 const PCIR_WA=["extra","exodont","cirurg","implante","enxerto","sinus","frenectomia","apicectomia","biopsia","gengivo"];
@@ -6856,15 +6950,16 @@ useEffect(function(){
     }
     return ok;
   };
-  saveTimer.current=setTimeout(async function(){
+  saveTimer.current=setTimeout(async function runSave(){
     if(isSaving.current){ pendingSave.current=true; return; }
     isSaving.current=true;
     var ok=await doSave();
+    var _mtry=0;
+    while(ok==="merged"&&_mtry<3){_mtry++;ok=await doSave();}
     if(ok==="merged"){
-      // Merge feito - useEffect vai re-disparar
-      setSaveStatus("idle");
+      // servidor mudando sem parar - re-tenta em instantes para nao perder a edicao
       isSaving.current=false;
-      saveTimer.current=null;
+      saveTimer.current=setTimeout(runSave,2500);
       return;
     }
     setSaveStatus(ok?"saved":"error");
@@ -6948,6 +7043,19 @@ useEffect(function(){
       if(sd.waAuto)setWaAuto(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAuto)?prev:sd.waAuto;});
       if(sd.waSent)setWaSent(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waSent)?prev:sd.waSent;});
       if(sd.waAutoLog)setWaAutoLog(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAutoLog)?prev:sd.waAutoLog;});
+      if(sd.users&&sd.users.length)setUsers(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.users)?prev:sd.users;});
+      if(sd.dents&&sd.dents.length)setDents(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.dents)?prev:sd.dents;});
+      if(sd.perms)setPerms(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.perms)?prev:sd.perms;});
+      if(sd.labs)setLabs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.labs)?prev:sd.labs;});
+      if(sd.procs&&sd.procs.length)setProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.procs)?prev:sd.procs;});
+      if(sd.stock)setStock(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.stock)?prev:sd.stock;});
+      if(sd.impl)setImpl(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.impl)?prev:sd.impl;});
+      if(sd.prosProcs)setProsProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.prosProcs)?prev:sd.prosProcs;});
+      if(sd.espera)setEspera(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.espera)?prev:sd.espera;});
+      if(sd.remarcar)setRemarcar(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.remarcar)?prev:sd.remarcar;});
+      if(sd.pacsTicks)setPacsTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.pacsTicks)?prev:sd.pacsTicks;});
+      if(sd.semTicks)setSemTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.semTicks)?prev:sd.semTicks;});
+      if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
       lastServerTs.current=fresh.updated_at;
     }catch(e){}
   },15000);
@@ -7137,7 +7245,7 @@ if(n.lv>user.level){alert("Acesso não autorizado.");return;}
 setView(v);
 setSideOpen(false); // close menu on mobile after navigation
 };
-const cp={pats,dents,procs,user,waEvent:waEvent,addLog:function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}};
+const cp={pats,dents,procs,user,espera:espera,waEvent:waEvent,addLog:function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}};
 
 // Bottom nav shortcuts (most used)
 const BOTTOM_NAV=user.level>=3
@@ -7190,7 +7298,7 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera}/>}
       {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
