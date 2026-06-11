@@ -6481,6 +6481,7 @@ if(times.length)out.push({esp:e,dent:dent,times:times.sort()});
 return out;
 }
 
+function _newerWa(a,b){if(!b)return a;if(!a)return b;return ((b._ts||0)>((a._ts)||0))?b:a;}
 const RAILWAY_URL="https://whatsapp-webhook-production-d5be.up.railway.app";
 const WA_DISPARO_KEY="affonso2025";
 const PCIR_WA=["extra","exodont","cirurg","implante","enxerto","sinus","frenectomia","apicectomia","biopsia","gengivo"];
@@ -6510,10 +6511,10 @@ var [testStatus,setTestStatus]=useState("");
 var [testFone,setTestFone]=useState("");
 var [testTpl,setTestTpl]=useState(WA_TPL[0].k);
 var [sendingTest,setSendingTest]=useState(false);
-var tog=function(k){setWaAuto(function(prev){var n=Object.assign({},prev||{});n[k]=!n[k];return n;});};
+var tog=function(k){setWaAuto(function(prev){var n=Object.assign({},prev||{});n[k]=!n[k];n._ts=Date.now();return n;});};
 var testarConexao=async function(){
 setTestStatus("testando...");
-try{var r=await fetch(RAILWAY_URL);var tx=await r.text();setTestStatus(r.ok?"✅ Servidor ativo: "+tx.slice(0,40):"❌ Erro HTTP "+r.status);}catch(e){setTestStatus("❌ Sem conexão com o servidor");}
+try{var r=await fetch(RAILWAY_URL+"/api/disparar",{method:"OPTIONS"});setTestStatus(r.ok?"✅ Servidor ativo e pronto para envios":"❌ Erro HTTP "+r.status);}catch(e){setTestStatus("❌ Sem conexão com o servidor");}
 };
 var enviarTeste=async function(){
 if(!testFone||testFone.replace(/\D/g,"").length<10){alert("Digite um número válido com DDD");return;}
@@ -6769,6 +6770,7 @@ const saveTimer=useRef(null);
 const initialized=useRef(false);
 const isSaving=useRef(false);
 const lastSaved=useRef("");
+const waAutoSrvRef=useRef(null);
 const patTableOk=useRef(false);
 const lastSavedPats=useRef({});
 const patSaveTimer=useRef(null);
@@ -6929,13 +6931,14 @@ useEffect(function(){
           mergeArr(pros,sd.pros,setPros);
           mergeArr(rems,sd.rems,setRems);
           mergeArr(logs,sd.logs,setLogs);
+          if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           lastServerTs.current=fresh.updated_at;
           // Cancelar este save - o useEffect vai disparar de novo com o estado mergeado
           return "merged";
         }
       }
     }catch(e){}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,waAuto,waSent,waAutoLog,gastos,delApts:delAptsRef.current};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -7044,7 +7047,7 @@ useEffect(function(){
       mergeArr(sd.logs,setLogs);
       if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
       if(sd.gastos)setGastos(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.gastos)?prev:sd.gastos;});
-      if(sd.waAuto)setWaAuto(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAuto)?prev:sd.waAuto;});
+      if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
       if(sd.waSent)setWaSent(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waSent)?prev:sd.waSent;});
       if(sd.waAutoLog)setWaAutoLog(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAutoLog)?prev:sd.waAutoLog;});
       if(sd.users&&sd.users.length)setUsers(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.users)?prev:sd.users;});
