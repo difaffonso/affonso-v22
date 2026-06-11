@@ -2003,7 +2003,6 @@ const vd=isDent
 const viewingOrto=vd.length===1&&isOrto(vd[0]);
 const activeSlots=viewingOrto?SLOTS_ORTO:SLOTS;
 const espMatches=(user.level>=2)?esperaMatchDia(espera||[],appts,dents,selDate):[];
-const slotMatch=function(dentId,slot){if(viewingOrto)return null;for(var i=0;i<espMatches.length;i++){var m=espMatches[i];if(m.dent.id===dentId&&m.times.indexOf(slot)>=0)return m;}return null;};
 const hiddenToday=denF==="all"?appts.filter(function(a){return a.date===selDate&&!vd.some(function(d){return d.id===a.dentistId;})&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed";}):[];
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
@@ -2122,7 +2121,10 @@ return (
 
 {user.level>=2&&espMatches.length>0&&<div style={{background:"#F3E5F5",border:"2px solid #7B1FA2",borderRadius:10,padding:"8px 12px"}}>
 <div style={{fontWeight:700,color:"#7B1FA2",fontSize:12,marginBottom:3}}>{"⏳ Encaixe da Lista de Espera possível neste dia:"}</div>
-{espMatches.slice(0,3).map(function(m){return <div key={m.esp.id} style={{fontSize:12,color:"#4A148C"}}>{"• "+m.esp.patName+(m.esp.proc?" ("+m.esp.proc+")":"")+" — "+m.times.slice(0,3).join(", ")+(m.times.length>3?"...":"")+" · "+m.dent.name.split(" ").slice(0,2).join(" ")}</div>;})}
+{espMatches.slice(0,3).map(function(m){return <div key={m.esp.id} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",fontSize:12,color:"#4A148C",marginBottom:3}}>
+<span style={{flex:1,minWidth:140}}>{"• "+m.esp.patName+(m.esp.proc?" ("+m.esp.proc+")":"")+" — "+m.times.slice(0,3).join(", ")+(m.times.length>3?"...":"")+" · "+m.dent.name.split(" ").slice(0,2).join(" ")}</span>
+<button onClick={function(){setEdit(null);var t0=m.times[0]||"";var _isStdB=activeSlots.indexOf(t0)>=0;setF({...blank,date:selDate,time:_isStdB?t0:"",timeCustom:_isStdB?"":t0,dentistId:m.dent.id,patientId:String(m.esp.patientId),treatment:m.esp.proc||""});setModal(true);}} style={{background:"#7B1FA2",color:"#fff",border:"none",borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Agendar</button>
+</div>;})}
 {espMatches.length>3&&<div style={{fontSize:11,color:"#7B1FA2"}}>{"+ "+(espMatches.length-3)+" paciente(s) com encaixe"}</div>}
 </div>}
 {vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:1}}>
@@ -2157,20 +2159,15 @@ if(isExtraSlot&&!a)return(
 <span style={{fontSize:11,color:"#6A1B9A"}}>⏱️ Em consulta</span>
 </div>
 );
-if(!a){
-var _em=isDent?null:slotMatch(d.id,slot);
-return(
-<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;var _pre=_em?{patientId:String(_em.esp.patientId),treatment:_em.esp.proc||""}:{};setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id,..._pre});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:"1px 6px",borderRadius:5,background:_em?"#F3E5F5":"#f8fbf9",border:_em?"1.5px dashed #7B1FA2":"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
-<span style={{fontSize:10,color:_em?"#7B1FA2":G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
+if(!a)return(
+<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:viewingOrto?"1px 6px":"1px 6px",borderRadius:5,background:"#f8fbf9",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
+<span style={{fontSize:10,color:G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
 {isDent
 ?<span style={{fontSize:11,color:G.border}}>──────</span>
-:(_em
-?<span style={{fontSize:11,color:"#7B1FA2",flex:1,fontWeight:700}}>{"⏳ "+_em.esp.patName.split(" ")[0]+" (espera)"}</span>
-:<span style={{fontSize:11,color:G.border,flex:1}}>{"+ agendar"}</span>)}
+:<span style={{fontSize:11,color:G.border,flex:1}}>{"+ agendar"}</span>}
 {!isDent&&<button onClick={e=>{e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{marginLeft:"auto",background:"#FFEBEE",border:"1px solid #FFCDD2",borderRadius:6,padding:"2px 7px",fontSize:10,color:G.red,cursor:"pointer",fontWeight:700}} title="Bloquear horário">🔒</button>}
 </div>
 );
-}
 // Slot bloqueado
 if(a&&a.blocked)return(
 <div key={slot} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 6px",borderRadius:7,background:"#FFEBEE",border:"1.5px solid "+G.red,cursor:"pointer"}} onClick={()=>{if(!isDent&&window.confirm("Desbloquear este horário?"))setAppts(prev=>prev.filter(x=>x.id!==a.id));}}>
@@ -2304,8 +2301,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                 var bloqTxtColor=isOffDay?"#C62828":isAlmoco?"#E65100":"#6A1B9A";
                 return <div key={d.id} style={{background:bloqColor,border:"1.5px solid "+bloqBorder,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:bloqTxtColor,fontWeight:700}}>{bloqText}</div>;
               }
-              var _em2=isDent?null:slotMatch(d.id,slot);
-              return <div key={d.id} onClick={function(){if(isDent)return;setEdit(null);var _isStdE=activeSlots.indexOf(slot)>=0;var _pre2=_em2?{patientId:String(_em2.esp.patientId),treatment:_em2.esp.proc||""}:{};setF({...blank,date:selDate,time:_isStdE?slot:"",timeCustom:_isStdE?"":slot,dentistId:d.id,..._pre2});setModal(true);}} style={{background:_em2?"#F3E5F5":(isDent?"transparent":"#f8fbf9"),border:_em2?"1.5px dashed #7B1FA2":"1.5px dashed "+G.border,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:10,color:_em2?"#7B1FA2":G.border,fontWeight:_em2?700:400}} onMouseEnter={e=>{if(_em2)return;e.currentTarget.style.background=G.accent;e.currentTarget.style.color=G.primary;}} onMouseLeave={e=>{if(_em2)return;e.currentTarget.style.background="#f8fbf9";e.currentTarget.style.color=G.border;}}>{_em2?("⏳ "+_em2.esp.patName.split(" ")[0]):"+"}</div>;
+              return <div key={d.id} onClick={function(){if(isDent)return;setEdit(null);var _isStdE=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdE?slot:"",timeCustom:_isStdE?"":slot,dentistId:d.id});setModal(true);}} style={{background:isDent?"transparent":"#f8fbf9",border:"1.5px dashed "+G.border,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:10,color:G.border}} onMouseEnter={e=>{e.currentTarget.style.background=G.accent;e.currentTarget.style.color=G.primary;}} onMouseLeave={e=>{e.currentTarget.style.background="#f8fbf9";e.currentTarget.style.color=G.border;}}>+</div>;
             })}
           </div>
         );
