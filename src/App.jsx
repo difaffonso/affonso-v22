@@ -763,7 +763,7 @@ if(!pv)return alert("Informe o valor");
 const t=treats.find(x=>x.id===tid);
 // Save payment in treatment plan
 const instSave=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
-setTreats(prev=>prev.map(function(tr){if(tr.id!==tid)return tr;var newPays=[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave}];var totIt=(tr.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);var totPg=newPays.reduce(function(s,p){return s+Number(p.value||0);},0);var ns=tr.orcStatus||"espera";if((ns==="parcial"||ns==="espera")&&totIt>0&&totPg>=totIt-0.005)ns="aprovado";return {...tr,payments:newPays,orcStatus:ns};}));
+setTreats(prev=>prev.map(function(tr){if(tr.id!==tid)return tr;var newPays=[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave}];var totIt=(tr.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);var totPg=newPays.reduce(function(s,p){return s+Number(p.value||0);},0);var ns=tr.orcStatus||"espera";if((ns==="parcial"||ns==="espera")&&totIt>0&&totPg>=totIt-0.005)ns="aprovado";else if(ns==="espera"&&totPg>0)ns="parcial";return {...tr,payments:newPays,orcStatus:ns};}));
 // Also create a rec entry so Financeiro sees it
 const inst=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
 const recObj={
