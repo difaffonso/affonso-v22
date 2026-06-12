@@ -3250,7 +3250,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // LEMBRETES
 // ══════════════════════════════════════════════════════════
-function Lembretes({rems,setRems,pats,recs,appts,users,espera,setEspera,dents,user,semTicks,setSemTicks,anivTicks,setAnivTicks,pacsTicks,setPacsTicks}){
+function Lembretes({rems,setRems,pats,recs,appts,users,espera,setEspera,dents,user,semTicks,setSemTicks,anivTicks,setAnivTicks,pacsTicks,setPacsTicks,waSent}){
 const t=today();
 const isDentist=user?.level===1;
 const myUserId=user?.id;
@@ -3288,7 +3288,7 @@ const anivHoje=pats.filter(p=>p.dob&&p.dob.slice(5)===todayMD&&!_anivDone(p));
 const anivMes=pats.filter(p=>p.dob&&p.dob.slice(5,7)===t2.slice(5,7));
 const PCIR2=['Exodontia','Extracao','Extração','Exo','Implante','Cirurgia','Cirurgico','Cirúrgico','Cirúrgica','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia','Urgencia','Urgência','Emergencia','Emergência'];
 const yst2=new Date(new Date(t2)-86400000).toISOString().split('T')[0];
-const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>{var kw=p.toLowerCase();return (a.procedure&&a.procedure.toLowerCase().includes(kw))||(a.treatment&&a.treatment.toLowerCase().includes(kw));})&&(!isDentist||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p);
+const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>{var kw=p.toLowerCase();return (a.procedure&&a.procedure.toLowerCase().includes(kw))||(a.treatment&&a.treatment.toLowerCase().includes(kw));})&&(!isDentist||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p).filter(x=>!(((pacsTicks||{})["poscir_"+x.a.patientId+"_"+x.a.date])||{}).done);
 const semAtras2=pats.filter(function(p){
 // Use recs (atendimentos com baixa registrada) as source of truth
 var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
@@ -3409,10 +3409,13 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
     <span style={{color:'#283593',fontSize:18,fontWeight:700,transition:'transform .2s',transform:posTab?'rotate(90deg)':'rotate(0deg)'}}>{'>'}</span>
   </button>
   {posTab&&<div style={{padding:'0 16px 14px'}}>
-  {posCir2.map(x=><div key={x.a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #C5CAE9'}}>
-    <div><div style={{fontWeight:600,fontSize:13}}>{x.p.name}</div><div style={{fontSize:11,color:'#5C6BC0'}}>{(x.a.procedure||'Atendimento')+' · '+fmt(x.a.date)}</div></div>
+  {posCir2.map(x=>{var autoOk2=!!(waSent&&waSent['pc_'+x.a.id]);return <div key={x.a.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8,paddingBottom:8,borderBottom:'1px solid #C5CAE9',gap:6}}>
+    <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13}}>{x.p.name}{autoOk2&&<span style={{marginLeft:6,fontSize:9,background:'#E8F5E9',color:'#2E7D32',borderRadius:8,padding:'1px 7px',fontWeight:700}}>{'🤖 WA enviado'}</span>}</div><div style={{fontSize:11,color:'#5C6BC0'}}>{(x.a.procedure||'Atendimento')+' · '+fmt(x.a.date)}</div></div>
+    <div style={{display:'flex',gap:5,flexShrink:0}}>
     {x.p.phone&&<button onClick={()=>sendWA2(x.p.phone,'Olá, '+x.p.name+'! 😊 Aqui é da Affonso Odontologia. Você realizou '+(x.a.procedure||'seu procedimento')+' no dia '+fmt(x.a.date)+' e passamos para saber como está se sentindo. Está tudo bem com a recuperação, sem dores ou desconforto? Qualquer dúvida, é só responder por aqui que vamos te orientar com todo cuidado. Cuide-se bem! 🦷')} style={{background:'#5C6BC0',color:'#fff',border:'none',borderRadius:10,padding:'7px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>WA</button>}
-  </div>)}
+    <button onClick={()=>setPacsTicks(prev=>{var n=Object.assign({},prev||{});n['poscir_'+x.a.patientId+'_'+x.a.date]={done:true,by:user.name,date:today()};return n;})} title='Excluir da lista' style={{background:'none',border:'1.5px solid #C5CAE9',borderRadius:10,padding:'7px 10px',fontSize:12,color:'#5C6BC0',cursor:'pointer',fontWeight:700}}>{'✕'}</button>
+    </div>
+  </div>;})}
   </div>}
 </div>}
 
@@ -5248,7 +5251,7 @@ return(
 // ══════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════
-function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera}){
+function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent}){
 const t=today();
 const yd=yest();
 const mo=t.slice(0,7);
@@ -5283,7 +5286,7 @@ const prosPend=pros.filter(function(p){return p.status==="waiting";}).sort(funct
 const prosAtras=prosPend.filter(function(p){return p.due&&p.due<t;}).length;
 const stkBaixo=((stock||[]).filter(function(s){return Number(s.qty)<=Number(s.min);}));
 const ar=autoRems(pats,recs,appts);
-const cir=ar.filter(function(r){return r.type==="surg";});
+const cir=ar.filter(function(r){return r.type==="surg"&&!((pacsTicks||{})["poscir_"+r.patientId+"_"+yest()]||{}).done;});
 const encaixes=(function(){
 var by={};
 for(var i=0;i<7;i++){
@@ -5371,9 +5374,10 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
   {cir.length>0&&<div>
     {head(oCir,setOCir,"🔴","Pós-cirurgia (contato)",cir.length,G.red)}
     {oCir&&bodyWrap(<>
-      {cir.map(function(r){var p=pats.find(function(x){return x.id===r.patientId;});return <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
-        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{(p&&p.name)||r.title}</div><div style={{fontSize:11,color:G.muted}}>{r.desc||""}</div></div>
+      {cir.map(function(r){var p=pats.find(function(x){return x.id===r.patientId;});var autoOk=!!appts.find(function(a){return a.patientId===r.patientId&&a.date===yest()&&waSent&&waSent["pc_"+a.id];});return <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
+        <div style={{flex:1}}><div style={{fontWeight:700,fontSize:13}}>{(p&&p.name)||r.title}{autoOk&&<span style={{marginLeft:6,fontSize:9,background:"#E8F5E9",color:G.success,borderRadius:8,padding:"1px 7px",fontWeight:700}}>🤖 WA enviado</span>}</div><div style={{fontSize:11,color:G.muted}}>{r.desc||""}</div></div>
         {p&&p.phone&&<button onClick={function(){wa(p.phone,"Olá "+p.name+"! Como está se sentindo após o procedimento de ontem? 😊 Affonso Odontologia");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>📱 WA</button>}
+        <button onClick={function(){setPacsTicks(function(prev){var n=Object.assign({},prev||{});n["poscir_"+r.patientId+"_"+yest()]={done:true,by:user.name,date:today()};return n;});}} title="Excluir da lista" style={{background:"none",border:"1.5px solid "+G.border,borderRadius:8,padding:"4px 9px",fontSize:12,color:G.muted,cursor:"pointer",fontWeight:700}}>✕</button>
       </div>;})}
     </>,G.red)}
   </div>}
@@ -7305,12 +7309,12 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent}/>}
       {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
-      {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
+      {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
