@@ -585,6 +585,7 @@ const pat=pats.find(p=>p.id===patProp.id)||patProp;
 const isDentUser=user&&user.level===1;
 const [tab,setTab]=useState("ficha");
 const [editMode,setEditMode]=useState(false);
+const [imgCat,setImgCat]=useState("rx");const [imgTreat,setImgTreat]=useState("");const [imgNota,setImgNota]=useState("");const [imgBusy,setImgBusy]=useState(false);const [imgErr,setImgErr]=useState("");const [imgView,setImgView]=useState(null);
 const [pf,setPf]=useState({...pat});const [showWAanam,setShowWAanam]=useState(false);const [showIARX,setShowIARX]=useState(false);const [fillAnam,setFillAnam]=useState(false);const [buscaMsg,setBuscaMsg]=useState("");
 
 // Keep pf in sync when pat updates externally (e.g. after NF save)
@@ -806,7 +807,7 @@ setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",n
 };
 const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
-const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["evolucao","📝 Evolução"],["historico","📅 Histórico"],["atestado","📄 Atestado"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
+const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
 // NF (Nota Fiscal) state
 const [nfModal,setNfModal]=useState(false);
 const [showAtestado,setShowAtestado]=useState(false);
@@ -1087,6 +1088,122 @@ return <>
   </div>}
 
   {/* ── HISTÓRICO ── */}
+  {tab==="imagens"&&(function(){
+    var CATS=[["rx","🩻 RX / Radiografia"],["doc","📄 Documentação"],["antesdepois","✨ Antes / Depois"],["outros","📎 Outros"]];
+    var CAT_L=function(k){var f=CATS.find(function(c){return c[0]===k;});return f?f[1]:k;};
+    var imgs=(pat.imagens||[]).slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
+    var grupos={};CATS.forEach(function(c){grupos[c[0]]=[];});
+    imgs.forEach(function(im){var k=im.cat||"outros";if(!grupos[k])grupos[k]=[];grupos[k].push(im);});
+    // comprime imagem via canvas: max 1600px lado maior, jpeg 0.7
+    var comprimir=function(file){return new Promise(function(resolve,reject){
+      var reader=new FileReader();
+      reader.onload=function(e){
+        var img2=new Image();
+        img2.onload=function(){
+          var max=1600;var w=img2.width,h=img2.height;
+          if(w>h&&w>max){h=Math.round(h*max/w);w=max;}
+          else if(h>=w&&h>max){w=Math.round(w*max/h);h=max;}
+          var cv=document.createElement("canvas");cv.width=w;cv.height=h;
+          var ctx=cv.getContext("2d");ctx.drawImage(img2,0,0,w,h);
+          cv.toBlob(function(blob){resolve(blob);},"image/jpeg",0.7);
+        };
+        img2.onerror=function(){reject(new Error("img"));};
+        img2.src=e.target.result;
+      };
+      reader.onerror=function(){reject(new Error("read"));};
+      reader.readAsDataURL(file);
+    });};
+    var subirArquivo=async function(blob){
+      var nome=pat.id+"_"+Date.now()+".jpg";
+      var path="pac"+pat.id+"/"+nome;
+      var r=await fetch(SUPA_URL+"/storage/v1/object/imagens/"+path,{
+        method:"POST",
+        headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"image/jpeg","x-upsert":"true"},
+        body:blob
+      });
+      if(!r.ok){var t="";try{t=await r.text();}catch(e){}throw new Error("upload "+r.status+" "+t);}
+      var url=SUPA_URL+"/storage/v1/object/public/imagens/"+path;
+      return {url:url,path:path};
+    };
+    var fazerUpload=async function(file){
+      if(!file)return;
+      setImgBusy(true);setImgErr("");
+      try{
+        var blob=await comprimir(file);
+        var up=await subirArquivo(blob);
+        var nova={id:Date.now(),url:up.url,path:up.path,cat:imgCat,treatId:imgTreat||"",date:today(),by:user.name,nota:imgNota||""};
+        setPats(function(prev){return prev.map(function(p){return p.id===pat.id?Object.assign({},p,{imagens:(p.imagens||[]).concat([nova])}):p;});});
+        setImgNota("");
+      }catch(e){setImgErr("Erro ao enviar a imagem. Tente novamente. ("+((e&&e.message)||e)+")");}
+      setImgBusy(false);
+    };
+    var removerImg=async function(im){
+      if(!window.confirm("Remover esta imagem?"))return;
+      try{await fetch(SUPA_URL+"/storage/v1/object/imagens/"+im.path,{method:"DELETE",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});}catch(e){}
+      setPats(function(prev){return prev.map(function(p){return p.id===pat.id?Object.assign({},p,{imagens:(p.imagens||[]).filter(function(x){return x.id!==im.id;})}):p;});});
+    };
+    return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+        <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📷 Imagens e Radiografias</span>
+        <span style={{fontSize:11,color:G.muted}}>{imgs.length+" imagem(ns)"}</span>
+      </div>
+      {/* Painel de envio */}
+      <div style={{background:G.bg,borderRadius:12,padding:"13px 15px",display:"flex",flexDirection:"column",gap:11}}>
+        <div style={{fontWeight:700,fontSize:13,color:G.primary}}>Adicionar nova imagem</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Categoria</label>
+            <select value={imgCat} onChange={function(e){setImgCat(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",background:"#fff"}}>
+              {CATS.map(function(c){return <option key={c[0]} value={c[0]}>{c[1]}</option>;})}
+            </select>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Vincular a um plano (opcional)</label>
+            <select value={imgTreat} onChange={function(e){setImgTreat(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",background:"#fff"}}>
+              <option value="">Nenhum</option>
+              {patTreats.map(function(t){return <option key={t.id} value={String(t.id)}>{t.name}</option>;})}
+            </select>
+          </div>
+        </div>
+        <Inp lb="Descrição / nota (opcional)" val={imgNota} set={setImgNota} ph="Ex: RX panorâmica inicial"/>
+        {imgErr&&<div style={{background:G.red+"15",border:"1.5px solid "+G.red,borderRadius:8,padding:"8px 12px",fontSize:12,color:G.red}}>{imgErr}</div>}
+        <label style={{background:imgBusy?"#ccc":G.primary,color:"#fff",borderRadius:10,padding:"12px",fontSize:14,fontWeight:700,cursor:imgBusy?"default":"pointer",textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          {imgBusy?"⏳ Enviando...":"📷 Escolher imagem / tirar foto"}
+          <input type="file" accept="image/*" disabled={imgBusy} onChange={function(e){var f=e.target.files&&e.target.files[0];e.target.value="";fazerUpload(f);}} style={{display:"none"}}/>
+        </label>
+        <div style={{fontSize:11,color:G.muted,textAlign:"center"}}>A imagem é compactada automaticamente antes de salvar (economiza espaço).</div>
+      </div>
+      {/* Galeria por categoria */}
+      {imgs.length===0&&<div style={{background:G.card,borderRadius:10,padding:24,textAlign:"center",color:G.muted,fontSize:13}}>Nenhuma imagem ainda</div>}
+      {CATS.map(function(c){
+        var lista=grupos[c[0]]||[];
+        if(lista.length===0)return null;
+        return <div key={c[0]} style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+          <div style={{fontWeight:700,fontSize:13,color:G.primary,marginBottom:10}}>{c[1]+" ("+lista.length+")"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(96px,1fr))",gap:9}}>
+            {lista.map(function(im){
+              var tName=im.treatId?(patTreats.find(function(t){return String(t.id)===String(im.treatId);})||{}).name:"";
+              return <div key={im.id} style={{position:"relative"}}>
+                <img src={im.url} alt="" onClick={function(){setImgView(im);}} style={{width:"100%",height:96,objectFit:"cover",borderRadius:9,border:"1.5px solid "+G.border,cursor:"pointer"}}/>
+                <button onClick={function(){removerImg(im);}} style={{position:"absolute",top:3,right:3,background:"rgba(192,57,43,.92)",color:"#fff",border:"none",borderRadius:"50%",width:22,height:22,fontSize:13,fontWeight:700,cursor:"pointer",lineHeight:1}}>×</button>
+                {(im.nota||tName)&&<div style={{fontSize:9,color:G.muted,marginTop:2,lineHeight:1.2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{im.nota||tName}</div>}
+                <div style={{fontSize:8,color:G.muted}}>{fmt(im.date)}</div>
+              </div>;
+            })}
+          </div>
+        </div>;
+      })}
+      {/* Visualizador ampliado */}
+      {imgView&&<div onClick={function(){setImgView(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:4000,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
+        <img src={imgView.url} alt="" style={{maxWidth:"100%",maxHeight:"80vh",borderRadius:8,boxShadow:"0 8px 40px rgba(0,0,0,.5)"}}/>
+        <div style={{color:"#fff",marginTop:12,textAlign:"center",fontSize:13}}>
+          {(imgView.nota||"")+(imgView.nota?" · ":"")+CAT_L(imgView.cat)+" · "+fmt(imgView.date)+(imgView.by?" · "+imgView.by:"")}
+        </div>
+        <button onClick={function(){setImgView(null);}} style={{marginTop:16,background:"#fff",color:"#222",border:"none",borderRadius:10,padding:"10px 24px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Fechar</button>
+      </div>}
+    </div>;
+  })()}
+
   {tab==="historico"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📅 Histórico de Atendimentos</span>
