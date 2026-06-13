@@ -529,6 +529,27 @@ function AnamForm({patientName,initial,onSubmit,onCancel,submitting}){
   </div>;
 }
 
+async function avisarAnamnese(token,a){
+  var RAILWAY="https://whatsapp-webhook-production-d5be.up.railway.app";
+  var KEY="affonso2025";
+  var pid="";
+  try{var dec=atob(token);pid=dec.replace("orbe:","");}catch(e){pid="";}
+  var nome="";
+  if(SUPA_URL&&pid){
+    try{
+      var r=await fetch(SUPA_URL+"/rest/v1/patients?id=eq."+encodeURIComponent(pid)+"&select=name&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});
+      var rows=await r.json();
+      if(rows&&rows[0]&&rows[0].name)nome=rows[0].name;
+    }catch(e){}
+  }
+  var alertas=[];
+  try{ANAM_ALERT.forEach(function(k){if(a&&a[k]){var c=ANAM_CONDS.find(function(x){return x[0]===k;});alertas.push(c?c[1]:k);}});}catch(e){}
+  var txt="\uD83D\uDCCB *ANAMNESE RECEBIDA*\n\n\uD83D\uDC64 "+(nome||("Paciente ID "+pid))+"\n\nO paciente preencheu a ficha de saude pelo WhatsApp.\n\u27A1\uFE0F Abra o prontuario e clique em *Buscar* na aba Anamnese para revisar e salvar.";
+  if(alertas.length>0)txt+="\n\n\u26A0\uFE0F *Atencao:* "+alertas.join(", ");
+  try{
+    await fetch(RAILWAY+"/api/avisar",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":KEY},body:JSON.stringify({texto:txt})});
+  }catch(e){}
+}
 function PublicAnamnese({token}){
   const [done,setDone]=useState(false);
   const [submitting,setSubmitting]=useState(false);
@@ -537,7 +558,7 @@ function PublicAnamnese({token}){
     setErr("");
     if(!SUPA_URL){setDone(true);return;}
     setSubmitting(true);
-    supabase.submitAnam(token,a).then(function(res){setSubmitting(false);if(res&&res.ok){setDone(true);}else{var m=(res&&res.msg)?res.msg:"Verifique a conexao e tente novamente.";setErr("Nao foi possivel enviar. "+m+((res&&res.status)?(" (codigo "+res.status+")"):""));}});
+    supabase.submitAnam(token,a).then(function(res){setSubmitting(false);if(res&&res.ok){setDone(true);try{avisarAnamnese(token,a);}catch(e){}}else{var m=(res&&res.msg)?res.msg:"Verifique a conexao e tente novamente.";setErr("Nao foi possivel enviar. "+m+((res&&res.status)?(" (codigo "+res.status+")"):""));}});
   }
   return <div style={{minHeight:"100vh",background:G.bg,padding:"24px 16px"}}>
     <div style={{maxWidth:560,margin:"0 auto",background:G.card,borderRadius:16,boxShadow:"0 4px 24px rgba(0,0,0,.1)",padding:"22px 20px"}}>
