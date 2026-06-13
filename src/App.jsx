@@ -6800,6 +6800,7 @@ const saveTimer=useRef(null);
 const initialized=useRef(false);
 const isSaving=useRef(false);
 const lastSaved=useRef("");
+const gastosEditRef=useRef(0);
 const waAutoSrvRef=useRef(null);
 const patTableOk=useRef(false);
 const lastSavedPats=useRef({});
@@ -7125,7 +7126,7 @@ useEffect(function(){
       mergeArr(sd.rems,setRems);
       mergeArr(sd.logs,setLogs);
       if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
-      if(sd.gastos)setGastos(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.gastos)?prev:sd.gastos;});
+      if(sd.gastos&&Date.now()-gastosEditRef.current>20000)setGastos(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.gastos)?prev:sd.gastos;});
       if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
       if(sd.waSent)setWaSent(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waSent)?prev:sd.waSent;});
       if(sd.waAutoLog)setWaAutoLog(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAutoLog)?prev:sd.waAutoLog;});
@@ -7395,7 +7396,7 @@ return <>
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
-      {view==="desp"&&<Gastos gastos={gastos} setGastos={setGastos} user={user}/>}
+      {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
