@@ -6844,12 +6844,11 @@ useEffect(function(){
   return function(){clearInterval(pp);};
 },[]);
 
-// ── AUTO-IMPORTACAO de anamneses enviadas pelos pacientes (a cada 60s) ──
+// ── AUTO-IMPORTACAO de anamneses enviadas pelos pacientes ──
 useEffect(function(){
-  var iv=setInterval(async function(){
-    if(!initialized.current||document.hidden)return;
+  var puxarAnam=async function(){
     if(!SUPA_URL)return;
-    if(Date.now()-anamPullRef.current<55000)return;
+    if(Date.now()-anamPullRef.current<25000)return;
     anamPullRef.current=Date.now();
     try{
       var rows=await supabase.fetchAnamRecent();
@@ -6864,13 +6863,14 @@ useEffect(function(){
         if(!pid)return;
         var p=byId[pid];if(!p)return;
         var sig=pid+"|"+(row.created_at||"");
-        if(seen[pid]===sig)return; // ja processada esta versao
-        // so importa se o paciente ainda nao tem esses dados (assinatura diferente)
-        var atual=(p.anamnese&&p.anamnese.signedAt&&p.anamnese.signature)?(p.anamnese.signedAt+"|"+(p.anamnese.signature||"").slice(0,12)):"";
-        var nova=(row.payload.signedAt||"")+"|"+((row.payload.signature||"").slice(0,12));
+        if(seen[pid]===sig)return; // ja vista nesta sessao
         seen[pid]=sig;
-        if(atual===nova&&atual!=="")return; // ja foi importada antes
-        updates.push({pid:pid,payload:row.payload});
+        // assinatura da ficha que o paciente acabou de enviar
+        var nova=(row.payload.signedAt||row.created_at||"")+"|"+((row.payload.signature||"").slice(0,12));
+        // assinatura ja gravada no paciente
+        var atual=(p.anamnese&&(p.anamnese.signedAt||p.anamnese._imp))?((p.anamnese.signedAt||p.anamnese._imp||"")+"|"+((p.anamnese.signature||"").slice(0,12))):"";
+        if(atual===nova&&atual!=="")return; // mesma ficha ja importada
+        updates.push({pid:pid,payload:row.payload,sig:nova});
       });
       anamSeenRef.current=seen;
       if(updates.length){
@@ -6878,13 +6878,15 @@ useEffect(function(){
           return (prev||[]).map(function(p){
             var u=updates.find(function(x){return String(p.id)===x.pid;});
             if(!u)return p;
-            return Object.assign({},p,{anamnese:Object.assign({},p.anamnese||{},u.payload),anamPend:true});
+            return Object.assign({},p,{anamnese:Object.assign({},p.anamnese||{},u.payload,{_imp:u.sig}),anamPend:true});
           });
         });
       }
     }catch(e){}
-  },60000);
-  return function(){clearInterval(iv);};
+  };
+  var t0=setTimeout(function(){if(initialized.current&&!document.hidden)puxarAnam();},8000);
+  var iv=setInterval(function(){if(initialized.current&&!document.hidden)puxarAnam();},30000);
+  return function(){clearTimeout(t0);clearInterval(iv);};
 },[]);
 
 // ── CARREGAR do Supabase ──
