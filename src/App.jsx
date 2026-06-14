@@ -3500,11 +3500,11 @@ const semAtras2=pats.filter(function(p){
 var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
 if(!lastRec)return false; // never attended = don't show yet
 // Show when today >= lastRec date + 6 months
-var lastDate=new Date(lastRec.date+"T12:00");
-var sixMonths=new Date(lastDate);
-sixMonths.setMonth(sixMonths.getMonth()+6);
-var today2=new Date(t2+"T12:00");
-return today2>=sixMonths;
+if(mo6(lastRec.date)>t2)return false;
+// Exclui quem ja tem agendamento futuro (igual ao Relatorio)
+var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t2&&a.status!=="cancelled"&&a.status!=="missed";});
+if(futura)return false;
+return true;
 });
 const sendWA2=async(ph,msg)=>{
 const sent=await wa(ph,msg);
@@ -3655,6 +3655,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
         <div style={{display:'flex',gap:5,flexShrink:0}}>
           {p.phone&&<button onClick={()=>sendWA2(p.phone,'Ola, '+p.name+'! Ja faz um tempo desde sua ultima consulta. Que tal agendar sua revisao semestral? Affonso Odontologia')} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:8,padding:'5px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>WA</button>}
           <button onClick={()=>semTick(p.id)} style={{background:G.primary,color:'#fff',border:'none',borderRadius:8,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Marcar</button>
+          <button onClick={()=>setSemTicks(prev=>({...prev,[p.id]:{done:true,motivo:'Removido da lista',date:today(),by:user.name}}))} style={{background:'#fff',color:G.red,border:'1px solid '+G.red,borderRadius:8,padding:'5px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Excluir</button>
         </div>
       </div>;
     })}
@@ -7001,7 +7002,7 @@ function hasBaixa(a){return recs.some(function(r){return (r.apptId===a.id)||(r.p
 var baixaPend=appts.filter(function(a){return a.status==="done"&&Number(a.value)>0&&a.date<=ont&&a.date>=d14&&!hasBaixa(a);}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Atendimento")+" em "+fmt(a.date)+" · "+cur(a.value)+" sem baixa"};});
 
 // 7. Controle semestral (+6 meses sem consulta, sem agendamento)
-var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(mo6(last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:"Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias"};});
+var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(mo6(last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:"Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias"};});
 
 // 8. Lista de espera vencendo/vencida
 var esperaVenc=(espera||[]).filter(function(e){return e.valido&&e.valido<=amanha;}).sort(function(a,b){return a.valido.localeCompare(b.valido);}).map(function(e){return {nome:e.patName||nomeP(e.patientId),det:(e.proc||"")+" · "+(e.valido<t?"VENCIDO em "+fmt(e.valido):e.valido===t?"vence HOJE":"vence amanhã")};});
@@ -7092,11 +7093,149 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
 }
 
 
+// ══════════════════════════════════════════════════════════
+// ORIENTAÇÕES — recomendações ao paciente (todos)
+// ══════════════════════════════════════════════════════════
+var ORIENT_DEFAULT=[
+{id:"o_posexo",ic:"🦷",titulo:"Pós-operatório de extração (geral)",texto:"Olá, {nome}! Seguem as orientações após a extração do dente:\n\n• Morda a gaze por 30 a 40 minutos. Se o sangramento continuar, troque por outra gaze limpa e morda novamente.\n• Nas primeiras 24h: NÃO cuspa com força, não faça bochechos, não use canudo e não fume — isso pode soltar o coágulo e atrasar a cicatrização.\n• Faça compressa de gelo na região do rosto (20 min com pano, 20 min sem) nas primeiras horas para reduzir o inchaço.\n• Prefira alimentos frios ou mornos e pastosos no primeiro dia (sopas, purês, iogurte). Evite alimentos quentes e duros.\n• Não pratique esforço físico nas primeiras 48h.\n• Tome os medicamentos conforme a receita.\n• A partir do dia seguinte, faça bochechos suaves com água morna e sal (1 colher de chá em 1 copo) após as refeições.\n\nInchaço e leve desconforto são normais nos primeiros dias. Em caso de sangramento intenso, dor forte que não passa com o remédio ou febre, entre em contato conosco.\n\nAffonso Odontologia 🦷"},
+{id:"o_presiso",ic:"⚠️",titulo:"Pré-cirurgia de siso (incl. parestesia)",texto:"Olá, {nome}! Orientações antes da cirurgia de extração do siso:\n\n• Alimente-se bem antes do procedimento (não venha em jejum, salvo orientação contrária).\n• Tome os medicamentos pré-operatórios se foram prescritos.\n• Venha acompanhado(a) e use roupas confortáveis.\n• Avise-nos se fizer uso de algum medicamento, anticoagulante ou se tiver alergia.\n\nIMPORTANTE — sobre riscos: a extração de sisos é um procedimento seguro, mas como o dente fica próximo a um nervo, existe a possibilidade (pequena e geralmente temporária) de PARESTESIA — uma dormência ou formigamento no lábio, língua ou queixo. Na maioria dos casos isso é passageiro e se recupera com o tempo. Estamos à disposição para esclarecer qualquer dúvida antes da cirurgia.\n\nApós a cirurgia, entregaremos as orientações de pós-operatório.\n\nAffonso Odontologia 🦷"},
+{id:"o_implante",ic:"🔩",titulo:"Cuidados após instalar implante",texto:"Olá, {nome}! Cuidados após a colocação do implante:\n\n• Nas primeiras 24h evite bochechos, cuspir com força, canudo e cigarro.\n• Faça compressa de gelo no rosto nas primeiras horas para diminuir o inchaço.\n• Alimentação fria/morna e pastosa nos primeiros dias; evite mastigar do lado operado.\n• Mantenha a higiene da boca, mas com delicadeza na região do implante. A partir do dia seguinte, bochechos suaves com água morna e sal após as refeições.\n• Tome os medicamentos conforme a receita.\n• Evite esforço físico nas primeiras 48h.\n• Não mexa na região com a língua ou os dedos.\n\nO implante precisa de um período de cicatrização (osseointegração) para se fixar ao osso — por isso é fundamental comparecer aos retornos. Em caso de dor intensa, inchaço que aumenta ou mobilidade, entre em contato.\n\nAffonso Odontologia 🦷"},
+{id:"o_aparelho",ic:"😬",titulo:"Orientações com aparelho ortodôntico",texto:"Olá, {nome}! Cuidados com seu aparelho ortodôntico:\n\n• Escove os dentes após TODAS as refeições — o aparelho acumula mais restos de comida. Use escova específica e capriche ao redor de cada bracket.\n• Use o fio dental diariamente (com passa-fio se necessário).\n• Evite alimentos duros (gelo, castanhas, balas duras), pegajosos (chicletes, caramelos) e morder coisas com os dentes da frente (maçã e sanduíches: corte em pedaços).\n• Se um bracket soltar ou um fio machucar, use a cera ortodôntica e entre em contato para reagendar.\n• Não falte às consultas de manutenção — o tratamento depende dos ajustes no tempo certo.\n\nUm leve incômodo após os ajustes é normal e passa em poucos dias.\n\nAffonso Odontologia 🦷"},
+{id:"o_contencao",ic:"🦷",titulo:"Uso da contenção (pós-aparelho)",texto:"Olá, {nome}! Agora que você terminou o tratamento ortodôntico, a CONTENÇÃO é essencial:\n\n• Os dentes têm uma tendência natural de voltar à posição antiga. A contenção é o que mantém seu sorriso alinhado.\n• Use a contenção exatamente como orientado (geralmente à noite para dormir, ou conforme indicação).\n• Contenção removível: retire para comer e para escovar; guarde sempre no estojo (nunca enrolada em guardanapo — é o jeito mais comum de perder ou quebrar).\n• Limpe a contenção diariamente com escova e água; evite água quente (deforma).\n• Contenção fixa (fio atrás dos dentes): mantenha a higiene com fio dental e passa-fio.\n• Compareça aos retornos para verificarmos a contenção.\n\nUsar a contenção é para a vida toda em algum nível — é o que protege todo o investimento do seu tratamento.\n\nAffonso Odontologia 🦷"},
+{id:"o_semestral",ic:"📅",titulo:"Importância do controle semestral",texto:"Olá, {nome}! Lembrete sobre a importância da sua revisão semestral:\n\n• Visitar o dentista a cada 6 meses permite identificar problemas no início — quando o tratamento é mais simples, rápido e barato.\n• Na consulta de controle fazemos a limpeza profissional (remoção de tártaro), avaliamos cáries, gengiva, restaurações antigas e a saúde geral da boca.\n• Muitos problemas (cárie inicial, gengivite, fissuras) não doem no começo — só um exame profissional detecta a tempo.\n• Prevenir é sempre melhor (e mais econômico) do que tratar.\n\nJá faz um tempo desde sua última visita? Entre em contato e vamos agendar sua revisão! Seu sorriso agradece. 😊\n\nAffonso Odontologia 🦷"},
+{id:"o_escovacao",ic:"🪥",titulo:"Escovação e fio dental",texto:"Olá, {nome}! Orientações de higiene bucal:\n\n• Escove os dentes pelo menos 3x ao dia (de manhã, e principalmente antes de dormir).\n• Use uma escova de cerdas macias e troque a cada 3 meses (ou quando as cerdas abrirem).\n• Coloque uma quantidade de pasta com flúor do tamanho de um grão de ervilha.\n• Escove com movimentos suaves, inclinando a escova em direção à gengiva. Não esqueça da parte de trás dos dentes e da língua.\n• Use o FIO DENTAL todos os dias — a escova não alcança entre os dentes, onde mais se formam cáries e tártaro.\n• Evite escovar com força excessiva: machuca a gengiva e desgasta o dente.\n\nUma boa higiene é o segredo para evitar cáries, mau hálito e problemas na gengiva.\n\nAffonso Odontologia 🦷"},
+{id:"o_clareamento",ic:"✨",titulo:"Clareamento dental (o que evitar)",texto:"Olá, {nome}! Para o seu clareamento dar certo, atenção nestes cuidados:\n\nNos primeiros dias (e durante o tratamento), EVITE alimentos e bebidas que mancham os dentes:\n• Café, chá preto/mate, refrigerantes de cola\n• Vinho tinto, suco de uva, açaí\n• Molho de tomate, molho shoyu, curry, beterraba\n• Frutas vermelhas (amora, morango em excesso)\n• Cigarro (mancha muito e prejudica o resultado)\n\nDicas:\n• Prefira alimentos claros (a chamada \"dieta branca\"): frango, arroz, batata, peixe, leite, queijo branco.\n• Se consumir algo colorido, escove os dentes ou enxágue logo depois.\n• Uma sensibilidade leve nos dentes durante o clareamento é normal e passageira.\n• Siga o tempo de uso das placas/gel exatamente como orientado.\n\nO resultado depende muito desses cuidados. Capriche! 😁\n\nAffonso Odontologia 🦷"},
+{id:"o_poscanal",ic:"🩹",titulo:"Após canal / restauração",texto:"Olá, {nome}! Cuidados após o tratamento de canal/restauração:\n\n• Espere o efeito da anestesia passar antes de comer, para não morder a bochecha ou a língua.\n• Evite mastigar do lado tratado nas primeiras horas.\n• Uma sensibilidade leve ao mastigar nos primeiros dias é normal, principalmente após canal.\n• Mantenha a higiene normal na região.\n• No caso de canal, o dente pode precisar de uma coroa/proteção depois — não deixe de concluir o tratamento, pois o dente fica mais frágil.\n• Se sentir dor forte, inchaço ou a restauração \"alta\" (atrapalhando a mordida), entre em contato para um ajuste.\n\nAffonso Odontologia 🦷"},
+{id:"o_gengiva",ic:"🩸",titulo:"Sangramento gengival / gengivite",texto:"Olá, {nome}! Orientações sobre o sangramento na gengiva:\n\n• Gengiva que sangra ao escovar geralmente é sinal de gengivite — inflamação causada pelo acúmulo de placa e tártaro.\n• Ao contrário do que muitos pensam, NÃO se deve parar de escovar o local que sangra — é justamente a falta de higiene que causa o problema.\n• Escove suavemente e capriche no fio dental diariamente: em poucos dias a gengiva tende a parar de sangrar.\n• A limpeza profissional no consultório remove o tártaro que a escova não tira.\n• Se o sangramento persistir mesmo com boa higiene, agende uma avaliação.\n\nGengiva saudável é rosada e firme, e não sangra. Cuide dela! 😊\n\nAffonso Odontologia 🦷"},
+];
+function Orientacoes({pats,orientacoes,setOrientacoes,user}){
+var [patId,setPatId]=useState("");
+var [openId,setOpenId]=useState(null);
+var [editId,setEditId]=useState(null);
+var [ef,setEf]=useState({titulo:"",texto:""});
+var [addMod,setAddMod]=useState(false);
+var [af,setAf]=useState({titulo:"",texto:""});
+var lista=orientacoes&&orientacoes.length?orientacoes:ORIENT_DEFAULT;
+var pat=pats.find(function(p){return p.id===Number(patId);});
+var nome=pat?pat.name.split(" ")[0]:"paciente";
+function pers(txt){return (txt||"").replace(/{nome}/g,nome);}
+function enviarWA(o){
+if(!pat){alert("Selecione o paciente primeiro para enviar pelo WhatsApp.");return;}
+if(!pat.phone){alert("Este paciente não tem telefone cadastrado.");return;}
+wa(pat.phone,pers(o.texto));
+}
+function imprimir(o){
+var hoje=new Date().toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
+var corpo=pers(o.texto).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
+var h="<!DOCTYPE html><html><head><meta charset='utf-8'><title>Orientacao</title>";
+h+="<style>@page{size:A4;margin:18mm 16mm;}*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Georgia,'Times New Roman',serif;color:#1a2420;}";
+h+=".hd{text-align:center;border-bottom:3px solid "+G.primary+";padding-bottom:14px;margin-bottom:22px;}";
+h+=".logo{font-size:34px;}.cnome{font-size:26px;font-weight:700;color:"+G.primary+";letter-spacing:.5px;margin-top:2px;}";
+h+=".csub{font-size:12px;color:#666;letter-spacing:2px;text-transform:uppercase;margin-top:3px;}";
+h+=".pac{font-size:14px;margin-bottom:6px;}.data{font-size:13px;color:#666;margin-bottom:24px;}";
+h+=".titulo{font-size:21px;font-weight:700;color:"+G.primary+";margin-bottom:14px;border-left:5px solid "+G.primary+";padding-left:12px;}";
+h+=".corpo{font-size:15px;line-height:1.85;text-align:justify;white-space:normal;}";
+h+=".foot{position:fixed;bottom:14mm;left:16mm;right:16mm;text-align:center;border-top:1px solid #ccc;padding-top:10px;font-size:11px;color:#777;}";
+h+="</style></head><body>";
+h+="<div class='hd'><div class='logo'>🦷</div><div class='cnome'>"+CLINICA_INFO.nome+"</div><div class='csub'>Orientacoes ao Paciente</div></div>";
+h+="<div class='pac'><strong>Paciente:</strong> "+(pat?pat.name:"_______________________________")+"</div>";
+h+="<div class='data'>Sao Paulo, "+hoje+"</div>";
+h+="<div class='titulo'>"+o.titulo+"</div>";
+h+="<div class='corpo'>"+corpo+"</div>";
+h+="<div class='foot'>"+CLINICA_INFO.nome+" &nbsp;|&nbsp; "+CLINICA_INFO.endereco+" &nbsp;|&nbsp; Tel. "+CLINICA_INFO.telefone+"</div>";
+h+="</body></html>";
+var w=window.open("","_blank");
+if(!w){alert("Permita pop-ups para imprimir.");return;}
+w.document.write(h);w.document.close();
+setTimeout(function(){w.focus();w.print();},400);
+}
+function salvarEdit(){
+if(!ef.titulo.trim()||!ef.texto.trim()){alert("Preencha título e texto.");return;}
+setOrientacoes(lista.map(function(o){return o.id===editId?{...o,titulo:ef.titulo,texto:ef.texto}:o;}));
+setEditId(null);
+}
+function salvarNova(){
+if(!af.titulo.trim()||!af.texto.trim()){alert("Preencha título e texto.");return;}
+setOrientacoes([...lista,{id:"o_"+Date.now(),ic:"📄",titulo:af.titulo,texto:af.texto}]);
+setAddMod(false);setAf({titulo:"",texto:""});
+}
+function excluir(o){
+if(!window.confirm("Excluir a orientação \""+o.titulo+"\"?"))return;
+setOrientacoes(lista.filter(function(x){return x.id!==o.id;}));
+}
+return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>📖 Orientações</h2>
+<Btn ch="+ Nova Orientação" sm onClick={function(){setAf({titulo:"",texto:""});setAddMod(true);}}/>
+</div>
+<div style={{background:G.accent,borderRadius:12,padding:"10px 14px",fontSize:12,color:G.primary}}>
+Escolha o paciente para personalizar com o nome dele, depois abra a orientação e envie por WhatsApp ou imprima.
+</div>
+<PatSearch lb="Paciente (opcional)" val={patId} set={setPatId} pats={pats} optional/>
+{pat&&<div style={{fontSize:12,color:G.muted}}>Personalizado para: <strong style={{color:G.primary}}>{pat.name}</strong></div>}
+<div style={{display:"flex",flexDirection:"column",gap:9}}>
+{lista.map(function(o){
+var op=openId===o.id;
+var ed=editId===o.id;
+return <div key={o.id} style={{background:G.card,borderRadius:12,boxShadow:"0 1px 4px rgba(0,0,0,.07)",overflow:"hidden",borderLeft:"4px solid "+G.primary}}>
+<div onClick={function(){setOpenId(op?null:o.id);setEditId(null);}} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer"}}>
+<span style={{fontSize:18}}>{o.ic}</span>
+<span style={{flex:1,fontWeight:700,fontSize:13.5}}>{o.titulo}</span>
+<span style={{color:G.muted,fontSize:14,transform:op?"rotate(90deg)":"none",transition:"transform .2s"}}>▶</span>
+</div>
+{op&&<div style={{padding:"0 14px 14px"}}>
+{!ed?<>
+<div style={{background:G.bg,borderRadius:10,padding:"12px 14px",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap",color:G.text,borderTop:"1px solid "+G.border}}>{pers(o.texto)}</div>
+<div style={{display:"flex",gap:7,flexWrap:"wrap",marginTop:10}}>
+<button onClick={function(){enviarWA(o);}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"7px 13px",fontSize:12,fontWeight:700,cursor:"pointer"}}>📱 WhatsApp</button>
+<button onClick={function(){imprimir(o);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"7px 13px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🖨️ Imprimir</button>
+<button onClick={function(){setEditId(o.id);setEf({titulo:o.titulo,texto:o.texto});}} style={{background:"#fff",color:G.primary,border:"1.5px solid "+G.primary,borderRadius:8,padding:"7px 13px",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏️ Editar</button>
+<button onClick={function(){excluir(o);}} style={{background:"#fff",color:G.red,border:"1px solid "+G.red,borderRadius:8,padding:"7px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️</button>
+</div>
+</>:<div style={{display:"flex",flexDirection:"column",gap:9,borderTop:"1px solid "+G.border,paddingTop:12}}>
+<Inp lb="Título" val={ef.titulo} set={function(v){setEf(function(p){return {...p,titulo:v};});}}/>
+<div style={{display:"flex",flexDirection:"column",gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Texto (use {"{nome}"} para o nome do paciente)</label>
+<textarea value={ef.texto} onChange={function(e){setEf(function(p){return {...p,texto:e.target.value};});}} rows={12} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"10px 12px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"'DM Sans'",lineHeight:1.6}}/>
+</div>
+<div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+<button onClick={function(){setEditId(null);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 15px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+<button onClick={salvarEdit} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>💾 Salvar</button>
+</div>
+</div>}
+</div>}
+</div>;
+})}
+</div>
+{addMod&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
+<span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Nova Orientação</span>
+<button onClick={function(){setAddMod(false);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+</div>
+<div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+<Inp lb="Título" val={af.titulo} set={function(v){setAf(function(p){return {...p,titulo:v};});}} ph="Ex: Cuidados após clareamento"/>
+<div style={{display:"flex",flexDirection:"column",gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Texto (use {"{nome}"} para o nome do paciente)</label>
+<textarea value={af.texto} onChange={function(e){setAf(function(p){return {...p,texto:e.target.value};});}} rows={12} placeholder={"Olá, {nome}! ..."} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"10px 12px",fontSize:13,outline:"none",resize:"vertical",fontFamily:"'DM Sans'",lineHeight:1.6}}/>
+</div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid "+G.border}}>
+<button onClick={function(){setAddMod(false);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+<button onClick={salvarNova} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>💾 Salvar</button>
+</div>
+</div>
+</div>
+</div>}
+</div>;
+}
+
+
 export default function App(){
 const [user,setUser]=useState(null);const [view,setView]=useState("dash");
 const [agendaSelDate,setAgendaSelDate]=useState(today());
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [waTemplates,setWaTemplates]=useState({});
+const [orientacoes,setOrientacoes]=useState(ORIENT_DEFAULT);
 const [semTicks,setSemTicks]=useState({});
 const [anivTicks,setAnivTicks]=useState({});
 const [pacsTicks,setPacsTicks]=useState({});
@@ -7243,6 +7382,7 @@ if(data.impl?.length&&data.impl.length>10)setImpl(data.impl);else setImpl(IMPL_D
 if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
+if(data.orientacoes)setOrientacoes(data.orientacoes);
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);
 if(data.waAuto)setWaAuto(data.waAuto);
 if(data.waSent)setWaSent(data.waSent);
@@ -7334,7 +7474,7 @@ useEffect(function(){
         }
       }
     }catch(e){}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -7461,6 +7601,7 @@ useEffect(function(){
       if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
       if(sd.implCat)setImplCat(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implCat)?prev:sd.implCat;});
       if(sd.implMov)setImplMov(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implMov)?prev:sd.implMov;});
+      if(sd.orientacoes)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
       lastServerTs.current=fresh.updated_at;
     }catch(e){}
   },15000);
@@ -7641,7 +7782,7 @@ const ALL_NAV=[
 {id:"impl",l:"🔩 Implantes",lv:2},{id:"lems",l:"📌 Lembretes",lv:1,b:remBadge},
 {id:"fin",l:"💰 Financeiro",lv:3},{id:"pixdent",l:"💸 Pix Dentistas",lv:1},{id:"rel",l:"📊 Relatórios",lv:2},
 {id:"desp",l:"💸 Gastos",lv:3},{id:"stk",l:"📦 Estoque",lv:2},
-{id:"rec",l:"📋 Receituário",lv:1},{id:"pdent",l:"💰 Recebimentos",lv:1},{id:"audit",l:"🔍 Auditoria",lv:3},{id:"adm",l:"⚙️ Administrativo",lv:3},
+{id:"rec",l:"📋 Receituário",lv:1},{id:"orient",l:"📖 Orientações",lv:1},{id:"pdent",l:"💰 Recebimentos",lv:1},{id:"audit",l:"🔍 Auditoria",lv:3},{id:"adm",l:"⚙️ Administrativo",lv:3},
 ];
 const NAV=ALL_NAV.filter(n=>n.lv<=user.level);
 const go=v=>{
@@ -7717,6 +7858,7 @@ return <>
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
+    {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={setOrientacoes} user={user}/>}
     {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog}/>}
     </div>
