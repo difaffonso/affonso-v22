@@ -7425,12 +7425,15 @@ const lastLocalChangeTs=useRef(0);
 const lastSaveFailed=useRef(false);
 const delAptsRef=useRef([]);
 const lastSavedApptIds=useRef(null);
+const dirtyRef=useRef(false);
 useEffect(function(){
   if(!initialized.current)return;
   lastLocalChangeTs.current=Date.now();
+  dirtyRef.current=true;
   if(saveTimer.current)clearTimeout(saveTimer.current);
   setSaveStatus("saving");
   var doSave=async function(){
+    var _editAtStart=lastLocalChangeTs.current;
     // detectar exclusoes/recriacoes de agendamentos desde a ultima sincronizacao
     if(lastSavedApptIds.current){
       var _cur={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_cur[a.id]=true;});
@@ -7488,6 +7491,7 @@ useEffect(function(){
           // Atualizar timestamp do servidor para o nosso
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
+          if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
           ok=true;
         }
       }catch(e){}
@@ -7524,7 +7528,7 @@ useEffect(function(){
       isSaving.current=false;
     }
   },800);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,pacsTicks,gastos,waAuto,waSent,waAutoLog]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,gastos,waAuto,waSent,waAutoLog]);
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -7552,6 +7556,7 @@ useEffect(function(){
 useEffect(function(){
   var poll=setInterval(async function(){
     if(!initialized.current||isSaving.current||pendingSave.current||lastSaveFailed.current||document.hidden)return;
+    if(dirtyRef.current)return;
     if(Date.now()-lastLocalChangeTs.current<12000)return;
     try{
       var serverTs=await supabase.getTimestamp();
