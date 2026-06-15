@@ -4701,7 +4701,7 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
 // ══════════════════════════════════════════════════════════
 // ESTOQUE
 // ══════════════════════════════════════════════════════════
-function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog}){
+function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
@@ -4714,7 +4714,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <button onClick={function(){setStkTab("material");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="material"?"#fff":G.bg,color:stkTab==="material"?G.primary:G.muted,boxShadow:stkTab==="material"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"📦 Material"}</button>
 <button onClick={function(){setStkTab("implantes");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="implantes"?"#fff":G.bg,color:stkTab==="implantes"?G.primary:G.muted,boxShadow:stkTab==="implantes"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"🦷 Implantes"}</button>
 </div>
-{stkTab==="implantes"&&<ImplantesConsig implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={addLog}/>}
+{stkTab==="implantes"&&<ImplantesConsig implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={addLog} user={user}/>}
 {stkTab==="material"&&<>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Estoque</h2>
@@ -6450,7 +6450,7 @@ disabled={!canSave} style={{background:canSave?"#7B1FA2":"#ccc",color:"#fff",bor
 );
 }
 
-function ImplantesConsig({implCat,setImplCat,implMov,setImplMov,pats,dents,addLog}){
+function ImplantesConsig({implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user}){
 var t=today();
 var [aba,setAba]=useState("estoque");
 var [showCat,setShowCat]=useState(false);
@@ -6540,12 +6540,15 @@ return(
 {movsDoMes.length===0&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>Nenhuma movimentacao neste mes</div>}
 {movsDoMes.sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(m){return(
 <div key={m.id} style={{background:G.card,borderRadius:10,padding:"10px 12px",borderLeft:"4px solid "+(m.tipo==="entrada"?"#27AE60":G.red)}}>
-<div style={{display:"flex",justifyContent:"space-between"}}>
-<div>
-<div style={{fontSize:12,fontWeight:700,color:m.tipo==="entrada"?"#27AE60":G.red}}>{m.tipo==="entrada"?"Entrada":"Saida"}+" "+m.qty+"x "+m.itemName</div>
+<div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+<div style={{flex:1}}>
+<div style={{fontSize:12,fontWeight:700,color:m.tipo==="entrada"?"#27AE60":G.red}}>{(m.tipo==="entrada"?"Entrada":"Saida")+" "+m.qty+"x "+m.itemName}</div>
 {m.tipo==="saida"&&<div style={{fontSize:11,color:G.muted}}>{m.patName+" - Dente "+m.dente+(m.dentName?" - "+m.dentName:"")}</div>}
 </div>
+<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
 <div style={{fontSize:11,color:G.muted}}>{fmt(m.date)}</div>
+{user&&user.level>=3&&<button onClick={function(){if(window.confirm("Excluir esta movimentacao? O estoque sera corrigido automaticamente."))setImplMov(function(prev){return prev.filter(function(x){return x.id!==m.id;});});}} style={{border:"none",background:G.red,color:"#fff",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{"Excluir"}</button>}
+</div>
 </div>
 </div>
 );})}
@@ -6564,15 +6567,17 @@ return(
 {implCat.map(function(item){
 var saidas=movsDoMes.filter(function(m){return m.tipo==="saida"&&m.itemId===item.id;});
 if(saidas.length===0)return null;
+var qtdTotal=saidas.reduce(function(s,m){return s+Number(m.qty||0);},0);
 return(
 <div key={item.id} style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,alignItems:"center",gap:8}}>
 <div style={{fontWeight:700,fontSize:13,flex:1}}>{item.desc}</div>
-<div style={{textAlign:"right"}}><div style={{fontWeight:800,color:G.red}}>{saidas.length+"x"}</div>{Number(item.preco)>0&&<div style={{fontSize:11,color:G.primary,fontWeight:700}}>{cur(item.preco*saidas.length)}</div>}</div>
+<div style={{textAlign:"right"}}><div style={{fontWeight:800,color:G.red}}>{qtdTotal+"x"}</div>{Number(item.preco)>0&&<div style={{fontSize:11,color:G.primary,fontWeight:700}}>{cur(item.preco*qtdTotal)}</div>}</div>
 </div>
 {saidas.map(function(s){return(
-<div key={s.id} style={{fontSize:11,color:G.muted,padding:"3px 0",borderBottom:"1px solid "+G.border}}>
-{fmt(s.date)+" - "+s.patName+" - Dente "+s.dente+(s.dentName?" - "+s.dentName:"")}
+<div key={s.id} style={{fontSize:11,color:G.muted,padding:"4px 0",borderBottom:"1px solid "+G.border,display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
+<span style={{flex:1}}>{fmt(s.date)+" - "+s.patName+" - Dente "+s.dente+(s.dentName?" - "+s.dentName:"")+(Number(s.qty)>1?" ("+s.qty+" pecas)":"")}</span>
+{user&&user.level>=3&&<button onClick={function(){if(window.confirm("Excluir esta movimentacao? O estoque sera corrigido automaticamente."))setImplMov(function(prev){return prev.filter(function(x){return x.id!==s.id;});});}} style={{border:"none",background:G.red,color:"#fff",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>{"Excluir"}</button>}
 </div>
 );})}
 </div>
@@ -7861,7 +7866,7 @@ return <>
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
-      {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog}/>}
+      {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
