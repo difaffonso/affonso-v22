@@ -818,6 +818,9 @@ const [atCid,setAtCid]=useState("");
 const [atObs,setAtObs]=useState("");
 const [atTextoEdit,setAtTextoEdit]=useState("");
 const [atEditMode,setAtEditMode]=useState(false);
+const [atModo,setAtModo]=useState("dias");
+const [atHoraIni,setAtHoraIni]=useState("08:00");
+const [atHoraFim,setAtHoraFim]=useState("12:00");
 const [nfEdit,setNfEdit]=useState(null);
 const [confirmDel,setConfirmDel]=useState(null); // {type,id,label}
 const blankNF={date:today(),number:"",payer:"empresa",payerName:"",payerCnpj:"",dentistId:"",procedure:"",value:"",tax:"",notes:"",status:"pending"};
@@ -1329,7 +1332,12 @@ return <>
   var diasExtenso=["","um","dois","três","quatro","cinco","seis","sete","oito","nove","dez"];
   var diasTxt=diasNum===1?"1 (um) dia":diasNum+"("+(diasExtenso[diasNum]||diasNum)+") dias";
   var cidTxt=atCid?" (CID: "+atCid+")":"";
-  var textoBase="Atesto para os devidos fins que o(a) paciente "+pat.name.toUpperCase()+", portador(a) do CPF "+(pat.cpf||"___.___.___-__")+", esteve sob meus cuidados odontológicos"+cidTxt+" e necessita de afastamento de suas atividades pelo período de "+diasTxt+", a contar desta data.";
+  var textoBase;
+  if(atModo==="horas"){
+  textoBase="Atesto para os devidos fins que o(a) paciente "+pat.name.toUpperCase()+", portador(a) do CPF "+(pat.cpf||"___.___.___-__")+", esteve sob meus cuidados odontológicos"+cidTxt+" no dia "+hoje2+", necessitando de afastamento de suas atividades no período das "+(atHoraIni||"00:00")+" às "+(atHoraFim||"00:00")+".";
+  }else{
+  textoBase="Atesto para os devidos fins que o(a) paciente "+pat.name.toUpperCase()+", portador(a) do CPF "+(pat.cpf||"___.___.___-__")+", esteve sob meus cuidados odontológicos"+cidTxt+" e necessita de afastamento de suas atividades pelo período de "+diasTxt+", a contar desta data.";
+  }
   var textoFinal=atEditMode?atTextoEdit:textoBase;
   if(showAtestado){return(
     <div style={{position:"fixed",inset:0,zIndex:9999,background:"#f5f0e8",overflowY:"auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"20px 16px"}}>
@@ -1395,14 +1403,37 @@ return <>
   );}
   return <div style={{display:"flex",flexDirection:"column",gap:14}}>
     <span style={{fontWeight:700,fontSize:15,color:G.primary}}>{"📄 Atestado Odontológico"}</span>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-      <div style={{display:"flex",flexDirection:"column",gap:4}}>
-        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Dias de Afastamento</label>
-        <input type="number" min="1" max="30" value={atDias} onChange={function(e){setAtDias(e.target.value);setAtEditMode(false);}}
-          style={{border:"1.5px solid "+G.primary,borderRadius:8,padding:"9px 12px",fontSize:18,fontWeight:700,color:G.primary,outline:"none",textAlign:"center"}}/>
-      </div>
-      <Inp lb="Data" val={atData} set={function(v){setAtData(v);setAtEditMode(false);}} type="date"/>
+    <div style={{display:"flex",gap:8}}>
+      {[["dias","📅 Por Dias"],["horas","🕐 Por Horas"]].map(function(opt){return (
+        <button key={opt[0]} onClick={function(){setAtModo(opt[0]);setAtEditMode(false);}}
+          style={{flex:1,border:"2px solid "+(atModo===opt[0]?G.primary:G.border),background:atModo===opt[0]?G.primary:"#fff",color:atModo===opt[0]?"#fff":G.muted,borderRadius:10,padding:"10px 8px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{opt[1]}</button>
+      );})}
     </div>
+    {atModo==="horas"
+      ?<div style={{display:"flex",flexDirection:"column",gap:11}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Das (início)</label>
+            <input type="time" value={atHoraIni} onChange={function(e){setAtHoraIni(e.target.value);setAtEditMode(false);}}
+              style={{border:"1.5px solid "+G.primary,borderRadius:8,padding:"9px 12px",fontSize:16,fontWeight:700,color:G.primary,outline:"none",textAlign:"center"}}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Às (término)</label>
+            <input type="time" value={atHoraFim} onChange={function(e){setAtHoraFim(e.target.value);setAtEditMode(false);}}
+              style={{border:"1.5px solid "+G.primary,borderRadius:8,padding:"9px 12px",fontSize:16,fontWeight:700,color:G.primary,outline:"none",textAlign:"center"}}/>
+          </div>
+        </div>
+        <Inp lb="Data" val={atData} set={function(v){setAtData(v);setAtEditMode(false);}} type="date"/>
+      </div>
+      :<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Dias de Afastamento</label>
+          <input type="number" min="1" max="30" value={atDias} onChange={function(e){setAtDias(e.target.value);setAtEditMode(false);}}
+            style={{border:"1.5px solid "+G.primary,borderRadius:8,padding:"9px 12px",fontSize:18,fontWeight:700,color:G.primary,outline:"none",textAlign:"center"}}/>
+        </div>
+        <Inp lb="Data" val={atData} set={function(v){setAtData(v);setAtEditMode(false);}} type="date"/>
+      </div>
+    }
     <Inp lb="CID (opcional)" val={atCid} set={function(v){setAtCid(v);setAtEditMode(false);}} ph="Ex: K08.1"/>
     <div style={{display:"flex",flexDirection:"column",gap:4}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
