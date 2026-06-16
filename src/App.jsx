@@ -7003,7 +7003,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // AUDITORIA — central de controle (só Admin, leitura)
 // ══════════════════════════════════════════════════════════
-function Auditoria({pats,appts,recs,treats,pros,espera,stock,implCat,implMov,rems,users,dents,pacsTicks,waSent,remarcar,setView,user}){
+function Auditoria({pats,appts,recs,treats,pros,espera,stock,implCat,implMov,rems,users,dents,pacsTicks,waSent,remarcar,setView,user,auditDismiss,setAuditDismiss}){
 var [audOpen,setAudOpen]=useState({});
 var audToggle=function(id){setAudOpen(function(p){var n=Object.assign({},p);n[id]=!n[id];return n;});};
 if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><p style={{color:G.red,fontSize:15}}>🔒 Acesso restrito ao Administrador</p></div>;
@@ -7020,48 +7020,48 @@ function diasDe(ds){return Math.floor((new Date(t+"T12:00")-new Date(ds+"T12:00"
 function nomeP(id){var p=pats.find(function(x){return x.id===id;});return p?p.name:"Paciente";}
 
 // 1. Aniversariantes sem parabéns (ontem/hoje)
-var aniv=pats.filter(function(p){return (isBdayOn(p,t)||isBdayOn(p,ont))&&!bdayDone(p);}).map(function(p){return {nome:p.name,det:"Aniversário "+(p.dob?fmt(p.dob).slice(0,5):"")+(isBdayOn(p,t)?" · hoje 🎉":" · ontem")};});
+var aniv=pats.filter(function(p){return (isBdayOn(p,t)||isBdayOn(p,ont))&&!bdayDone(p);}).map(function(p){return {nome:p.name,det:"Aniversário "+(p.dob?fmt(p.dob).slice(0,5):"")+(isBdayOn(p,t)?" · hoje 🎉":" · ontem"),key:"aniv_"+p.id};});
 
 // 2. Anamnese pendente (passou em consulta sem anamnese)
 var seenAn={};var anamPend=[];
-appts.filter(function(a){return a.date<=ont&&a.date>=d14&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled"&&!a.blocked;}).sort(function(a,b){return b.date.localeCompare(a.date);}).forEach(function(a){var p=pats.find(function(x){return x.id===a.patientId;});if(p&&!hasAnam(p)&&!seenAn[p.id]){seenAn[p.id]=1;anamPend.push({nome:p.name,det:"Consulta em "+fmt(a.date)+" · sem anamnese"});}});
+appts.filter(function(a){return a.date<=ont&&a.date>=d14&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled"&&!a.blocked;}).sort(function(a,b){return b.date.localeCompare(a.date);}).forEach(function(a){var p=pats.find(function(x){return x.id===a.patientId;});if(p&&!hasAnam(p)&&!seenAn[p.id]){seenAn[p.id]=1;anamPend.push({nome:p.name,det:"Consulta em "+fmt(a.date)+" · sem anamnese",key:"anam_"+p.id});}});
 
 // 3. Próteses atrasadas
-var protAtras=pros.filter(function(pr){return pr.status==="waiting"&&pr.due&&pr.due<t;}).sort(function(a,b){return a.due.localeCompare(b.due);}).map(function(pr){return {nome:nomeP(pr.patientId),det:(pr.type||"Prótese")+" · previsão "+fmt(pr.due)+" · "+diasDe(pr.due)+" dia(s) atrasada"};});
+var protAtras=pros.filter(function(pr){return pr.status==="waiting"&&pr.due&&pr.due<t;}).sort(function(a,b){return a.due.localeCompare(b.due);}).map(function(pr){return {nome:nomeP(pr.patientId),det:(pr.type||"Prótese")+" · previsão "+fmt(pr.due)+" · "+diasDe(pr.due)+" dia(s) atrasada",key:"prot_"+pr.id};});
 
 // 4. Faltas/cancelamentos sem remarcar nem motivo
 var remApptIds={};(remarcar||[]).forEach(function(r){if(r.apptId)remApptIds[r.apptId]=1;});
 var seenRm={};var remarcarPend=[];
-appts.filter(function(a){if(a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled")return false;if(a.noRebook)return false;if(a.date<d30)return false;if(remApptIds[a.id])return false;var fut=appts.some(function(b){return b.patientId===a.patientId&&b.id!==a.id&&b.date>=t&&b.status!=="cancelled"&&b.status!=="missed"&&b.status!=="rescheduled";});return !fut;}).sort(function(a,b){return b.date.localeCompare(a.date);}).forEach(function(a){if(seenRm[a.patientId])return;seenRm[a.patientId]=1;remarcarPend.push({nome:nomeP(a.patientId),det:(a.status==="missed"?"Faltou":a.status==="rescheduled"?"Desmarcou":"Cancelou")+" em "+fmt(a.date)+" · sem remarcar"});});
+appts.filter(function(a){if(a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled")return false;if(a.noRebook)return false;if(a.date<d30)return false;if(remApptIds[a.id])return false;var fut=appts.some(function(b){return b.patientId===a.patientId&&b.id!==a.id&&b.date>=t&&b.status!=="cancelled"&&b.status!=="missed"&&b.status!=="rescheduled";});return !fut;}).sort(function(a,b){return b.date.localeCompare(a.date);}).forEach(function(a){if(seenRm[a.patientId])return;seenRm[a.patientId]=1;remarcarPend.push({nome:nomeP(a.patientId),det:(a.status==="missed"?"Faltou":a.status==="rescheduled"?"Desmarcou":"Cancelou")+" em "+fmt(a.date)+" · sem remarcar",key:"remarcar_"+a.id});});
 
 // 5. Confirmações pendentes (hoje/amanhã ainda "Pendente")
-var confPend=appts.filter(function(a){return (a.date===t||a.date===amanha)&&a.status==="pending";}).sort(function(a,b){return (a.date+a.time).localeCompare(b.date+b.time);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.date===t?"Hoje":"Amanhã")+" "+a.time+" · "+(a.procedure||"")+" · não confirmada"};});
+var confPend=appts.filter(function(a){return (a.date===t||a.date===amanha)&&a.status==="pending";}).sort(function(a,b){return (a.date+a.time).localeCompare(b.date+b.time);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.date===t?"Hoje":"Amanhã")+" "+a.time+" · "+(a.procedure||"")+" · não confirmada",key:"conf_"+a.id};});
 
 // 6. Baixas financeiras em aberto (atendimento feito sem pagamento)
 function hasBaixa(a){return recs.some(function(r){return (r.apptId===a.id)||(r.patientId===a.patientId&&r.date===a.date&&Number(r.paid)>0);});}
-var baixaPend=appts.filter(function(a){return a.status==="done"&&Number(a.value)>0&&a.date<=ont&&a.date>=d14&&!hasBaixa(a);}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Atendimento")+" em "+fmt(a.date)+" · "+cur(a.value)+" sem baixa"};});
+var baixaPend=appts.filter(function(a){return a.status==="done"&&Number(a.value)>0&&a.date<=ont&&a.date>=d14&&!hasBaixa(a);}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Atendimento")+" em "+fmt(a.date)+" · "+cur(a.value)+" sem baixa",key:"baixa_"+a.id};});
 
 // 7. Controle semestral (+6 meses sem consulta, sem agendamento)
-var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(mo6(last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:"Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias"};});
+var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(mo6(last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:"Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias",key:"sem_"+p.id};});
 
 // 8. Lista de espera vencendo/vencida
-var esperaVenc=(espera||[]).filter(function(e){return e.valido&&e.valido<=amanha;}).sort(function(a,b){return a.valido.localeCompare(b.valido);}).map(function(e){return {nome:e.patName||nomeP(e.patientId),det:(e.proc||"")+" · "+(e.valido<t?"VENCIDO em "+fmt(e.valido):e.valido===t?"vence HOJE":"vence amanhã")};});
+var esperaVenc=(espera||[]).filter(function(e){return e.valido&&e.valido<=amanha;}).sort(function(a,b){return a.valido.localeCompare(b.valido);}).map(function(e){return {nome:e.patName||nomeP(e.patientId),det:(e.proc||"")+" · "+(e.valido<t?"VENCIDO em "+fmt(e.valido):e.valido===t?"vence HOJE":"vence amanhã"),key:"espera_"+(e.id||e.patientId)};});
 
 // 9. Estoque baixo (material + implantes)
 var estBaixo=[];
-stock.filter(function(s){return Number(s.qty)<=Number(s.min);}).forEach(function(s){estBaixo.push({nome:s.name,det:"Material · "+s.qty+" "+(s.unit||"un")+" (mín "+s.min+")"});});
+stock.filter(function(s){return Number(s.qty)<=Number(s.min);}).forEach(function(s){estBaixo.push({nome:s.name,det:"Material · "+s.qty+" "+(s.unit||"un")+" (mín "+s.min+")",key:"estM_"+s.id});});
 var implStock={};(implMov||[]).forEach(function(m){if(!implStock[m.itemId])implStock[m.itemId]=0;if(m.tipo==="entrada")implStock[m.itemId]+=Number(m.qty);else implStock[m.itemId]-=Number(m.qty);});
-(implCat||[]).forEach(function(it){var q=implStock[it.id]||0;if(q<=Number(it.estoque_min||0))estBaixo.push({nome:it.desc,det:"Implante · "+q+" un (mín "+(it.estoque_min||0)+")"});});
+(implCat||[]).forEach(function(it){var q=implStock[it.id]||0;if(q<=Number(it.estoque_min||0))estBaixo.push({nome:it.desc,det:"Implante · "+q+" un (mín "+(it.estoque_min||0)+")",key:"estI_"+it.id});});
 
 // 10. Pós-cirúrgico (cirurgia ontem, sem contato automático)
-var posCir=appts.filter(function(a){return a.date===ont&&(a.status==="done"||a.status==="confirmed")&&isCir(a.procedure)&&!(waSent&&waSent["pc_"+a.id]);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Cirurgia")+" ontem · sem contato"};});
+var posCir=appts.filter(function(a){return a.date===ont&&(a.status==="done"||a.status==="confirmed")&&isCir(a.procedure)&&!(waSent&&waSent["pc_"+a.id]);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Cirurgia")+" ontem · sem contato",key:"poscir_"+a.id};});
 
 // 11. Orçamentos lançados e não enviados/impressos
-var orcPend=treats.filter(function(tt){var st=tt.orcStatus||"espera";return st==="espera"&&!tt.orcEnviado&&tt.start&&tt.start<=ont&&tt.start>=d30;}).sort(function(a,b){return b.start.localeCompare(a.start);}).map(function(tt){return {nome:nomeP(tt.patientId),det:(tt.name||"Plano")+" · lançado em "+fmt(tt.start)+" · não enviado"};});
+var orcPend=treats.filter(function(tt){var st=tt.orcStatus||"espera";return st==="espera"&&!tt.orcEnviado&&tt.start&&tt.start<=ont&&tt.start>=d30;}).sort(function(a,b){return b.start.localeCompare(a.start);}).map(function(tt){return {nome:nomeP(tt.patientId),det:(tt.name||"Plano")+" · lançado em "+fmt(tt.start)+" · não enviado",key:"orc_"+tt.id};});
 
 // 12. Recados/tarefas não cumpridos
 function nomeFunc(uid){var u=users.find(function(x){return x.id===uid;});return u?u.name.split(" ")[0]:"Geral";}
-var recados=(rems||[]).filter(function(r){return !r.done&&r.date&&r.date<t;}).sort(function(a,b){return a.date.localeCompare(b.date);}).map(function(r){return {nome:r.title,det:"Para "+nomeFunc(r.assignedUserId)+" · "+fmt(r.date)+" · "+diasDe(r.date)+" dia(s) parado"+(r.patientId?" · "+nomeP(r.patientId):"")};});
+var recados=(rems||[]).filter(function(r){return !r.done&&r.date&&r.date<t;}).sort(function(a,b){return a.date.localeCompare(b.date);}).map(function(r){return {nome:r.title,det:"Para "+nomeFunc(r.assignedUserId)+" · "+fmt(r.date)+" · "+diasDe(r.date)+" dia(s) parado"+(r.patientId?" · "+nomeP(r.patientId):""),key:"recado_"+r.id};});
 
 var SEC=[
 {id:"conf",ic:"📲",t:"Confirmações pendentes",col:G.blue,view:"agenda",items:confPend},
@@ -7077,6 +7077,8 @@ var SEC=[
 {id:"semestral",ic:"📅",t:"Controle semestral pendente",col:G.orange,view:"lems",items:semestral},
 {id:"estoque",ic:"📦",t:"Estoque baixo",col:G.red,view:"stk",items:estBaixo},
 ];
+SEC=SEC.map(function(s){return Object.assign({},s,{items:s.items.filter(function(it){return !(auditDismiss&&it.key&&auditDismiss[it.key]&&auditDismiss[it.key].done);})});});
+var nExcl=Object.keys(auditDismiss||{}).filter(function(k){return auditDismiss[k]&&auditDismiss[k].done;}).length;
 var total=SEC.reduce(function(s,x){return s+x.items.length;},0);
 var SecRow=function(props){
 var sec=props.sec;
@@ -7100,6 +7102,7 @@ return <div style={{background:G.card,borderRadius:12,boxShadow:"0 1px 4px rgba(
 <div style={{fontWeight:700,fontSize:12.5}}>{it.nome}</div>
 <div style={{fontSize:11,color:G.muted,marginTop:1}}>{it.det}</div>
 </div>
+{it.key&&<button onClick={function(){setAuditDismiss(function(prev){var nn=Object.assign({},prev||{});nn[it.key]={done:true,ts:Date.now(),by:(user&&user.name)||""};return nn;});}} title="Excluir da auditoria" style={{border:"none",background:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"2px 4px",flexShrink:0,alignSelf:"flex-start"}}>✕</button>}
 </div>;})}
 {n>capped.length&&<div style={{fontSize:11,color:G.muted,textAlign:"center",padding:"4px 0"}}>{"+ "+(n-capped.length)+" outro(s)"}</div>}
 <button onClick={function(){setView(sec.view);}} style={{alignSelf:"flex-start",background:"none",border:"1px solid "+G.border,borderRadius:8,padding:"5px 12px",fontSize:11,fontWeight:700,color:G.muted,cursor:"pointer",marginTop:2}}>{"Abrir tela →"}</button>
@@ -7128,6 +7131,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
 </div>
 </div>}
 {SEC.map(function(sec){return <SecRow key={sec.id} sec={sec} open={!!audOpen[sec.id]} toggle={audToggle}/>;})}
+{nExcl>0&&<div style={{display:"flex",justifyContent:"center"}}><button onClick={function(){setAuditDismiss({});}} style={{background:"none",border:"1px solid "+G.border,borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,color:G.muted,cursor:"pointer"}}>{"↩ Restaurar "+nExcl+" excluido(s)"}</button></div>}
 <div style={{fontSize:11,color:G.muted,textAlign:"center",padding:"6px 0 2px"}}>Auditoria é apenas para acompanhamento. As ações são executadas nas telas de cada setor.</div>
 </div>;
 }
@@ -7278,7 +7282,7 @@ const [waTemplates,setWaTemplates]=useState({});
 const [orientacoes,setOrientacoes]=useState(ORIENT_DEFAULT);
 const [semTicks,setSemTicks]=useState({});
 const [anivTicks,setAnivTicks]=useState({});
-const [pacsTicks,setPacsTicks]=useState({});
+const [pacsTicks,setPacsTicks]=useState({});const [auditDismiss,setAuditDismiss]=useState({});
 const [waAuto,setWaAuto]=useState({});const [waSent,setWaSent]=useState({});const [waAutoLog,setWaAutoLog]=useState([]);
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
@@ -7423,7 +7427,7 @@ if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
 if(data.orientacoes)setOrientacoes(data.orientacoes);
-if(data.pacsTicks)setPacsTicks(data.pacsTicks);
+if(data.pacsTicks)setPacsTicks(data.pacsTicks);if(data.auditDismiss)setAuditDismiss(data.auditDismiss);
 if(data.waAuto)setWaAuto(data.waAuto);
 if(data.waSent)setWaSent(data.waSent);
 if(data.waAutoLog)setWaAutoLog(data.waAutoLog);
@@ -7517,7 +7521,7 @@ useEffect(function(){
         }
       }
     }catch(e){}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -7566,7 +7570,7 @@ useEffect(function(){
       isSaving.current=false;
     }
   },800);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,gastos,waAuto,waSent,waAutoLog]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog]);
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -7641,7 +7645,7 @@ useEffect(function(){
       if(sd.prosProcs)setProsProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.prosProcs)?prev:sd.prosProcs;});
       if(sd.espera)setEspera(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.espera)?prev:sd.espera;});
       if(sd.remarcar)setRemarcar(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.remarcar)?prev:sd.remarcar;});
-      if(sd.pacsTicks)setPacsTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.pacsTicks)?prev:sd.pacsTicks;});
+      if(sd.pacsTicks)setPacsTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.pacsTicks)?prev:sd.pacsTicks;});if(sd.auditDismiss)setAuditDismiss(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.auditDismiss)?prev:sd.auditDismiss;});
       if(sd.semTicks)setSemTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.semTicks)?prev:sd.semTicks;});
       if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
       if(sd.implCat)setImplCat(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implCat)?prev:sd.implCat;});
@@ -7904,7 +7908,7 @@ return <>
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={setOrientacoes} user={user}/>}
-    {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user}/>}
+    {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog}/>}
     </div>
   </div>
