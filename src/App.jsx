@@ -4337,7 +4337,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // PACS TAB -- Patient reports component
 // ══════════════════════════════════════════════════════════
-function PacsTab({pats,recs,treats,appts,dents,mo,user,pacsTicks,setPacsTicks}){
+function PacsTab({pats,recs,treats,appts,dents,mo,user,pacsTicks,setPacsTicks,abrirFicha}){
   const t=today();
   const tDate=new Date(t+"T12:00");
   const weekEnd=new Date(tDate);weekEnd.setDate(tDate.getDate()+7);
@@ -4398,7 +4398,7 @@ return <div style={{background:overdue||todayB?"#FDECEA":G.card,borderRadius:10,
 
 <div style={{flex:1}}>
 {overdue&&<div style={{display:"inline-block",background:G.red,color:"#fff",borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700,marginBottom:3}}>⚠️ ATRASADO</div>}
-<div style={{fontWeight:700,fontSize:13,color:overdue||todayB?G.red:G.text}}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {p.folder}</span></div>
+<div style={{fontWeight:700,fontSize:13}}><span onClick={function(){abrirFicha&&abrirFicha(p);}} title="Abrir ficha clínica" style={{color:overdue||todayB?G.red:G.primary,cursor:"pointer",textDecoration:"underline"}}>{p.name}</span><span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {p.folder}</span></div>
 {extra&&<div style={{fontSize:11,color:overdue?G.red:G.muted,marginTop:1,fontWeight:overdue?700:400}}>{extra}</div>}
 {d&&<div style={{fontSize:10,color:d.color,marginTop:1}}>👨‍⚕️ {d.name}</div>}
 
@@ -4485,7 +4485,7 @@ return <div key={"d"+(sec.isTreat?x.id:p.id)} style={{background:"#f0faf4",borde
 // ══════════════════════════════════════════════════════════
 // RELATÓRIOS
 // ══════════════════════════════════════════════════════════
-function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks}){
+function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha}){
 const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [openOrto,setOpenOrto]=useState({});const [openDent,setOpenDent]=useState({});const [openProt,setOpenProt]=useState({});
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
@@ -4696,7 +4696,7 @@ return <>
 {orcs.slice().sort((a,b)=>(b.start||"").localeCompare(a.start||"")).map(t=>{var pat=pats.find(p=>p.id===t.patientId);var den=dents.find(d=>String(d.id)===String(t.dentistId));var sv=stOf(t);var v=dispVal(t);var tt=totOf(t);
 return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+STCOLOR[sv]}}>
 <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
-<div><div style={{fontWeight:700,fontSize:13}}>{pat?pat.name:"--"}</div><div style={{fontSize:11,color:G.muted}}>{fmt(t.start)}{den?(" · "+den.name):""}{t.name?(" · "+t.name):""}</div></div>
+<div><div onClick={function(){if(pat)abrirFicha&&abrirFicha(pat);}} title={pat?"Abrir ficha clínica":""} style={{fontWeight:700,fontSize:13,color:pat?G.primary:G.text,cursor:pat?"pointer":"default",textDecoration:pat?"underline":"none",display:"inline-block"}}>{pat?pat.name:"--"}</div><div style={{fontSize:11,color:G.muted}}>{fmt(t.start)}{den?(" · "+den.name):""}{t.name?(" · "+t.name):""}</div></div>
 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:3}}><div style={{display:"flex",gap:7,alignItems:"center"}}><Bdg l={BADGE[sv]} col={STCOLOR[sv]} sm/><span style={{fontWeight:700,color:G.primary}}>{cur(v)}</span></div>{sv==="parcial"&&<span style={{fontSize:10,color:G.blue,fontWeight:700}}>{"pago · de "+cur(tt)}</span>}</div>
 </div>
 {sv==="naofechado"&&t.orcMotivo&&<div style={{fontSize:11,color:G.red,marginTop:5,fontWeight:600}}>Motivo: {t.orcMotivo}{(t.orcMotivo==="Outro"&&t.orcMotivoObs)?(" — "+t.orcMotivoObs):""}</div>}
@@ -4789,7 +4789,7 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
 </div>}
 
 {/* ── PACIENTES ── */}
-{tab==="pacs"&&<PacsTab pats={pats} recs={recs} treats={treats} appts={appts} dents={dents} mo={mo} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
+{tab==="pacs"&&<PacsTab pats={pats} recs={recs} treats={treats} appts={appts} dents={dents} mo={mo} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
 
 {/* ── WHATSAPP ── */}
 {tab==="msg"&&<MsgTab pats={pats} selMsg={selMsg} setSelMsg={setSelMsg} selPatsMsg={selPatsMsg} setSelPatsMsg={setSelPatsMsg} allSelMsg={allSelMsg} setAllSelMsg={setAllSelMsg} waTemplates={waTemplates} setWaTemplates={setWaTemplates} user={user}/>}
@@ -6388,7 +6388,7 @@ style={{background:motivo?G.primary:"#ccc",color:"#fff",border:"none",borderRadi
 );
 }
 
-function RemarcarView({appts,setAppts,pats,dents,remarcar,setRemarcar}){
+function RemarcarView({appts,setAppts,pats,dents,remarcar,setRemarcar,abrirFicha}){
 var t=today();
 var [selMot,setSelMot]=useState(null);
 var [outroTxt,setOutroTxt]=useState("");
@@ -6427,7 +6427,7 @@ if(!p)return null;
 var isMot=selMot===a.id;
 return(
 <div key={a.id} style={{background:G.card,borderRadius:14,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.06)",borderLeft:"4px solid "+(a.status==="missed"?G.red:"#FF9800")}}>
-<div style={{fontWeight:700,fontSize:14}}>{p.name}</div>
+<div onClick={function(){abrirFicha&&abrirFicha(p);}} title="Abrir ficha clínica" style={{fontWeight:700,fontSize:14,color:G.primary,cursor:"pointer",textDecoration:"underline",display:"inline-block"}}>{p.name}</div>
 <div style={{fontSize:12,color:G.muted,marginTop:2}}>{a.procedure+" · "+d.name}</div>
 <div style={{fontSize:11,fontWeight:600,color:a.status==="missed"?G.red:"#FF9800",marginBottom:10}}>{(a.status==="missed"?"🚫 Faltou":a.status==="rescheduled"?"🔄 Desmarcou":"❌ Cancelou")+" em "+fmt(a.date)}</div>
 {!isMot&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
@@ -7362,6 +7362,8 @@ const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [sideOpen,setSideOpen]=useState(false);
+const [fichaPat,setFichaPat]=useState(null);
+const abrirFicha=function(p){if(!p)return;var pp=(p&&typeof p==="object")?p:pats.find(function(x){return x.id===Number(p);});if(pp)setFichaPat(pp);};
 const [saveStatus,setSaveStatus]=useState("idle");
 const saveTimer=useRef(null);
 const initialized=useRef(false);
@@ -7984,9 +7986,9 @@ return <>
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
-      {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar}/>}
+      {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} user={user}/>}
-      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks}/>}
+      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
@@ -8025,6 +8027,8 @@ return <>
     </button>;
   })}
 </div>
+
+{fichaPat&&<PatientFolder pat={fichaPat} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={function(){setFichaPat(null);}}/>}
 
 </>;
 }
