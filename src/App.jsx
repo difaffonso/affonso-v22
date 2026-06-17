@@ -4717,6 +4717,10 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
       var dPend=dAppts.filter(function(a){return a.status==="pending";}).length;
       var dFalt=dAppts.filter(function(a){return a.status==="missed";}).length;
       var dDesm=dAppts.filter(function(a){return a.status==="cancelled"||a.status==="rescheduled";}).length;
+      var paidPatMonth=function(pid){return recs.some(function(r){return r.patientId===pid&&Number(r.dentistId)===Number(d.id)&&Number(r.paid)>0&&(r.date||"").indexOf(mo)===0;});};
+      var doneOrtoPats=[];
+      dAppts.forEach(function(a){if(a.status==="done"&&doneOrtoPats.indexOf(a.patientId)<0)doneOrtoPats.push(a.patientId);});
+      var debitoPats=doneOrtoPats.filter(function(pid){return !paidPatMonth(pid);});
       var isOp=!!openOrto[d.id];
       // Group by week
       var byWeek={};
@@ -4736,13 +4740,21 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
             </div>
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {[["Realizados",dDone,G.success],["Confirmados",dConf,G.blue],["Pendentes",dPend,G.yellow],["Faltaram",dFalt,G.red],["Desmarcaram",dDesm,"#7F8C8D"]].map(function(item){return <div key={item[0]} style={{background:item[2]+"15",borderRadius:9,padding:"5px 9px",textAlign:"center"}}>
+            {[["Realizados",dDone,G.success],["Confirmados",dConf,G.blue],["Pendentes",dPend,G.yellow],["Faltaram",dFalt,G.red],["Desmarcaram",dDesm,"#7F8C8D"],["💰 Débito",debitoPats.length,G.red]].map(function(item){return <div key={item[0]} style={{background:item[2]+"15",borderRadius:9,padding:"5px 9px",textAlign:"center"}}>
               <div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:item[2],fontWeight:700}}>{item[1]}</div>
               <div style={{fontSize:9,color:G.muted,fontWeight:700}}>{item[0]}</div>
             </div>;})}
           </div>
         </div>
         {isOp&&<>
+        {debitoPats.length>0&&<div style={{background:G.red+"10",border:"1.5px solid "+G.red,borderRadius:10,padding:"9px 12px",marginBottom:10}}>
+          <div style={{fontWeight:700,fontSize:12,color:G.red,marginBottom:6}}>{"💰 Passaram sem pagamento — "+debitoPats.length+" em débito"}</div>
+          {debitoPats.map(function(pid){var pp=pats.find(function(x){return x.id===pid;});return <div key={pid} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 0",borderBottom:"1px solid "+G.red+"22",flexWrap:"wrap"}}>
+            <span style={{flex:1,fontWeight:700,fontSize:12,color:G.red}}>{pp?pp.name:"--"}</span>
+            {pp&&pp.folder&&<span style={{fontSize:10,color:G.muted}}>{pp.folder}</span>}
+            {pp&&pp.phone&&<button onClick={function(){wa(pp.phone,"Ola, "+pp.name+"! Identificamos que a mensalidade do seu tratamento ortodontico esta em aberto este mes. Pode regularizar quando puder? Qualquer duvida estamos a disposicao. Affonso Odontologia");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:7,padding:"3px 10px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{"📱 Cobrar"}</button>}
+          </div>;})}
+        </div>}
         {dAppts.length===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum paciente este mês</p>}
         {dAppts.sort(function(a,b){return a.date.localeCompare(b.date)||(t2m(a.time)-t2m(b.time));}).map(function(a){
           var p=pats.find(function(x){return x.id===a.patientId;});
@@ -4750,6 +4762,7 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
             <span style={{fontSize:11,color:G.muted,minWidth:80}}>{fmt(a.date)+" "+a.time}</span>
             <span style={{flex:1,fontWeight:600,fontSize:12}}>{p?p.name:"A confirmar"}</span>
             <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
+            {a.status==="done"&&debitoPats.indexOf(a.patientId)>=0&&<span style={{fontSize:10,fontWeight:700,color:"#fff",background:G.red,borderRadius:10,padding:"1px 7px"}}>{"💰 sem pgto"}</span>}
             <span style={{fontSize:10,fontWeight:700,color:SC[a.status],background:SC_BG[a.status],borderRadius:10,padding:"1px 7px"}}>{SL[a.status]}</span>
           </div>;
         })}
