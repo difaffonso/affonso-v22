@@ -7602,6 +7602,7 @@ useEffect(function(){
           mergeArr(logs,sd.logs,setLogs);
           mergeArr(implMov,sd.implMov,setImplMov);
           mergeArr(implCat,sd.implCat,setImplCat);
+          mergeArr(impl,sd.impl,setImpl);
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
           lastServerTs.current=fresh.updated_at;
@@ -7711,14 +7712,39 @@ useEffect(function(){
           return JSON.stringify(serverArr)===JSON.stringify(prev)?prev:serverArr.slice();
         });
       };
-      mergeArr(sd.appts,setAppts);
-      {var _ai3={};(sd.appts||[]).forEach(function(a){if(a&&a.id!=null)_ai3[a.id]=true;});lastSavedApptIds.current=_ai3;}
-      mergeArr(sd.recs,setRecs);
-      mergeArr(sd.budgets,setBudgets);
-      mergeArr(sd.treats,setTreats);
-      mergeArr(sd.pros,setPros);
-      mergeArr(sd.rems,setRems);
-      mergeArr(sd.logs,setLogs);
+      // === SINCRONIZACAO SEGURA (nao perde dados locais) ===
+      var _delP={};(delAptsRef.current||[]).forEach(function(id){_delP[id]=true;});
+      // ADITIVO: mantem tudo que e local; so traz do servidor o que ainda nao temos.
+      var addArr=function(serverArr,setter){
+        if(!serverArr)return;
+        setter(function(prev){
+          prev=prev||[];
+          var ids={};prev.forEach(function(x){if(x&&x.id!=null)ids[x.id]=true;});
+          var miss=serverArr.filter(function(x){return x&&x.id!=null&&!ids[x.id]&&!_delP[x.id];});
+          return miss.length?prev.concat(miss):prev;
+        });
+      };
+      // AGENDA: servidor manda no status (reflete confirmacoes do WhatsApp), mas mantem consultas locais que o servidor ainda nao tem e remove as apagadas.
+      var apptArr=function(serverArr,setter){
+        if(!serverArr)return;
+        setter(function(prev){
+          prev=prev||[];
+          var byId={};
+          serverArr.forEach(function(x){if(x&&x.id!=null)byId[x.id]=x;});
+          prev.forEach(function(x){if(x&&x.id!=null&&!(x.id in byId))byId[x.id]=x;});
+          var arr=[];Object.keys(byId).forEach(function(k){if(!_delP[k])arr.push(byId[k]);});
+          var fin=JSON.stringify(arr)===JSON.stringify(prev)?prev:arr;
+          var _ai={};fin.forEach(function(a){if(a&&a.id!=null)_ai[a.id]=true;});lastSavedApptIds.current=_ai;
+          return fin;
+        });
+      };
+      apptArr(sd.appts,setAppts);
+      addArr(sd.recs,setRecs);
+      addArr(sd.budgets,setBudgets);
+      addArr(sd.treats,setTreats);
+      addArr(sd.pros,setPros);
+      addArr(sd.rems,setRems);
+      addArr(sd.logs,setLogs);
       if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
       if(sd.gastos&&Date.now()-gastosEditRef.current>20000)setGastos(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.gastos)?prev:sd.gastos;});
       if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
@@ -7730,7 +7756,7 @@ useEffect(function(){
       if(sd.labs)setLabs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.labs)?prev:sd.labs;});
       if(sd.procs&&sd.procs.length)setProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.procs)?prev:sd.procs;});
       if(sd.stock)setStock(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.stock)?prev:sd.stock;});
-      if(sd.impl)setImpl(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.impl)?prev:sd.impl;});
+      if(sd.impl)addArr(sd.impl,setImpl);
       if(sd.prosProcs)setProsProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.prosProcs)?prev:sd.prosProcs;});
       if(sd.espera)setEspera(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.espera)?prev:sd.espera;});
       if(sd.remarcar)setRemarcar(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.remarcar)?prev:sd.remarcar;});
