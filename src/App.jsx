@@ -372,6 +372,43 @@ return <div style={{display:"flex",flexDirection:"column",gap:4}}>
 };
 
 // Auto reminders
+// Conta itens automaticos REALMENTE pendentes (mesma logica refinada da tela de Lembretes):
+// aniversariantes de hoje, semestral vencido SEM agendamento futuro, e pos-cirurgico de ontem;
+// sempre descontando os que ja foram tratados (ticks). Evita o badge inflado.
+function autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user){
+  var t=today();var pt=pacsTicks||{};var st=semTicks||{};
+  var isDent=!!(user&&user.level===1);var per=t.slice(0,7);
+  var y=new Date(new Date(t+"T12:00").getTime()-86400000).toISOString().split("T")[0];
+  var PC=["Exodontia","Extracao","Extração","Exo","Implante","Cirurgia","Cirurgico","Cirúrgico","Cirúrgica","Enxerto","Sinus","Gengivoplastia","Apicectomia","Frenectomia","Biopsia","Urgencia","Urgência","Emergencia","Emergência"];
+  var n=0;
+  pats.forEach(function(p){
+    // aniversario hoje (nao marcado)
+    if(p.dob&&p.dob.slice(5)===t.slice(5)){
+      var tkB=pt["bday_week_"+p.id+"_"+per];
+      if(!(tkB&&tkB.done))n++;
+    }
+    // semestral vencido, sem agendamento futuro e nao tratado
+    var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+    if(lastRec&&mo6(lastRec.date)<=t){
+      var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
+      var tratado=st[p.id]&&st[p.id].done;
+      if(!futura&&!tratado)n++;
+    }
+  });
+  // pos-cirurgico de ontem nao contatado
+  appts.forEach(function(a){
+    if(a.date!==y)return;
+    if(a.status!=="done"&&a.status!=="confirmed")return;
+    if(isDent&&a.dentistId!==user.dentistId)return;
+    var hit=PC.some(function(k){var kw=k.toLowerCase();return (a.procedure&&a.procedure.toLowerCase().indexOf(kw)>=0)||(a.treatment&&a.treatment.toLowerCase().indexOf(kw)>=0);});
+    if(!hit)return;
+    if(!pats.find(function(x){return x.id===a.patientId;}))return;
+    var tkP=pt["poscir_"+a.patientId+"_"+a.date];
+    if(tkP&&tkP.done)return;
+    n++;
+  });
+  return n;
+}
 const autoRems=(pats,recs,appts)=>{
 const t=today(),y=yest(),tm=tom();const out=[];
 pats.forEach(p=>{
@@ -7850,11 +7887,9 @@ if(user.level===2){
   }
 };
 
-const ar=autoRems(pats,recs,appts);
-const remBadge=(user.level===1
-?rems.filter(r=>!r.done&&(r.assignedUserId===user.id||!r.assignedUserId)&&r.date<=today())
-:[...ar,...rems.filter(r=>!r.done&&r.date<=today())]
-).length;
+const remBadge=(user.level===1)
+?rems.filter(r=>!r.done&&(r.assignedUserId===user.id||!r.assignedUserId)&&r.date<=today()).length
+:rems.filter(r=>!r.done&&r.date<=today()).length+autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user);
 const prosBadge=pros.filter(p=>p.due===today()&&p.status==="waiting").length;
 
 const ALL_NAV=[
