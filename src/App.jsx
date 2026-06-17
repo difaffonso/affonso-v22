@@ -7106,7 +7106,16 @@ var confPend=appts.filter(function(a){return (a.date===t||a.date===amanha)&&a.st
 
 // 6. Baixas financeiras em aberto (atendimento feito sem pagamento)
 function hasBaixa(a){return recs.some(function(r){return (r.apptId===a.id)||(r.patientId===a.patientId&&r.date===a.date&&Number(r.paid)>0);});}
-var baixaPend=appts.filter(function(a){return a.status==="done"&&Number(a.value)>0&&a.date<=ont&&a.date>=d14&&!hasBaixa(a);}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Atendimento")+" em "+fmt(a.date)+" · "+cur(a.value)+" sem baixa",key:"baixa_"+a.id};});
+// Total ja pago por paciente: baixas diretas (recs sem fromTreat) + pagamentos lancados em planos de tratamento
+var _pagoByPac={};
+recs.forEach(function(r){if(r&&r.patientId!=null&&Number(r.paid)>0&&!r.fromTreat){_pagoByPac[r.patientId]=(_pagoByPac[r.patientId]||0)+Number(r.paid);}});
+treats.forEach(function(tt){if(tt&&tt.patientId!=null&&tt.payments){tt.payments.forEach(function(pp){if(pp&&Number(pp.value)>0){_pagoByPac[tt.patientId]=(_pagoByPac[tt.patientId]||0)+Number(pp.value);}});}});
+// Total realizado por paciente: consultas feitas (done) com valor
+var _realByPac={};
+appts.forEach(function(a){if(a&&a.status==="done"&&Number(a.value)>0){_realByPac[a.patientId]=(_realByPac[a.patientId]||0)+Number(a.value);}});
+// Paciente coberto: ja pagou (inclusive via plano) pelo menos tanto quanto realizou -> nao esta em debito
+function pacCoberto(pid){return (_pagoByPac[pid]||0)>=((_realByPac[pid]||0)-0.5);}
+var baixaPend=appts.filter(function(a){return a.status==="done"&&Number(a.value)>0&&a.date<=ont&&a.date>=d14&&!hasBaixa(a)&&!pacCoberto(a.patientId);}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Atendimento")+" em "+fmt(a.date)+" · "+cur(a.value)+" sem baixa",key:"baixa_"+a.id};});
 
 // 7. Controle semestral (+6 meses sem consulta, sem agendamento)
 var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(mo6(last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:"Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias",key:"sem_"+p.id};});
