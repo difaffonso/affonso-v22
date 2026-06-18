@@ -7565,6 +7565,24 @@ function mergeTicks(local,server){
   }
   return out;
 }
+// Timestamp da ultima confirmacao/cancelamento via WhatsApp de uma consulta (string ISO; "" se nenhum)
+function _waTs(a){if(!a)return "";var c=a.confirmadoWAts||"";var x=a.canceladoWAts||"";return c>x?c:x;}
+// Merge de consultas SEGURO: mantem o local (nao reverte mudancas manuais), adiciona consultas novas do servidor,
+// e adota o status do servidor SO quando ha confirmacao/cancelamento do WhatsApp mais recente (webhook) -> nao perde confirmacao nem reverte.
+function mergeAppts(localArr,serverArr,delSet){
+  localArr=localArr||[];serverArr=serverArr||[];delSet=delSet||{};
+  var byId={};
+  localArr.forEach(function(a){if(a&&a.id!=null)byId[a.id]=a;});
+  serverArr.forEach(function(s){
+    if(!s||s.id==null)return;
+    var l=byId[s.id];
+    if(!l){byId[s.id]=s;return;}
+    var sW=_waTs(s),lW=_waTs(l);
+    if(sW&&sW>lW)byId[s.id]=s;
+  });
+  var out=[];Object.keys(byId).forEach(function(k){if(!delSet[k])out.push(byId[k]);});
+  return out;
+}
 useEffect(function(){
   if(!initialized.current)return;
   lastLocalChangeTs.current=Date.now();
@@ -7602,7 +7620,7 @@ useEffect(function(){
               setter(function(prev){return [...(prev||[]),...missing];});
             }
           };
-          mergeArr(appts,sd.appts,setAppts,_skip);
+          setAppts(function(prev){var arr=mergeAppts(prev,sd.appts,_skip);return JSON.stringify(arr)===JSON.stringify(prev)?prev:arr;});
           mergeArr(recs,sd.recs,setRecs);
           mergeArr(budgets,sd.budgets,setBudgets);
           mergeArr(treats,sd.treats,setTreats);
@@ -7738,10 +7756,7 @@ useEffect(function(){
         if(!serverArr)return;
         setter(function(prev){
           prev=prev||[];
-          var byId={};
-          serverArr.forEach(function(x){if(x&&x.id!=null)byId[x.id]=x;});
-          prev.forEach(function(x){if(x&&x.id!=null&&!(x.id in byId))byId[x.id]=x;});
-          var arr=[];Object.keys(byId).forEach(function(k){if(!_delP[k])arr.push(byId[k]);});
+          var arr=mergeAppts(prev,serverArr,_delP);
           var fin=JSON.stringify(arr)===JSON.stringify(prev)?prev:arr;
           var _ai={};fin.forEach(function(a){if(a&&a.id!=null)_ai[a.id]=true;});lastSavedApptIds.current=_ai;
           return fin;
