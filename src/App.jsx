@@ -2248,6 +2248,7 @@ extraSlots.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
 }
 }
 const obj={...f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,patientName:f.patientId?"":(f.patientName||"A confirmar"),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
+if(edit&&edit.status!==f.status)obj.statusTs=new Date().toISOString();
 setAppts(prev=>edit?prev.map(a=>a.id===edit.id?obj:a):[...prev,obj]);
 const p=pats.find(x=>x.id===Number(f.patientId));
 const nome=p?.name||f.patientName||"";
@@ -2261,7 +2262,7 @@ setAppts(prev=>[...prev,{id:nid(prev),date,time,dentistId:Number(dentistId),bloc
 setBlockModal(null);setBlockReason("");
 };
 const chSt=(id,st)=>{
-setAppts(prev=>prev.map(a=>a.id===id?{...a,status:st}:a));
+setAppts(prev=>prev.map(a=>a.id===id?{...a,status:st,statusTs:new Date().toISOString()}:a));
 const a=appts.find(x=>x.id===id);const p=pats.find(x=>x.id===(a&&a.patientId));
 const ST={confirmed:"Confirmou",pending:"Pendente",done:"Realizou",cancelled:"Cancelou",missed:"Faltou",rescheduled:"Desmarcou"};
 if(addLog&&a)addLog("agenda",(ST[st]||st)+" consulta de "+(p&&p.name||"paciente")+" - "+fmt(a.date)+" "+a.time,p&&p.name);
@@ -7688,6 +7689,9 @@ function mergeAppts(localArr,serverArr,delSet){
     if(!s||s.id==null)return;
     var l=byId[s.id];
     if(!l){byId[s.id]=s;return;}
+    var lM=l.statusTs||"",sM=s.statusTs||"";
+    if(sM>lM){byId[s.id]=s;return;}
+    if(lM)return;
     var sW=_waTs(s),lW=_waTs(l);
     if(sW&&sW>lW)byId[s.id]=s;
   });
