@@ -13,6 +13,7 @@ async upsertPatients(arr){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!a
 async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao com o banco"};try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,payload:payload})});if(r.ok)return {ok:true};var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}},
 async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
 ,async fetchAnamRecent(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,payload,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
+,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
 };
 const G = {
 bg:"#EEF3F0",card:"#FFF",primary:"#1B5E4A",accent:"#E3EFE9",accentDark:"#A8D5C0",
@@ -7351,6 +7352,104 @@ return <div key={o.id} style={{background:G.card,borderRadius:12,boxShadow:"0 1p
 }
 
 
+function Conversas({pats,user,waSeenRef,onSeen,abrirFicha}){
+const [msgs,setMsgs]=useState([]);
+const [loading,setLoading]=useState(true);
+const [sel,setSel]=useState(null);
+const [q,setQ]=useState("");
+const bottomRef=useRef(null);
+const load=function(){
+supabase.loadWaMessages().then(function(rows){
+setMsgs(rows);setLoading(false);
+var maxId=0;rows.forEach(function(m){if((m.id||0)>maxId)maxId=m.id;});
+if(onSeen)onSeen(maxId);
+});
+};
+useEffect(function(){load();var t=setInterval(load,15000);return function(){clearInterval(t);};},[]);
+useEffect(function(){if(sel&&bottomRef.current)bottomRef.current.scrollTop=bottomRef.current.scrollHeight;},[sel,msgs]);
+var soDig=function(s){return (s||"").replace(/\D/g,"");};
+var last8=function(s){var d=soDig(s);return d.slice(-8);};
+var acharPac=function(phone){var l8=last8(phone);if(l8.length<8)return null;return pats.find(function(p){return last8(p.phone)===l8;});};
+var fmtHora=function(ts){if(!ts)return "";try{var d=new Date(ts);var h=new Date();if(d.toDateString()===h.toDateString())return d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"});}catch(e){return "";}};
+var tick=function(s){if(s==="read"||s==="delivered")return "✓✓";if(s==="sent")return "✓";return "";};
+var seenW={};var msgsD=[];
+msgs.forEach(function(m){var w=m.wamid;if(w&&seenW[w])return;if(w)seenW[w]=1;msgsD.push(m);});
+var grupos={};
+msgsD.forEach(function(m){var ph=soDig(m.phone);if(!ph)return;if(!grupos[ph])grupos[ph]={phone:ph,msgs:[]};grupos[ph].msgs.push(m);});
+var seen=(waSeenRef&&waSeenRef.current)||0;
+var lista=Object.keys(grupos).map(function(ph){
+var g=grupos[ph];
+g.msgs.sort(function(a,b){return (a.id||0)-(b.id||0);});
+var lastM=g.msgs[g.msgs.length-1];
+g.lastTs=lastM.ts||lastM.created_at||"";
+g.lastBody=lastM.body||"";
+g.lastDir=lastM.direction;
+var pac=acharPac(ph);g.pac=pac;
+g.name=pac?pac.name:(g.msgs.map(function(m){return m.patient_name;}).filter(Boolean)[0]||("+"+ph));
+g.unread=g.msgs.filter(function(m){return m.direction==="in"&&(m.id||0)>seen;}).length;
+return g;
+}).sort(function(a,b){return (b.lastTs||"").localeCompare(a.lastTs||"");});
+var norm=function(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");};
+var listaF=q?lista.filter(function(g){return norm(g.name).indexOf(norm(q))>=0||g.phone.indexOf(soDig(q))>=0;}):lista;
+var selGroup=sel?grupos[sel]:null;
+var selPac=selGroup?acharPac(selGroup.phone):null;
+var selName=selGroup?(selPac?selPac.name:(selGroup.msgs.map(function(m){return m.patient_name;}).filter(Boolean)[0]||("+"+selGroup.phone))):"";
+if(selGroup){
+var selMsgs=selGroup.msgs.slice().sort(function(a,b){return (a.id||0)-(b.id||0);});
+return (
+<div className="fi" style={{display:"flex",flexDirection:"column",gap:0}}>
+<div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+<button onClick={function(){setSel(null);}} style={{border:"none",background:G.accent,borderRadius:8,padding:"7px 12px",cursor:"pointer",color:G.primary,fontWeight:700,fontSize:14}}>{"← Voltar"}</button>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:15,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{selName}</div>
+<div style={{fontSize:11,color:G.muted}}>{"+"+selGroup.phone}</div>
+</div>
+{selPac&&<Btn ch={"📋 Ficha"} v="g" sm onClick={function(){abrirFicha(selPac);}}/>}
+</div>
+<div ref={bottomRef} style={{background:"#ECE5DD",borderRadius:12,padding:"12px 10px",display:"flex",flexDirection:"column",gap:7,maxHeight:"68vh",overflowY:"auto"}}>
+{selMsgs.map(function(m){var out=m.direction==="out";return (
+<div key={m.id} style={{alignSelf:out?"flex-end":"flex-start",maxWidth:"86%",background:out?"#DCF8C6":"#fff",borderRadius:out?"12px 12px 2px 12px":"12px 12px 12px 2px",padding:"7px 11px",boxShadow:"0 1px 1px rgba(0,0,0,.13)"}}>
+<div style={{fontSize:13,lineHeight:1.5,whiteSpace:"pre-wrap",wordBreak:"break-word",color:"#111"}}>{m.body||""}</div>
+<div style={{display:"flex",gap:4,justifyContent:"flex-end",alignItems:"center",marginTop:3}}>
+<span style={{fontSize:9,color:"#5a6b6b"}}>{fmtHora(m.ts||m.created_at)}</span>
+{out&&<span style={{fontSize:11,color:m.status==="read"?"#34B7F1":"#8a9a9a"}}>{tick(m.status)}</span>}
+</div>
+</div>
+);})}
+</div>
+<div style={{textAlign:"center",fontSize:11,color:G.muted,marginTop:10,padding:"0 16px"}}>{"📵 Esta tela e so para visualizar. Para responder, use o WhatsApp normalmente."}</div>
+</div>
+);
+}
+return (
+<div className="fi" style={{display:"flex",flexDirection:"column",gap:10}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"💬 Conversas"}</h2>
+<Btn ch={"↻ Atualizar"} v="g" sm onClick={load}/>
+</div>
+<Inp val={q} set={setQ} ph={"🔍 Buscar por nome ou telefone"}/>
+{loading&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>{"Carregando..."}</div>}
+{!loading&&listaF.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13}}>{q?"Nenhuma conversa encontrada.":"Nenhuma conversa ainda. As mensagens trocadas pelo WhatsApp aparecerao aqui."}</div>}
+{listaF.map(function(g){return (
+<div key={g.phone} onClick={function(){setSel(g.phone);}} style={{background:G.card,borderRadius:12,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",display:"flex",gap:11,alignItems:"center",cursor:"pointer",borderLeft:g.unread>0?("4px solid "+G.success):"4px solid transparent"}}>
+<div style={{width:44,height:44,borderRadius:"50%",background:g.unread>0?G.success:G.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:g.unread>0?"#fff":G.primary,flexShrink:0,fontWeight:700}}>{((g.name||"?")[0]||"?").toUpperCase()}</div>
+<div style={{flex:1,minWidth:0}}>
+<div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"center"}}>
+<span style={{fontWeight:700,fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{g.name}</span>
+<span style={{fontSize:10,color:G.muted,flexShrink:0}}>{fmtHora(g.lastTs)}</span>
+</div>
+<div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"center",marginTop:2}}>
+<span style={{fontSize:12,color:g.unread>0?G.text:G.muted,fontWeight:g.unread>0?600:400,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(g.lastDir==="out"?"Voce: ":"")+(g.lastBody||"").slice(0,55)}</span>
+{g.unread>0&&<span style={{background:G.success,color:"#fff",borderRadius:20,minWidth:19,height:19,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,padding:"0 5px",flexShrink:0}}>{g.unread}</span>}
+</div>
+</div>
+</div>
+);})}
+<div style={{textAlign:"center",fontSize:11,color:G.muted,marginTop:4,padding:"0 16px"}}>{"📵 Somente leitura - para responder, use o WhatsApp."}</div>
+</div>
+);
+}
+
 export default function App(){
 const [user,setUser]=useState(null);const [view,setView]=useState("dash");
 const [agendaSelDate,setAgendaSelDate]=useState(today());
@@ -7372,6 +7471,18 @@ const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [sideOpen,setSideOpen]=useState(false);
 const [fichaPat,setFichaPat]=useState(null);
+const [waUnread,setWaUnread]=useState(0);
+const waSeenRef=useRef((function(){try{return Number(localStorage.getItem("waSeenId")||0);}catch(e){return 0;}})());
+useEffect(function(){
+if(!user)return;
+var ativo=true;
+var checar=function(){
+fetch(SUPA_URL+"/rest/v1/wa_messages?direction=eq.in&id=gt."+(waSeenRef.current||0)+"&select=id",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Prefer":"count=exact","Range":"0-0"}}).then(function(r){var cr=r.headers.get("content-range")||"";var tot=cr.split("/")[1];if(ativo)setWaUnread(tot?Number(tot):0);}).catch(function(){});
+};
+checar();
+var t=setInterval(checar,25000);
+return function(){ativo=false;clearInterval(t);};
+},[user]);
 const abrirFicha=function(p){if(!p)return;var pp=(p&&typeof p==="object")?p:pats.find(function(x){return x.id===Number(p);});if(pp)setFichaPat(pp);};
 const [saveStatus,setSaveStatus]=useState("idle");
 const saveTimer=useRef(null);
@@ -7965,7 +8076,7 @@ const prosBadge=pros.filter(p=>p.due===today()&&p.status==="waiting").length;
 const ALL_NAV=[
 {id:"dash",l:"🏠 Visão Geral",lv:3},{id:"agenda",l:"📅 Agenda",lv:1},
 {id:"pacs",l:"👥 Pacientes",lv:1},{id:"remarcar",l:"🔄 Remarcar",lv:2},{id:"pros",l:"🏥 Próteses",lv:2,b:prosBadge},
-{id:"impl",l:"🔩 Implantes",lv:2},{id:"lems",l:"📌 Lembretes",lv:1,b:remBadge},
+{id:"impl",l:"🔩 Implantes",lv:2},{id:"lems",l:"📌 Lembretes",lv:1,b:remBadge},{id:"conversas",l:"💬 Conversas",lv:2,b:waUnread},
 {id:"fin",l:"💰 Financeiro",lv:3},{id:"pixdent",l:"💸 Pix Dentistas",lv:1},{id:"rel",l:"📊 Relatórios",lv:2},
 {id:"desp",l:"💸 Gastos",lv:3},{id:"stk",l:"📦 Estoque",lv:2},
 {id:"rec",l:"📋 Receituário",lv:1},{id:"orient",l:"📖 Orientações",lv:1},{id:"pdent",l:"💰 Recebimentos",lv:1},{id:"audit",l:"🔍 Auditoria",lv:3},{id:"adm",l:"⚙️ Administrativo",lv:3},
@@ -8027,6 +8138,7 @@ return <>
       <div style={{flex:1,fontFamily:"'Cormorant Garamond'",fontSize:16,color:"#fff",fontWeight:700}}>
         {NAV.find(n=>n.id===view)?.l||"🏠 Visão Geral"}
       </div>
+      {user.level>=2&&waUnread>0&&<button onClick={()=>go("conversas")} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:10,padding:"3px 9px",fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:3,flexShrink:0}}>💬 {waUnread}</button>}
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
@@ -8037,6 +8149,7 @@ return <>
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha}/>}
+      {view==="conversas"&&<Conversas pats={pats} user={user} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
