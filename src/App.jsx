@@ -869,6 +869,7 @@ const [atEditMode,setAtEditMode]=useState(false);
 const [atModo,setAtModo]=useState("dias");
 const [atHoraIni,setAtHoraIni]=useState("08:00");
 const [atHoraFim,setAtHoraFim]=useState("12:00");
+const [atDentId,setAtDentId]=useState(String((user&&user.dentistId)||(dents[0]&&dents[0].id)||""));
 const [nfEdit,setNfEdit]=useState(null);
 const [confirmDel,setConfirmDel]=useState(null); // {type,id,label}
 const blankNF={date:today(),number:"",payer:"empresa",payerName:"",payerCnpj:"",dentistId:"",procedure:"",value:"",tax:"",notes:"",status:"pending"};
@@ -1376,7 +1377,7 @@ return <>
 
   {/* ── NOTA FISCAL ── */}
   {tab==="atestado"&&(function(){
-  var dentAtest=dents.find(function(d){return d.id===(user.dentistId||dents[0]&&dents[0].id);});
+  var dentAtest=dents.find(function(d){return d.id===Number(atDentId);})||dents.find(function(d){return d.id===(user.dentistId||dents[0]&&dents[0].id);});
   var dentName=dentAtest&&dentAtest.name||"Dr. Diego Affonso";
   var dentCro="CRO "+(dentAtest&&dentAtest.cro||"SP-72.278");
   var hoje2=new Date((atData||today())+"T12:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"});
@@ -1502,8 +1503,12 @@ return <>
       }
     </div>
     <Txt lb="Observações adicionais (opcional)" val={atObs} set={setAtObs} rows={2}/>
-    <div style={{background:G.accent,borderRadius:10,padding:"10px 14px",fontSize:12,color:G.primary}}>
-      {"👨‍⚕️ "+dentName+" · "+dentCro}
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Dentista responsável</label>
+      <select value={atDentId} onChange={function(e){setAtDentId(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"10px 12px",fontSize:14,outline:"none",background:"#fff",color:G.text}}>
+        {dents.map(function(d){return <option key={d.id} value={String(d.id)}>{d.name}</option>;})}
+      </select>
+      <div style={{background:G.accent,borderRadius:10,padding:"8px 14px",fontSize:12,color:G.primary,marginTop:2}}>{"👨‍⚕️ "+dentName+" · "+dentCro}</div>
     </div>
     <button onClick={function(){setShowAtestado(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
       {"🖨️ Imprimir / Salvar PDF"}
