@@ -3877,7 +3877,7 @@ const [mo,setMo]=useState(today().slice(0,7));
 const [dia,setDia]=useState(today());
 const [dn,setDn]=useState("all");
 
-const PC={"Dinheiro":G.success,"PIX":"#00B894","Cartao Credito":G.blue,"Cartao Debito":"#6C5CE7","Convenio":G.muted,"Cheque":G.orange,"Cartão Crédito":G.blue,"Cartão Débito":"#6C5CE7","Convênio":G.muted};
+const PC={"Dinheiro":G.success,"PIX":"#00B894","Cartao Credito":G.blue,"Cartao Debito":"#6C5CE7","Convenio":G.muted,"Cheque":G.orange,"Cartão Crédito":G.blue,"Cartão Débito":"#6C5CE7","Convênio":G.muted,"Pix/Cartão Dentistas":G.purple};
 
 // Filtro de registros
 const mr=recs.filter(r=>{
@@ -3891,7 +3891,9 @@ const raw=mr.reduce((s,r)=>s+r.paid,0);
 const liq=mr.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
 const parcAtivaMes=(e,ym)=>{if(!e.parcelado)return false;var k=(Number(ym.slice(0,4))*12+Number(ym.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));return k>=0&&k<Number(e.parcelas||1);};
 const clinicExp=(gastos&&gastos.clinica||[]).filter(e=>{if(modo==="mensal")return (e.recorrente&&e.diaVenc)?true:e.parcelado?parcAtivaMes(e,mo):(e.date&&e.date.startsWith(mo));if(e.recorrente&&e.diaVenc)return Number(e.diaVenc)===Number(dia.slice(8,10));if(e.parcelado)return parcAtivaMes(e,dia.slice(0,7))&&Number((e.date||"").slice(8))===Number(dia.slice(8,10));return e.date===dia;}).reduce((s,e)=>s+Number(e.value||0),0);
-const byP=PAY.map(pt=>({pt,v:mr.filter(r=>r.payment===pt).reduce((s,r)=>s+r.paid,0)})).filter(x=>x.v>0);
+const byPbase=PAY.map(pt=>({pt,v:mr.filter(r=>r.payment===pt).reduce((s,r)=>s+r.paid,0)})).filter(x=>x.v>0);
+const vDentDir=mr.filter(r=>getDentFromPayment(r.payment,dents)).reduce((s,r)=>s+r.paid,0);
+const byP=vDentDir>0?byPbase.concat([{pt:"Pix/Cartão Dentistas",v:vDentDir}]):byPbase;
 const mx=Math.max(...byP.map(x=>x.v),1);
 
 // Para modo diario: navegar dia a dia
