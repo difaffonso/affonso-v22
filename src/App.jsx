@@ -3460,14 +3460,14 @@ var save=function(){
   if(!f.desc)return alert("Informe a descricao");
   if(!f.recorrente&&!f.value)return alert("Informe o valor");
   if(f.parcelado&&(!f.parcelas||Number(f.parcelas)<2))return alert("Informe o numero de parcelas (2 ou mais)");
-  var obj={...f,value:pmoney(f.value),parcelas:f.parcelado?Number(f.parcelas):f.parcelas,id:edit?edit.id:nid()};
+  var obj={...f,value:pmoney(f.value),parcelas:f.parcelado?Number(f.parcelas):f.parcelas,id:edit?edit.id:nid(),_ts:Date.now()};
   setGastos(function(prev){var lista=prev[tab]||[];return {...prev,[tab]:edit?lista.map(function(e){return e.id===obj.id?obj:e;}):[...lista,obj]};});
   setModal(false);setEdit(null);setF(blank);
 };
 var remove=function(id){setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).filter(function(e){return e.id!==id;})};});};
 var togglePago=function(e){
-  if(e.recorrente||e.parcelado){setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).map(function(x){if(x.id!==e.id)return x;var pm={...(x.pagoMeses||{})};pm[mo]=!pm[mo];return {...x,pagoMeses:pm};})};});}
-  else{setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).map(function(x){return x.id===e.id?{...x,paid:!x.paid}:x;})};});}
+  if(e.recorrente||e.parcelado){setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).map(function(x){if(x.id!==e.id)return x;var pm={...(x.pagoMeses||{})};pm[mo]=!pm[mo];return {...x,pagoMeses:pm,_ts:Date.now()};})};});}
+  else{setGastos(function(prev){return {...prev,[tab]:(prev[tab]||[]).map(function(x){return x.id===e.id?{...x,paid:!x.paid,_ts:Date.now()}:x;})};});}
 };
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
@@ -7592,6 +7592,8 @@ try{
 if(data.appts?.length)setAppts(data.appts.map(function(a){return a&&a.time?Object.assign({},a,{time:pad2(a.time)}):a;}));
 {var _ai={};(data.appts||[]).forEach(function(a){if(a&&a.id!=null)_ai[a.id]=true;});lastSavedApptIds.current=_ai;}
 delAptsRef.current=data.delApts||[];
+lastSavedGastosKeys.current=_gKeys(data.gastos);
+delGastosRef.current=data.delGastos||[];
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
 var treatsmig=data.treats.map(function(t){
@@ -7659,6 +7661,8 @@ const lastServerTs=useRef(null);
 const lastLocalChangeTs=useRef(0);
 const lastSaveFailed=useRef(false);
 const delAptsRef=useRef([]);
+const delGastosRef=useRef([]);
+const lastSavedGastosKeys=useRef(null);
 const lastSavedApptIds=useRef(null);
 const dirtyRef=useRef(false);
 // Merge aditivo de "ticks" (aniversario/contatos): nunca perde uma marcação local.
@@ -7680,6 +7684,25 @@ function mergeTicks(local,server){
   return out;
 }
 // Timestamp da ultima confirmacao/cancelamento via WhatsApp de uma consulta (string ISO; "" se nenhum)
+function _gKeys(g){var o={};if(g){["clinica","pessoal"].forEach(function(t){(g[t]||[]).forEach(function(e){if(e&&e.id!=null)o[t+":"+e.id]=true;});});}return o;}
+function _mgList(localList,serverList,prefix,delSet){
+  localList=localList||[];serverList=serverList||[];
+  var byId={};
+  localList.forEach(function(e){if(e&&e.id!=null)byId[e.id]=e;});
+  serverList.forEach(function(srv){
+    if(!srv||srv.id==null)return;
+    var l=byId[srv.id];
+    if(!l){byId[srv.id]=srv;return;}
+    var lt=l._ts||0,st=srv._ts||0;
+    if(st>lt)byId[srv.id]=srv;
+  });
+  var out=[];Object.keys(byId).forEach(function(k){if(!delSet[prefix+":"+k])out.push(byId[k]);});
+  return out;
+}
+function mergeGastos(local,server,delSet){
+  local=local||{};server=server||{};delSet=delSet||{};
+  return {clinica:_mgList(local.clinica,server.clinica,"clinica",delSet),pessoal:_mgList(local.pessoal,server.pessoal,"pessoal",delSet)};
+}
 function _waTs(a){if(!a)return "";var c=a.confirmadoWAts||"";var x=a.canceladoWAts||"";return c>x?c:x;}
 // Merge de consultas SEGURO: mantem o local (nao reverte mudancas manuais), adiciona consultas novas do servidor,
 // e adota o status do servidor SO quando ha confirmacao/cancelamento do WhatsApp mais recente (webhook) -> nao perde confirmacao nem reverte.
@@ -7716,6 +7739,14 @@ useEffect(function(){
       _dl=_dl.filter(function(id){return !_cur[id];});
       delAptsRef.current=_dl.length>3000?_dl.slice(-3000):_dl;
     }
+    // detectar exclusoes de gastos desde a ultima sincronizacao
+    if(lastSavedGastosKeys.current){
+      var _cg=_gKeys(gastos);
+      var _dg=delGastosRef.current||[];
+      Object.keys(lastSavedGastosKeys.current).forEach(function(k){if(!_cg[k]&&_dg.indexOf(k)<0)_dg.push(k);});
+      _dg=_dg.filter(function(k){return !_cg[k];});
+      delGastosRef.current=_dg.length>3000?_dg.slice(-3000):_dg;
+    }
     // ANTI-SOBRESCRITA: verificar se servidor tem versao mais nova que a nossa
     try{
       var serverTs=await supabase.getTimestamp();
@@ -7726,6 +7757,7 @@ useEffect(function(){
           var sd=fresh.data;
           // unir exclusoes do servidor com as nossas
           if(sd.delApts&&sd.delApts.length){var _dd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_dd.indexOf(id)<0)_dd.push(id);});delAptsRef.current=_dd.length>3000?_dd.slice(-3000):_dd;}
+          if(sd.delGastos&&sd.delGastos.length){var _dgs=delGastosRef.current||[];sd.delGastos.forEach(function(k){if(_dgs.indexOf(k)<0)_dgs.push(k);});delGastosRef.current=_dgs.length>3000?_dgs.slice(-3000):_dgs;}
           var _skip={};(delAptsRef.current||[]).forEach(function(id){_skip[id]=true;});
           // Merge automatico: adicionar registros que nao temos localmente (menos os apagados)
           var mergeArr=function(localArr,serverArr,setter,skip){
@@ -7749,13 +7781,14 @@ useEffect(function(){
           mergeArr(impl,sd.impl,setImpl);
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
+          if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
           lastServerTs.current=fresh.updated_at;
           // Cancelar este save - o useEffect vai disparar de novo com o estado mergeado
           return "merged";
         }
       }
     }catch(e){}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -7764,6 +7797,7 @@ useEffect(function(){
         if(saved!==false){
           lastSaved.current=JSON.stringify(payload);
           {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
+          lastSavedGastosKeys.current=_gKeys(gastos);
           // Atualizar timestamp do servidor para o nosso
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
@@ -7887,7 +7921,7 @@ useEffect(function(){
       addArr(sd.rems,setRems);
       addArr(sd.logs,setLogs);
       if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
-      if(sd.gastos&&Date.now()-gastosEditRef.current>20000)setGastos(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.gastos)?prev:sd.gastos;});
+      if(sd.gastos){var _dgp={};(delGastosRef.current||[]).forEach(function(k){_dgp[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgp);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
       if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
       if(sd.waSent)setWaSent(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waSent)?prev:sd.waSent;});
       if(sd.waAutoLog)setWaAutoLog(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAutoLog)?prev:sd.waAutoLog;});
