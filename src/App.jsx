@@ -7594,6 +7594,8 @@ if(data.appts?.length)setAppts(data.appts.map(function(a){return a&&a.time?Objec
 delAptsRef.current=data.delApts||[];
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
+lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl});
+delItemsRef.current=data.delItems||[];
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
 var treatsmig=data.treats.map(function(t){
@@ -7663,6 +7665,8 @@ const lastSaveFailed=useRef(false);
 const delAptsRef=useRef([]);
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
+const delItemsRef=useRef([]);
+const lastSavedItemKeys=useRef(null);
 const lastSavedApptIds=useRef(null);
 const dirtyRef=useRef(false);
 // Merge aditivo de "ticks" (aniversario/contatos): nunca perde uma marcação local.
@@ -7703,6 +7707,7 @@ function mergeGastos(local,server,delSet){
   local=local||{};server=server||{};delSet=delSet||{};
   return {clinica:_mgList(local.clinica,server.clinica,"clinica",delSet),pessoal:_mgList(local.pessoal,server.pessoal,"pessoal",delSet)};
 }
+function _itemKeys(map){var o={};if(map){Object.keys(map).forEach(function(t){(map[t]||[]).forEach(function(e){if(e&&e.id!=null)o[t+":"+e.id]=true;});});}return o;}
 function _waTs(a){if(!a)return "";var c=a.confirmadoWAts||"";var x=a.canceladoWAts||"";return c>x?c:x;}
 // Merge de consultas SEGURO: mantem o local (nao reverte mudancas manuais), adiciona consultas novas do servidor,
 // e adota o status do servidor SO quando ha confirmacao/cancelamento do WhatsApp mais recente (webhook) -> nao perde confirmacao nem reverte.
@@ -7747,6 +7752,14 @@ useEffect(function(){
       _dg=_dg.filter(function(k){return !_cg[k];});
       delGastosRef.current=_dg.length>3000?_dg.slice(-3000):_dg;
     }
+    // detectar exclusoes de planos/registros desde a ultima sincronizacao
+    if(lastSavedItemKeys.current){
+      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl});
+      var _di=delItemsRef.current||[];
+      Object.keys(lastSavedItemKeys.current).forEach(function(k){if(!_ik[k]&&_di.indexOf(k)<0)_di.push(k);});
+      _di=_di.filter(function(k){return !_ik[k];});
+      delItemsRef.current=_di.length>5000?_di.slice(-5000):_di;
+    }
     // ANTI-SOBRESCRITA: verificar se servidor tem versao mais nova que a nossa
     try{
       var serverTs=await supabase.getTimestamp();
@@ -7758,27 +7771,33 @@ useEffect(function(){
           // unir exclusoes do servidor com as nossas
           if(sd.delApts&&sd.delApts.length){var _dd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_dd.indexOf(id)<0)_dd.push(id);});delAptsRef.current=_dd.length>3000?_dd.slice(-3000):_dd;}
           if(sd.delGastos&&sd.delGastos.length){var _dgs=delGastosRef.current||[];sd.delGastos.forEach(function(k){if(_dgs.indexOf(k)<0)_dgs.push(k);});delGastosRef.current=_dgs.length>3000?_dgs.slice(-3000):_dgs;}
+          if(sd.delItems&&sd.delItems.length){var _dis=delItemsRef.current||[];sd.delItems.forEach(function(k){if(_dis.indexOf(k)<0)_dis.push(k);});delItemsRef.current=_dis.length>5000?_dis.slice(-5000):_dis;}
+          var _diSet={};(delItemsRef.current||[]).forEach(function(k){_diSet[k]=true;});
           var _skip={};(delAptsRef.current||[]).forEach(function(id){_skip[id]=true;});
           // Merge automatico: adicionar registros que nao temos localmente (menos os apagados)
-          var mergeArr=function(localArr,serverArr,setter,skip){
-            if(!serverArr||!serverArr.length)return;
-            var localIds={};
-            (localArr||[]).forEach(function(x){if(x&&x.id!=null)localIds[x.id]=true;});
-            var missing=serverArr.filter(function(x){return x&&x.id!=null&&!localIds[x.id]&&!(skip&&skip[x.id]);});
-            if(missing.length>0){
-              setter(function(prev){return [...(prev||[]),...missing];});
-            }
+          var mergeArr=function(localArr,serverArr,setter,prefix){
+            setter(function(prev){
+              prev=prev||[];
+              var changed=false,base=prev;
+              if(prefix){base=prev.filter(function(x){return !(x&&x.id!=null&&_diSet[prefix+":"+x.id]);});if(base.length!==prev.length)changed=true;}
+              if(serverArr&&serverArr.length){
+                var localIds={};base.forEach(function(x){if(x&&x.id!=null)localIds[x.id]=true;});
+                var missing=serverArr.filter(function(x){return x&&x.id!=null&&!localIds[x.id]&&!(prefix&&_diSet[prefix+":"+x.id]);});
+                if(missing.length){base=base.concat(missing);changed=true;}
+              }
+              return changed?base:prev;
+            });
           };
           setAppts(function(prev){var arr=mergeAppts(prev,sd.appts,_skip);return JSON.stringify(arr)===JSON.stringify(prev)?prev:arr;});
-          mergeArr(recs,sd.recs,setRecs);
-          mergeArr(budgets,sd.budgets,setBudgets);
-          mergeArr(treats,sd.treats,setTreats);
-          mergeArr(pros,sd.pros,setPros);
-          mergeArr(rems,sd.rems,setRems);
+          mergeArr(recs,sd.recs,setRecs,"recs");
+          mergeArr(budgets,sd.budgets,setBudgets,"budgets");
+          mergeArr(treats,sd.treats,setTreats,"treats");
+          mergeArr(pros,sd.pros,setPros,"pros");
+          mergeArr(rems,sd.rems,setRems,"rems");
           mergeArr(logs,sd.logs,setLogs);
-          mergeArr(implMov,sd.implMov,setImplMov);
-          mergeArr(implCat,sd.implCat,setImplCat);
-          mergeArr(impl,sd.impl,setImpl);
+          mergeArr(implMov,sd.implMov,setImplMov,"implMov");
+          mergeArr(implCat,sd.implCat,setImplCat,"implCat");
+          mergeArr(impl,sd.impl,setImpl,"impl");
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
           if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
@@ -7788,7 +7807,7 @@ useEffect(function(){
         }
       }
     }catch(e){}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -7798,6 +7817,7 @@ useEffect(function(){
           lastSaved.current=JSON.stringify(payload);
           {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
           lastSavedGastosKeys.current=_gKeys(gastos);
+          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl});
           // Atualizar timestamp do servidor para o nosso
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
@@ -7881,6 +7901,7 @@ useEffect(function(){
       if(Date.now()-lastLocalChangeTs.current<12000)return;
       // une exclusoes do servidor com as nossas
       if(sd.delApts&&sd.delApts.length){var _pd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_pd.indexOf(id)<0)_pd.push(id);});delAptsRef.current=_pd.length>3000?_pd.slice(-3000):_pd;}
+      if(sd.delItems&&sd.delItems.length){var _pdi=delItemsRef.current||[];sd.delItems.forEach(function(k){if(_pdi.indexOf(k)<0)_pdi.push(k);});delItemsRef.current=_pdi.length>5000?_pdi.slice(-5000):_pdi;}
       // adota a versao do servidor (reflete exclusoes). itens novos ainda nao salvos
       // estao protegidos pelas travas (12s recente / save pendente / falha de save) acima.
       var mergeArr=function(serverArr,setter){
@@ -7892,14 +7913,19 @@ useEffect(function(){
       };
       // === SINCRONIZACAO SEGURA (nao perde dados locais) ===
       var _delP={};(delAptsRef.current||[]).forEach(function(id){_delP[id]=true;});
+      var _diSetP={};(delItemsRef.current||[]).forEach(function(k){_diSetP[k]=true;});
       // ADITIVO: mantem tudo que e local; so traz do servidor o que ainda nao temos.
-      var addArr=function(serverArr,setter){
-        if(!serverArr)return;
+      var addArr=function(serverArr,setter,prefix){
         setter(function(prev){
           prev=prev||[];
-          var ids={};prev.forEach(function(x){if(x&&x.id!=null)ids[x.id]=true;});
-          var miss=serverArr.filter(function(x){return x&&x.id!=null&&!ids[x.id]&&!_delP[x.id];});
-          return miss.length?prev.concat(miss):prev;
+          var changed=false,base=prev;
+          if(prefix){base=prev.filter(function(x){return !(x&&x.id!=null&&_diSetP[prefix+":"+x.id]);});if(base.length!==prev.length)changed=true;}
+          if(serverArr&&serverArr.length){
+            var ids={};base.forEach(function(x){if(x&&x.id!=null)ids[x.id]=true;});
+            var miss=serverArr.filter(function(x){return x&&x.id!=null&&!ids[x.id]&&!(prefix&&_diSetP[prefix+":"+x.id]);});
+            if(miss.length){base=base.concat(miss);changed=true;}
+          }
+          return changed?base:prev;
         });
       };
       // AGENDA: servidor manda no status (reflete confirmacoes do WhatsApp), mas mantem consultas locais que o servidor ainda nao tem e remove as apagadas.
@@ -7914,11 +7940,11 @@ useEffect(function(){
         });
       };
       apptArr(sd.appts,setAppts);
-      addArr(sd.recs,setRecs);
-      addArr(sd.budgets,setBudgets);
-      addArr(sd.treats,setTreats);
-      addArr(sd.pros,setPros);
-      addArr(sd.rems,setRems);
+      addArr(sd.recs,setRecs,"recs");
+      addArr(sd.budgets,setBudgets,"budgets");
+      addArr(sd.treats,setTreats,"treats");
+      addArr(sd.pros,setPros,"pros");
+      addArr(sd.rems,setRems,"rems");
       addArr(sd.logs,setLogs);
       if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
       if(sd.gastos){var _dgp={};(delGastosRef.current||[]).forEach(function(k){_dgp[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgp);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
@@ -7931,7 +7957,7 @@ useEffect(function(){
       if(sd.labs)setLabs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.labs)?prev:sd.labs;});
       if(sd.procs&&sd.procs.length)setProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.procs)?prev:sd.procs;});
       if(sd.stock)setStock(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.stock)?prev:sd.stock;});
-      if(sd.impl)addArr(sd.impl,setImpl);
+      if(sd.impl)addArr(sd.impl,setImpl,"impl");
       if(sd.prosProcs)setProsProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.prosProcs)?prev:sd.prosProcs;});
       if(sd.espera)setEspera(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.espera)?prev:sd.espera;});
       if(sd.remarcar)setRemarcar(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.remarcar)?prev:sd.remarcar;});
