@@ -2953,7 +2953,7 @@ const todayOnly=pros.filter(p=>p.due===t&&p.status==="waiting");
 // "Hoje" mostra atrasadas (destaque vermelho) em primeiro + as de hoje
 const todP=[...lateP,...todayOnly];
 const flt=filt==="today"?todP:filt==="all"?pros:pros.filter(p=>p.status===filt).sort((a,b)=>(a.due||"9999-99-99").localeCompare(b.due||"9999-99-99"));
-const save=()=>{if(!f.patientId||!f.labId)return alert("Informe paciente e laboratório");const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,id:edit?edit.id:nid(pros)};setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[...prev,obj]);setModal(false);};
+const save=()=>{if(!f.patientId||!f.labId)return alert("Informe paciente e laboratório");const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,id:edit?edit.id:nid(pros),_ts:Date.now()};setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[...prev,obj]);setModal(false);};
 const saveProc=()=>{if(!procForm.name)return;const obj={name:procForm.name,price:Number(procForm.price)||0,id:editProc?editProc.id:nid(prosProcs)};setProsProcs(prev=>editProc?prev.map(p=>p.id===editProc.id?obj:p):[...prev,obj]);setProcForm({name:"",price:""});setEditProc(null);};
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -2981,8 +2981,8 @@ return <div key={p.id} style={late?{background:G.red+"10",borderRadius:12,paddin
 {p.notes&&<div style={{fontSize:10,color:G.muted,fontStyle:"italic"}}>{p.notes}</div>}
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}>
-{p.status==="waiting"&&<Btn ch="📦 Chegou!" sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"returned",returned:t}:x))}/>}
-{p.status==="returned"&&<Btn ch="✓ Instalada" v="y" sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"placed"}:x))}/>}
+{p.status==="waiting"&&<Btn ch="📦 Chegou!" sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"returned",returned:t,_ts:Date.now()}:x))}/>}
+{p.status==="returned"&&<Btn ch="✓ Instalada" v="y" sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"placed",_ts:Date.now()}:x))}/>}
 {lab?.phone&&<Btn ch="📱 Lab" v="w" sm onClick={()=>wa(lab.phone,`Olá ${lab.name}! Verificando ${p.type} paciente ${pat?.name}, dente ${p.tooth}. Enviada ${fmt(p.sent)}, previsão ${fmt(p.due)}.`)}/>}
 <Btn ch="Editar" v="g" sm onClick={()=>{setEdit(p);setF({...p,patientId:String(p.patientId),dentistId:String(p.dentistId),labId:String(p.labId),price:String(p.price||""),qty:String(p.qty||1)});setModal(true);}}/>
 <Btn ch="✕ Excluir" v="r" sm onClick={()=>setPros(prev=>prev.filter(x=>x.id!==p.id))}/>
@@ -3054,7 +3054,7 @@ return <div key={p.id} style={late?{background:G.red+"10",borderRadius:12,paddin
 <button onClick={()=>{
 if(!f.patientId)return alert("Selecione o paciente");
 if(!f.labId)return alert("Selecione o laboratório");
-const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,id:edit?edit.id:nid(pros)};
+const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,id:edit?edit.id:nid(pros),_ts:Date.now()};
 setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[...prev,obj]);
 setModal(false);
 }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>💾 Salvar Prótese</button>
@@ -4495,7 +4495,7 @@ return <div key={"d"+(sec.isTreat?x.id:p.id)} style={{background:"#f0faf4",borde
 // RELATÓRIOS
 // ══════════════════════════════════════════════════════════
 function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha}){
-const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [openOrto,setOpenOrto]=useState({});const [openDent,setOpenDent]=useState({});const [openProt,setOpenProt]=useState({});
+const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [orcFilter,setOrcFilter]=useState(null);const [openOrto,setOpenOrto]=useState({});const [openDent,setOpenDent]=useState({});const [openProt,setOpenProt]=useState({});
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
 const [allSelMsg,setAllSelMsg]=useState(false);
@@ -4676,11 +4676,12 @@ return <>
 <div style={{fontFamily:"'Cormorant Garamond'",fontSize:38,fontWeight:700,lineHeight:1}}>{orcs.length}</div>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
-{["aprovado","espera","parcial","naofechado"].map(sv=><div key={sv} style={{background:G.card,borderRadius:11,padding:"12px",textAlign:"center",borderTop:"4px solid "+STCOLOR[sv],boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+{["aprovado","espera","parcial","naofechado"].map(sv=>{var active=orcFilter===sv;return <div key={sv} onClick={function(){setOrcFilter(active?null:sv);}} style={{background:active?STCOLOR[sv]+"18":G.card,borderRadius:11,padding:"12px",textAlign:"center",borderTop:"4px solid "+STCOLOR[sv],boxShadow:active?"0 0 0 2px "+STCOLOR[sv]:"0 1px 4px rgba(0,0,0,.07)",cursor:"pointer",transition:"all .15s"}}>
 <div style={{fontSize:11,color:G.muted,fontWeight:700}}>{STLABEL[sv]}</div>
 <div style={{fontFamily:"'Cormorant Garamond'",fontSize:30,color:STCOLOR[sv],lineHeight:1.05,fontWeight:700}}>{byStatus[sv].length}</div>
 <div style={{fontSize:12,color:STCOLOR[sv],fontWeight:700}}>{cur(sumV(byStatus[sv]))}</div>
-</div>)}
+<div style={{fontSize:10,color:active?STCOLOR[sv]:G.muted,fontWeight:700,marginTop:3}}>{active?"✓ filtrando":"toque p/ ver"}</div>
+</div>;})}
 </div>
 {Object.keys(byDent).length>0&&<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
 <div style={{fontWeight:700,fontSize:14,marginBottom:10,color:G.primary}}>🦷 Orçamentos por dentista</div>
@@ -4701,8 +4702,9 @@ return <>
 </div>
 </div>}
 <div style={{display:"flex",flexDirection:"column",gap:7}}>
-{orcs.length===0&&<div style={{background:G.card,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhum orçamento neste mês</div>}
-{orcs.slice().sort((a,b)=>(b.start||"").localeCompare(a.start||"")).map(t=>{var pat=pats.find(p=>p.id===t.patientId);var den=dents.find(d=>String(d.id)===String(t.dentistId));var sv=stOf(t);var v=dispVal(t);var tt=totOf(t);
+{orcFilter&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:STCOLOR[orcFilter]+"15",borderRadius:10,padding:"9px 14px",borderLeft:"4px solid "+STCOLOR[orcFilter]}}><span style={{fontSize:13,fontWeight:700,color:STCOLOR[orcFilter]}}>{STLABEL[orcFilter]+" · "+orcs.filter(t=>stOf(t)===orcFilter).length}</span><button onClick={function(){setOrcFilter(null);}} style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,color:G.primary,cursor:"pointer"}}>{"✕ Ver todos"}</button></div>}
+{(orcFilter?orcs.filter(t=>stOf(t)===orcFilter):orcs).length===0&&<div style={{background:G.card,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>{orcFilter?"Nenhum orçamento "+STLABEL[orcFilter].toLowerCase()+" neste mês":"Nenhum orçamento neste mês"}</div>}
+{(orcFilter?orcs.filter(t=>stOf(t)===orcFilter):orcs).slice().sort((a,b)=>(b.start||"").localeCompare(a.start||"")).map(t=>{var pat=pats.find(p=>p.id===t.patientId);var den=dents.find(d=>String(d.id)===String(t.dentistId));var sv=stOf(t);var v=dispVal(t);var tt=totOf(t);
 return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",borderLeft:"4px solid "+STCOLOR[sv]}}>
 <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
 <div><div onClick={function(){if(pat)abrirFicha&&abrirFicha(pat);}} title={pat?"Abrir ficha clínica":""} style={{fontWeight:700,fontSize:13,color:pat?G.primary:G.text,cursor:pat?"pointer":"default",textDecoration:pat?"underline":"none",display:"inline-block"}}>{pat?pat.name:"--"}</div><div style={{fontSize:11,color:G.muted}}>{fmt(t.start)}{den?(" · "+den.name):""}{t.name?(" · "+t.name):""}</div></div>
@@ -7786,6 +7788,8 @@ useEffect(function(){
               var changed=false,base=prev;
               if(prefix){base=prev.filter(function(x){return !(x&&x.id!=null&&_diSet[prefix+":"+x.id]);});if(base.length!==prev.length)changed=true;}
               if(serverArr&&serverArr.length){
+                var srvById={};serverArr.forEach(function(x){if(x&&x.id!=null)srvById[x.id]=x;});
+                base=base.map(function(x){if(x&&x.id!=null&&srvById[x.id]&&(srvById[x.id]._ts||0)>(x._ts||0)){changed=true;return srvById[x.id];}return x;});
                 var localIds={};base.forEach(function(x){if(x&&x.id!=null)localIds[x.id]=true;});
                 var missing=serverArr.filter(function(x){return x&&x.id!=null&&!localIds[x.id]&&!(prefix&&_diSet[prefix+":"+x.id]);});
                 if(missing.length){base=base.concat(missing);changed=true;}
@@ -7926,6 +7930,8 @@ useEffect(function(){
           var changed=false,base=prev;
           if(prefix){base=prev.filter(function(x){return !(x&&x.id!=null&&_diSetP[prefix+":"+x.id]);});if(base.length!==prev.length)changed=true;}
           if(serverArr&&serverArr.length){
+            var srvById={};serverArr.forEach(function(x){if(x&&x.id!=null)srvById[x.id]=x;});
+            base=base.map(function(x){if(x&&x.id!=null&&srvById[x.id]&&(srvById[x.id]._ts||0)>(x._ts||0)){changed=true;return srvById[x.id];}return x;});
             var ids={};base.forEach(function(x){if(x&&x.id!=null)ids[x.id]=true;});
             var miss=serverArr.filter(function(x){return x&&x.id!=null&&!ids[x.id]&&!(prefix&&_diSetP[prefix+":"+x.id]);});
             if(miss.length){base=base.concat(miss);changed=true;}
