@@ -8212,7 +8212,7 @@ return <>
 
   <div className="main-content" style={{flex:1,overflowY:"auto",minWidth:0}}>
     {/* Mobile top bar */}
-    <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:G.primary,position:"sticky",top:0,zIndex:100}} className="mobile-topbar">
+    <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:"linear-gradient(180deg,rgba(23,47,38,.97),rgba(11,30,23,.99))",backdropFilter:"blur(22px) saturate(140%)",WebkitBackdropFilter:"blur(22px) saturate(140%)",position:"sticky",top:0,zIndex:100,boxShadow:"0 2px 10px rgba(0,0,0,.18)"}} className="mobile-topbar">
       <button onClick={()=>setSideOpen(true)} style={{border:"none",background:"rgba(255,255,255,.15)",borderRadius:8,color:"#fff",fontSize:18,cursor:"pointer",padding:"6px 10px",lineHeight:1,flexShrink:0}}>☰</button>
       <div style={{flex:1,fontFamily:"'Cormorant Garamond'",fontSize:16,color:"#fff",fontWeight:700}}>
         {NAV.find(n=>n.id===view)?.l||"🏠 Visão Geral"}
