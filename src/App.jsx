@@ -5864,6 +5864,7 @@ function Receituario({pats,dents,user}){
 var [patId,setPatId]=useState("");
 var [dentId,setDentId]=useState(String(user.level===1&&user.dentistId?user.dentistId:dents[0]&&dents[0].id||""));
 var [cat,setCat]=useState("Todos");
+var [busca,setBusca]=useState("");
 var [sel,setSel]=useState([]);
 var [extra,setExtra]=useState([]);
 var [addMod,setAddMod]=useState(false);
@@ -5873,7 +5874,7 @@ var pat=pats.find(function(p){return p.id===Number(patId);});
 var dent=dents.find(function(d){return d.id===Number(dentId);})||dents[0];
 var allMeds=MEDS_BASE.concat(extra);
 var cats=["Todos"].concat([...new Set(allMeds.map(function(m){return m.cat;}))]);
-var filt=cat==="Todos"?allMeds:allMeds.filter(function(m){return m.cat===cat;});
+var filt=allMeds.filter(function(m){var okCat=cat==="Todos"||m.cat===cat;var q=busca.toLowerCase().trim();var okBusca=!q||m.name.toLowerCase().indexOf(q)>=0;return okCat&&okBusca;});
 var tog=function(med){setSel(function(prev){return prev.find(function(m){return m.id===med.id;})?prev.filter(function(m){return m.id!==med.id;}):[...prev,{...med,posEdit:med.pos,qtyEdit:med.qty}];});};
 var updSel=function(id,k,v){setSel(function(prev){return prev.map(function(m){return m.id===id?{...m,[k]:v}:m;});});};
 var saveExtra=function(){
@@ -5923,6 +5924,14 @@ return (
 
 <R2 a={<PatSearch lb="Paciente" val={patId} set={setPatId} pats={pats}/>} b={<Sel lb="Dentista" val={dentId} set={setDentId} opts={dents.map(function(d){return{v:String(d.id),l:d.name};})}/>}/>
 
+  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+    <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Buscar medicação</label>
+    <div style={{position:"relative"}}>
+      <input value={busca} onChange={function(e){setBusca(e.target.value);}} placeholder="🔍 Digite o nome (ex: amoxicilina)..." style={{width:"100%",border:"1.5px solid "+(busca?G.primary:G.border),borderRadius:10,padding:"10px 38px 10px 13px",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+      {busca&&<button onClick={function(){setBusca("");}} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",border:"none",background:G.border,borderRadius:"50%",width:22,height:22,color:G.muted,cursor:"pointer",fontSize:13,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>{"✕"}</button>}
+    </div>
+  </div>
+
   <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
     {cats.map(function(c){return(
       <button key={c} onClick={function(){setCat(c);}} style={{border:"2px solid "+(cat===c?G.primary:G.border),background:cat===c?G.primary:"#fff",color:cat===c?"#fff":G.muted,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{c}</button>
@@ -5930,6 +5939,7 @@ return (
   </div>
 
   <div style={{display:"flex",flexDirection:"column",gap:6}}>
+    {filt.length===0&&<div style={{textAlign:"center",padding:"24px",color:G.muted,fontSize:13,background:G.bg,borderRadius:10}}>Nenhuma medicação encontrada para "{busca}"</div>}
     {filt.map(function(med){
       var s=sel.find(function(m){return m.id===med.id;});
       var isX=extra.some(function(m){return m.id===med.id;});
