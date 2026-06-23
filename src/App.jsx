@@ -823,8 +823,13 @@ setConfirmDesfazer({tid,idx});
 const execDesfazer=()=>{
 if(!confirmDesfazer)return;
 const {tid,idx:didx}=confirmDesfazer;
-setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==didx?it:{
-...it,done:false,doneDate:null,doneBy:null,doneByDentistId:null,creditFuture:false
+const _t=treats.find(x=>x.id===tid);
+const _it=_t&&_t.items[didx];
+const _rid=_it&&_it.recId;
+const _pid=_it&&_it.pmtId;
+if(_rid!=null)setRecs(prev=>prev.filter(r=>r.id!==_rid));
+setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,payments:(t.payments||[]).filter(p=>_pid==null||p.id!==_pid),items:t.items.map((it,i)=>i!==didx?it:{
+...it,done:false,doneDate:null,doneBy:null,doneByDentistId:null,creditFuture:false,recId:null,pmtId:null
 })}));
 setConfirmDesfazer(null);
 };
@@ -1108,7 +1113,7 @@ return <>
           <span style={{color:G.muted,minWidth:72}}>{fmt(p.date)}</span>
           <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}{inst>1?` · ${inst}x`:""}</span>
           <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
-          {user.level>=2&&<button onClick={()=>{
+          {user.level>=3&&<button onClick={()=>{
   setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));
   setRecs(prev=>prev.filter(r=>!(r.fromTreat===t.id&&Math.abs(r.paid-p.value)<0.01&&r.date===p.date)));
 }} style={{background:G.red,border:"none",color:"#fff",cursor:"pointer",fontSize:12,padding:"3px 8px",borderRadius:6,fontWeight:700}} title="Excluir pagamento">✕ Excluir</button>}
@@ -1361,7 +1366,7 @@ return <>
       {r.inst>1&&<Bdg l={`${r.inst}x`} col={G.blue} sm/>}
       <span style={{fontWeight:700,color:G.success,fontSize:12}}>{cur(r.paid)}</span>
       <span style={{fontSize:11,color:G.muted}}>líq: {cur(calcNet(r.paid,r.payment))}</span>
-      {user.level>=2&&<button onClick={()=>setConfirmDel({type:"rec",id:r.id,label:"Pagamento de "+cur(r.paid)+" em "+fmt(r.date)})} style={{background:G.red,color:"#fff",border:"none",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>Excluir</button>}
+      {user.level>=3&&<button onClick={()=>setConfirmDel({type:"rec",id:r.id,label:"Pagamento de "+cur(r.paid)+" em "+fmt(r.date)})} style={{background:G.red,color:"#fff",border:"none",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>Excluir</button>}
     </div>)}
     <Div lb="Pagamentos de Planos de Tratamento"/>
     {patTreats.map(t=><div key={t.id}>
@@ -2061,7 +2066,11 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid "+G.border}}>
         <button onClick={()=>setConfirmDel(null)} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={()=>{
-          if(confirmDel.type==="rec")setRecs(prev=>prev.filter(x=>x.id!==confirmDel.id));
+          if(confirmDel.type==="rec"){
+            var _dr=recs.find(function(x){return x.id===confirmDel.id;});
+            setRecs(prev=>prev.filter(x=>x.id!==confirmDel.id));
+            if(_dr&&_dr.fromTreat!=null){setTreats(prev=>prev.map(function(tr){return tr.id!==_dr.fromTreat?tr:Object.assign({},tr,{payments:(tr.payments||[]).filter(function(pp){return !(Math.abs(Number(pp.value)-Number(_dr.paid))<0.01&&pp.date===_dr.date);})});}));}
+          }
           setConfirmDel(null);
         }} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Excluir</button>
       </div>
@@ -2114,11 +2123,12 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           if(!treat2)return;
           var item2=treat2.items[idx2];
           var finalVal=pmoney(ortoPayVal)||item2.value;
-          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal})}));
-          var recObj={id:nid(recs),patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2,ts:new Date().toISOString()};
+          var _recId=nid();var _pmtId=nid();
+          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal,recId:_recId,pmtId:_pmtId})}));
+          var recObj={id:_recId,patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2,ts:new Date().toISOString()};
           setRecs(prev=>[...prev,recObj]);
           // Also register in treat.payments so it shows in pagamentos registrados
-          var newPmt={id:nid(),date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc};
+          var newPmt={id:_pmtId,date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc};
           setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,payments:[...(t.payments||[]),newPmt]}));
           setOrtoPayModal(null);setOrtoPayVal("");
         }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"✓ Confirmar"}</button>
@@ -5603,7 +5613,7 @@ const bdayDone=bdayAll.filter(_bdayDone);
 const marcarBday=function(p){setPacsTicks(function(prev){var n=Object.assign({},prev);var rec={done:true,note:"Parabens enviado",doneBy:user.name,doneAt:t,ts:Date.now()};n["bday_week_"+p.id+"_"+per]=rec;n["bday_month_"+p.id+"_"+per]=rec;return n;});};
 const restaurarBday=function(p){setPacsTicks(function(prev){var n=Object.assign({},prev);var tb={done:false,ts:Date.now(),by:user.name};n["bday_week_"+p.id+"_"+per]=tb;n["bday_month_"+p.id+"_"+per]=tb;return n;});};
 const faltOntem=appts.filter(function(a){return a.date===yd&&a.status==="missed";});
-const prosPend=pros.filter(function(p){return p.status==="waiting";}).sort(function(a,b){return (a.due||"").localeCompare(b.due||"");});
+const prosPend=pros.filter(function(p){return p.status==="waiting"&&p.due&&p.due<=t;}).sort(function(a,b){return (a.due||"").localeCompare(b.due||"");});
 const prosAtras=prosPend.filter(function(p){return p.due&&p.due<t;}).length;
 const stkBaixo=((stock||[]).filter(function(s){return Number(s.qty)<=Number(s.min);}));
 const ar=autoRems(pats,recs,appts);
