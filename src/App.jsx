@@ -782,7 +782,7 @@ const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:pmoney(rf.
 setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
 setRecModal(false);
 };
-const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:Number(tf.dentistId)||user.dentistId||dents[0]?.id||1,orcStatus:tf.orcStatus||"espera",id:nid(treats)}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
+const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:Number(tf.dentistId)||user.dentistId||dents[0]?.id||1,orcStatus:tf.orcStatus||"espera",id:nid(treats),_ts:Date.now()}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
 const addTItem=()=>{
 if(!tni.d&&!tni.procId)return alert("Selecione um procedimento");
 if(!tni.v)return alert("Informe o valor");
@@ -806,7 +806,7 @@ if(!item.done){
 if(item.orto){setOrtoPayModal({tid,idx});return;}
 const payments=treat.payments||[];
 const hasInstallment=payments.some(p=>p.installments>1||(p.method==="Cartão Crédito"&&p.installmentMonths?.length>1));
-setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,items:t.items.map((it,i)=>i!==idx?it:{
+setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,_ts:Date.now(),items:t.items.map((it,i)=>i!==idx?it:{
 ...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,
 creditFuture:hasInstallment,
 })}));
@@ -828,7 +828,7 @@ const _it=_t&&_t.items[didx];
 const _rid=_it&&_it.recId;
 const _pid=_it&&_it.pmtId;
 if(_rid!=null)setRecs(prev=>prev.filter(r=>r.id!==_rid));
-setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,payments:(t.payments||[]).filter(p=>_pid==null||p.id!==_pid),items:t.items.map((it,i)=>i!==didx?it:{
+setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,_ts:Date.now(),payments:(t.payments||[]).filter(p=>_pid==null||p.id!==_pid),items:t.items.map((it,i)=>i!==didx?it:{
 ...it,done:false,doneDate:null,doneBy:null,doneByDentistId:null,creditFuture:false,recId:null,pmtId:null
 })}));
 setConfirmDesfazer(null);
@@ -839,7 +839,7 @@ if(!pv)return alert("Informe o valor");
 const t=treats.find(x=>x.id===tid);
 // Save payment in treatment plan
 const instSave=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
-setTreats(prev=>prev.map(function(tr){if(tr.id!==tid)return tr;var newPays=[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave}];var totIt=(tr.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);var totPg=newPays.reduce(function(s,p){return s+Number(p.value||0);},0);var ns=tr.orcStatus||"espera";if((ns==="parcial"||ns==="espera")&&totIt>0&&totPg>=totIt-0.005)ns="aprovado";else if(ns==="espera"&&totPg>0)ns="parcial";return {...tr,payments:newPays,orcStatus:ns};}));
+setTreats(prev=>prev.map(function(tr){if(tr.id!==tid)return tr;var newPays=[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave}];var totIt=(tr.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);var totPg=newPays.reduce(function(s,p){return s+Number(p.value||0);},0);var ns=tr.orcStatus||"espera";if((ns==="parcial"||ns==="espera")&&totIt>0&&totPg>=totIt-0.005)ns="aprovado";else if(ns==="espera"&&totPg>0)ns="parcial";return {...tr,_ts:Date.now(),payments:newPays,orcStatus:ns};}));
 // Also create a rec entry so Financeiro sees it
 const inst=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
 const recObj={
@@ -914,7 +914,7 @@ const det=(addProcForm.d||"").trim();
 const desc=det?`${base} -- ${det}`:base;
 const qtd=Math.max(1,Number(addProcForm.qty||1));
 const novos=Array.from({length:qtd},(_,i)=>({desc:qtd>1?`${desc} (${i+1}/${qtd})`:desc,value:Number(addProcForm.v)||0,paid:false}));
-setTreats(prev=>prev.map(t=>t.id!==addProcModal?t:{...t,items:[...t.items,...novos]}));
+setTreats(prev=>prev.map(t=>t.id!==addProcModal?t:{...t,_ts:Date.now(),items:[...t.items,...novos]}));
 setAddProcModal(null);
 };
 
@@ -1030,13 +1030,13 @@ return <>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
             {!isDentUser&&<button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:"",qty:"",manual:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>}
-            <button onClick={()=>{setPdfBudget({items:t.items.map(function(it){return{d:it.desc,v:it.value};}),disc:0,dentistId:t.dentistId,date:t.start,_planName:t.name});setPayCfg(defPayCfg());setTreats(prev=>prev.map(x=>x.id===t.id?{...x,orcEnviado:true,orcEnviadoAt:today()}:x));}} style={{background:G.gold,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>📄 Orçamento</button>
+            <button onClick={()=>{setPdfBudget({items:t.items.map(function(it){return{d:it.desc,v:it.value};}),disc:0,dentistId:t.dentistId,date:t.start,_planName:t.name});setPayCfg(defPayCfg());setTreats(prev=>prev.map(x=>x.id===t.id?{...x,_ts:Date.now(),orcEnviado:true,orcEnviadoAt:today()}:x));}} style={{background:G.gold,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>📄 Orçamento</button>
                 { !t.finalizado
-                  ? (!isDentUser&&<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:true,finalizadoEm:today(),finalizadoPor:user.name}))}
+                  ? (!isDentUser&&<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,_ts:Date.now(),finalizado:true,finalizadoEm:today(),finalizadoPor:user.name}))}
                     style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✓ Finalizar"}</button>)
                   :<div style={{display:"flex",alignItems:"center",gap:5}}>
                     <span style={{background:G.success+"20",color:G.success,borderRadius:10,padding:"3px 10px",fontSize:11,fontWeight:700}}>{"✅ Finalizado"}</span>
-                    {!isDentUser&&<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,finalizado:false,finalizadoEm:null,finalizadoPor:null}))}
+                    {!isDentUser&&<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,_ts:Date.now(),finalizado:false,finalizadoEm:null,finalizadoPor:null}))}
                       style={{background:"none",border:"1px solid "+G.border,borderRadius:6,padding:"2px 7px",fontSize:10,color:G.muted,cursor:"pointer"}}>{"↩"}</button>}
                   </div>
                 }
@@ -1051,23 +1051,23 @@ return <>
           {[["aprovado","Aprovado",G.success],["espera","Em espera",G.yellow],["parcial","Parcial",G.blue],["naofechado","Não fechado",G.red]].map(function(o){var sv=o[0],sl=o[1],sc=o[2];var active=effOrc===sv;
             return isDentUser
               ?(active?<span key={sv} style={{background:sc,color:"#fff",borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700}}>{sl}</span>:null)
-              :<button key={sv} onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,orcStatus:sv}))} style={{background:active?sc:"#fff",color:active?"#fff":G.muted,border:"1.5px solid "+(active?sc:G.border),borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{sl}</button>;
+              :<button key={sv} onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,_ts:Date.now(),orcStatus:sv}))} style={{background:active?sc:"#fff",color:active?"#fff":G.muted,border:"1.5px solid "+(active?sc:G.border),borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{sl}</button>;
           })}
           <span style={{width:1,height:18,background:G.border,margin:"0 3px"}}/>
           {isDentUser
             ?(t.orcEnviado?<span style={{background:G.success+"20",color:G.success,borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700}}>{"📤 Enviado"+(t.orcEnviadoAt?" · "+fmt(t.orcEnviadoAt):"")}</span>:<span style={{background:G.red+"15",color:G.red,borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700}}>{"📤 Não enviado"}</span>)
-            :<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:Object.assign({},x,{orcEnviado:!x.orcEnviado,orcEnviadoAt:(!x.orcEnviado)?today():null})))} title="Marque se o orçamento já foi enviado ao paciente (por qualquer meio)" style={{background:t.orcEnviado?G.success:"#fff",color:t.orcEnviado?"#fff":G.red,border:"1.5px solid "+(t.orcEnviado?G.success:G.red),borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{t.orcEnviado?("📤 Enviado"+(t.orcEnviadoAt?" · "+fmt(t.orcEnviadoAt):"")):"📤 Marcar enviado"}</button>}
+            :<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:Object.assign({},x,{_ts:Date.now(),orcEnviado:!x.orcEnviado,orcEnviadoAt:(!x.orcEnviado)?today():null})))} title="Marque se o orçamento já foi enviado ao paciente (por qualquer meio)" style={{background:t.orcEnviado?G.success:"#fff",color:t.orcEnviado?"#fff":G.red,border:"1.5px solid "+(t.orcEnviado?G.success:G.red),borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{t.orcEnviado?("📤 Enviado"+(t.orcEnviadoAt?" · "+fmt(t.orcEnviadoAt):"")):"📤 Marcar enviado"}</button>}
         </div>
         {(t.orcStatus==="naofechado")&&<div style={{display:"flex",gap:7,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
           <span style={{fontSize:11,fontWeight:700,color:G.red}}>Motivo:</span>
           {isDentUser
             ?<span style={{fontSize:12,color:G.text}}>{t.orcMotivo||"--"}{(t.orcMotivo==="Outro"&&t.orcMotivoObs)?(" — "+t.orcMotivoObs):""}</span>
             :<>
-              <select value={t.orcMotivo||""} onChange={e=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,orcMotivo:e.target.value}))} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"5px 9px",fontSize:12,background:"#fff",outline:"none"}}>
+              <select value={t.orcMotivo||""} onChange={e=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,_ts:Date.now(),orcMotivo:e.target.value}))} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"5px 9px",fontSize:12,background:"#fff",outline:"none"}}>
                 <option value="">Selecione...</option>
                 {MOTIVOS_ORC.map(m=><option key={m} value={m}>{m}</option>)}
               </select>
-              {t.orcMotivo==="Outro"&&<input value={t.orcMotivoObs||""} onChange={e=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,orcMotivoObs:e.target.value}))} placeholder="Descreva o motivo" style={{flex:1,minWidth:150,border:"1.5px solid "+G.border,borderRadius:8,padding:"5px 9px",fontSize:12,outline:"none"}}/>}
+              {t.orcMotivo==="Outro"&&<input value={t.orcMotivoObs||""} onChange={e=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,_ts:Date.now(),orcMotivoObs:e.target.value}))} placeholder="Descreva o motivo" style={{flex:1,minWidth:150,border:"1.5px solid "+G.border,borderRadius:8,padding:"5px 9px",fontSize:12,outline:"none"}}/>}
             </>}
         </div>}
         <div style={{background:G.border,borderRadius:4,height:5,marginBottom:10}}><div style={{background:G.primary,height:5,borderRadius:4,width:`${total?Math.min(100,paid/total*100):0}%`,transition:"width .3s"}}/></div>
@@ -1091,7 +1091,7 @@ return <>
               </div>}
             </div>
             <span style={{fontSize:13,fontWeight:700,color:isDone?G.muted:G.primary}}>{cur(it.value)}</span>
-            {!isDone&&<button onClick={()=>{setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,items:tr.items.filter((_,idx)=>idx!==i)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}} title="Remover procedimento">✕</button>}
+            {!isDone&&<button onClick={()=>{setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,_ts:Date.now(),items:tr.items.filter((_,idx)=>idx!==i)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}} title="Remover procedimento">✕</button>}
           </div>;
         })}
         <Div lb="Pagamentos Registrados"/>
@@ -1114,7 +1114,7 @@ return <>
           <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}{inst>1?` · ${inst}x`:""}</span>
           <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
           {user.level>=3&&<button onClick={()=>{
-  setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));
+  setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,_ts:Date.now(),payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));
   setRecs(prev=>prev.filter(r=>!(r.fromTreat===t.id&&Math.abs(r.paid-p.value)<0.01&&r.date===p.date)));
 }} style={{background:G.red,border:"none",color:"#fff",cursor:"pointer",fontSize:12,padding:"3px 8px",borderRadius:6,fontWeight:700}} title="Excluir pagamento">✕ Excluir</button>}
           </div>
@@ -1908,7 +1908,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
             return {desc:m+" "+ortoForm.ano,value:pmoney(ortoForm.valor),paid:false,orto:true,mesRef:ortoForm.ano+"-"+mes};
           });
           var newTreat={name:"Ortodontia "+ortoForm.ano,start:today(),items:items,payments:[],patientId:pat.id,dentistId:Number(ortoForm.dentistId)||dents[0]?.id,id:nid(treats),orto:true,ano:ortoForm.ano};
-          setTreats(prev=>[...prev,newTreat]);
+          setTreats(prev=>[...prev,{...newTreat,_ts:Date.now()}]);
           setOrtoModal(false);
         }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"🦷 Criar Plano Orto"}</button>
       </div>
@@ -2069,7 +2069,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           if(confirmDel.type==="rec"){
             var _dr=recs.find(function(x){return x.id===confirmDel.id;});
             setRecs(prev=>prev.filter(x=>x.id!==confirmDel.id));
-            if(_dr&&_dr.fromTreat!=null){setTreats(prev=>prev.map(function(tr){return tr.id!==_dr.fromTreat?tr:Object.assign({},tr,{payments:(tr.payments||[]).filter(function(pp){return !(Math.abs(Number(pp.value)-Number(_dr.paid))<0.01&&pp.date===_dr.date);})});}));}
+            if(_dr&&_dr.fromTreat!=null){setTreats(prev=>prev.map(function(tr){return tr.id!==_dr.fromTreat?tr:Object.assign({},tr,{_ts:Date.now(),payments:(tr.payments||[]).filter(function(pp){return !(Math.abs(Number(pp.value)-Number(_dr.paid))<0.01&&pp.date===_dr.date);})});}));}
           }
           setConfirmDel(null);
         }} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Excluir</button>
@@ -2124,12 +2124,12 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           var item2=treat2.items[idx2];
           var finalVal=pmoney(ortoPayVal)||item2.value;
           var _recId=nid();var _pmtId=nid();
-          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal,recId:_recId,pmtId:_pmtId})}));
+          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,_ts:Date.now(),items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal,recId:_recId,pmtId:_pmtId})}));
           var recObj={id:_recId,patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2,ts:new Date().toISOString()};
           setRecs(prev=>[...prev,recObj]);
           // Also register in treat.payments so it shows in pagamentos registrados
           var newPmt={id:_pmtId,date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc};
-          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,payments:[...(t.payments||[]),newPmt]}));
+          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,_ts:Date.now(),payments:[...(t.payments||[]),newPmt]}));
           setOrtoPayModal(null);setOrtoPayVal("");
         }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"✓ Confirmar"}</button>
       </div>
@@ -6210,7 +6210,7 @@ var marcarPago=function(key,pago){
   var hoje=today();
   setTreats(function(prev){return prev.map(function(t){
     if(t.id!==treatId)return t;
-    return {...t,items:t.items.map(function(it,i){
+    return {...t,_ts:Date.now(),items:t.items.map(function(it,i){
       if(i!==itemIdx)return it;
       return {...it,recebido:pago,recebidoDate:pago?hoje:""};
     })};
@@ -7209,7 +7209,7 @@ return <div style={{background:G.card,borderRadius:12,boxShadow:"0 1px 4px rgba(
 <div style={{fontWeight:700,fontSize:12.5}}>{it.nome}</div>
 <div style={{fontSize:11,color:G.muted,marginTop:1}}>{it.det}</div>
 </div>
-{it.tid&&<button onClick={function(){setTreats&&setTreats(function(prev){return prev.map(function(x){return x.id!==it.tid?x:Object.assign({},x,{orcEnviado:true,orcEnviadoAt:today()});});});}} title="Marcar orçamento como enviado ao paciente" style={{border:"none",background:G.success,color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,borderRadius:8,padding:"4px 10px",flexShrink:0,alignSelf:"flex-start",whiteSpace:"nowrap"}}>{"📤 Enviado"}</button>}
+{it.tid&&<button onClick={function(){setTreats&&setTreats(function(prev){return prev.map(function(x){return x.id!==it.tid?x:Object.assign({},x,{_ts:Date.now(),orcEnviado:true,orcEnviadoAt:today()});});});}} title="Marcar orçamento como enviado ao paciente" style={{border:"none",background:G.success,color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,borderRadius:8,padding:"4px 10px",flexShrink:0,alignSelf:"flex-start",whiteSpace:"nowrap"}}>{"📤 Enviado"}</button>}
 {it.key&&<button onClick={function(){setAuditDismiss(function(prev){var nn=Object.assign({},prev||{});nn[it.key]={done:true,ts:Date.now(),by:(user&&user.name)||""};return nn;});}} title="Excluir da auditoria" style={{border:"none",background:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"2px 4px",flexShrink:0,alignSelf:"flex-start"}}>✕</button>}
 </div>;})}
 {n>capped.length&&<div style={{fontSize:11,color:G.muted,textAlign:"center",padding:"4px 0"}}>{"+ "+(n-capped.length)+" outro(s)"}</div>}
