@@ -904,6 +904,7 @@ setEvoModal(false);setEvoEdit(null);setEvoF(blankEvo);
 
 // Add procedure to existing plan
 const [addProcModal,setAddProcModal]=useState(null); // treatId
+const [editPlan,setEditPlan]=useState(null);
 const [addProcForm,setAddProcForm]=useState({procId:"",d:"",v:"",qty:"",manual:""});
 const saveAddProc=()=>{
 const manual=(addProcForm.manual||"").trim();
@@ -1030,6 +1031,7 @@ return <>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
             {!isDentUser&&<button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:"",qty:"",manual:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>}
+            {!isDentUser&&<button onClick={()=>setEditPlan({id:t.id,name:t.name||"",start:t.start||today()})} style={{background:G.accent,color:G.primary,border:"1.5px solid "+G.primary,borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏️ Editar</button>}
             <button onClick={()=>{setPdfBudget({items:t.items.map(function(it){return{d:it.desc,v:it.value};}),disc:0,dentistId:t.dentistId,date:t.start,_planName:t.name});setPayCfg(defPayCfg());setTreats(prev=>prev.map(x=>x.id===t.id?{...x,_ts:Date.now(),orcEnviado:true,orcEnviadoAt:today()}:x));}} style={{background:G.gold,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>📄 Orçamento</button>
                 { !t.finalizado
                   ? (!isDentUser&&<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,_ts:Date.now(),finalizado:true,finalizadoEm:today(),finalizadoPor:user.name}))}
@@ -1618,6 +1620,23 @@ return <>
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
         <button onClick={()=>setAddProcModal(null)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={saveAddProc} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>➕ Adicionar</button>
+      </div>
+    </div>
+  </div>
+</div>}
+
+{editPlan&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:460,boxShadow:"0 16px 48px rgba(0,0,0,.22)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
+      <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Editar Plano de Tratamento</span>
+      <button onClick={()=>setEditPlan(null)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+    </div>
+    <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+      <Inp lb="Nome do Plano" val={editPlan.name} set={v=>setEditPlan(p=>({...p,name:v}))} ph="Ex: Reabilitacao oral"/>
+      <Inp lb="Data de Inicio" val={editPlan.start} set={v=>setEditPlan(p=>({...p,start:v}))} type="date"/>
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
+        <button onClick={()=>setEditPlan(null)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+        <button onClick={()=>{if(!editPlan.name||!editPlan.name.trim()){alert("Informe o nome do plano");return;}if(!editPlan.start){alert("Informe a data de inicio");return;}setTreats(prev=>prev.map(x=>x.id!==editPlan.id?x:{...x,_ts:Date.now(),name:editPlan.name.trim(),start:editPlan.start}));setEditPlan(null);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>💾 Salvar</button>
       </div>
     </div>
   </div>
