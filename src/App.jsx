@@ -807,7 +807,7 @@ if(item.orto){setOrtoPayModal({tid,idx});return;}
 const payments=treat.payments||[];
 const hasInstallment=payments.some(p=>p.installments>1||(p.method==="Cartão Crédito"&&p.installmentMonths?.length>1));
 setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,_ts:Date.now(),items:t.items.map((it,i)=>i!==idx?it:{
-...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,
+...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,_dts:Date.now(),
 creditFuture:hasInstallment,
 })}));
 } else {
@@ -829,7 +829,7 @@ const _rid=_it&&_it.recId;
 const _pid=_it&&_it.pmtId;
 if(_rid!=null)setRecs(prev=>prev.filter(r=>r.id!==_rid));
 setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,_ts:Date.now(),payments:(t.payments||[]).filter(p=>_pid==null||p.id!==_pid),items:t.items.map((it,i)=>i!==didx?it:{
-...it,done:false,doneDate:null,doneBy:null,doneByDentistId:null,creditFuture:false,recId:null,pmtId:null
+...it,done:false,doneDate:null,doneBy:null,doneByDentistId:null,creditFuture:false,recId:null,pmtId:null,_dts:Date.now()
 })}));
 setConfirmDesfazer(null);
 };
@@ -2124,11 +2124,11 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           var item2=treat2.items[idx2];
           var finalVal=pmoney(ortoPayVal)||item2.value;
           var _recId=nid();var _pmtId=nid();
-          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,_ts:Date.now(),items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal,recId:_recId,pmtId:_pmtId})}));
+          setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,_ts:Date.now(),items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal,recId:_recId,pmtId:_pmtId,_dts:Date.now()})}));
           var recObj={id:_recId,patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2,ts:new Date().toISOString()};
           setRecs(prev=>[...prev,recObj]);
           // Also register in treat.payments so it shows in pagamentos registrados
-          var newPmt={id:_pmtId,date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc};
+          var newPmt={id:_pmtId,date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc,_b:1};
           setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,_ts:Date.now(),payments:[...(t.payments||[]),newPmt]}));
           setOrtoPayModal(null);setOrtoPayVal("");
         }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"✓ Confirmar"}</button>
@@ -7486,6 +7486,7 @@ const [agendaSelDate,setAgendaSelDate]=useState(today());
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [waTemplates,setWaTemplates]=useState({});
 const [orientacoes,setOrientacoes]=useState(ORIENT_DEFAULT);
+const orientTsRef=useRef(0);
 const [semTicks,setSemTicks]=useState({});
 const [anivTicks,setAnivTicks]=useState({});
 const [pacsTicks,setPacsTicks]=useState({});const [auditDismiss,setAuditDismiss]=useState({});
@@ -7650,7 +7651,7 @@ if(data.impl?.length&&data.impl.length>10)setImpl(data.impl);else setImpl(IMPL_D
 if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
 if(data.waTemplates)setWaTemplates(data.waTemplates);
-if(data.orientacoes)setOrientacoes(data.orientacoes);
+if(data.orientacoes){setOrientacoes(data.orientacoes);orientTsRef.current=data.orientacoesTs||0;}
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);if(data.auditDismiss)setAuditDismiss(data.auditDismiss);
 if(data.waAuto)setWaAuto(data.waAuto);
 if(data.waSent)setWaSent(data.waSent);
@@ -7755,6 +7756,48 @@ function mergeAppts(localArr,serverArr,delSet){
   var out=[];Object.keys(byId).forEach(function(k){if(!delSet[k])out.push(byId[k]);});
   return out;
 }
+// ── MERGE de PLANOS item-a-item: baixa (done) nunca se perde; pagamentos unidos por id ──
+function _treatItemDone(it){return !!(it&&(it.done||it.paid));}
+function _mergeOneTreat(local,server){
+if(!local)return server;
+if(!server)return local;
+var lt=local._ts||0,st=server._ts||0;
+var newer=st>lt?server:local;
+var out=Object.assign({},newer);
+var la=local.items||[],sa=server.items||[];
+var n=la.length>sa.length?la.length:sa.length;
+var items=[];
+for(var i=0;i<n;i++){
+var a=la[i],b=sa[i];
+if(!a){items.push(b);continue;}
+if(!b){items.push(a);continue;}
+var at=a._dts||0,bt=b._dts||0;
+if(at!==bt)items.push(at>bt?a:b);
+else items.push(st>lt?b:a);
+}
+out.items=items;
+var itemPmt={};
+la.concat(sa).forEach(function(it){if(it&&it.pmtId!=null)itemPmt[it.pmtId]=true;});
+var pById={};
+(local.payments||[]).forEach(function(p){if(p&&p.id!=null&&!pById[p.id])pById[p.id]=p;});
+(server.payments||[]).forEach(function(p){if(p&&p.id!=null&&!pById[p.id])pById[p.id]=p;});
+var newerPays=(st>lt?server:local).payments||[];
+var pays=[],used={};
+items.forEach(function(it){if(it&&_treatItemDone(it)&&it.pmtId!=null&&pById[it.pmtId]&&!used[it.pmtId]){pays.push(pById[it.pmtId]);used[it.pmtId]=true;}});
+newerPays.forEach(function(p){if(!p||p.id==null||used[p.id])return;if(p._b||itemPmt[p.id])return;pays.push(p);used[p.id]=true;});
+if(local.payments||server.payments)out.payments=pays;
+return out;
+}
+function mergeTreats(localArr,serverArr,delSet){
+localArr=localArr||[];serverArr=serverArr||[];delSet=delSet||{};
+var byId={};
+localArr.forEach(function(t){if(t&&t.id!=null)byId[t.id]={local:t,server:null};});
+serverArr.forEach(function(t){if(t&&t.id!=null){if(byId[t.id])byId[t.id].server=t;else byId[t.id]={local:null,server:t};}});
+var out=[],seen={};
+localArr.forEach(function(t){if(!t||t.id==null||seen[t.id])return;if(delSet["treats:"+t.id])return;var e=byId[t.id];out.push(_mergeOneTreat(e.local,e.server));seen[t.id]=true;});
+serverArr.forEach(function(t){if(!t||t.id==null||seen[t.id])return;if(delSet["treats:"+t.id])return;out.push(t);seen[t.id]=true;});
+return out;
+}
 useEffect(function(){
   if(!initialized.current)return;
   lastLocalChangeTs.current=Date.now();
@@ -7820,7 +7863,7 @@ useEffect(function(){
           setAppts(function(prev){var arr=mergeAppts(prev,sd.appts,_skip);return JSON.stringify(arr)===JSON.stringify(prev)?prev:arr;});
           mergeArr(recs,sd.recs,setRecs,"recs");
           mergeArr(budgets,sd.budgets,setBudgets,"budgets");
-          mergeArr(treats,sd.treats,setTreats,"treats");
+          setTreats(function(prev){var _a=mergeTreats(prev,sd.treats,_diSet);return JSON.stringify(_a)===JSON.stringify(prev)?prev:_a;});
           mergeArr(pros,sd.pros,setPros,"pros");
           mergeArr(rems,sd.rems,setRems,"rems");
           mergeArr(logs,sd.logs,setLogs);
@@ -7829,6 +7872,7 @@ useEffect(function(){
           mergeArr(impl,sd.impl,setImpl,"impl");
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
+          if(sd.orientacoes){var _oTsM=sd.orientacoesTs||0;if(_oTsM>orientTsRef.current){orientTsRef.current=_oTsM;setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});}}
           if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
           lastServerTs.current=fresh.updated_at;
           // Cancelar este save - o useEffect vai disparar de novo com o estado mergeado
@@ -7836,7 +7880,7 @@ useEffect(function(){
         }
       }
     }catch(e){}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,orientacoesTs:orientTsRef.current,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -7973,7 +8017,7 @@ useEffect(function(){
       apptArr(sd.appts,setAppts);
       addArr(sd.recs,setRecs,"recs");
       addArr(sd.budgets,setBudgets,"budgets");
-      addArr(sd.treats,setTreats,"treats");
+      setTreats(function(prev){var _a=mergeTreats(prev,sd.treats,_diSetP);return JSON.stringify(_a)===JSON.stringify(prev)?prev:_a;});
       addArr(sd.pros,setPros,"pros");
       addArr(sd.rems,setRems,"rems");
       addArr(sd.logs,setLogs);
@@ -7997,7 +8041,7 @@ useEffect(function(){
       if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
       if(sd.implCat)setImplCat(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implCat)?prev:sd.implCat;});
       if(sd.implMov)setImplMov(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implMov)?prev:sd.implMov;});
-      if(sd.orientacoes)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
+      if(sd.orientacoes){var _oTsP=sd.orientacoesTs||0;if(_oTsP>=orientTsRef.current){orientTsRef.current=_oTsP;setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});}}
       lastServerTs.current=fresh.updated_at;
     }catch(e){}
   },15000);
@@ -8256,7 +8300,7 @@ return <>
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
-    {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={setOrientacoes} user={user}/>}
+    {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientTsRef.current=Date.now();setOrientacoes(v);}} user={user}/>}
     {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog}/>}
     </div>
