@@ -5499,26 +5499,15 @@ return(
           try{
             var d=JSON.parse(ev.target.result);
             if(!d.pats||!d.dents){setRestoreDone("ERRO");return;}
-            if(!window.confirm("Restaurar backup? Pacientes no arquivo: "+d.pats.length+". Isso grava os dados no sistema. Continuar?"))return;
-            if(d.pats)setPats(d.pats);
-            if(d.appts)setAppts(d.appts);
-            if(d.recs)setRecs(d.recs);
-            if(d.treats)setTreats(d.treats);
-            if(d.budgets)setBudgets(d.budgets);
-            if(d.pros)setPros(d.pros);
-            if(d.rems)setRems(d.rems);
-            if(d.dents)setDents(d.dents);
-            if(d.users)setUsers(d.users);
-            if(d.labs)setLabs(d.labs);
-            if(d.procs)setProcs(d.procs);
-            if(d.stock)setStock(d.stock);
-            if(d.expenses)setExpenses(d.expenses);
-            if(d.impl)setImpl(d.impl);
+            if(!window.confirm("Restaurar este backup? Pacientes: "+d.pats.length+". Isso grava TODOS os dados no sistema e recarrega a pagina. Continuar?"))return;
             var blobR=Object.assign({},d);delete blobR.pats;delete blobR.version;delete blobR.exportDate;
+            var okB=false;
             try{if(d.pats&&d.pats.length)await supabase.upsertPatients(d.pats);}catch(e2){}
-            try{await supabase.save(blobR);}catch(e3){}
+            try{var rB=await supabase.save(blobR);okB=(rB!==false);}catch(e3){okB=false;}
+            if(!okB){setRestoreDone("ERRO");alert("Falha ao gravar no banco. Verifique a internet e tente de novo.");return;}
             setBkpDone(false);
-            setRestoreDone((d.exportDate?d.exportDate.slice(0,10):"OK")+" — "+d.pats.length+" pac.");
+            alert("Restaurado! "+d.pats.length+" paciente(s). A pagina vai recarregar agora para carregar tudo.");
+            window.location.reload();
           }catch(err){
             setRestoreDone("ERRO");
           }
