@@ -5459,8 +5459,17 @@ return(
     Baixa um arquivo <code>{"backup-affonso-YYYY-MM-DD.json"}</code> com todos os dados da clínica. Guarde em local seguro como proteção extra.
   </div>
   <div style={{display:"flex",flexDirection:"column",gap:10}}>
-    <button onClick={function(){
-      var bkp={version:"V41",exportDate:new Date().toISOString(),pats:pats,appts:appts,recs:recs,treats:treats,budgets:budgets,pros:pros,rems:rems,dents:dents,users:users,labs:labs,procs:procs,stock:stock,expenses:expenses,impl:impl,logs:(logs||[]).slice(0,200)};
+    <button onClick={async function(){
+      var bkp;
+      try{
+        var patsDB=await supabase.loadPatients();
+        var full=await supabase.loadFull();
+        var blobData=(full&&full.data&&Object.keys(full.data).length)?full.data:{appts:appts,recs:recs,treats:treats,budgets:budgets,pros:pros,rems:rems,dents:dents,users:users,labs:labs,procs:procs,stock:stock,expenses:expenses,impl:impl,logs:(logs||[]).slice(0,200)};
+        var patsFinal=(patsDB&&patsDB.length)?patsDB:pats;
+        bkp=Object.assign({},blobData,{version:"V154",exportDate:new Date().toISOString(),pats:patsFinal});
+      }catch(e){
+        bkp={version:"V154",exportDate:new Date().toISOString(),pats:pats,appts:appts,recs:recs,treats:treats,budgets:budgets,pros:pros,rems:rems,dents:dents,users:users,labs:labs,procs:procs,stock:stock,expenses:expenses,impl:impl,logs:(logs||[]).slice(0,200)};
+      }
       var json=JSON.stringify(bkp,null,2);
       try{
         var blob=new Blob([json],{type:"application/json"});
@@ -5472,11 +5481,11 @@ return(
         if(navigator.clipboard){navigator.clipboard.writeText(json);}
         else{var w=window.open("","_blank");if(w){w.document.write("<pre>"+json+"</pre>");w.document.close();}}
       }
-      setBkpDone(true);
+      setBkpDone((bkp.pats||[]).length);
     }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
       {"⬇️ Baixar Backup JSON"}
     </button>
-    {bkpDone&&<div style={{background:"#E8F5E9",border:"1.5px solid #A5D6A7",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#2E7D32",textAlign:"center"}}>{"✅ Backup gerado! Arquivo salvo na pasta Downloads."}</div>}
+    {bkpDone!==false&&<div style={{background:"#E8F5E9",border:"1.5px solid #A5D6A7",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#2E7D32",textAlign:"center"}}>{"✅ Backup gerado com "+bkpDone+" paciente(s)! Arquivo salvo na pasta Downloads."}</div>}
   </div>
 
   <div style={{background:"#fff",border:"1.5px solid "+G.border,borderRadius:12,padding:"14px 16px",display:"flex",flexDirection:"column",gap:10}}>
@@ -5490,10 +5499,11 @@ return(
         var file=e.target.files&&e.target.files[0];
         if(!file)return;
         var reader=new FileReader();
-        reader.onload=function(ev){
+        reader.onload=async function(ev){
           try{
             var d=JSON.parse(ev.target.result);
             if(!d.pats||!d.dents){setRestoreDone("ERRO");return;}
+            if(!window.confirm("Restaurar backup? Pacientes no arquivo: "+d.pats.length+". Isso grava os dados no sistema. Continuar?"))return;
             if(d.pats)setPats(d.pats);
             if(d.appts)setAppts(d.appts);
             if(d.recs)setRecs(d.recs);
@@ -5508,8 +5518,12 @@ return(
             if(d.stock)setStock(d.stock);
             if(d.expenses)setExpenses(d.expenses);
             if(d.impl)setImpl(d.impl);
+            var blobR={};
+            ["appts","recs","treats","budgets","pros","rems","dents","users","labs","procs","stock","expenses","impl","logs"].forEach(function(k){if(d[k]!==undefined)blobR[k]=d[k];});
+            try{if(d.pats&&d.pats.length)await supabase.upsertPatients(d.pats);}catch(e2){}
+            try{await supabase.save(blobR);}catch(e3){}
             setBkpDone(false);
-            setRestoreDone(d.exportDate.slice(0,10));
+            setRestoreDone((d.exportDate?d.exportDate.slice(0,10):"OK")+" — "+d.pats.length+" pac.");
           }catch(err){
             setRestoreDone("ERRO");
           }
