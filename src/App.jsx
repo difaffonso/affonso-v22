@@ -7722,6 +7722,7 @@ const delAptsRef=useRef([]);
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
 const delItemsRef=useRef([]);
+const mergeLoopRef=useRef(0);
 const lastSavedItemKeys=useRef(null);
 const lastSavedApptIds=useRef(null);
 const dirtyRef=useRef(false);
@@ -7836,7 +7837,7 @@ useEffect(function(){
   dirtyRef.current=true;
   if(saveTimer.current)clearTimeout(saveTimer.current);
   setSaveStatus("saving");
-  var doSave=async function(){
+  var doSave=async function(force){
     var _editAtStart=lastLocalChangeTs.current;
     // detectar exclusoes/recriacoes de agendamentos desde a ultima sincronizacao
     if(lastSavedApptIds.current){
@@ -7863,7 +7864,7 @@ useEffect(function(){
       delItemsRef.current=_di.length>5000?_di.slice(-5000):_di;
     }
     // ANTI-SOBRESCRITA: verificar se servidor tem versao mais nova que a nossa
-    try{
+    if(!force){try{
       var serverTs=await supabase.getTimestamp();
       if(serverTs&&lastServerTs.current&&serverTs!==lastServerTs.current){
         // Outro computador salvou! Recarregar antes de gravar para nao perder dados
@@ -7911,7 +7912,7 @@ useEffect(function(){
           return "merged";
         }
       }
-    }catch(e){}
+    }catch(e){}}
     const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
@@ -7938,15 +7939,23 @@ useEffect(function(){
   saveTimer.current=setTimeout(async function runSave(){
     if(isSaving.current){ pendingSave.current=true; return; }
     isSaving.current=true;
-    var ok=await doSave();
+    var ok=await doSave(false);
     var _mtry=0;
-    while(ok==="merged"&&_mtry<3){_mtry++;ok=await doSave();}
+    while(ok==="merged"&&_mtry<3){_mtry++;ok=await doSave(false);}
     if(ok==="merged"){
-      // servidor mudando sem parar - re-tenta em instantes para nao perder a edicao
-      isSaving.current=false;
-      saveTimer.current=setTimeout(runSave,2500);
-      return;
+      mergeLoopRef.current++;
+      if(mergeLoopRef.current>=2){
+        // Servidor mudando sem parar (outro aparelho/aba aberto): forcar gravacao para nao travar
+        mergeLoopRef.current=0;
+        ok=await doSave(true);
+      }
+      if(ok==="merged"){
+        isSaving.current=false;
+        saveTimer.current=setTimeout(runSave,2500);
+        return;
+      }
     }
+    if(ok!=="merged")mergeLoopRef.current=0;
     setSaveStatus(ok?"saved":"error");
     lastSaveFailed.current=!ok;
     setTimeout(function(){setSaveStatus("idle");},ok?2000:4000);
