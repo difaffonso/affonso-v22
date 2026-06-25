@@ -5499,15 +5499,26 @@ return(
           try{
             var d=JSON.parse(ev.target.result);
             if(!d.pats||!d.dents){setRestoreDone("ERRO");return;}
-            if(!window.confirm("Restaurar este backup? Pacientes: "+d.pats.length+". Isso grava TODOS os dados no sistema e recarrega a pagina. Continuar?"))return;
+            if(!window.confirm("Restaurar backup? Pacientes no arquivo: "+d.pats.length+". Isso grava os dados no sistema. Continuar?"))return;
+            if(d.pats)setPats(d.pats);
+            if(d.appts)setAppts(d.appts);
+            if(d.recs)setRecs(d.recs);
+            if(d.treats)setTreats(d.treats);
+            if(d.budgets)setBudgets(d.budgets);
+            if(d.pros)setPros(d.pros);
+            if(d.rems)setRems(d.rems);
+            if(d.dents)setDents(d.dents);
+            if(d.users)setUsers(d.users);
+            if(d.labs)setLabs(d.labs);
+            if(d.procs)setProcs(d.procs);
+            if(d.stock)setStock(d.stock);
+            if(d.expenses)setExpenses(d.expenses);
+            if(d.impl)setImpl(d.impl);
             var blobR=Object.assign({},d);delete blobR.pats;delete blobR.version;delete blobR.exportDate;
-            var okB=false;
             try{if(d.pats&&d.pats.length)await supabase.upsertPatients(d.pats);}catch(e2){}
-            try{var rB=await supabase.save(blobR);okB=(rB!==false);}catch(e3){okB=false;}
-            if(!okB){setRestoreDone("ERRO");alert("Falha ao gravar no banco. Verifique a internet e tente de novo.");return;}
+            try{await supabase.save(blobR);}catch(e3){}
             setBkpDone(false);
-            alert("Restaurado! "+d.pats.length+" paciente(s). A pagina vai recarregar agora para carregar tudo.");
-            window.location.reload();
+            setRestoreDone((d.exportDate?d.exportDate.slice(0,10):"OK")+" — "+d.pats.length+" pac.");
           }catch(err){
             setRestoreDone("ERRO");
           }
@@ -7782,15 +7793,19 @@ var lt=local._ts||0,st=server._ts||0;
 var newer=st>lt?server:local;
 var out=Object.assign({},newer);
 var la=local.items||[],sa=server.items||[];
-var n=la.length>sa.length?la.length:sa.length;
-var items=[];
-for(var i=0;i<n;i++){
+var items;
+if(la.length===sa.length){
+items=[];
+for(var i=0;i<la.length;i++){
 var a=la[i],b=sa[i];
 if(!a){items.push(b);continue;}
 if(!b){items.push(a);continue;}
 var at=a._dts||0,bt=b._dts||0;
 if(at!==bt)items.push(at>bt?a:b);
 else items.push(st>lt?b:a);
+}
+}else{
+items=(newer.items||[]).slice();
 }
 out.items=items;
 var itemPmt={};
