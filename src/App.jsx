@@ -647,7 +647,7 @@ function buildPortal(p,appts,treats,budgets,dents){
     if(nx){var d=(dents||[]).find(function(x){return String(x.id)===String(nx.dentistId);});out.consulta={apptId:nx.id,date:nx.date,time:nx.time||"",dentista:d?d.name:"",proc:nx.procedure||nx.treatment||"",status:nx.status||""};}
   }
   if(o.tratamento){
-    var trs=(treats||[]).filter(function(x){return x&&String(x.patientId)===String(p.id);}).map(function(x){return {name:x.name||"Tratamento",start:x.start||"",itens:(x.items||[]).map(function(it){return {desc:it.desc||"",value:Number(it.value)||0,paid:!!it.paid};})};});
+    var trs=(treats||[]).filter(function(x){return x&&String(x.patientId)===String(p.id);}).map(function(x){var itens=(x.items||[]).map(function(it){return {desc:it.desc||"",value:Number(it.value)||0,paid:!!it.paid};});var total=itens.reduce(function(s,it){return s+it.value;},0);var pgs=(x.payments||[]).map(function(pg){return {date:pg.date||"",value:Number(pg.value)||0,method:pg.method||""};});var pago=pgs.reduce(function(s,pg){return s+pg.value;},0);return {name:x.name||"Tratamento",start:x.start||"",itens:itens,total:total,pago:pago,saldo:total-pago,pagamentos:pgs};});
     if(trs.length)out.tratamento=trs;
     var bgs=(budgets||[]).filter(function(x){return x&&String(x.patientId)===String(p.id)&&x.status!=="cancelled"&&x.status!=="rejected";}).map(function(b){var disc=Number(b.disc)||0;var tot=(b.items||[]).reduce(function(s,it){return s+(Number(it.v)||0);},0)-disc;return {date:b.date||"",status:b.status||"",total:tot,itens:(b.items||[]).map(function(it){return {desc:it.d||"",value:Number(it.v)||0};})};});
     if(bgs.length)out.orcamentos=bgs;
@@ -657,7 +657,7 @@ function buildPortal(p,appts,treats,budgets,dents){
     if(fotos.length)out.fotos=fotos;
   }
   if(o.financeiro){
-    var pend=0;(treats||[]).filter(function(x){return x&&String(x.patientId)===String(p.id);}).forEach(function(x){(x.items||[]).forEach(function(it){if(!it.paid)pend+=Number(it.value)||0;});});
+    var pend=0;(treats||[]).filter(function(x){return x&&String(x.patientId)===String(p.id);}).forEach(function(x){var tot=(x.items||[]).reduce(function(s,it){return s+(Number(it.value)||0);},0);var pg=(x.payments||[]).reduce(function(s,p2){return s+(Number(p2.value)||0);},0);pend+=Math.max(0,tot-pg);});
     out.financeiro={pendente:pend};
   }
   if(o.presenca)out.presenca=true;
@@ -688,20 +688,20 @@ function PortalModal({pat,setPats,setPf,onClose}){
   function toggle(k){var n=Object.assign({},opts);n[k]=!n[k];apply({portalOpts:n});}
   function gerar(){apply({portalToken:genToken(),portalOpts:opts});setSent(false);setCopied(false);}
   function copiar(){try{navigator.clipboard.writeText(link);setCopied(true);setTimeout(function(){setCopied(false);},1500);}catch(e){}}
-  function enviar(){if(!token||!pat.phone)return;var msg="Ola, "+(pat.name||"")+"! \u{1F60A}\n\nVoce pode acompanhar seu atendimento na "+CLINICA_INFO.nome+" por este link pessoal:\n"+link+"\n\nNao precisa de senha \u2014 abre direto no celular.";wa(pat.phone,msg);setSent(true);}
-  const SECS=[["consulta","Pr\u00f3xima consulta","Data, hor\u00e1rio e dentista"],["tratamento","Tratamento e or\u00e7amento","Plano de tratamento e propostas"],["fotos","Fotos antes/depois","Imagens marcadas como antes/depois"],["financeiro","Pend\u00eancia financeira","Valor em aberto"],["presenca","Confirmar presen\u00e7a","Bot\u00e3o para o paciente confirmar"],["clinica","Dados da cl\u00ednica","Endere\u00e7o e telefone"]];
+  function enviar(){if(!token||!pat.phone)return;var msg="Ola, "+(pat.name||"")+"! 😊\n\nVoce pode acompanhar seu atendimento na "+CLINICA_INFO.nome+" por este link pessoal:\n"+link+"\n\nNao precisa de senha — abre direto no celular.";wa(pat.phone,msg);setSent(true);}
+  const SECS=[["consulta","Próxima consulta","Data, horário e dentista"],["tratamento","Tratamento e orçamento","Plano de tratamento e propostas"],["fotos","Fotos antes/depois","Imagens marcadas como antes/depois"],["financeiro","Pendência financeira","Valor em aberto"],["presenca","Confirmar presença","Botão para o paciente confirmar"],["clinica","Dados da clínica","Endereço e telefone"]];
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
     <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
       <div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10,position:"sticky",top:0}}>
-        <span style={{fontSize:20}}>{"\u{1F517}"}</span>
+        <span style={{fontSize:20}}>{"🔗"}</span>
         <div style={{flex:1}}><div style={{fontWeight:700,color:"#fff",fontSize:14}}>Portal do paciente</div><div style={{fontSize:11,color:"rgba(255,255,255,.8)"}}>{pat.name}</div></div>
         <button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"X"}</button>
       </div>
       <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
         {!token
           ? <div style={{display:"flex",flexDirection:"column",gap:12}}>
-              <p style={{fontSize:13,color:"#555",margin:0}}>Gera um link pessoal para <strong>{pat.name}</strong> acompanhar a consulta pelo celular, sem senha e sem app. Voc\u00ea escolhe o que aparece.</p>
-              <button onClick={gerar} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{"\u{1F517} Gerar link do portal"}</button>
+              <p style={{fontSize:13,color:"#555",margin:0}}>Gera um link pessoal para <strong>{pat.name}</strong> acompanhar a consulta pelo celular, sem senha e sem app. Você escolhe o que aparece.</p>
+              <button onClick={gerar} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{"🔗 Gerar link do portal"}</button>
               <button onClick={onClose} style={{background:"none",border:"1.5px solid #ddd",borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",color:"#888"}}>Cancelar</button>
             </div>
           : <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -711,11 +711,11 @@ function PortalModal({pat,setPats,setPf,onClose}){
               </div>
               <div style={{background:"#f0f4f0",borderRadius:10,padding:"10px 12px",fontSize:11,color:G.primary,wordBreak:"break-all",fontWeight:600}}>{link}</div>
               <div style={{display:"flex",gap:8}}>
-                <button onClick={copiar} style={{flex:1,background:"#fff",color:G.primary,border:"1.5px solid "+G.primary,borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{copied?"\u2713 Copiado":"\u{1F4CB} Copiar"}</button>
-                <button onClick={enviar} disabled={!pat.phone} style={{flex:2,background:pat.phone?"#25D366":"#bbb",color:"#fff",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:pat.phone?"pointer":"default"}}>{"\u{1F4F1} Enviar WhatsApp"}</button>
+                <button onClick={copiar} style={{flex:1,background:"#fff",color:G.primary,border:"1.5px solid "+G.primary,borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{copied?"✓ Copiado":"📋 Copiar"}</button>
+                <button onClick={enviar} disabled={!pat.phone} style={{flex:2,background:pat.phone?"#25D366":"#bbb",color:"#fff",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:pat.phone?"pointer":"default"}}>{"📱 Enviar WhatsApp"}</button>
               </div>
-              {sent?<div style={{textAlign:"center",fontSize:12,color:G.success,fontWeight:700}}>{"\u2705 Link enviado para "+pat.name+"."}</div>:null}
-              <button onClick={gerar} style={{background:"none",border:"1px solid "+G.border,borderRadius:10,padding:"9px",fontSize:12,cursor:"pointer",color:G.muted}}>{"\u{1F504} Gerar link novo (invalida o anterior)"}</button>
+              {sent?<div style={{textAlign:"center",fontSize:12,color:G.success,fontWeight:700}}>{"✅ Link enviado para "+pat.name+"."}</div>:null}
+              <button onClick={gerar} style={{background:"none",border:"1px solid "+G.border,borderRadius:10,padding:"9px",fontSize:12,cursor:"pointer",color:G.muted}}>{"🔄 Gerar link novo (invalida o anterior)"}</button>
             </div>}
       </div>
     </div>
@@ -740,11 +740,11 @@ function PatientPortal({token}){
   }
   var wrap={minHeight:"100vh",background:G.bg,padding:"24px 16px"};
   var card={maxWidth:520,margin:"0 auto",background:G.card,borderRadius:16,boxShadow:"0 4px 24px rgba(0,0,0,.1)",overflow:"hidden"};
-  if(data===undefined)return <div style={wrap}><div style={Object.assign({},card,{padding:"40px 20px",textAlign:"center",color:G.muted})}>Carregando\u2026</div></div>;
+  if(data===undefined)return <div style={wrap}><div style={Object.assign({},card,{padding:"40px 20px",textAlign:"center",color:G.muted})}>Carregando…</div></div>;
   if(data===null)return <div style={wrap}><div style={Object.assign({},card,{padding:"40px 20px",textAlign:"center"})}>
-    <div style={{fontSize:40}}>{"\u{1F50D}"}</div>
-    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:G.primary,marginTop:8}}>Link n\u00e3o encontrado</div>
-    <div style={{fontSize:13,color:G.muted,marginTop:6}}>Este link pode ter expirado ou sido substitu\u00eddo. Fale com a cl\u00ednica para receber um novo.</div>
+    <div style={{fontSize:40}}>{"🔍"}</div>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:G.primary,marginTop:8}}>Link não encontrado</div>
+    <div style={{fontSize:13,color:G.muted,marginTop:6}}>Este link pode ter expirado ou sido substituído. Fale com a clínica para receber um novo.</div>
   </div></div>;
   const clin=data.clinica||{nome:CLINICA_INFO.nome};
   const sec={padding:"16px 18px",borderTop:"1px solid "+G.border};
@@ -752,32 +752,37 @@ function PatientPortal({token}){
   return <div style={wrap}><div style={card}>
     <div style={{background:G.primary,padding:"20px 18px",color:"#fff"}}>
       <div style={{fontSize:12,opacity:.85}}>{clin.nome||CLINICA_INFO.nome}</div>
-      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,fontWeight:600,marginTop:2}}>Ol\u00e1, {data.name||"paciente"}!</div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,fontWeight:600,marginTop:2}}>Olá, {data.name||"paciente"}!</div>
       <div style={{fontSize:12,opacity:.85,marginTop:2}}>Seu acompanhamento pessoal</div>
     </div>
     {data.consulta?<div style={sec}>
-      <div style={h}>Pr\u00f3xima consulta</div>
-      <div style={{fontSize:18,fontWeight:700,color:G.text}}>{fmt(data.consulta.date)}{data.consulta.time?(" \u00e0s "+data.consulta.time):""}</div>
+      <div style={h}>Próxima consulta</div>
+      <div style={{fontSize:18,fontWeight:700,color:G.text}}>{fmt(data.consulta.date)}{data.consulta.time?(" às "+data.consulta.time):""}</div>
       {data.consulta.dentista?<div style={{fontSize:13,color:G.primary,fontWeight:600,marginTop:2}}>{"com "+data.consulta.dentista}</div>:null}
       {data.consulta.proc?<div style={{fontSize:13,color:G.muted,marginTop:2}}>{data.consulta.proc}</div>:null}
     </div>:null}
     {data.presenca&&data.consulta&&data.consulta.apptId?<div style={{padding:"0 18px 16px"}}>
       {confirmed||data.consulta.status==="confirmed"
-        ?<div style={{background:G.accent,color:G.success,borderRadius:12,padding:"12px",textAlign:"center",fontWeight:700,fontSize:14}}>{"\u2705 Presen\u00e7a confirmada"}</div>
-        :<button onClick={confirmar} disabled={confirming} style={{width:"100%",background:G.success,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{confirming?"Confirmando\u2026":"\u2713 Confirmar presen\u00e7a"}</button>}
+        ?<div style={{background:G.accent,color:G.success,borderRadius:12,padding:"12px",textAlign:"center",fontWeight:700,fontSize:14}}>{"✅ Presença confirmada"}</div>
+        :<button onClick={confirmar} disabled={confirming} style={{width:"100%",background:G.success,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{confirming?"Confirmando…":"✓ Confirmar presença"}</button>}
     </div>:null}
     {data.tratamento&&data.tratamento.length?<div style={sec}>
       <div style={h}>Tratamento</div>
       {data.tratamento.map(function(tr,ti){return <div key={ti} style={{marginBottom:10}}>
         <div style={{fontWeight:700,fontSize:14,color:G.text}}>{tr.name}</div>
         {(tr.itens||[]).map(function(it,ii){return <div key={ii} style={{display:"flex",justifyContent:"space-between",fontSize:13,color:G.text,padding:"3px 0"}}>
-          <span style={{color:it.paid?G.muted:G.text}}>{(it.paid?"\u2713 ":"")+it.desc}</span>
+          <span style={{color:it.paid?G.muted:G.text}}>{(it.paid?"✓ ":"")+it.desc}</span>
           <span style={{fontWeight:600,color:it.paid?G.muted:G.primary}}>{cur(it.value)}</span>
         </div>;})}
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:700,borderTop:"1px solid "+G.border,paddingTop:6,marginTop:4}}>
+          <span style={{color:G.muted}}>{"Pago "+cur(tr.pago)}</span>
+          <span style={{color:tr.saldo>0?G.red:G.success}}>{tr.saldo>0?("Saldo "+cur(tr.saldo)):"Quitado"}</span>
+        </div>
+        {(tr.pagamentos&&tr.pagamentos.length)?<div style={{marginTop:4}}>{tr.pagamentos.map(function(pg,pi){return <div key={pi} style={{display:"flex",justifyContent:"space-between",fontSize:11,color:G.muted,padding:"1px 0"}}><span>{"✓ "+fmt(pg.date)+(pg.method?(" · "+pg.method):"")}</span><span>{cur(pg.value)}</span></div>;})}</div>:null}
       </div>;})}
     </div>:null}
     {data.orcamentos&&data.orcamentos.length?<div style={sec}>
-      <div style={h}>Or\u00e7amento</div>
+      <div style={h}>Orçamento</div>
       {data.orcamentos.map(function(b,bi){return <div key={bi} style={{marginBottom:8}}>
         {(b.itens||[]).map(function(it,ii){return <div key={ii} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"3px 0"}}>
           <span>{it.desc}</span><span style={{fontWeight:600}}>{cur(it.value)}</span>
@@ -802,10 +807,10 @@ function PatientPortal({token}){
     </div>:null}
     {data.clinica?<div style={sec}>
       <div style={h}>{clin.nome||CLINICA_INFO.nome}</div>
-      {clin.endereco?<div style={{fontSize:13,color:G.text}}>{"\u{1F4CD} "+clin.endereco}</div>:null}
-      {clin.telefone?<div style={{fontSize:13,color:G.text,marginTop:3}}>{"\u{1F4DE} "+clin.telefone}</div>:null}
+      {clin.endereco?<div style={{fontSize:13,color:G.text}}>{"📍 "+clin.endereco}</div>:null}
+      {clin.telefone?<div style={{fontSize:13,color:G.text,marginTop:3}}>{"📞 "+clin.telefone}</div>:null}
     </div>:null}
-    <div style={{padding:"14px 18px",textAlign:"center",fontSize:11,color:G.muted,borderTop:"1px solid "+G.border}}>Link pessoal \u00b7 n\u00e3o compartilhe</div>
+    <div style={{padding:"14px 18px",textAlign:"center",fontSize:11,color:G.muted,borderTop:"1px solid "+G.border}}>Link pessoal · não compartilhe</div>
   </div></div>;
 }
 /* ===================== PORTAL DO PACIENTE (fim) ===================== */
