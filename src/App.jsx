@@ -14,6 +14,9 @@ async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao c
 async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
 ,async fetchAnamRecent(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,payload,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
 ,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
+,async fetchPortal(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/patients?data->>portalToken=eq."+encodeURIComponent(token)+"&select=portal:data->_portal&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0]&&rows[0].portal)return rows[0].portal;return null;}catch(e){return null;}}
+,async sendPortalAction(token,action){if(!SUPA_URL)return {ok:false};try{const r=await fetch(SUPA_URL+"/rest/v1/portal_actions",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,action:action})});return {ok:r.ok};}catch(e){return {ok:false};}}
+,async fetchPortalActions(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-3*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/portal_actions?created_at=gte."+encodeURIComponent(since)+"&select=token,action,created_at&order=created_at.desc&limit=300",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
 };
 const G = {
 bg:"#EEF3F0",card:"#FFF",primary:"#1B5E4A",accent:"#E3EFE9",accentDark:"#A8D5C0",
@@ -94,7 +97,7 @@ return true;
 }catch(e){console.error("WA fetch error:",e);return false;}
 };
 const ANAM_LINK="https://claude.ai/public/artifacts/134f3434-6997-4396-ab62-3d37bae9d44e";
-const CLINICA_INFO={nome:"Affonso Odontologia",endereco:"Rua Sabbado D Angelo, 1980 - Itaquera, Sao Paulo",telefone:"(11) 2524-9975"};
+const CLINICA_INFO={nome:"Affonso Odontologia",endereco:"Rua Sabbado D Angelo, 1980 - Itaquera, Sao Paulo",telefone:"(11) 2524-9975",whatsapp:"(11) 2524-9975",appUrl:""};
 const ANAM_CONDS=[["hypertension","Pressao alta"],["diabetes","Diabetes"],["heartDisease","Problema no coracao"],["rheumaticFever","Febre reumatica / valvula"],["bleeding","Problema de coagulacao"],["anticoagulant","Usa anticoagulante"],["osteoporosis","Osteoporose"],["bisphosphonate","Usa/usou bifosfonato"],["kidneyDisease","Doenca renal"],["liverDisease","Doenca no figado"],["hepatitis","Hepatite (B ou C)"],["hiv","HIV"],["infectious","Doenca infectocontagiosa"],["thyroid","Tireoide"],["epilepsy","Epilepsia / convulsoes"],["cancer","Cancer / quimioterapia"],["pregnant","Gestante"],["smoking","Fumante"]];
 // Detecta se a anamnese ja foi cadastrada (salva, assinada, enviada pelo paciente ou com qualquer conteudo de saude)
 function anamCadastrada(a){
@@ -627,6 +630,186 @@ function PublicAnamnese({token}){
 }
 
 
+/* ===================== PORTAL DO PACIENTE (inicio) ===================== */
+function genToken(){var c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";var s="";try{var a=new Uint8Array(28);(window.crypto||window.msCrypto).getRandomValues(a);for(var i=0;i<a.length;i++)s+=c[a[i]%c.length];}catch(e){for(var j=0;j<28;j++)s+=c[Math.floor(Math.random()*c.length)];}return s;}
+
+function appBase(){try{var u=((CLINICA_INFO&&CLINICA_INFO.appUrl)||"").trim();if(u)return u.replace(/\?.*$/,"").replace(/\/+$/,"");}catch(e){}try{return window.location.origin+window.location.pathname;}catch(e2){return "";}}
+
+function buildPortal(p,appts,treats,budgets,dents){
+  var DEF={consulta:true,tratamento:true,fotos:false,financeiro:false,presenca:true,clinica:true};
+  var o=Object.assign({},DEF,p.portalOpts||{});
+  var out={name:p.name||"",updatedAt:new Date().toISOString()};
+  var t=today();
+  if(o.consulta){
+    var skip={cancelled:1,missed:1,done:1,rescheduled:1,blocked:1};
+    var fut=(appts||[]).filter(function(a){return a&&String(a.patientId)===String(p.id)&&a.date&&a.date>=t&&!skip[a.status];}).sort(function(a,b){return (a.date+(a.time||"")).localeCompare(b.date+(b.time||""));});
+    var nx=fut[0];
+    if(nx){var d=(dents||[]).find(function(x){return String(x.id)===String(nx.dentistId);});out.consulta={apptId:nx.id,date:nx.date,time:nx.time||"",dentista:d?d.name:"",proc:nx.procedure||nx.treatment||"",status:nx.status||""};}
+  }
+  if(o.tratamento){
+    var trs=(treats||[]).filter(function(x){return x&&String(x.patientId)===String(p.id);}).map(function(x){return {name:x.name||"Tratamento",start:x.start||"",itens:(x.items||[]).map(function(it){return {desc:it.desc||"",value:Number(it.value)||0,paid:!!it.paid};})};});
+    if(trs.length)out.tratamento=trs;
+    var bgs=(budgets||[]).filter(function(x){return x&&String(x.patientId)===String(p.id)&&x.status!=="cancelled"&&x.status!=="rejected";}).map(function(b){var disc=Number(b.disc)||0;var tot=(b.items||[]).reduce(function(s,it){return s+(Number(it.v)||0);},0)-disc;return {date:b.date||"",status:b.status||"",total:tot,itens:(b.items||[]).map(function(it){return {desc:it.d||"",value:Number(it.v)||0};})};});
+    if(bgs.length)out.orcamentos=bgs;
+  }
+  if(o.fotos){
+    var fotos=(p.imagens||[]).filter(function(im){return im&&im.cat==="antesdepois"&&im.url;}).map(function(im){return {url:im.url,date:im.date||""};});
+    if(fotos.length)out.fotos=fotos;
+  }
+  if(o.financeiro){
+    var pend=0;(treats||[]).filter(function(x){return x&&String(x.patientId)===String(p.id);}).forEach(function(x){(x.items||[]).forEach(function(it){if(!it.paid)pend+=Number(it.value)||0;});});
+    out.financeiro={pendente:pend};
+  }
+  if(o.presenca)out.presenca=true;
+  if(o.clinica)out.clinica={nome:CLINICA_INFO.nome,endereco:CLINICA_INFO.endereco,telefone:CLINICA_INFO.telefone,whatsapp:CLINICA_INFO.whatsapp||CLINICA_INFO.telefone};
+  return out;
+}
+
+function PortalSwitch({on,onToggle,label,desc}){
+  return <div onClick={onToggle} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 11px",borderRadius:10,border:"1px solid "+G.border,background:on?G.accent:"#fff",cursor:"pointer"}}>
+    <div style={{width:38,height:22,borderRadius:11,background:on?G.success:"#cfd8d4",position:"relative",flexShrink:0}}>
+      <div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:on?18:2,boxShadow:"0 1px 3px rgba(0,0,0,.3)",transition:"left .15s"}}/>
+    </div>
+    <div style={{flex:1}}>
+      <div style={{fontWeight:700,fontSize:13,color:G.text}}>{label}</div>
+      {desc?<div style={{fontSize:11,color:G.muted}}>{desc}</div>:null}
+    </div>
+  </div>;
+}
+
+function PortalModal({pat,setPats,setPf,onClose}){
+  const DEF={consulta:true,tratamento:true,fotos:false,financeiro:false,presenca:true,clinica:true};
+  const opts=Object.assign({},DEF,pat.portalOpts||{});
+  const token=pat.portalToken||"";
+  const link=token?(appBase()+"?portal="+encodeURIComponent(token)):"";
+  const [sent,setSent]=useState(false);
+  const [copied,setCopied]=useState(false);
+  function apply(patch){setPats(function(prev){return prev.map(function(p){return p.id===pat.id?Object.assign({},p,patch):p;});});if(setPf)setPf(function(prev){return Object.assign({},prev,patch);});}
+  function toggle(k){var n=Object.assign({},opts);n[k]=!n[k];apply({portalOpts:n});}
+  function gerar(){apply({portalToken:genToken(),portalOpts:opts});setSent(false);setCopied(false);}
+  function copiar(){try{navigator.clipboard.writeText(link);setCopied(true);setTimeout(function(){setCopied(false);},1500);}catch(e){}}
+  function enviar(){if(!token||!pat.phone)return;var msg="Ola, "+(pat.name||"")+"! \u{1F60A}\n\nVoce pode acompanhar seu atendimento na "+CLINICA_INFO.nome+" por este link pessoal:\n"+link+"\n\nNao precisa de senha \u2014 abre direto no celular.";wa(pat.phone,msg);setSent(true);}
+  const SECS=[["consulta","Pr\u00f3xima consulta","Data, hor\u00e1rio e dentista"],["tratamento","Tratamento e or\u00e7amento","Plano de tratamento e propostas"],["fotos","Fotos antes/depois","Imagens marcadas como antes/depois"],["financeiro","Pend\u00eancia financeira","Valor em aberto"],["presenca","Confirmar presen\u00e7a","Bot\u00e3o para o paciente confirmar"],["clinica","Dados da cl\u00ednica","Endere\u00e7o e telefone"]];
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div style={{background:"#fff",borderRadius:18,width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,.2)"}}>
+      <div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10,position:"sticky",top:0}}>
+        <span style={{fontSize:20}}>{"\u{1F517}"}</span>
+        <div style={{flex:1}}><div style={{fontWeight:700,color:"#fff",fontSize:14}}>Portal do paciente</div><div style={{fontSize:11,color:"rgba(255,255,255,.8)"}}>{pat.name}</div></div>
+        <button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"X"}</button>
+      </div>
+      <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
+        {!token
+          ? <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <p style={{fontSize:13,color:"#555",margin:0}}>Gera um link pessoal para <strong>{pat.name}</strong> acompanhar a consulta pelo celular, sem senha e sem app. Voc\u00ea escolhe o que aparece.</p>
+              <button onClick={gerar} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{"\u{1F517} Gerar link do portal"}</button>
+              <button onClick={onClose} style={{background:"none",border:"1.5px solid #ddd",borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",color:"#888"}}>Cancelar</button>
+            </div>
+          : <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{fontSize:12,fontWeight:700,color:G.muted}}>O que o link exibe</div>
+              <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                {SECS.map(function(s){return <PortalSwitch key={s[0]} on={!!opts[s[0]]} onToggle={function(){toggle(s[0]);}} label={s[1]} desc={s[2]}/>;})}
+              </div>
+              <div style={{background:"#f0f4f0",borderRadius:10,padding:"10px 12px",fontSize:11,color:G.primary,wordBreak:"break-all",fontWeight:600}}>{link}</div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={copiar} style={{flex:1,background:"#fff",color:G.primary,border:"1.5px solid "+G.primary,borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{copied?"\u2713 Copiado":"\u{1F4CB} Copiar"}</button>
+                <button onClick={enviar} disabled={!pat.phone} style={{flex:2,background:pat.phone?"#25D366":"#bbb",color:"#fff",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,cursor:pat.phone?"pointer":"default"}}>{"\u{1F4F1} Enviar WhatsApp"}</button>
+              </div>
+              {sent?<div style={{textAlign:"center",fontSize:12,color:G.success,fontWeight:700}}>{"\u2705 Link enviado para "+pat.name+"."}</div>:null}
+              <button onClick={gerar} style={{background:"none",border:"1px solid "+G.border,borderRadius:10,padding:"9px",fontSize:12,cursor:"pointer",color:G.muted}}>{"\u{1F504} Gerar link novo (invalida o anterior)"}</button>
+            </div>}
+      </div>
+    </div>
+  </div>;
+}
+
+function PatientPortal({token}){
+  const [data,setData]=useState(undefined);
+  const [confirming,setConfirming]=useState(false);
+  const [confirmed,setConfirmed]=useState(false);
+  useEffect(function(){
+    var alive=true;
+    if(!SUPA_URL){setData(null);return;}
+    supabase.fetchPortal(token).then(function(d){if(alive)setData(d||null);}).catch(function(){if(alive)setData(null);});
+    return function(){alive=false;};
+  },[token]);
+  function confirmar(){
+    if(confirming||confirmed)return;
+    setConfirming(true);
+    var apptId=(data&&data.consulta&&data.consulta.apptId)||null;
+    supabase.sendPortalAction(token,{type:"confirm",apptId:apptId,at:new Date().toISOString()}).then(function(r){setConfirming(false);if(r&&r.ok)setConfirmed(true);});
+  }
+  var wrap={minHeight:"100vh",background:G.bg,padding:"24px 16px"};
+  var card={maxWidth:520,margin:"0 auto",background:G.card,borderRadius:16,boxShadow:"0 4px 24px rgba(0,0,0,.1)",overflow:"hidden"};
+  if(data===undefined)return <div style={wrap}><div style={Object.assign({},card,{padding:"40px 20px",textAlign:"center",color:G.muted})}>Carregando\u2026</div></div>;
+  if(data===null)return <div style={wrap}><div style={Object.assign({},card,{padding:"40px 20px",textAlign:"center"})}>
+    <div style={{fontSize:40}}>{"\u{1F50D}"}</div>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:G.primary,marginTop:8}}>Link n\u00e3o encontrado</div>
+    <div style={{fontSize:13,color:G.muted,marginTop:6}}>Este link pode ter expirado ou sido substitu\u00eddo. Fale com a cl\u00ednica para receber um novo.</div>
+  </div></div>;
+  const clin=data.clinica||{nome:CLINICA_INFO.nome};
+  const sec={padding:"16px 18px",borderTop:"1px solid "+G.border};
+  const h={fontSize:12,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:.4,marginBottom:8};
+  return <div style={wrap}><div style={card}>
+    <div style={{background:G.primary,padding:"20px 18px",color:"#fff"}}>
+      <div style={{fontSize:12,opacity:.85}}>{clin.nome||CLINICA_INFO.nome}</div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,fontWeight:600,marginTop:2}}>Ol\u00e1, {data.name||"paciente"}!</div>
+      <div style={{fontSize:12,opacity:.85,marginTop:2}}>Seu acompanhamento pessoal</div>
+    </div>
+    {data.consulta?<div style={sec}>
+      <div style={h}>Pr\u00f3xima consulta</div>
+      <div style={{fontSize:18,fontWeight:700,color:G.text}}>{fmt(data.consulta.date)}{data.consulta.time?(" \u00e0s "+data.consulta.time):""}</div>
+      {data.consulta.dentista?<div style={{fontSize:13,color:G.primary,fontWeight:600,marginTop:2}}>{"com "+data.consulta.dentista}</div>:null}
+      {data.consulta.proc?<div style={{fontSize:13,color:G.muted,marginTop:2}}>{data.consulta.proc}</div>:null}
+    </div>:null}
+    {data.presenca&&data.consulta&&data.consulta.apptId?<div style={{padding:"0 18px 16px"}}>
+      {confirmed||data.consulta.status==="confirmed"
+        ?<div style={{background:G.accent,color:G.success,borderRadius:12,padding:"12px",textAlign:"center",fontWeight:700,fontSize:14}}>{"\u2705 Presen\u00e7a confirmada"}</div>
+        :<button onClick={confirmar} disabled={confirming} style={{width:"100%",background:G.success,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{confirming?"Confirmando\u2026":"\u2713 Confirmar presen\u00e7a"}</button>}
+    </div>:null}
+    {data.tratamento&&data.tratamento.length?<div style={sec}>
+      <div style={h}>Tratamento</div>
+      {data.tratamento.map(function(tr,ti){return <div key={ti} style={{marginBottom:10}}>
+        <div style={{fontWeight:700,fontSize:14,color:G.text}}>{tr.name}</div>
+        {(tr.itens||[]).map(function(it,ii){return <div key={ii} style={{display:"flex",justifyContent:"space-between",fontSize:13,color:G.text,padding:"3px 0"}}>
+          <span style={{color:it.paid?G.muted:G.text}}>{(it.paid?"\u2713 ":"")+it.desc}</span>
+          <span style={{fontWeight:600,color:it.paid?G.muted:G.primary}}>{cur(it.value)}</span>
+        </div>;})}
+      </div>;})}
+    </div>:null}
+    {data.orcamentos&&data.orcamentos.length?<div style={sec}>
+      <div style={h}>Or\u00e7amento</div>
+      {data.orcamentos.map(function(b,bi){return <div key={bi} style={{marginBottom:8}}>
+        {(b.itens||[]).map(function(it,ii){return <div key={ii} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"3px 0"}}>
+          <span>{it.desc}</span><span style={{fontWeight:600}}>{cur(it.value)}</span>
+        </div>;})}
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:14,fontWeight:700,color:G.primary,borderTop:"1px solid "+G.border,paddingTop:6,marginTop:4}}>
+          <span>Total</span><span>{cur(b.total)}</span>
+        </div>
+      </div>;})}
+    </div>:null}
+    {data.financeiro?<div style={sec}>
+      <div style={h}>Financeiro</div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:13,color:G.muted}}>Valor em aberto</span>
+        <span style={{fontSize:20,fontWeight:700,color:data.financeiro.pendente>0?G.red:G.success}}>{cur(data.financeiro.pendente)}</span>
+      </div>
+    </div>:null}
+    {data.fotos&&data.fotos.length?<div style={sec}>
+      <div style={h}>Antes e depois</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        {data.fotos.map(function(f,fi){return <img key={fi} src={f.url} alt="antes/depois" style={{width:"100%",borderRadius:10,display:"block"}}/>;})}
+      </div>
+    </div>:null}
+    {data.clinica?<div style={sec}>
+      <div style={h}>{clin.nome||CLINICA_INFO.nome}</div>
+      {clin.endereco?<div style={{fontSize:13,color:G.text}}>{"\u{1F4CD} "+clin.endereco}</div>:null}
+      {clin.telefone?<div style={{fontSize:13,color:G.text,marginTop:3}}>{"\u{1F4DE} "+clin.telefone}</div>:null}
+    </div>:null}
+    <div style={{padding:"14px 18px",textAlign:"center",fontSize:11,color:G.muted,borderTop:"1px solid "+G.border}}>Link pessoal \u00b7 n\u00e3o compartilhe</div>
+  </div></div>;
+}
+/* ===================== PORTAL DO PACIENTE (fim) ===================== */
+
 function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose}){
 // Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
@@ -634,7 +817,7 @@ const isDentUser=user&&user.level===1;
 const [tab,setTab]=useState("ficha");
 const [editMode,setEditMode]=useState(false);
 const [imgCat,setImgCat]=useState("rx");const [imgTreat,setImgTreat]=useState("");const [imgNota,setImgNota]=useState("");const [imgBusy,setImgBusy]=useState(false);const [imgErr,setImgErr]=useState("");const [imgView,setImgView]=useState(null);
-const [pf,setPf]=useState({...pat});const [showWAanam,setShowWAanam]=useState(false);const [showIARX,setShowIARX]=useState(false);const [fillAnam,setFillAnam]=useState(false);const [buscaMsg,setBuscaMsg]=useState("");
+const [pf,setPf]=useState({...pat});const [showWAanam,setShowWAanam]=useState(false);const [showPortal,setShowPortal]=useState(false);const [showIARX,setShowIARX]=useState(false);const [fillAnam,setFillAnam]=useState(false);const [buscaMsg,setBuscaMsg]=useState("");
 
 // Keep pf in sync when pat updates externally (e.g. after NF save)
 // But don't override if user is actively editing
@@ -946,7 +1129,7 @@ return <>
     <button onClick={function(){setShowIARX(true);}} style={{background:G.blue,color:"#fff",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"🦷 Analisar RX com IA"}</button>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📋 Dados do Paciente</span>
-      {!editMode?<div style={{display:"flex",gap:5}}><Btn ch="📋 WA" v="g" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/></div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={savePat}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
+      {!editMode?<div style={{display:"flex",gap:5}}><Btn ch="📋 WA" v="g" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="🔗 Portal" v="g" sm onClick={function(){setShowPortal(true);}}/><Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/></div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={savePat}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
     </div>
     {pat.obs&&<div style={{background:G.yellow+"18",border:`2px solid ${G.yellow}`,borderRadius:10,padding:"9px 14px"}}><span style={{fontWeight:700,color:G.yellow}}>⚠ ALERGIA / OBS. IMPORTANTE</span><div style={{color:G.text,marginTop:4,fontSize:14}}>{pat.obs||pat.allergy}</div></div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -976,6 +1159,7 @@ return <>
   {/* ── ANAMNESE ── */}
   {tab==="anamnese"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
     {showWAanam&&<WAAnamneseModal pat={pf} onClose={function(){setShowWAanam(false);}}/>}
+    {showPortal&&<PortalModal pat={pf} setPats={setPats} setPf={setPf} onClose={function(){setShowPortal(false);}}/>}
     {buscaMsg&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:12.5,color:G.primary}}>{buscaMsg}</div>}
     {pat.anamPend&&<div style={{background:G.success+"18",border:"1.5px solid "+G.success,borderRadius:10,padding:"10px 13px",display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:16}}>\u2705</span><div style={{fontSize:12.5,color:G.success,fontWeight:600,lineHeight:1.45}}>Ficha recebida do paciente pelo WhatsApp! Revise os dados abaixo e clique em <strong>Salvar</strong> para confirmar.</div></div>}
     {fillAnam&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:9000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:16,overflowY:"auto"}}><div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,margin:"16px auto",padding:"20px"}}><AnamForm patientName={pat.name} initial={pf.anamnese} onCancel={function(){setFillAnam(false);}} onSubmit={function(a){var aa=Object.assign({},a,{preenchida:true});setPf(prev=>Object.assign({},prev,{anamnese:Object.assign({},prev.anamnese||{},aa)}));setPats(prev=>prev.map(pp=>pp.id===pf.id?Object.assign({},pp,{anamnese:Object.assign({},pp.anamnese||{},aa)}):pp));setFillAnam(false);}}/></div></div>}
@@ -8229,8 +8413,37 @@ useEffect(function(){
 
 // Polling removido - causava race condition sobrescrevendo dados locais;
 
+const portalToken=(function(){try{return new URLSearchParams(window.location.search).get("portal");}catch(e){return null;}})();
+if(portalToken)return <PatientPortal token={portalToken}/>;
 const anamToken=(function(){try{return new URLSearchParams(window.location.search).get("anam");}catch(e){return null;}})();
 if(anamToken)return <PublicAnamnese token={anamToken}/>;
+// === PORTAL DO PACIENTE: (a) recalcula pat._portal  (b) reconcilia confirmacoes de presenca ===
+useEffect(function(){
+  var changed=[];
+  (pats||[]).forEach(function(p){
+    if(!p||!p.portalToken)return;
+    var summ=buildPortal(p,appts,treats,budgets,dents);
+    var a=p._portal?JSON.stringify(Object.assign({},p._portal,{updatedAt:0})):"";
+    var b=JSON.stringify(Object.assign({},summ,{updatedAt:0}));
+    if(a!==b)changed.push({id:p.id,summ:summ});
+  });
+  if(changed.length){
+    setPats(function(prev){return prev.map(function(p){var c=changed.find(function(x){return x.id===p.id;});return c?Object.assign({},p,{_portal:c.summ}):p;});});
+  }
+},[pats,appts,treats,budgets,dents]);
+useEffect(function(){
+  if(!SUPA_URL)return;
+  var iv=setInterval(function(){
+    supabase.fetchPortalActions().then(function(acts){
+      if(!acts||!acts.length)return;
+      var conf={};
+      acts.forEach(function(a){var ac=a&&a.action;if(ac&&ac.type==="confirm"&&ac.apptId!=null)conf[ac.apptId]=true;});
+      if(!Object.keys(conf).length)return;
+      setAppts(function(prev){var hit=false;var nx=(prev||[]).map(function(ap){if(ap&&conf[ap.id]&&ap.status!=="confirmed"){hit=true;return Object.assign({},ap,{status:"confirmed",portalConfirmed:true});}return ap;});return hit?nx:prev;});
+    }).catch(function(){});
+  },20000);
+  return function(){clearInterval(iv);};
+},[]);
 // === WHATSAPP AUTO: eventos + motor diário ===
 const waRef=useRef({});
 useEffect(function(){waRef.current={appts:appts,pats:pats,recs:recs,budgets:budgets,dents:dents,user:user,waAuto:waAuto,waSent:waSent,waAutoLog:waAutoLog};});
