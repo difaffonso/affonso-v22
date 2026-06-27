@@ -3921,11 +3921,16 @@ const card={},orto={},gasto={};
 months.forEach(m=>{card[m]=0;orto[m]=0;gasto[m]=0;});
 
 // A) Cartão parcelado a compensar (parcelas futuras, valor cheio da parcela)
+// Calcula os meses das parcelas a partir da DATA + Nº DE PARCELAS.
+// Não depende de instM (que nem sempre é gravado, ex.: pagamentos do Plano de Tratamento).
+const parcelaMeses=(dateStr,n)=>{var out=[];var d=new Date((dateStr||today())+"T12:00");for(var i=1;i<=n;i++){d.setMonth(d.getMonth()+1);out.push(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));}return out;};
 recs.forEach(r=>{
 if(!dOk(r.dentistId))return;
-if(r.payment==="Cartão Crédito"&&Number(r.inst)>1&&Array.isArray(r.instM)&&r.instM.length){
-var per=(Number(r.paid)||0)/r.instM.length;
-r.instM.forEach(m=>{if(inH(m))card[m]+=per;});
+if(r.payment==="Cartão Crédito"&&Number(r.inst)>1){
+var n=Number(r.inst);
+var meses=(Array.isArray(r.instM)&&r.instM.length===n)?r.instM:parcelaMeses(r.date,n);
+var per=(Number(r.paid)||0)/n;
+meses.forEach(m=>{if(inH(m))card[m]+=per;});
 }
 });
 
