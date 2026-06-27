@@ -296,9 +296,6 @@ setLogs(function(prev){return[entry,...prev].slice(0,500);});
 };
 const isBday=d=>{if(!d)return false;return d.slice(5)===today().slice(5);};
 const mo6=d=>{const x=new Date(d+"T12:00");x.setMonth(x.getMonth()+6);return x.toISOString().split("T")[0];};
-// Próxima data de retorno: usa a data manual definida no atendimento (rec.retorno), senão calcula 6 meses
-const proxRetorno=rec=>rec&&rec.retorno?rec.retorno:rec?mo6(rec.date):null;
-const ehRetornoManual=rec=>!!(rec&&rec.retorno);
 const calcNet=(v,p)=>p==="Cartão Crédito"?v*0.965:p==="Cartão Débito"?v*0.98:v;
 const wa=(ph,msg)=>{const n=(ph||"").replace(/\D/g,"");const u="https://wa.me/"+(n.startsWith("55")?n:"55"+n)+"?text="+encodeURIComponent(msg);const a=document.createElement("a");a.href=u;a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);};
 const age=dob=>{if(!dob)return"";const d=new Date(dob+"T12:00");const a=new Date();let y=a.getFullYear()-d.getFullYear();if(a.getMonth()<d.getMonth()||(a.getMonth()===d.getMonth()&&a.getDate()<d.getDate()))y--;return y+" anos";};
@@ -393,7 +390,7 @@ function autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user){
     }
     // semestral vencido, sem agendamento futuro e nao tratado
     var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
-    if(lastRec&&proxRetorno(lastRec)<=t){
+    if(lastRec&&mo6(lastRec.date)<=t){
       var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
       var tratado=st[p.id]&&st[p.id].done;
       if(!futura&&!tratado)n++;
@@ -418,7 +415,7 @@ const t=today(),y=yest(),tm=tom();const out=[];
 pats.forEach(p=>{
 if(isBday(p.dob))out.push({id:`b${p.id}`,title:`🎂 Aniversário -- ${p.name}`,desc:"Hoje é aniversário! Enviar parabéns.",date:t,priority:"medium",done:false,patientId:p.id,type:"bday"});
 const lr=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
-if(lr&&lr.paid>0&&proxRetorno(lr)<=t)out.push({id:`s${p.id}`,title:`${ehRetornoManual(lr)?"🔂 Retorno":"📅 Semestral"} -- ${p.name}`,desc:ehRetornoManual(lr)?`Retorno marcado p/ ${fmt(lr.retorno)}`:`Último atend: ${fmt(lr.date)}`,date:t,priority:"medium",done:false,patientId:p.id,type:"semi"});
+if(lr&&lr.paid>0&&mo6(lr.date)<=t)out.push({id:`s${p.id}`,title:`📅 Semestral -- ${p.name}`,desc:`Último atend: ${fmt(lr.date)}`,date:t,priority:"medium",done:false,patientId:p.id,type:"semi"});
 const surg=recs.find(r=>r.patientId===p.id&&r.procedure==="Cirurgia"&&r.date===y);
 if(surg)out.push({id:`c${p.id}`,title:`🔴 Pós-Cirurgia -- ${p.name}`,desc:`Cirurgia ontem (D.${surg.tooth}).`,date:t,priority:"high",done:false,patientId:p.id,type:"surg"});
 });
@@ -651,7 +648,7 @@ const [payForm,setPayForm]=useState({date:today(),value:"",method:"Dinheiro",not
 // Record modal
 const [recModal,setRecModal]=useState(false);
 const [recEdit,setRecEdit]=useState(null);
-const blankR={date:today(),procedure:"",tooth:"",dentistId:user.dentistId||dents[0]?.id||1,obs:"",rx:"",paid:"",payment:"Dinheiro",closed:false,inst:1,instM:[],retorno:""};
+const blankR={date:today(),procedure:"",tooth:"",dentistId:user.dentistId||dents[0]?.id||1,obs:"",rx:"",paid:"",payment:"Dinheiro",closed:false,inst:1,instM:[]};
 const [rf,setRf]=useState(blankR);
 const upR=k=>v=>setRf(p=>({...p,[k]:v}));
 
@@ -781,7 +778,7 @@ const genM=(d,n)=>{const ms=[];const x=new Date(d+"T12:00");for(let i=1;i<=n;i++
 const saveRec=()=>{
 if(Number(rf.paid)>0&&!rf.closed)return alert("Marque 'Confirmar baixa financeira'.");
 const ms=rf.payment==="Cartão Crédito"&&Number(rf.inst)>1?genM(rf.date,Number(rf.inst)):[];
-const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:pmoney(rf.paid),inst:Number(rf.inst),instM:ms,retorno:rf.retorno||"",id:recEdit?recEdit.id:nid(recs),ts:rf.ts||new Date().toISOString()};
+const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:pmoney(rf.paid),inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs),ts:rf.ts||new Date().toISOString()};
 setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
 setRecModal(false);
 };
@@ -1836,22 +1833,6 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
       </div>
       <Txt lb="Observações Clínicas" val={rf.obs} set={upR("obs")} rows={2}/>
       <Inp lb="Prescrição / Receita" val={rf.rx} set={upR("rx")} ph="Ex: Amoxicilina 500mg"/>
-      <div style={{display:"flex",flexDirection:"column",gap:6,background:G.accent,borderRadius:10,padding:"11px 13px"}}>
-        <label style={{fontSize:11,fontWeight:700,color:G.primary,textTransform:"uppercase",letterSpacing:".4px"}}>🔂 Próximo retorno do paciente</label>
-        <div style={{fontSize:11,color:G.muted,marginBottom:2}}>Deixe vazio para o controle automático de 6 meses, ou escolha quando quer rever o paciente.</div>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {[["+1 mês",1],["+3 meses",3],["+6 meses",6]].map(([lbl,n])=>{
-            const dt=(function(){var x=new Date(rf.date+"T12:00");x.setMonth(x.getMonth()+n);return x.toISOString().split("T")[0];})();
-            const ativo=rf.retorno===dt;
-            return <button key={lbl} type="button" onClick={()=>upR("retorno")(ativo?"":dt)} style={{border:"2px solid "+(ativo?G.primary:G.border),background:ativo?G.primary:"#fff",color:ativo?"#fff":G.primary,borderRadius:20,padding:"5px 13px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{lbl}</button>;
-          })}
-          {rf.retorno&&<button type="button" onClick={()=>upR("retorno")("")} style={{border:"2px solid "+G.border,background:"#fff",color:G.muted,borderRadius:20,padding:"5px 13px",fontSize:12,fontWeight:700,cursor:"pointer"}}>✕ Limpar</button>}
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:9,marginTop:2}}>
-          <input type="date" value={rf.retorno||""} onChange={e=>upR("retorno")(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"7px 10px",fontSize:13,outline:"none",color:G.text,background:"#fff"}}/>
-          <span style={{fontSize:12,fontWeight:600,color:rf.retorno?G.primary:G.muted}}>{rf.retorno?("Retorno em "+fmt(rf.retorno)):("Automático: "+fmt(mo6(rf.date)))}</span>
-        </div>
-      </div>
       <Div lb="Baixa Financeira"/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
         <Inp lb="Valor Recebido (R$)" val={String(rf.paid||"")} set={upR("paid")} type="number" ph="0,00"/>
@@ -3642,8 +3623,8 @@ const semAtras2=pats.filter(function(p){
 // Use recs (atendimentos com baixa registrada) as source of truth
 var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
 if(!lastRec)return false; // never attended = don't show yet
-// Show when today >= próximo retorno (data manual do atendimento ou 6 meses automático)
-if(proxRetorno(lastRec)>t2)return false;
+// Show when today >= lastRec date + 6 months
+if(mo6(lastRec.date)>t2)return false;
 // Exclui quem ja tem agendamento futuro (igual ao Relatorio)
 var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t2&&a.status!=="cancelled"&&a.status!=="missed";});
 if(futura)return false;
@@ -3786,15 +3767,14 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
     {pendSem.map(p=>{
       const lastRec=recs.filter(r=>r.patientId===p.id&&r.paid>0).sort((a,b)=>b.date.localeCompare(a.date))[0];
       const dias=lastRec?Math.floor((new Date(t2)-new Date(lastRec.date+"T12:00"))/86400000):null;
-      const sixMonthsDate=lastRec?proxRetorno(lastRec):null;
-      const retManual=ehRetornoManual(lastRec);
+      const sixMonthsDate=lastRec?mo6(lastRec.date):null;
       const mesesPassados=lastRec?Math.floor(dias/30):null;
       return <div key={p.id} style={{background:'#fff',borderRadius:10,padding:'10px 12px',marginBottom:7,border:'1px solid #A5D6A7',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontWeight:700,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
           <div style={{fontSize:11,color:G.muted}}>Última consulta: <strong>{lastRec?fmt(lastRec.date):'--'}</strong></div>
           <div style={{fontSize:11,color:G.orange,fontWeight:600}}>{dias?('⏰ '+mesesPassados+' meses atrás ('+dias+' dias)'):''}</div>
-          {sixMonthsDate&&<div style={{fontSize:10,color:retManual?G.primary:G.muted,fontWeight:retManual?700:400}}>{retManual?('🔂 Retorno marcado p/: '+fmt(sixMonthsDate)):('Semestral venceu em: '+fmt(sixMonthsDate))}</div>}
+          {sixMonthsDate&&<div style={{fontSize:10,color:G.muted}}>Semestral venceu em: {fmt(sixMonthsDate)}</div>}
         </div>
         <div style={{display:'flex',gap:5,flexShrink:0}}>
           {p.phone&&<button onClick={()=>sendWA2(p.phone,'Ola, '+p.name+'! Ja faz um tempo desde sua ultima consulta. Que tal agendar sua revisao semestral? Affonso Odontologia')} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:8,padding:'5px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>WA</button>}
@@ -3923,9 +3903,143 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
 }
 
 // ══════════════════════════════════════════════════════════
+// FLUXO DE CAIXA (projecao 12 meses, somente leitura)
+// ══════════════════════════════════════════════════════════
+function FluxoCaixa({recs,treats,pats,dents,gastos,dn}){
+const [openMo,setOpenMo]=useState(today().slice(0,7));
+const MESAB=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const MESFULL=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const base=today().slice(0,7);
+const baseY=Number(base.slice(0,4)),baseM=Number(base.slice(5,7));
+const ymAt=k=>{var mi=baseM-1+k;var y=baseY+Math.floor(mi/12);var mm=(mi%12)+1;return y+"-"+String(mm).padStart(2,"0");};
+const months=[];for(var i=0;i<12;i++)months.push(ymAt(i));
+const idxOf=ym=>(Number(ym.slice(0,4))-baseY)*12+(Number(ym.slice(5,7))-baseM);
+const inH=ym=>{var k=idxOf(ym);return k>=0&&k<12;};
+const dOk=id=>dn==="all"||Number(dn)===Number(id);
+
+const card={},orto={},trat={},gasto={};
+months.forEach(m=>{card[m]=0;orto[m]=0;trat[m]=0;gasto[m]=0;});
+
+// A) Cartão parcelado a compensar (parcelas futuras, já líquidas)
+recs.forEach(r=>{
+if(!dOk(r.dentistId))return;
+if(r.payment==="Cartão Crédito"&&Number(r.inst)>1&&Array.isArray(r.instM)&&r.instM.length){
+var net=calcNet(Number(r.paid)||0,r.payment,r.inst);var per=net/r.instM.length;
+r.instM.forEach(m=>{if(inH(m))card[m]+=per;});
+}
+});
+
+// B) Orto/carnê  +  C) Tratamentos a receber (plano em aberto)
+treats.forEach(t=>{
+if(!dOk(t.dentistId))return;
+(t.items||[]).forEach(it=>{
+if(it.paid)return;
+if((t.orto||it.orto)&&it.mesRef){if(inH(it.mesRef))orto[it.mesRef]+=Number(it.value)||0;return;}
+if(it.creditFuture)return; // já contado no canal do cartão
+var v=Number(it.value)||0;if(v<=0)return;
+if(it.done){if(inH(base))trat[base]+=v;} // realizado e não pago -> mês atual
+else{var part=v/3;for(var k=0;k<3;k++){var ym=ymAt(k);if(inH(ym))trat[ym]+=part;}} // distribui em 3 meses
+});
+});
+
+// D) Gastos previstos (clínica)
+var clin=(gastos&&gastos.clinica)||[];
+months.forEach(m=>{
+clin.forEach(e=>{
+var v=Number(e.value)||0;if(v<=0)return;
+if(e.recorrente&&e.diaVenc){gasto[m]+=v;return;}
+if(e.parcelado){var k=(Number(m.slice(0,4))*12+Number(m.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));if(k>=0&&k<Number(e.parcelas||1))gasto[m]+=v;return;}
+if(e.date&&e.date.slice(0,7)===m)gasto[m]+=v;
+});
+});
+
+const entrada=m=>card[m]+orto[m]+trat[m];
+const saldo=m=>entrada(m)-gasto[m];
+const totReceber=months.reduce((s,m)=>s+entrada(m),0);
+const totSaldo=months.reduce((s,m)=>s+saldo(m),0);
+const maxEnt=Math.max.apply(null,months.map(entrada).concat([1]));
+const cardMonths=months.filter(m=>card[m]>0);
+const temAlgo=totReceber>0||months.some(m=>gasto[m]>0);
+const kfmt=v=>{v=Math.round(v);return v>=1000?(v/1000).toFixed(1).replace(".",",")+"k":""+v;};
+const mLab=ym=>{var mm=Number(ym.slice(5,7));return MESAB[mm-1]+(mm===1?"/"+ym.slice(2,4):"");};
+const mFull=ym=>MESFULL[Number(ym.slice(5,7))-1]+" "+ym.slice(0,4);
+const HH=130;
+
+return <div style={{display:"flex",flexDirection:"column",gap:13}}>
+
+<div style={{background:G.accent,borderRadius:14,padding:"7px 13px",fontSize:12,fontWeight:600,color:G.primary,alignSelf:"flex-start"}}>📅 Próximos 12 meses</div>
+
+{!temAlgo&&<div style={{background:G.card,borderRadius:12,padding:26,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}><div style={{fontSize:26,marginBottom:6}}>📈</div>Sem recebimentos futuros lançados ainda.<div style={{fontSize:11,marginTop:5}}>Cartão parcelado, orto e planos em aberto aparecem aqui automaticamente.</div></div>}
+
+{temAlgo&&<>
+<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
+<div style={{background:G.card,borderRadius:11,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+G.primary,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div style={{fontSize:9.5,color:G.muted,fontWeight:700,letterSpacing:".3px"}}>A RECEBER (12 MESES)</div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:G.primary,fontWeight:700}}>{cur(totReceber)}</div>
+</div>
+<div style={{background:G.card,borderRadius:11,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+(totSaldo>=0?G.success:G.red),boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div style={{fontSize:9.5,color:G.muted,fontWeight:700,letterSpacing:".3px"}}>SALDO PROJETADO</div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:totSaldo>=0?G.success:G.red,fontWeight:700}}>{(totSaldo>=0?"+":"")+cur(totSaldo)}</div>
+</div>
+</div>
+
+<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div style={{fontWeight:700,fontSize:13,marginBottom:8}}>Entradas previstas por mês</div>
+<div style={{display:"flex",gap:14,marginBottom:10,flexWrap:"wrap"}}>
+{[["Cartão",G.blue],["Orto/carnê",G.primary],["Tratamento",G.yellow]].map(row=><div key={row[0]} style={{display:"flex",alignItems:"center",gap:5}}><span style={{width:8,height:8,borderRadius:8,background:row[1],display:"inline-block"}}/><span style={{fontSize:10,color:G.muted}}>{row[0]}</span></div>)}
+</div>
+<div style={{overflowX:"auto",paddingBottom:4}}>
+<div style={{display:"flex",gap:6,alignItems:"flex-end",minWidth:480}}>
+{months.map(m=>{var e=entrada(m);var ht=trat[m]/maxEnt*HH,ho=orto[m]/maxEnt*HH,hc=card[m]/maxEnt*HH;return <div key={m} style={{flex:"0 0 34px",width:34,display:"flex",flexDirection:"column",alignItems:"center"}}>
+<div style={{fontSize:8,fontWeight:700,color:e>0?G.text:"transparent",marginBottom:3,whiteSpace:"nowrap"}}>{e>0?kfmt(e):"0"}</div>
+<div style={{width:30,height:HH,display:"flex",flexDirection:"column",justifyContent:"flex-end",background:G.bg,borderRadius:4,overflow:"hidden"}}>
+<div style={{height:ht,background:G.yellow}}/>
+<div style={{height:ho,background:G.primary}}/>
+<div style={{height:hc,background:G.blue}}/>
+</div>
+<div style={{fontSize:8.5,color:openMo===m?G.primary:G.muted,fontWeight:openMo===m?700:600,marginTop:4}}>{mLab(m)}</div>
+</div>;})}
+</div>
+</div>
+</div>
+
+{cardMonths.length>0&&<div style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div style={{fontWeight:700,fontSize:13}}>💳 Cartão a compensar</div>
+<div style={{fontSize:10.5,color:G.muted,marginBottom:9}}>Quando cada parcela cai na conta (já líquido)</div>
+<div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+{cardMonths.map(m=><div key={m} style={{background:G.blue+"15",borderRadius:8,padding:"5px 11px",fontSize:11,fontWeight:700,color:G.blue}}>{mLab(m)+" "+kfmt(card[m])}</div>)}
+</div>
+</div>}
+
+{months.map(m=>{var open=openMo===m;var e=entrada(m),s=saldo(m);return <div key={m} style={{background:G.card,borderRadius:12,padding:open?"13px 15px":"10px 15px",boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+<div onClick={()=>setOpenMo(open?null:m)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",gap:8}}>
+<div>
+<div style={{fontWeight:700,fontSize:13.5}}>{mFull(m)}</div>
+{!open&&<div style={{fontSize:11,color:G.muted,marginTop:2}}>{(e>0||gasto[m]>0)?("Entradas "+cur(e)):"Sem movimento"}</div>}
+</div>
+<div style={{display:"flex",alignItems:"center",gap:9}}>
+{(e>0||gasto[m]>0)&&<span style={{fontWeight:700,fontSize:13,color:s>=0?G.success:G.red}}>{(s>=0?"+":"")+cur(s)}</span>}
+<span style={{color:G.muted,fontSize:12}}>{open?"▾":"▸"}</span>
+</div>
+</div>
+{open&&<div style={{marginTop:11}}>
+{[["💳 Cartão parcelado",card[m],G.blue],["🦷 Orto / carnê",orto[m],G.primary],["📋 Tratamentos a receber",trat[m],G.yellow]].map(row=><div key={row[0]} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:12.5}}><span style={{color:row[1]>0?G.text:G.muted}}>{row[0]}</span><span style={{fontWeight:700,color:row[1]>0?row[2]:G.muted}}>{cur(row[1])}</span></div>)}
+<div style={{borderTop:"1px solid "+G.border,margin:"7px 0"}}/>
+<div style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:12.5}}><span style={{fontWeight:700,color:G.success}}>＋ Entradas</span><span style={{fontWeight:700,color:G.success}}>{cur(e)}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:12.5}}><span style={{color:G.red}}>－ Gastos previstos</span><span style={{fontWeight:700,color:G.red}}>{cur(gasto[m])}</span></div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:s>=0?G.accent:"#FBE9E7",borderRadius:8,padding:"7px 12px",marginTop:7}}><span style={{fontWeight:700,color:s>=0?G.primary:G.red}}>= Saldo do mês</span><span style={{fontFamily:"'Cormorant Garamond'",fontSize:17,fontWeight:700,color:s>=0?G.success:G.red}}>{(s>=0?"+":"")+cur(s)}</span></div>
+</div>}
+</div>;})}
+</>}
+
+</div>;
+}
+
+
+// ══════════════════════════════════════════════════════════
 // FINANCEIRO
 // ══════════════════════════════════════════════════════════
-function Financeiro({recs,setRecs,pats,dents,expenses,gastos,user}){
+function Financeiro({recs,setRecs,pats,dents,expenses,gastos,treats,user}){
 const [modo,setModo]=useState("mensal"); // "mensal" | "diario"
 const [mo,setMo]=useState(today().slice(0,7));
 const [dia,setDia]=useState(today());
@@ -3979,7 +4093,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {/* Toggle mensal/diario */}
 
 <div style={{display:"flex",gap:0,background:G.bg,borderRadius:10,padding:3}}>
-  {[["mensal","📅 Mensal"],["diario","📆 Diário"]].map(([k,l])=>(
+  {[["mensal","📅 Mensal"],["diario","📆 Diário"],["fluxo","📈 Fluxo"]].map(([k,l])=>(
     <button key={k} onClick={()=>setModo(k)} style={{flex:1,border:"none",borderRadius:8,padding:"9px 4px",fontSize:13,fontWeight:700,cursor:"pointer",background:modo===k?G.primary:G.bg,color:modo===k?"#fff":G.muted,transition:"all .15s"}}>{l}</button>
   ))}
 </div>
@@ -3998,19 +4112,22 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
   </div>
 )}
 
+{/* Fluxo de caixa: projecao 12 meses (somente leitura) */}
+{modo==="fluxo"&&<FluxoCaixa recs={recs} treats={treats} pats={pats} dents={dents} gastos={gastos} dn={dn}/>}
+
 {/* Cards resumo */}
 
-<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
+{modo!=="fluxo"&&<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
   {[["Receita Bruta",raw,G.primary],["Receita Líquida",liq,G.success],["Gastos Clínica",clinicExp,G.red],["Resultado",liq-clinicExp,liq-clinicExp>=0?G.success:G.red]].map(([l,v,c])=>(
     <div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
       <div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div>
       <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:c}}>{cur(v)}</div>
     </div>
   ))}
-</div>
+</div>}
 
 {/* Por forma de pagamento */}
-{byP.length>0&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
+{modo!=="fluxo"&&byP.length>0&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"0 1px 4px rgba(0,0,0,.07)"}}>
 
   <div style={{fontWeight:700,marginBottom:11,fontSize:13}}>Por Forma de Pagamento</div>
   {byP.map(({pt,v})=><div key={pt} style={{marginBottom:10}}>
@@ -4409,8 +4526,8 @@ const semestral=pats.filter(function(p){
 // Only recs with payment (confirmed attendance)
 var last=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
 if(!last)return false; // no record = don't show
-// Show on próximo retorno (data manual do atendimento ou 6 meses automático)
-var sixMonthsAfter=proxRetorno(last);
+// Show on the exact day that completes 6 months
+var sixMonthsAfter=mo6(last.date);
 if(sixMonthsAfter>t)return false;
 var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
 if(futura)return false;
@@ -7197,7 +7314,7 @@ function pacCoberto(pid){return (_pagoByPac[pid]||0)>=((_realByPac[pid]||0)-0.5)
 var baixaPend=appts.filter(function(a){return a.status==="done"&&Number(a.value)>0&&a.date<=ont&&a.date>=d14&&!hasBaixa(a)&&!pacCoberto(a.patientId);}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Atendimento")+" em "+fmt(a.date)+" · "+cur(a.value)+" sem baixa",key:"baixa_"+a.id};});
 
 // 7. Controle semestral (+6 meses sem consulta, sem agendamento)
-var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(proxRetorno(last)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:ehRetornoManual(last)?("Retorno marcado p/ "+fmt(last.retorno)):("Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias"),key:"sem_"+p.id};});
+var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(mo6(last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:"Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias",key:"sem_"+p.id};});
 
 // 8. Lista de espera vencendo/vencida
 var esperaVenc=(espera||[]).filter(function(e){return e.valido&&e.valido<=amanha;}).sort(function(a,b){return a.valido.localeCompare(b.valido);}).map(function(e){return {nome:e.patName||nomeP(e.patientId),det:(e.proc||"")+" · "+(e.valido<t?"VENCIDO em "+fmt(e.valido):e.valido===t?"vence HOJE":"vence amanhã"),key:"espera_"+(e.id||e.patientId)};});
@@ -8189,7 +8306,7 @@ if(cfg.semestral){
 if(!p.phone)return;
 var last=(D.recs||[]).filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
 if(!last)return;
-if(proxRetorno(last)>t)return;
+if(mo6(last.date)>t)return;
 var fut=(D.appts||[]).find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
 if(fut)return;
 var d=dOf(last.dentistId);
@@ -8355,7 +8472,7 @@ return <>
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha}/>}
       {view==="conversas"&&<Conversas pats={pats} user={user} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
-      {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} user={user}/>}
+      {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} treats={treats} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user}/>}
