@@ -5936,6 +5936,200 @@ return(
 // ══════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+//  PONTO POR LOCALIZAÇÃO
+// ════════════════════════════════════════════════
+
+// distância em metros entre 2 coordenadas (Haversine)
+function distMetros(lat1,lon1,lat2,lon2){
+  var R=6371000;var toR=function(g){return g*Math.PI/180;};
+  var dLat=toR(lat2-lat1),dLon=toR(lon2-lon1);
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(toR(lat1))*Math.cos(toR(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return Math.round(R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+}
+
+// pega a localização atual do aparelho
+function pegarLocal(){
+  return new Promise(function(res,rej){
+    if(!navigator.geolocation){rej(new Error("Geolocalização não suportada neste aparelho."));return;}
+    navigator.geolocation.getCurrentPosition(
+      function(p){res({lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy||0)});},
+      function(e){rej(new Error(e.code===1?"Permissão de localização negada. Ative nas configurações do navegador.":e.code===3?"Tempo esgotado ao obter localização. Tente de novo.":"Não foi possível obter a localização."));},
+      {enableHighAccuracy:true,timeout:12000,maximumAge:0}
+    );
+  });
+}
+
+function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
+  const isAdmin=user.level>=3;
+  const [aba,setAba]=useState("reg");
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState(null); // {ok,txt}
+  const z=function(n){return ("0"+n).slice(-2);};
+  const hoje=today();
+  const meuId=user.id;
+  const meusHoje=pontos.filter(function(p){return String(p.uid)===String(meuId)&&p.data===hoje;}).sort(function(a,b){return a.ts<b.ts?-1:1;});
+
+  function registrar(tipo){
+    if(busy)return;
+    setMsg(null);
+    if(!pontoCfg||pontoCfg.ativo===false){setMsg({ok:false,txt:"O controle de ponto está desativado. Avise o administrador."});return;}
+    if(pontoCfg.lat==null||pontoCfg.lng==null){setMsg({ok:false,txt:"Localização da clínica ainda não configurada. Peça ao administrador para configurar na aba Configuração."});return;}
+    setBusy(true);setMsg({ok:true,txt:"📍 Obtendo sua localização…"});
+    pegarLocal().then(function(loc){
+      var d=distMetros(loc.lat,loc.lng,pontoCfg.lat,pontoCfg.lng);
+      var raio=Number(pontoCfg.raio||150);
+      if(d>raio){setBusy(false);setMsg({ok:false,txt:"❌ Você está a ~"+d+" m da clínica (limite "+raio+" m). Aproxime-se para registrar."});return;}
+      var ag=new Date();
+      var reg={id:Date.now(),uid:meuId,nome:user.name,tipo:tipo,ts:ag.toISOString(),data:hoje,hora:z(ag.getHours())+":"+z(ag.getMinutes()),lat:loc.lat,lng:loc.lng,acc:loc.acc,dist:d};
+      setPontos(function(prev){return prev.concat([reg]);});
+      setBusy(false);
+      setMsg({ok:true,txt:"✅ "+(tipo==="entrada"?"Entrada":"Saída")+" registrada às "+reg.hora+" — a "+d+" m da clínica."});
+    }).catch(function(e){setBusy(false);setMsg({ok:false,txt:"❌ "+(e.message||"Falha ao obter localização")});});
+  }
+
+  var card={background:G.card,borderRadius:14,padding:"16px 18px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",border:"1px solid "+G.border};
+
+  return <div style={{maxWidth:760,margin:"0 auto",display:"flex",flexDirection:"column",gap:16}}>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:30,fontWeight:700,color:G.primary}}>🕐 Ponto</div>
+
+    {isAdmin&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+      {[["reg","Registrar"],["rel","Relatório"],["cfg","Configuração"]].map(function(o){return <button key={o[0]} onClick={function(){setAba(o[0]);setMsg(null);}} style={{border:"none",borderRadius:9,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",background:aba===o[0]?G.primary:"#eef3f0",color:aba===o[0]?"#fff":G.muted}}>{o[1]}</button>;})}
+    </div>}
+
+    {aba==="reg"&&<div style={card}>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:700,color:G.primary,marginBottom:6}}>Olá, {user.name||""}!</div>
+      <div style={{fontSize:13,color:G.muted,marginBottom:14}}>Toque para registrar sua entrada ou saída. Sua localização será verificada no momento do registro.</div>
+      <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+        <button disabled={busy} onClick={function(){registrar("entrada");}} style={{flex:1,minWidth:140,border:"none",borderRadius:13,padding:"20px 16px",fontSize:17,fontWeight:800,cursor:busy?"default":"pointer",color:"#fff",background:G.success,opacity:busy?.6:1}}>🟢 Registrar Entrada</button>
+        <button disabled={busy} onClick={function(){registrar("saida");}} style={{flex:1,minWidth:140,border:"none",borderRadius:13,padding:"20px 16px",fontSize:17,fontWeight:800,cursor:busy?"default":"pointer",color:"#fff",background:G.orange,opacity:busy?.6:1}}>🔴 Registrar Saída</button>
+      </div>
+      {msg&&<div style={{marginTop:14,borderRadius:10,padding:"11px 14px",fontSize:13.5,fontWeight:600,background:msg.ok?G.accent:"#FDECEA",color:msg.ok?G.primary:G.red,border:"1px solid "+(msg.ok?G.border:"#F5B7B1")}}>{msg.txt}</div>}
+
+      <div style={{marginTop:18}}>
+        <div style={{fontSize:12,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>Meus registros de hoje</div>
+        {meusHoje.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum registro hoje.</div>:
+          meusHoje.map(function(p){return <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:9,background:"#f7faf8",marginBottom:6}}>
+            <span style={{fontSize:16}}>{p.tipo==="entrada"?"🟢":"🔴"}</span>
+            <span style={{fontWeight:700,fontSize:14}}>{p.tipo==="entrada"?"Entrada":"Saída"}</span>
+            <span style={{fontSize:14,color:G.text}}>{p.hora}</span>
+            <span style={{marginLeft:"auto",fontSize:11,color:G.muted}}>{p.dist!=null?("a "+p.dist+" m"):""}</span>
+          </div>;})}
+      </div>
+    </div>}
+
+    {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} pontoCfg={pontoCfg} users={users}/>}
+    {aba==="cfg"&&isAdmin&&<ConfigPonto pontoCfg={pontoCfg} setPontoCfg={setPontoCfg}/>}
+  </div>;
+}
+
+function RelatorioPonto({pontos,pontoCfg,users}){
+  const z=function(n){return ("0"+n).slice(-2);};
+  var d0=new Date();
+  const [de,setDe]=useState(d0.getFullYear()+"-"+z(d0.getMonth()+1)+"-01");
+  const [ate,setAte]=useState(today());
+  const [quem,setQuem]=useState("all");
+
+  var entradaPadrao=(pontoCfg&&pontoCfg.entradaPadrao)||"08:00";
+  var saidaPadrao=(pontoCfg&&pontoCfg.saidaPadrao)||"18:00";
+
+  var filtrados=pontos.filter(function(p){
+    if(p.data<de||p.data>ate)return false;
+    if(quem!=="all"&&String(p.uid)!==String(quem))return false;
+    return true;
+  });
+
+  var map={};
+  filtrados.forEach(function(p){
+    var k=p.uid+"|"+p.data;
+    if(!map[k])map[k]={uid:p.uid,nome:p.nome,data:p.data,ent:null,sai:null};
+    if(p.tipo==="entrada"&&(!map[k].ent||p.hora<map[k].ent))map[k].ent=p.hora;
+    if(p.tipo==="saida"&&(!map[k].sai||p.hora>map[k].sai))map[k].sai=p.hora;
+  });
+  var linhas=Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return a.data<b.data?1:(a.data>b.data?-1:(a.nome<b.nome?-1:1));});
+
+  function horas(e,s){if(!e||!s)return "—";var ea=e.split(":"),sa=s.split(":");var m=(Number(sa[0])*60+Number(sa[1]))-(Number(ea[0])*60+Number(ea[1]));if(m<0)return "—";return Math.floor(m/60)+"h"+z(m%60);}
+  function fmtD(x){var p=x.split("-");return p[2]+"/"+p[1];}
+
+  var card={background:G.card,borderRadius:14,padding:"16px 18px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",border:"1px solid "+G.border};
+  var inp={background:G.card,border:"1.5px solid "+G.border,borderRadius:9,padding:"9px 11px",fontSize:13,color:G.text,outline:"none"};
+
+  return <div style={card}>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:700,color:G.primary,marginBottom:12}}>Relatório de ponto</div>
+    <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:12}}>
+      <div><label style={{fontSize:10,fontWeight:700,color:G.muted,display:"block",marginBottom:4}}>DE</label><input type="date" value={de} onChange={function(e){setDe(e.target.value);}} style={inp}/></div>
+      <div><label style={{fontSize:10,fontWeight:700,color:G.muted,display:"block",marginBottom:4}}>ATÉ</label><input type="date" value={ate} onChange={function(e){setAte(e.target.value);}} style={inp}/></div>
+      <div><label style={{fontSize:10,fontWeight:700,color:G.muted,display:"block",marginBottom:4}}>PESSOA</label>
+        <select value={quem} onChange={function(e){setQuem(e.target.value);}} style={inp}>
+          <option value="all">Todos</option>
+          {(users||[]).map(function(u){return <option key={u.id} value={u.id}>{u.name}</option>;})}
+        </select>
+      </div>
+    </div>
+    <div style={{fontSize:11.5,color:G.muted,marginBottom:10}}>Esperado: entrada {entradaPadrao} · saída {saidaPadrao}. Atrasos e saídas antecipadas aparecem em vermelho com ⚠️.</div>
+
+    {linhas.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum registro no período.</div>:
+    <div style={{overflowX:"auto"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+        <thead><tr style={{textAlign:"left",color:G.muted,fontSize:11,textTransform:"uppercase"}}>
+          <th style={{padding:"6px 8px"}}>Data</th><th style={{padding:"6px 8px"}}>Pessoa</th><th style={{padding:"6px 8px"}}>Entrada</th><th style={{padding:"6px 8px"}}>Saída</th><th style={{padding:"6px 8px"}}>Horas</th>
+        </tr></thead>
+        <tbody>
+        {linhas.map(function(l){
+          var atraso=l.ent&&l.ent>entradaPadrao;
+          var antecip=l.sai&&l.sai<saidaPadrao;
+          return <tr key={l.uid+l.data} style={{borderTop:"1px solid "+G.border}}>
+            <td style={{padding:"7px 8px",fontWeight:700}}>{fmtD(l.data)}</td>
+            <td style={{padding:"7px 8px"}}>{l.nome}</td>
+            <td style={{padding:"7px 8px",color:atraso?G.red:G.text,fontWeight:atraso?700:400}}>{(l.ent||"—")+(atraso?" ⚠️":"")}</td>
+            <td style={{padding:"7px 8px",color:antecip?G.red:G.text,fontWeight:antecip?700:400}}>{(l.sai||"—")+(antecip?" ⚠️":"")}</td>
+            <td style={{padding:"7px 8px"}}>{horas(l.ent,l.sai)}</td>
+          </tr>;
+        })}
+        </tbody>
+      </table>
+    </div>}
+  </div>;
+}
+
+function ConfigPonto({pontoCfg,setPontoCfg}){
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState(null);
+  function up(patch){setPontoCfg(function(prev){return Object.assign({},prev,patch);});}
+  function capturar(){
+    if(busy)return;setBusy(true);setMsg("📍 Obtendo localização…");
+    pegarLocal().then(function(loc){up({lat:loc.lat,lng:loc.lng});setBusy(false);setMsg("✅ Localização capturada (precisão ~"+loc.acc+" m).");}).catch(function(e){setBusy(false);setMsg("❌ "+(e.message||"Falha"));});
+  }
+  var card={background:G.card,borderRadius:14,padding:"16px 18px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",border:"1px solid "+G.border};
+  var inp={background:G.card,border:"1.5px solid "+G.border,borderRadius:9,padding:"10px 12px",fontSize:14,color:G.text,outline:"none",boxSizing:"border-box"};
+  var lbl={fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",display:"block",marginBottom:6};
+
+  return <div style={card}>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:700,color:G.primary,marginBottom:6}}>Configuração do ponto</div>
+    <div style={{fontSize:12.5,color:G.muted,marginBottom:16,lineHeight:1.5}}><b>Fique fisicamente dentro da clínica</b> e toque em "Usar minha localização atual". O raio define a distância máxima aceita para registrar.</div>
+
+    <label style={{display:"flex",gap:9,alignItems:"center",fontSize:14,cursor:"pointer",marginBottom:16}}>
+      <input type="checkbox" checked={pontoCfg.ativo!==false} onChange={function(e){up({ativo:e.target.checked});}} style={{accentColor:G.primary,width:16,height:16}}/> Controle de ponto ativado
+    </label>
+
+    <button onClick={capturar} disabled={busy} style={{border:"none",borderRadius:11,padding:"13px 18px",fontSize:14,fontWeight:700,cursor:busy?"default":"pointer",color:"#fff",background:G.primary,opacity:busy?.6:1,marginBottom:12}}>📍 Usar minha localização atual</button>
+    {msg&&<div style={{marginBottom:14,fontSize:13,color:String(msg).indexOf("❌")>=0?G.red:G.success,fontWeight:600}}>{msg}</div>}
+
+    <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:14}}>
+      <div style={{flex:1,minWidth:130}}><label style={lbl}>Latitude</label><input value={pontoCfg.lat!=null?pontoCfg.lat:""} onChange={function(e){up({lat:e.target.value===""?null:Number(e.target.value)});}} style={Object.assign({width:"100%"},inp)} placeholder="—"/></div>
+      <div style={{flex:1,minWidth:130}}><label style={lbl}>Longitude</label><input value={pontoCfg.lng!=null?pontoCfg.lng:""} onChange={function(e){up({lng:e.target.value===""?null:Number(e.target.value)});}} style={Object.assign({width:"100%"},inp)} placeholder="—"/></div>
+    </div>
+
+    <div style={{marginBottom:14}}><label style={lbl}>Raio permitido (metros)</label><input type="number" value={pontoCfg.raio||150} onChange={function(e){up({raio:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Recomendado 100–200 m. GPS dentro de prédios costuma ter erro de algumas dezenas de metros.</div></div>
+
+    <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+      <div style={{flex:1,minWidth:130}}><label style={lbl}>Entrada esperada</label><input type="time" value={pontoCfg.entradaPadrao||"08:00"} onChange={function(e){up({entradaPadrao:e.target.value});}} style={Object.assign({width:"100%"},inp)}/></div>
+      <div style={{flex:1,minWidth:130}}><label style={lbl}>Saída esperada</label><input type="time" value={pontoCfg.saidaPadrao||"18:00"} onChange={function(e){up({saidaPadrao:e.target.value});}} style={Object.assign({width:"100%"},inp)}/></div>
+    </div>
+    <div style={{fontSize:11.5,color:G.muted,marginTop:12}}>As alterações são salvas automaticamente e valem para todos os aparelhos.</div>
+  </div>;
+}
+
 function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent}){
 const t=today();
 const yd=yest();
@@ -7854,6 +8048,8 @@ const [stock,setStock]=useState(STOCK0);const [impl,setImpl]=useState(IMPL_DATA_
 const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
+const [pontos,setPontos]=useState([]);
+const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00"});
 const [sideOpen,setSideOpen]=useState(false);
 const [fichaPat,setFichaPat]=useState(null);
 const [waUnread,setWaUnread]=useState(0);
@@ -8012,6 +8208,8 @@ if(data.waSent)setWaSent(data.waSent);
 if(data.waAutoLog)setWaAutoLog(data.waAutoLog);
 if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
+if(data.pontos?.length)setPontos(data.pontos);
+if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00"},data.pontoCfg));
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
 if(data.espera?.length)setEspera(data.espera);
@@ -8239,7 +8437,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,pontoCfg};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -8299,7 +8497,7 @@ useEffect(function(){
       isSaving.current=false;
     }
   },800);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,pontoCfg]);
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -8612,7 +8810,7 @@ const remBadge=(user.level===1)
 const prosBadge=pros.filter(p=>p.due===today()&&p.status==="waiting").length;
 
 const ALL_NAV=[
-{id:"dash",l:"🏠 Visão Geral",lv:3},{id:"agenda",l:"📅 Agenda",lv:1},
+{id:"dash",l:"🏠 Visão Geral",lv:3},{id:"agenda",l:"📅 Agenda",lv:1},{id:"ponto",l:"🕐 Ponto",lv:1},
 {id:"pacs",l:"👥 Pacientes",lv:1},{id:"remarcar",l:"🔄 Remarcar",lv:2},{id:"pros",l:"🏥 Próteses",lv:2,b:prosBadge},
 {id:"impl",l:"🔩 Implantes",lv:2},{id:"lems",l:"📌 Lembretes",lv:1,b:remBadge},{id:"conversas",l:"💬 Conversas",lv:2,b:waUnread},
 {id:"fin",l:"💰 Financeiro",lv:3},{id:"pixdent",l:"💸 Pix Dentistas",lv:1},{id:"rel",l:"📊 Relatórios",lv:2},
@@ -8630,10 +8828,10 @@ const cp={pats,dents,procs,user,espera:espera,waEvent:waEvent,addLog:function(ti
 
 // Bottom nav shortcuts (most used)
 const BOTTOM_NAV=user.level>=3
-?[{id:"dash",icon:"🏠"},{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"pixdent",icon:"💸"},{id:"adm",icon:"⚙️"}]
+?[{id:"dash",icon:"🏠"},{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"pixdent",icon:"💸"},{id:"adm",icon:"⚙️"},{id:"ponto",icon:"🕐"}]
 :user.level===2
-?[{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"pixdent",icon:"💸"},{id:"lems",icon:"📌",b:remBadge},{id:"rel",icon:"📊"}]
-:[{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"pixdent",icon:"💸"},{id:"lems",icon:"📌",b:remBadge},{id:"rec",icon:"📋"}];
+?[{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"pixdent",icon:"💸"},{id:"lems",icon:"📌",b:remBadge},{id:"rel",icon:"📊"},{id:"ponto",icon:"🕐"}]
+:[{id:"agenda",icon:"📅"},{id:"pacs",icon:"👥"},{id:"pixdent",icon:"💸"},{id:"lems",icon:"📌",b:remBadge},{id:"rec",icon:"📋"},{id:"ponto",icon:"🕐"}];
 
 const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}.sidebar-scroll::-webkit-scrollbar{width:6px;}.sidebar-scroll::-webkit-scrollbar-thumb{background:#1B5E4A;border-radius:4px;}.sidebar-scroll::-webkit-scrollbar-track{background:transparent;}`;
 
@@ -8697,6 +8895,7 @@ return <>
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
+    {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users}/>}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientDirtyRef.current=true;setOrientacoes(v);}} user={user}/>}
     {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog}/>}
