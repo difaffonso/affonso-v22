@@ -5994,7 +5994,7 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
     <div style={{fontFamily:"'Cormorant Garamond'",fontSize:30,fontWeight:700,color:G.primary}}>🕐 Ponto</div>
 
     {isAdmin&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-      {[["reg","Registrar"],["rel","Relatório"],["cfg","Configuração"]].map(function(o){return <button key={o[0]} onClick={function(){setAba(o[0]);setMsg(null);}} style={{border:"none",borderRadius:9,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",background:aba===o[0]?G.primary:"#eef3f0",color:aba===o[0]?"#fff":G.muted}}>{o[1]}</button>;})}
+      {[["reg","Registrar"],["rel","Diário"],["mes","Mensal"],["cfg","Configuração"]].map(function(o){return <button key={o[0]} onClick={function(){setAba(o[0]);setMsg(null);}} style={{border:"none",borderRadius:9,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",background:aba===o[0]?G.primary:"#eef3f0",color:aba===o[0]?"#fff":G.muted}}>{o[1]}</button>;})}
     </div>}
 
     {aba==="reg"&&<div style={card}>
@@ -6019,6 +6019,7 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
     </div>}
 
     {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} pontoCfg={pontoCfg} users={users}/>}
+    {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos} pontoCfg={pontoCfg} users={users}/>}
     {aba==="cfg"&&isAdmin&&<ConfigPonto pontoCfg={pontoCfg} setPontoCfg={setPontoCfg}/>}
   </div>;
 }
@@ -6122,11 +6123,125 @@ function ConfigPonto({pontoCfg,setPontoCfg}){
 
     <div style={{marginBottom:14}}><label style={lbl}>Raio permitido (metros)</label><input type="number" value={pontoCfg.raio||150} onChange={function(e){up({raio:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Recomendado 100–200 m. GPS dentro de prédios costuma ter erro de algumas dezenas de metros.</div></div>
 
+    <div style={{marginBottom:14}}><label style={lbl}>Carga horária semanal (horas)</label><input type="number" value={pontoCfg.cargaSemanal||44} onChange={function(e){up({cargaSemanal:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Hoje a jornada é 44h. Se mudar para 40h (ou outro valor), ajuste aqui — é a meta semanal usada no relatório Mensal.</div></div>
+
+    <div style={{marginBottom:14}}><label style={lbl}>Intervalo de almoço a descontar (min)</label><input type="number" value={pontoCfg.intervalo!=null?pontoCfg.intervalo:60} onChange={function(e){up({intervalo:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Descontado nos dias com uma única entrada/saída acima de 6h (almoço não batido). Se a pessoa bater saída e entrada no almoço, o intervalo real é usado automaticamente.</div></div>
+
     <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
       <div style={{flex:1,minWidth:130}}><label style={lbl}>Entrada esperada</label><input type="time" value={pontoCfg.entradaPadrao||"08:00"} onChange={function(e){up({entradaPadrao:e.target.value});}} style={Object.assign({width:"100%"},inp)}/></div>
       <div style={{flex:1,minWidth:130}}><label style={lbl}>Saída esperada</label><input type="time" value={pontoCfg.saidaPadrao||"18:00"} onChange={function(e){up({saidaPadrao:e.target.value});}} style={Object.assign({width:"100%"},inp)}/></div>
     </div>
     <div style={{fontSize:11.5,color:G.muted,marginTop:12}}>As alterações são salvas automaticamente e valem para todos os aparelhos.</div>
+  </div>;
+}
+
+function EspelhoMensal({pontos,pontoCfg,users}){
+  const z=function(n){return ("0"+n).slice(-2);};
+  var hoje0=new Date();
+  const [mes,setMes]=useState(hoje0.getFullYear()+"-"+z(hoje0.getMonth()+1)); // "YYYY-MM"
+  const [quem,setQuem]=useState("all");
+
+  var meta=Number((pontoCfg&&pontoCfg.cargaSemanal)||44);          // horas/semana
+  var intervalo=Number((pontoCfg&&pontoCfg.intervalo!=null)?pontoCfg.intervalo:60); // min de almoço
+
+  // minutos entre dois "HH:MM"
+  function minHora(a,b){var pa=a.split(":"),pb=b.split(":");return (Number(pb[0])*60+Number(pb[1]))-(Number(pa[0])*60+Number(pa[1]));}
+  // minutos trabalhados num dia: pares entrada->saida (desconta almoço não batido em turnos > 6h)
+  function minDia(lista){
+    var ev=lista.slice().sort(function(x,y){return x.hora<y.hora?-1:(x.hora>y.hora?1:0);});
+    var tot=0,abre=null,pares=0,spanUnico=0;
+    ev.forEach(function(p){
+      if(p.tipo==="entrada"){if(abre===null)abre=p.hora;}
+      else if(p.tipo==="saida"){if(abre!==null){var m=minHora(abre,p.hora);if(m>0){tot+=m;spanUnico=m;}abre=null;pares++;}}
+    });
+    if(pares===1&&intervalo>0&&spanUnico>360){tot-=intervalo;}
+    if(tot<0)tot=0;
+    return tot;
+  }
+  function hhmm(m){var neg=m<0;m=Math.abs(m);return (neg?"-":"")+Math.floor(m/60)+"h"+z(m%60);}
+  function ymd(dt){return dt.getFullYear()+"-"+z(dt.getMonth()+1)+"-"+z(dt.getDate());}
+  function fmtDM(dt){return z(dt.getDate())+"/"+z(dt.getMonth()+1);}
+  // segunda-feira da semana de uma data
+  function segDaSemana(dt){var d=new Date(dt.getTime());var wd=(d.getDay()+6)%7;d.setDate(d.getDate()-wd);d.setHours(0,0,0,0);return d;}
+
+  var ano=Number(mes.split("-")[0]),mm=Number(mes.split("-")[1]);
+  var primeiro=new Date(ano,mm-1,1),ultimo=new Date(ano,mm,0);
+  // semanas (seg-dom) atribuídas ao mês pela quinta-feira (cada semana pertence a 1 mês só)
+  var semanas=[],cur=segDaSemana(primeiro);
+  while(cur.getTime()<=ultimo.getTime()){
+    var ini=new Date(cur.getTime()),fim=new Date(cur.getTime());fim.setDate(fim.getDate()+6);
+    var qui=new Date(cur.getTime());qui.setDate(qui.getDate()+3);
+    if(qui.getMonth()===(mm-1)&&qui.getFullYear()===ano){
+      semanas.push({label:fmtDM(ini)+"–"+fmtDM(fim),iniYmd:ymd(ini),fimYmd:ymd(fim)});
+    }
+    cur.setDate(cur.getDate()+7);
+  }
+
+  // quem aparece: na opção "todos", só quem tem registro no mês
+  var noMes={};
+  pontos.forEach(function(p){if((p.data||"").slice(0,7)===mes)noMes[String(p.uid)]=true;});
+  var base=(users||[]);
+  var lista=quem!=="all"?base.filter(function(u){return String(u.id)===String(quem);})
+                        :base.filter(function(u){return noMes[String(u.id)];});
+
+  function dadosPessoa(uid){
+    var porDia={};
+    pontos.forEach(function(p){if(String(p.uid)!==String(uid))return;(porDia[p.data]=porDia[p.data]||[]).push(p);});
+    var linhas=semanas.map(function(s){
+      var min=0;
+      Object.keys(porDia).forEach(function(dia){if(dia>=s.iniYmd&&dia<=s.fimYmd)min+=minDia(porDia[dia]);});
+      return {label:s.label,min:min,saldo:min-meta*60};
+    });
+    var totMin=linhas.reduce(function(a,l){return a+l.min;},0);
+    var totMeta=semanas.length*meta*60;
+    return {linhas:linhas,totMin:totMin,totMeta:totMeta,totSaldo:totMin-totMeta};
+  }
+
+  var card={background:G.card,borderRadius:14,padding:"16px 18px",boxShadow:"0 1px 4px rgba(0,0,0,.07)",border:"1px solid "+G.border};
+  var inp={background:G.card,border:"1.5px solid "+G.border,borderRadius:9,padding:"9px 11px",fontSize:13,color:G.text,outline:"none"};
+  function corSaldo(m){return m<0?G.red:(m>0?G.success:G.muted);}
+
+  return <div style={card}>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:700,color:G.primary,marginBottom:12}}>Fechamento mensal por semana</div>
+    <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:12}}>
+      <div><label style={{fontSize:10,fontWeight:700,color:G.muted,display:"block",marginBottom:4}}>MÊS</label><input type="month" value={mes} onChange={function(e){setMes(e.target.value);}} style={inp}/></div>
+      <div><label style={{fontSize:10,fontWeight:700,color:G.muted,display:"block",marginBottom:4}}>PESSOA</label>
+        <select value={quem} onChange={function(e){setQuem(e.target.value);}} style={inp}>
+          <option value="all">Todos</option>
+          {(users||[]).map(function(u){return <option key={u.id} value={u.id}>{u.name}</option>;})}
+        </select>
+      </div>
+    </div>
+    <div style={{fontSize:11.5,color:G.muted,marginBottom:14,lineHeight:1.5}}>Meta semanal: <b>{meta}h</b> · semanas de segunda a domingo (a semana da virada do mês conta inteira). <b style={{color:G.red}}>Saldo negativo</b> = ficou a menos. Almoço: {intervalo} min descontados em dias acima de 6h sem batida de intervalo.</div>
+
+    {lista.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum registro neste mês.</div>:
+      lista.map(function(u){
+        var d=dadosPessoa(u.id);
+        return <div key={u.id} style={{marginBottom:22}}>
+          <div style={{fontWeight:800,fontSize:15,color:G.text,marginBottom:7}}>{u.name}</div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead><tr style={{textAlign:"left",color:G.muted,fontSize:11,textTransform:"uppercase"}}>
+                <th style={{padding:"6px 8px"}}>Semana</th><th style={{padding:"6px 8px"}}>Trabalhadas</th><th style={{padding:"6px 8px"}}>Meta</th><th style={{padding:"6px 8px"}}>Saldo</th>
+              </tr></thead>
+              <tbody>
+              {d.linhas.map(function(l,i){return <tr key={i} style={{borderTop:"1px solid "+G.border}}>
+                <td style={{padding:"7px 8px",fontWeight:600}}>{l.label}</td>
+                <td style={{padding:"7px 8px"}}>{hhmm(l.min)}</td>
+                <td style={{padding:"7px 8px",color:G.muted}}>{meta}h00</td>
+                <td style={{padding:"7px 8px",fontWeight:700,color:corSaldo(l.saldo)}}>{(l.saldo>0?"+":"")+hhmm(l.saldo)}</td>
+              </tr>;})}
+              <tr style={{borderTop:"2px solid "+G.border,background:"#f7faf8"}}>
+                <td style={{padding:"8px 8px",fontWeight:800}}>Mês</td>
+                <td style={{padding:"8px 8px",fontWeight:800}}>{hhmm(d.totMin)}</td>
+                <td style={{padding:"8px 8px",fontWeight:700,color:G.muted}}>{hhmm(d.totMeta)}</td>
+                <td style={{padding:"8px 8px",fontWeight:800,color:corSaldo(d.totSaldo)}}>{(d.totSaldo>0?"+":"")+hhmm(d.totSaldo)}</td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>;
+      })}
   </div>;
 }
 
@@ -8049,7 +8164,7 @@ const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [pontos,setPontos]=useState([]);
-const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00"});
+const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60});
 const [sideOpen,setSideOpen]=useState(false);
 const [fichaPat,setFichaPat]=useState(null);
 const [waUnread,setWaUnread]=useState(0);
@@ -8209,7 +8324,7 @@ if(data.waAutoLog)setWaAutoLog(data.waAutoLog);
 if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
 if(data.pontos?.length)setPontos(data.pontos);
-if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00"},data.pontoCfg));
+if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60},data.pontoCfg));
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
 if(data.espera?.length)setEspera(data.espera);
