@@ -2411,6 +2411,7 @@ function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRec
 
 const [selDate,setSelDate]=useState(today());
 const [agView,setAgView]=useState("dia");
+const [agZoom,setAgZoom]=useState(1);
 const [openFolder,setOpenFolder]=useState(null);
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(new Date().getFullYear());
@@ -2540,6 +2541,7 @@ return (
     </select>}
     {/* Quick orto buttons */}
     {!isDent&&dents.filter(d=>(d.specialty||"").toLowerCase().indexOf("orto")>=0).map(d=><button key={d.id} onClick={()=>setDenF(String(d.id))} style={{border:"2px solid "+(denF===String(d.id)?d.color:G.border),background:denF===String(d.id)?d.color:"#fff",color:denF===String(d.id)?"#fff":d.color,borderRadius:20,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{"🦷 "+d.name.replace(/Dr\.|Dra\./i,"").trim().split(" ")[0]}</button>)}
+    <div style={{display:"flex",alignItems:"center",gap:1,background:G.bg,borderRadius:9,padding:"2px 5px"}} title="Zoom da agenda — diminua para ver o dia inteiro na tela"><span style={{fontSize:12,marginRight:2}}>🔍</span><button onClick={function(){setAgZoom(function(z){return Math.max(.5,Math.round((z-.1)*10)/10);});}} style={{border:"none",background:"transparent",borderRadius:7,width:24,height:24,fontSize:17,fontWeight:700,cursor:"pointer",color:G.muted,lineHeight:1,padding:0}} title="Diminuir">−</button><button onClick={function(){setAgZoom(1);}} style={{border:"none",background:"transparent",borderRadius:7,padding:"0 4px",minWidth:42,fontSize:11,fontWeight:700,cursor:"pointer",color:agZoom!==1?G.primary:G.muted}} title="Restaurar 100%">{Math.round(agZoom*100)+"%"}</button><button onClick={function(){setAgZoom(function(z){return Math.min(1.2,Math.round((z+.1)*10)/10);});}} style={{border:"none",background:"transparent",borderRadius:7,width:24,height:24,fontSize:16,fontWeight:700,cursor:"pointer",color:G.muted,lineHeight:1,padding:0}} title="Aumentar">+</button></div>
     <div style={{flex:1}}/>
   </div>
   
@@ -2566,7 +2568,7 @@ return (
 
 
 
-{agView==="dia"&&vd.length>1&&<div style={{display:"grid",gridTemplateColumns:"48px repeat("+vd.length+",1fr)",gap:2}}>
+{agView==="dia"&&vd.length>1&&<div style={{display:"grid",gridTemplateColumns:"48px repeat("+vd.length+",1fr)",gap:2,zoom:agZoom}}>
 
 <div/>
 {vd.map(d=><div key={d.id} style={{background:d.color,color:"#fff",borderRadius:7,padding:"5px 4px",textAlign:"center",fontSize:10,fontWeight:700}}>{d.name.split(" ").slice(0,2).join(" ")}</div>)}
@@ -2581,7 +2583,7 @@ return (
 </div>;})}
 {espMatches.length>3&&<div style={{fontSize:11,color:"#7B1FA2"}}>{"+ "+(espMatches.length-3)+" paciente(s) com encaixe"}</div>}
 </div>}
-{agView==="dia"&&vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:1}}>
+{agView==="dia"&&vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:1,zoom:agZoom}}>
 {(()=>{
 // Inclui horarios personalizados dos agendamentos do dia
 var d=vd[0];
@@ -2687,7 +2689,7 @@ return [_slots, _cancelled];
 })()}
 
   </div>}
-  {agView==="dia"&&vd.length>1&&<div style={{overflowX:"auto"}}>
+  {agView==="dia"&&vd.length>1&&<div style={{overflowX:"auto",zoom:agZoom}}>
     <div style={{minWidth:vd.length>1?vd.length*130+55:250}}>
       {(function(){
         var customTimesAll=appts.filter(function(x){return x.date===selDate&&vd.some(function(d){return d.id===x.dentistId;})&&activeSlots.indexOf(x.time)<0;}).map(function(x){return x.time;});
@@ -2776,7 +2778,7 @@ var wSlots=Array.from(new Set(activeSlots.concat(customT))).sort(function(a,b){r
 var colW="minmax(118px,1fr)";
 var grid="46px repeat(6,"+colW+")";
 function nomeCurto(nm){var p=(nm||"?").trim().split(" ");return p.length>1?p[0]+" "+p[p.length-1]:p[0];}
-return <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",borderRadius:12,border:"1px solid "+G.border}}>
+return <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",borderRadius:12,border:"1px solid "+G.border,zoom:agZoom}}>
 <div style={{display:"grid",gridTemplateColumns:grid,gap:2,minWidth:760,background:G.bg,padding:2}}>
 <div style={{position:"sticky",left:0,zIndex:3,background:G.bg}}/>
 {weekDays.map(function(ds){
