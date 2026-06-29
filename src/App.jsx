@@ -2411,7 +2411,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,feriados}){
 
 const [selDate,setSelDate]=useState(today());
 const [agView,setAgView]=useState("dia");
@@ -2461,6 +2461,8 @@ const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
 const save=()=>{
+var _ferD=(feriados||[]).find(function(h){return h.data===f.date;});
+if(_ferD&&!f.blocked&&!edit){alert("Esse dia é feriado"+(_ferD.nome?(" ("+_ferD.nome+")"):"")+" e está fechado para novos agendamentos. Se precisar agendar mesmo assim, remova o feriado dessa data em Administrativo › Feriados.");return;}
 const finalTime=pad2((f.timeCustom||"").trim()||(f.time||"").trim());
 const hasPat=String(f.patientId||"").trim()||String(f.patientName||"").trim();
 // Permite salvar sem paciente - aparece como "A confirmar" na agenda
@@ -2566,6 +2568,7 @@ return (
     })}
   </div>}
 
+{agView==="dia"&&(function(){var _f=(feriados||[]).find(function(h){return h.data===selDate;});return _f?<div style={{background:"#FFEBEE",border:"2px solid "+G.red,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8,margin:"2px 0"}}><span style={{fontSize:18}}>🎉</span><div style={{fontSize:13,fontWeight:700,color:G.red,lineHeight:1.4}}>{"Feriado"+(_f.nome?(": "+_f.nome):"")+" — clínica fechada. Novos agendamentos estão bloqueados neste dia."}</div></div>:null;})()}
 {agView==="dia"&&hiddenToday.length>0&&<div onClick={function(){var od=dents.find(function(d){return d.id===hiddenToday[0].dentistId;});if(od)setDenF(String(od.id));}} style={{background:"#FFF8E1",border:"1.5px solid #FFB300",borderRadius:10,padding:"9px 13px",fontSize:12,fontWeight:700,color:"#E65100",cursor:"pointer",display:"flex",alignItems:"center",gap:6,margin:"2px 0"}}>{"⚠ "+hiddenToday.length+" consulta(s) de Ortodontia neste dia não aparecem aqui. Toque para ver →"}</div>}
 
 {agView==="dia"&&denF==="all"&&!isDent&&vd.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"6px 6px 15px #c8d0c5,-6px -6px 15px #ffffff"}}>{"Nenhum dentista clínico trabalhando neste dia. Selecione um dentista no filtro para agendar."}</div>}
@@ -5495,7 +5498,7 @@ function ImportWizard({pats,setPats}){
 }
 
 
-function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog}){
+function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog,feriados,setFeriados}){
 const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
 const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
 const TIPO_L_LOG={all:"Todos",agenda:"Agenda",paciente:"Paciente",financeiro:"Financeiro",estoque:"Estoque",protese:"Protese",lembrete:"Lembrete",remarcar:"Remarcar",admin:"Admin"};
@@ -5546,9 +5549,10 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
 <div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border,overflowX:"auto"}}>
-{[["users","Usuarios"],["import","Importar Dados"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["wa","🤖 WhatsApp"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
+{[["users","Usuarios"],["import","Importar Dados"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["feriados","📅 Feriados"],["access","Acessos"],["wa","🤖 WhatsApp"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
 {tab==="import"&&<ImportWizard pats={pats} setPats={setPats}/>}
+{tab==="feriados"&&<FeriadosAdmin feriados={feriados} setFeriados={setFeriados}/>}
 {tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
 <div style={{background:G.accent,borderRadius:10,padding:"9px 12px",fontSize:12,color:G.primary}}>
 Para adicionar dentista use a aba <strong>Dentistas</strong>. Aqui crie apenas credenciais de acesso.
@@ -5965,7 +5969,7 @@ function pegarLocal(){
   });
 }
 
-function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
+function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,feriados}){
   const isAdmin=user.level>=3;
   const [aba,setAba]=useState("reg");
   const [busy,setBusy]=useState(false);
@@ -6023,18 +6027,22 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
       </div>
     </div>}
 
-    {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} pontoCfg={pontoCfg} users={users}/>}
-    {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos} pontoCfg={pontoCfg} users={users}/>}
+    {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} users={users} user={user}/>}
+    {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos} pontoCfg={pontoCfg} users={users} feriados={feriados}/>}
     {aba==="cfg"&&isAdmin&&<ConfigPonto pontoCfg={pontoCfg} setPontoCfg={setPontoCfg}/>}
   </div>;
 }
 
-function RelatorioPonto({pontos,pontoCfg,users}){
+function RelatorioPonto({pontos,setPontos,pontoCfg,users,user}){
   const z=function(n){return ("0"+n).slice(-2);};
   var d0=new Date();
   const [de,setDe]=useState(d0.getFullYear()+"-"+z(d0.getMonth()+1)+"-01");
   const [ate,setAte]=useState(today());
   const [quem,setQuem]=useState("all");
+  const [aberto,setAberto]=useState({});
+  const [edit,setEdit]=useState(null);
+  const [exc,setExc]=useState(null);
+  const isAdmin=user&&user.level>=3;
 
   var entradaPadrao=(pontoCfg&&pontoCfg.entradaPadrao)||"08:00";
   var saidaPadrao=(pontoCfg&&pontoCfg.saidaPadrao)||"18:00";
@@ -6048,7 +6056,9 @@ function RelatorioPonto({pontos,pontoCfg,users}){
   var map={};
   filtrados.forEach(function(p){
     var k=p.uid+"|"+p.data;
-    if(!map[k])map[k]={uid:p.uid,nome:p.nome,data:p.data,ent:null,sai:null};
+    if(!map[k])map[k]={uid:p.uid,nome:p.nome,data:p.data,ent:null,sai:null,regs:[]};
+    map[k].regs.push(p);
+    if(p.excluido)return;
     if(p.tipo==="entrada"&&(!map[k].ent||p.hora<map[k].ent))map[k].ent=p.hora;
     if(p.tipo==="saida"&&(!map[k].sai||p.hora>map[k].sai))map[k].sai=p.hora;
   });
@@ -6056,9 +6066,43 @@ function RelatorioPonto({pontos,pontoCfg,users}){
 
   function horas(e,s){if(!e||!s)return "—";var ea=e.split(":"),sa=s.split(":");var m=(Number(sa[0])*60+Number(sa[1]))-(Number(ea[0])*60+Number(ea[1]));if(m<0)return "—";return Math.floor(m/60)+"h"+z(m%60);}
   function fmtD(x){var p=x.split("-");return p[2]+"/"+p[1];}
+  function fmtTs(iso){try{var d=new Date(iso);return z(d.getDate())+"/"+z(d.getMonth()+1)+" "+z(d.getHours())+":"+z(d.getMinutes());}catch(e){return "";}}
+
+  function salvarEdit(){
+    if(!edit)return;
+    var hh=(edit.hora||"").trim();
+    if(!/^[0-2][0-9]:[0-5][0-9]$/.test(hh)){alert("Informe a hora no formato HH:MM (ex.: 08:05).");return;}
+    if(!(edit.motivo||"").trim()){alert("Descreva o motivo da correção — fica registrado para controle.");return;}
+    setPontos(function(prev){return prev.map(function(p){
+      if(p.id!==edit.id)return p;
+      var np=Object.assign({},p);
+      if(np.origHora==null){np.origHora=p.hora;np.origTipo=p.tipo;}
+      np.hora=hh;np.tipo=edit.tipo;np.editado=true;
+      np.editadoPor=(user&&user.name)||"";np.editadoEm=new Date().toISOString();np.motivoEdit=(edit.motivo||"").trim();
+      return np;
+    });});
+    setEdit(null);
+  }
+  function confirmarExcluir(){
+    if(!exc)return;
+    if(!(exc.motivo||"").trim()){alert("Descreva o motivo da exclusão — fica registrado para controle.");return;}
+    setPontos(function(prev){return prev.map(function(p){
+      if(p.id!==exc.id)return p;
+      return Object.assign({},p,{excluido:true,excluidoPor:(user&&user.name)||"",excluidoEm:new Date().toISOString(),motivoExcl:(exc.motivo||"").trim()});
+    });});
+    setExc(null);
+  }
+  function restaurar(id){
+    setPontos(function(prev){return prev.map(function(p){
+      if(p.id!==id)return p;
+      var np=Object.assign({},p);np.excluido=false;np.restauradoPor=(user&&user.name)||"";np.restauradoEm=new Date().toISOString();return np;
+    });});
+  }
 
   var card={background:G.card,borderRadius:14,padding:"16px 18px",boxShadow:"6px 6px 15px #c8d0c5,-6px -6px 15px #ffffff",border:"1px solid "+G.border};
   var inp={background:G.card,border:"1.5px solid "+G.border,borderRadius:9,padding:"9px 11px",fontSize:13,color:G.text,outline:"none"};
+  var inpS={background:"#fff",border:"1.5px solid "+G.border,borderRadius:7,padding:"6px 8px",fontSize:12,color:G.text,outline:"none"};
+  var btnMini=function(bg,fg){return {border:"1px solid "+bg,background:fg?bg:"transparent",color:fg||bg,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"};};
 
   return <div style={card}>
     <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:700,color:G.primary,marginBottom:12}}>Relatório de ponto</div>
@@ -6072,7 +6116,7 @@ function RelatorioPonto({pontos,pontoCfg,users}){
         </select>
       </div>
     </div>
-    <div style={{fontSize:11.5,color:G.muted,marginBottom:10}}>Esperado: entrada {entradaPadrao} · saída {saidaPadrao}. Atrasos e saídas antecipadas aparecem em vermelho com ⚠️.</div>
+    <div style={{fontSize:11.5,color:G.muted,marginBottom:10}}>Esperado: entrada {entradaPadrao} · saída {saidaPadrao}. Atrasos e saídas antecipadas aparecem em vermelho com ⚠️.{isAdmin?" Toque numa linha para ver e corrigir as batidas — correções e exclusões ficam registradas para controle.":""}</div>
 
     {linhas.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum registro no período.</div>:
     <div style={{overflowX:"auto"}}>
@@ -6084,20 +6128,70 @@ function RelatorioPonto({pontos,pontoCfg,users}){
         {linhas.map(function(l){
           var atraso=l.ent&&l.ent>entradaPadrao;
           var antecip=l.sai&&l.sai<saidaPadrao;
-          return <tr key={l.uid+l.data} style={{borderTop:"1px solid "+G.border}}>
-            <td style={{padding:"7px 8px",fontWeight:700}}>{fmtD(l.data)}</td>
+          var k=l.uid+"|"+l.data;
+          var op=!!aberto[k];
+          var temAlt=l.regs.some(function(r){return r.editado||r.excluido;});
+          var rows=[];
+          rows.push(<tr key={k} onClick={isAdmin?function(){setAberto(function(s){var n=Object.assign({},s);n[k]=!n[k];return n;});setEdit(null);setExc(null);}:undefined} style={{borderTop:"1px solid "+G.border,cursor:isAdmin?"pointer":"default",background:op?"#f7faf8":"transparent"}}>
+            <td style={{padding:"7px 8px",fontWeight:700}}>{(isAdmin?(op?"▾ ":"▸ "):"")+fmtD(l.data)}{temAlt?<span title="Há batidas corrigidas ou excluídas neste dia" style={{marginLeft:5,fontSize:10,color:G.orange,fontWeight:700}}>✱</span>:null}</td>
             <td style={{padding:"7px 8px"}}>{l.nome}</td>
             <td style={{padding:"7px 8px",color:atraso?G.red:G.text,fontWeight:atraso?700:400}}>{(l.ent||"—")+(atraso?" ⚠️":"")}</td>
             <td style={{padding:"7px 8px",color:antecip?G.red:G.text,fontWeight:antecip?700:400}}>{(l.sai||"—")+(antecip?" ⚠️":"")}</td>
             <td style={{padding:"7px 8px"}}>{horas(l.ent,l.sai)}</td>
-          </tr>;
+          </tr>);
+          if(isAdmin&&op){
+            var regsOrd=l.regs.slice().sort(function(a,b){return (a.hora||"")<(b.hora||"")?-1:1;});
+            rows.push(<tr key={k+"_d"} style={{background:"#f7faf8"}}>
+              <td colSpan={5} style={{padding:"2px 12px 12px"}}>
+                <div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",margin:"4px 0 8px"}}>Batidas do dia ({regsOrd.length})</div>
+                {regsOrd.map(function(r){
+                  var emEdit=edit&&edit.id===r.id;
+                  var emExc=exc&&exc.id===r.id;
+                  return <div key={r.id} style={{borderBottom:"1px solid "+G.border,padding:"7px 0"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      <span style={{fontSize:14}}>{r.tipo==="entrada"?"🟢":"🔴"}</span>
+                      <span style={{fontWeight:700,fontSize:13,textDecoration:r.excluido?"line-through":"none",color:r.excluido?G.muted:G.text}}>{(r.tipo==="entrada"?"Entrada":"Saída")+" "+r.hora}</span>
+                      {r.editado?<span style={{fontSize:10,color:G.orange,fontWeight:700}}>✏️ corrigido (era {r.origTipo==="entrada"?"entrada":"saída"} {r.origHora})</span>:null}
+                      {r.excluido?<span style={{fontSize:10,color:G.red,fontWeight:700}}>🗑️ excluído</span>:null}
+                      <span style={{fontSize:11,color:G.muted}}>{r.dist!=null?("a "+r.dist+" m"):""}</span>
+                      {!emEdit&&!emExc?<span style={{marginLeft:"auto",display:"flex",gap:6}}>
+                        {!r.excluido?<button onClick={function(){setExc(null);setEdit({id:r.id,hora:r.hora,tipo:r.tipo,motivo:""});}} style={btnMini(G.blue)}>✏️ Editar</button>:null}
+                        {!r.excluido?<button onClick={function(){setEdit(null);setExc({id:r.id,motivo:""});}} style={btnMini(G.red)}>🗑️ Excluir</button>:
+                          <button onClick={function(){restaurar(r.id);}} style={btnMini(G.success)}>↩️ Restaurar</button>}
+                      </span>:null}
+                    </div>
+                    {emEdit?<div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginTop:8,background:"#fff",border:"1px solid "+G.border,borderRadius:8,padding:"8px 10px"}}>
+                      <select value={edit.tipo} onChange={function(e){setEdit(Object.assign({},edit,{tipo:e.target.value}));}} style={inpS}>
+                        <option value="entrada">Entrada</option><option value="saida">Saída</option>
+                      </select>
+                      <input value={edit.hora} onChange={function(e){setEdit(Object.assign({},edit,{hora:e.target.value}));}} placeholder="HH:MM" style={Object.assign({width:80},inpS)}/>
+                      <input value={edit.motivo} onChange={function(e){setEdit(Object.assign({},edit,{motivo:e.target.value}));}} placeholder="Motivo da correção" style={Object.assign({flex:1,minWidth:150},inpS)}/>
+                      <button onClick={salvarEdit} style={btnMini(G.success,"#fff")}>Salvar</button>
+                      <button onClick={function(){setEdit(null);}} style={btnMini(G.muted)}>Cancelar</button>
+                    </div>:null}
+                    {emExc?<div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginTop:8,background:"#FDECEA",border:"1px solid #F5B7B1",borderRadius:8,padding:"8px 10px"}}>
+                      <span style={{fontSize:12,color:G.red,fontWeight:700}}>Excluir esta batida?</span>
+                      <input value={exc.motivo} onChange={function(e){setExc(Object.assign({},exc,{motivo:e.target.value}));}} placeholder="Motivo da exclusão" style={Object.assign({flex:1,minWidth:150},inpS)}/>
+                      <button onClick={confirmarExcluir} style={btnMini(G.red,"#fff")}>Confirmar exclusão</button>
+                      <button onClick={function(){setExc(null);}} style={btnMini(G.muted)}>Cancelar</button>
+                    </div>:null}
+                    {(r.editado||r.excluido||r.restauradoPor)?<div style={{fontSize:10.5,color:G.muted,marginTop:5,lineHeight:1.5}}>
+                      {r.editado?<div>✏️ Corrigido por <b>{r.editadoPor||"—"}</b> em {fmtTs(r.editadoEm)}{r.motivoEdit?(" — "+r.motivoEdit):""}</div>:null}
+                      {r.excluido?<div>🗑️ Excluído por <b>{r.excluidoPor||"—"}</b> em {fmtTs(r.excluidoEm)}{r.motivoExcl?(" — "+r.motivoExcl):""}</div>:null}
+                      {r.restauradoPor?<div>↩️ Restaurado por <b>{r.restauradoPor}</b> em {fmtTs(r.restauradoEm)}</div>:null}
+                    </div>:null}
+                  </div>;
+                })}
+              </td>
+            </tr>);
+          }
+          return rows;
         })}
         </tbody>
       </table>
     </div>}
   </div>;
 }
-
 function ConfigPonto({pontoCfg,setPontoCfg}){
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState(null);
@@ -6130,6 +6224,8 @@ function ConfigPonto({pontoCfg,setPontoCfg}){
 
     <div style={{marginBottom:14}}><label style={lbl}>Carga horária semanal (horas)</label><input type="number" value={pontoCfg.cargaSemanal||44} onChange={function(e){up({cargaSemanal:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Hoje a jornada é 44h. Se mudar para 40h (ou outro valor), ajuste aqui — é a meta semanal usada no relatório Mensal.</div></div>
 
+    <div style={{marginBottom:14}}><label style={lbl}>Dias úteis por semana (para feriado)</label><input type="number" value={pontoCfg.diasUteis||5} onChange={function(e){up({diasUteis:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Usado só para calcular quanto vale 1 dia de feriado no Espelho (carga semanal ÷ dias úteis). Padrão 5 (seg–sex). Se trabalham sábado, use 6.</div></div>
+
     <div style={{marginBottom:14}}><label style={lbl}>Intervalo de almoço a descontar (min)</label><input type="number" value={pontoCfg.intervalo!=null?pontoCfg.intervalo:60} onChange={function(e){up({intervalo:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Descontado nos dias com uma única entrada/saída acima de 6h (almoço não batido). Se a pessoa bater saída e entrada no almoço, o intervalo real é usado automaticamente.</div></div>
 
     <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
@@ -6140,7 +6236,7 @@ function ConfigPonto({pontoCfg,setPontoCfg}){
   </div>;
 }
 
-function EspelhoMensal({pontos,pontoCfg,users}){
+function EspelhoMensal({pontos,pontoCfg,users,feriados}){
   const z=function(n){return ("0"+n).slice(-2);};
   var hoje0=new Date();
   const [mes,setMes]=useState(hoje0.getFullYear()+"-"+z(hoje0.getMonth()+1)); // "YYYY-MM"
@@ -6148,6 +6244,8 @@ function EspelhoMensal({pontos,pontoCfg,users}){
 
   var meta=Number((pontoCfg&&pontoCfg.cargaSemanal)||44);          // horas/semana
   var intervalo=Number((pontoCfg&&pontoCfg.intervalo!=null)?pontoCfg.intervalo:60); // min de almoço
+   var diasUteis=Number((pontoCfg&&pontoCfg.diasUteis)||5);
+   function feriadosNaSemana(ini,fim){var c=0;(feriados||[]).forEach(function(h){if((h.data||"")>=ini&&(h.data||"")<=fim){var wd=new Date(h.data+"T12:00").getDay();if(wd>=1&&wd<=5)c++;}});return c;}
 
   // minutos entre dois "HH:MM"
   function minHora(a,b){var pa=a.split(":"),pb=b.split(":");return (Number(pb[0])*60+Number(pb[1]))-(Number(pa[0])*60+Number(pa[1]));}
@@ -6184,21 +6282,21 @@ function EspelhoMensal({pontos,pontoCfg,users}){
 
   // quem aparece: na opção "todos", só quem tem registro no mês
   var noMes={};
-  pontos.forEach(function(p){if((p.data||"").slice(0,7)===mes)noMes[String(p.uid)]=true;});
+  pontos.forEach(function(p){if(p.excluido)return;if((p.data||"").slice(0,7)===mes)noMes[String(p.uid)]=true;});
   var base=(users||[]);
   var lista=quem!=="all"?base.filter(function(u){return String(u.id)===String(quem);})
                         :base.filter(function(u){return noMes[String(u.id)];});
 
   function dadosPessoa(uid){
     var porDia={};
-    pontos.forEach(function(p){if(String(p.uid)!==String(uid))return;(porDia[p.data]=porDia[p.data]||[]).push(p);});
+    pontos.forEach(function(p){if(String(p.uid)!==String(uid))return;if(p.excluido)return;(porDia[p.data]=porDia[p.data]||[]).push(p);});
     var linhas=semanas.map(function(s){
       var min=0;
       Object.keys(porDia).forEach(function(dia){if(dia>=s.iniYmd&&dia<=s.fimYmd)min+=minDia(porDia[dia]);});
-      return {label:s.label,min:min,saldo:min-meta*60};
+      var _nf=feriadosNaSemana(s.iniYmd,s.fimYmd);var _mm=meta*60-_nf*(meta*60/diasUteis);if(_mm<0)_mm=0;return {label:s.label,min:min,metaMin:_mm,nf:_nf,saldo:min-_mm};
     });
     var totMin=linhas.reduce(function(a,l){return a+l.min;},0);
-    var totMeta=semanas.length*meta*60;
+    var totMeta=linhas.reduce(function(a,l){return a+l.metaMin;},0);
     return {linhas:linhas,totMin:totMin,totMeta:totMeta,totSaldo:totMin-totMeta};
   }
 
@@ -6217,7 +6315,7 @@ function EspelhoMensal({pontos,pontoCfg,users}){
         </select>
       </div>
     </div>
-    <div style={{fontSize:11.5,color:G.muted,marginBottom:14,lineHeight:1.5}}>Meta semanal: <b>{meta}h</b> · semanas de segunda a domingo (a semana da virada do mês conta inteira). <b style={{color:G.red}}>Saldo negativo</b> = ficou a menos. Almoço: {intervalo} min descontados em dias acima de 6h sem batida de intervalo.</div>
+    <div style={{fontSize:11.5,color:G.muted,marginBottom:14,lineHeight:1.5}}>Meta semanal: <b>{meta}h</b> · semanas de segunda a domingo (a semana da virada do mês conta inteira). <b style={{color:G.red}}>Saldo negativo</b> = ficou a menos. <b style={{color:G.success}}>Feriado</b> abate a meta da semana (carga ÷ {diasUteis} dias úteis). Almoço: {intervalo} min descontados em dias acima de 6h sem batida de intervalo.</div>
 
     {lista.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum registro neste mês.</div>:
       lista.map(function(u){
@@ -6233,7 +6331,7 @@ function EspelhoMensal({pontos,pontoCfg,users}){
               {d.linhas.map(function(l,i){return <tr key={i} style={{borderTop:"1px solid "+G.border}}>
                 <td style={{padding:"7px 8px",fontWeight:600}}>{l.label}</td>
                 <td style={{padding:"7px 8px"}}>{hhmm(l.min)}</td>
-                <td style={{padding:"7px 8px",color:G.muted}}>{meta}h00</td>
+                <td style={{padding:"7px 8px",color:G.muted}}>{hhmm(l.metaMin)}{l.nf>0?<span style={{color:G.success,fontWeight:700,fontSize:11}}>{" −"+l.nf+" fer."}</span>:null}</td>
                 <td style={{padding:"7px 8px",fontWeight:700,color:corSaldo(l.saldo)}}>{(l.saldo>0?"+":"")+hhmm(l.saldo)}</td>
               </tr>;})}
               <tr style={{borderTop:"2px solid "+G.border,background:"#f7faf8"}}>
@@ -6247,6 +6345,58 @@ function EspelhoMensal({pontos,pontoCfg,users}){
           </div>
         </div>;
       })}
+  </div>;
+}
+
+function FeriadosAdmin({feriados,setFeriados}){
+  const [data,setData]=useState("");
+  const [nome,setNome]=useState("");
+  const [editId,setEditId]=useState(null);
+  var lista=(feriados||[]).slice().sort(function(a,b){return (a.data||"")<(b.data||"")?-1:1;});
+  function fmtBR(x){if(!x)return "";var p=x.split("-");return p[2]+"/"+p[1]+"/"+p[0];}
+  function diaSemana(x){try{var d=new Date(x+"T12:00");return ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"][d.getDay()];}catch(e){return "";}}
+  function salvar(){
+    var dt=(data||"").trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(dt)){alert("Escolha a data do feriado.");return;}
+    var nm=(nome||"").trim();
+    setFeriados(function(prev){
+      var arr=(prev||[]).slice();
+      arr=arr.filter(function(h){return h.data!==dt||h.id===editId;});
+      if(editId){arr=arr.map(function(h){return h.id===editId?Object.assign({},h,{data:dt,nome:nm}):h;});}
+      else{arr.push({id:Date.now(),data:dt,nome:nm});}
+      return arr;
+    });
+    setData("");setNome("");setEditId(null);
+  }
+  function remover(id){setFeriados(function(prev){return (prev||[]).filter(function(h){return h.id!==id;});});if(editId===id){setEditId(null);setData("");setNome("");}}
+  function editar(h){setEditId(h.id);setData(h.data);setNome(h.nome||"");}
+  var card={background:G.card,borderRadius:13,padding:"16px 18px",boxShadow:"6px 6px 15px #c8d0c5,-6px -6px 15px #ffffff",border:"1px solid "+G.border};
+  var inp={background:"#fff",border:"1.5px solid "+G.border,borderRadius:9,padding:"9px 11px",fontSize:13,color:G.text,outline:"none"};
+  return <div style={card}>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,fontWeight:700,color:G.primary,marginBottom:4}}>Feriados</div>
+    <div style={{fontSize:12,color:G.muted,marginBottom:14,lineHeight:1.5}}>Os dias cadastrados aqui aparecem como <b>fechados na Agenda</b> (sem novos agendamentos) e <b>abatem a meta da semana no Espelho de Ponto</b>, para ninguém ficar com saldo negativo por causa do feriado. Feriado que cai no fim de semana não altera a meta.</div>
+    <div style={{display:"flex",gap:9,flexWrap:"wrap",alignItems:"flex-end",marginBottom:16}}>
+      <div><label style={{fontSize:10,fontWeight:700,color:G.muted,display:"block",marginBottom:4}}>DATA</label><input type="date" value={data} onChange={function(e){setData(e.target.value);}} style={inp}/></div>
+      <div style={{flex:1,minWidth:170}}><label style={{fontSize:10,fontWeight:700,color:G.muted,display:"block",marginBottom:4}}>NOME (opcional)</label><input value={nome} onChange={function(e){setNome(e.target.value);}} placeholder="Ex.: Natal, Padroeiro da cidade" style={Object.assign({width:"100%",boxSizing:"border-box"},inp)}/></div>
+      <button onClick={salvar} style={{border:"none",borderRadius:9,padding:"10px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff",background:editId?G.orange:G.primary}}>{editId?"Salvar alteração":"+ Adicionar"}</button>
+      {editId?<button onClick={function(){setEditId(null);setData("");setNome("");}} style={{border:"1.5px solid "+G.border,background:"transparent",borderRadius:9,padding:"10px 14px",fontSize:13,fontWeight:700,cursor:"pointer",color:G.muted}}>Cancelar</button>:null}
+    </div>
+    {lista.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum feriado cadastrado.</div>:
+      <div style={{display:"flex",flexDirection:"column",gap:7}}>
+        {lista.map(function(h){
+          var wd=(function(){try{return new Date(h.data+"T12:00").getDay();}catch(e){return 1;}})();
+          var fimDeSemana=wd===0||wd===6;
+          return <div key={h.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f7faf8",borderRadius:9,padding:"9px 12px",borderLeft:"4px solid "+G.red}}>
+            <span style={{fontSize:18}}>🎉</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:700,fontSize:14,color:G.text}}>{fmtBR(h.data)}{h.nome?(" — "+h.nome):""}</div>
+              <div style={{fontSize:11,color:G.muted}}>{diaSemana(h.data)}{fimDeSemana?" · cai no fim de semana (não afeta a meta)":""}</div>
+            </div>
+            <button onClick={function(){editar(h);}} style={{border:"1px solid "+G.blue,background:"transparent",color:G.blue,borderRadius:7,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Editar</button>
+            <button onClick={function(){remover(h.id);}} style={{border:"1px solid "+G.red,background:"transparent",color:G.red,borderRadius:7,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Remover</button>
+          </div>;
+        })}
+      </div>}
   </div>;
 }
 
@@ -8169,7 +8319,8 @@ const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [pontos,setPontos]=useState([]);
-const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60});
+const [feriados,setFeriados]=useState([]);
+const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60,diasUteis:5});
 const [sideOpen,setSideOpen]=useState(false);
 const [fichaPat,setFichaPat]=useState(null);
 const [waUnread,setWaUnread]=useState(0);
@@ -8329,7 +8480,8 @@ if(data.waAutoLog)setWaAutoLog(data.waAutoLog);
 if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
 if(data.pontos?.length)setPontos(data.pontos);
-if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60},data.pontoCfg));
+if(data.feriados)setFeriados(data.feriados);
+if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60,diasUteis:5},data.pontoCfg));
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
 if(data.espera?.length)setEspera(data.espera);
@@ -8557,7 +8709,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,pontoCfg};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,pontoCfg,feriados};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -8899,9 +9051,9 @@ if(user.level===2){
   var hm=now.getHours()*60+now.getMinutes();
   var seg_sex=dow>=1&&dow<=5;
   var sabado=dow===6;
-  var dentro=(seg_sex&&hm>=480&&hm<1200)||(sabado&&hm>=480&&hm<780);
+  var dentro=(seg_sex&&hm>=420&&hm<1260)||(sabado&&hm>=420&&hm<780);
   if(!dentro){
-    var proxMsg=sabado&&hm>=780?"Segunda-feira às 08:00":dow===0?"Segunda-feira às 08:00":hm<480?"hoje às 08:00":"Segunda-feira às 08:00";
+    var proxMsg=sabado&&hm>=780?"Segunda-feira às 07:00":dow===0?"Segunda-feira às 07:00":hm<420?"hoje às 07:00":"Segunda-feira às 07:00";
     return(
       <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#2f5d49,#0a2e1e)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
         <div style={{background:"rgba(255,255,255,.08)",borderRadius:20,padding:"36px 28px",maxWidth:360,width:"100%",textAlign:"center",border:"1px solid rgba(255,255,255,.12)"}}>
@@ -8909,8 +9061,8 @@ if(user.level===2){
           <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:"#fff",marginBottom:8}}>Fora do Horário</div>
           <div style={{fontSize:14,color:"rgba(255,255,255,.7)",marginBottom:20,lineHeight:1.6}}>
             O sistema está disponível:<br/>
-            <strong style={{color:"#fff"}}>Seg–Sex: 08:00 às 20:00</strong><br/>
-            <strong style={{color:"#fff"}}>Sábado: 08:00 às 13:00</strong>
+            <strong style={{color:"#fff"}}>Seg–Sex: 07:00 às 21:00</strong><br/>
+            <strong style={{color:"#fff"}}>Sábado: 07:00 às 13:00</strong>
           </div>
           <div style={{background:"rgba(255,255,255,.1)",borderRadius:10,padding:"10px 16px",fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:24}}>
             Próximo acesso: <strong style={{color:"#fff"}}>{proxMsg}</strong>
@@ -9001,7 +9153,7 @@ return <>
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent}/>}
-      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
+      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} feriados={feriados} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
@@ -9015,10 +9167,10 @@ return <>
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
-    {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users}/>}
+    {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users} feriados={feriados}/>}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientDirtyRef.current=true;setOrientacoes(v);}} user={user}/>}
     {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
-    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog}/>}
+    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog} feriados={feriados} setFeriados={setFeriados}/>}
     </div>
   </div>
 </div>
