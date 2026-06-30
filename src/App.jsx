@@ -7539,7 +7539,7 @@ const WA_TPL=[
 {k:"semestral",tpl:"controle_semestral",label:"Controle semestral",quando:"6 meses após o último atendimento, se não tiver consulta futura",sample:["Maria Silva","Diego Affonso"]},
 {k:"reagendamento",tpl:"falta_cancelamento",label:"Reagendamento (falta/cancelamento)",quando:"Quando a consulta é marcada como Faltou, Cancelou ou Desmarcou",sample:["Maria Silva","Cancelou","Diego Affonso"]},
 {k:"poscirurgia",tpl:"pos__procedimento_",label:"Pós-cirurgia",quando:"No dia seguinte a procedimentos cirúrgicos",sample:["Maria Silva","Diego Affonso","Extração"]},
-{k:"posconsulta",tpl:"pos__consulta",label:"Pós-consulta",quando:"No dia seguinte a consultas Realizadas (não cirúrgicas)",sample:["Maria Silva","Diego Affonso"]},
+{k:"posconsulta",tpl:"pos__consulta",label:"Pós-consulta",quando:"No dia seguinte a uma consulta Realizada (não cirúrgica) — no máx. 1x a cada 6 meses por paciente",sample:["Maria Silva","Diego Affonso"]},
 {k:"orcamento",tpl:"orcamento_pendente",label:"Orçamento pendente",quando:"3 dias após criar um orçamento que continua Em espera",sample:["Maria Silva","Diego Affonso"]},
 ];
 async function dispararWA(template,fone,params){
@@ -8286,6 +8286,106 @@ return (
 );
 }
 
+function Satisfacao({pats,user,pacsTicks,setPacsTicks,abrirFicha}){
+const [msgs,setMsgs]=useState([]);
+const [loading,setLoading]=useState(true);
+const [per,setPer]=useState(30);
+const load=function(){supabase.loadWaMessages().then(function(rows){setMsgs(Array.isArray(rows)?rows:[]);setLoading(false);});};
+useEffect(function(){load();var t=setInterval(load,30000);return function(){clearInterval(t);};},[]);
+var soDig=function(s){return (s||"").replace(/\D/g,"");};
+var last8=function(s){var d=soDig(s);return d.slice(-8);};
+var acharPac=function(phone){var l8=last8(phone);if(l8.length<8)return null;return pats.find(function(p){return last8(p.phone)===l8;});};
+var norm=function(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim();};
+var notaDe=function(body){var b=norm(body);if(b==="otimo")return "otimo";if(b==="boa")return "boa";if(b==="insatisfatorio"||b==="insatisfeito")return "insat";return null;};
+var fmtData=function(ts){if(!ts)return "";try{var d=new Date(ts);var h=new Date();var hh=function(x){return x.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});};var sd=d.toDateString();if(sd===h.toDateString())return "Hoje, "+hh(d);var on=new Date(h.getTime()-864e5);if(sd===on.toDateString())return "Ontem, "+hh(d);return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"});}catch(e){return "";}};
+var seenW={};var avals=[];
+msgs.forEach(function(m){if(m.direction!=="in")return;var w=m.wamid;if(w&&seenW[w])return;if(w)seenW[w]=1;var nota=notaDe(m.body);if(!nota)return;avals.push({id:m.id,phone:soDig(m.phone),nota:nota,ts:m.ts||m.created_at||"",pname:m.patient_name||""});});
+avals.sort(function(a,b){return (b.ts||"").localeCompare(a.ts||"");});
+var lim=per>0?(Date.now()-per*864e5):0;
+var inPer=function(ts){if(!lim)return true;var d=ts?new Date(ts).getTime():0;return d>=lim;};
+var avalsF=avals.filter(function(a){return inPer(a.ts);});
+var cO=0,cB=0,cI=0;avalsF.forEach(function(a){if(a.nota==="otimo")cO++;else if(a.nota==="boa")cB++;else cI++;});
+var tot=cO+cB+cI;var pct=tot?Math.round((cO+cB)/tot*100):0;
+var wO=tot?(cO/tot*100):0,wB=tot?(cB/tot*100):0,wI=tot?(cI/tot*100):0;
+var ticks=pacsTicks||{};
+var pend=avalsF.filter(function(a){return a.nota==="insat"&&!((ticks["aval_"+a.id]||{}).done);});
+var nomeDe=function(a){var p=acharPac(a.phone);return p?p.name:(a.pname||("+"+a.phone));};
+var corNota=function(n){return n==="otimo"?G.success:(n==="boa"?G.yellow:G.red);};
+var lblNota=function(n){return n==="otimo"?"Ótimo":(n==="boa"?"Boa":"Insatisfatório");};
+var resolver=function(id){setPacsTicks(function(prev){var n=Object.assign({},prev||{});n["aval_"+id]={done:true,by:(user&&user.name)||"",date:today(),ts:Date.now()};return n;});};
+var SH="6px 6px 15px #c8d0c5,-6px -6px 15px #ffffff";
+var SHsm="4px 4px 10px #c8d0c5,-4px -4px 10px #ffffff";
+var perBtn=function(v,lb){return <button onClick={function(){setPer(v);}} style={{border:"none",borderRadius:20,padding:"8px 16px",fontSize:12.5,fontWeight:700,cursor:"pointer",background:per===v?G.primary:G.card,color:per===v?"#fff":G.muted,boxShadow:per===v?"inset 2px 2px 5px #234738,inset -2px -2px 5px #3b7259":SHsm}}>{lb}</button>;};
+return (
+<div className="fi" style={{display:"flex",flexDirection:"column",gap:0}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"😊 Satisfação"}</h2>
+<Btn ch={"↻ Atualizar"} v="g" sm onClick={load}/>
+</div>
+<div style={{fontSize:12.5,color:G.muted,marginTop:2,lineHeight:1.5}}>{"As respostas dos pacientes à pesquisa de pós-consulta, reunidas num só lugar."}</div>
+<div style={{display:"flex",gap:8,marginTop:14}}>{perBtn(30,"30 dias")}{perBtn(90,"90 dias")}{perBtn(0,"Tudo")}</div>
+{loading&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>{"Carregando..."}</div>}
+{!loading&&<>
+<div style={{background:G.card,borderRadius:18,boxShadow:SH,padding:18,marginTop:14}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:14}}>
+<div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontWeight:700,fontSize:44,color:tot?G.success:G.muted,lineHeight:.9}}>{tot?pct:"—"}<span style={{fontSize:18,color:G.muted}}>{tot?"%":""}</span></div>
+<div style={{fontSize:12,color:G.muted,fontWeight:600,marginTop:4}}>{"satisfação geral"}</div>
+</div>
+<div style={{fontSize:12.5,color:G.muted,textAlign:"right",maxWidth:150,lineHeight:1.45}}>{tot+" "+(tot===1?"avaliação respondida":"avaliações respondidas")+" "+(per===0?"no total":("nos últimos "+per+" dias"))}</div>
+</div>
+<div style={{display:"flex",height:16,borderRadius:10,overflow:"hidden",boxShadow:"inset 3px 3px 7px #c8d0c5,inset -3px -3px 7px #ffffff",background:G.accentDark}}>
+{wO>0&&<span style={{width:wO+"%",background:G.success}}></span>}
+{wB>0&&<span style={{width:wB+"%",background:G.yellow}}></span>}
+{wI>0&&<span style={{width:wI+"%",background:G.red}}></span>}
+</div>
+<div style={{display:"flex",gap:16,marginTop:14,flexWrap:"wrap"}}>
+<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:12,height:12,borderRadius:4,background:G.success}}></span><div><div style={{fontWeight:800,fontSize:17,color:G.success}}>{cO}</div><div style={{fontSize:11.5,color:G.muted}}>{"Ótimo"}</div></div></div>
+<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:12,height:12,borderRadius:4,background:G.yellow}}></span><div><div style={{fontWeight:800,fontSize:17,color:G.yellow}}>{cB}</div><div style={{fontSize:11.5,color:G.muted}}>{"Boa"}</div></div></div>
+<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{width:12,height:12,borderRadius:4,background:G.red}}></span><div><div style={{fontWeight:800,fontSize:17,color:G.red}}>{cI}</div><div style={{fontSize:11.5,color:G.muted}}>{"Insatisfatório"}</div></div></div>
+</div>
+</div>
+<div style={{background:G.card,borderRadius:18,boxShadow:SH,padding:18,marginTop:14}}>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,margin:0}}>{"🚩 Precisam de atenção"}</h2>
+{pend.length>0&&<span style={{background:G.red,color:"#fff",fontSize:11,fontWeight:800,borderRadius:20,padding:"3px 10px"}}>{pend.length}</span>}
+</div>
+{pend.length===0&&<div style={{textAlign:"center",padding:"18px 10px",color:G.muted,fontSize:13,lineHeight:1.55}}>{"Nenhum paciente insatisfeito no período. 🎉"}<br/>{"Quando alguém avaliar como insatisfeito, aparece aqui para você dar retorno."}</div>}
+{pend.map(function(a){var pac=acharPac(a.phone);return (
+<div key={a.id} style={{display:"flex",alignItems:"flex-start",gap:11,background:G.card,borderRadius:14,boxShadow:SHsm,padding:12,marginBottom:10,borderLeft:"4px solid "+G.red}}>
+<div style={{width:42,height:42,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:17,color:"#fff",background:G.red}}>{(nomeDe(a)[0]||"?").toUpperCase()}</div>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:14}}>{nomeDe(a)}</div>
+<div style={{fontSize:11.5,color:G.muted,marginTop:1}}>{"Avaliou "}<b style={{color:G.red}}>{"Insatisfatório"}</b>{" · "+fmtData(a.ts)}</div>
+<div style={{display:"flex",gap:7,marginTop:9,flexWrap:"wrap"}}>
+<button onClick={function(){window.open("https://wa.me/"+a.phone,"_blank");}} style={{border:"none",borderRadius:9,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",background:"#25D366",color:"#fff"}}>{"💬 Abrir conversa"}</button>
+{pac&&<button onClick={function(){abrirFicha(pac);}} style={{border:"none",borderRadius:9,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",background:G.accent,color:G.primary}}>{"📋 Ficha"}</button>}
+<button onClick={function(){resolver(a.id);}} style={{border:"none",borderRadius:9,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",background:"transparent",color:G.muted,boxShadow:SHsm}}>{"✓ Resolvido"}</button>
+</div>
+</div>
+</div>
+);})}
+</div>
+<div style={{background:G.card,borderRadius:18,boxShadow:SH,padding:18,marginTop:14}}>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,margin:"0 0 8px"}}>{"🕒 Avaliações recentes"}</h2>
+{avalsF.length===0&&<div style={{textAlign:"center",padding:"18px 10px",color:G.muted,fontSize:13,lineHeight:1.55}}>{"Ainda não há respostas no período selecionado."}<br/>{"Assim que os pacientes responderem a pesquisa, as avaliações aparecem aqui."}</div>}
+{avalsF.map(function(a){return (
+<div key={a.id} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 2px",borderBottom:"1px solid "+G.border}}>
+<div style={{width:40,height:40,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:15,color:G.primary,background:G.accent}}>{(nomeDe(a)[0]||"?").toUpperCase()}</div>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:13.5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{nomeDe(a)}</div>
+<div style={{fontSize:11,color:G.muted,marginTop:1}}>{fmtData(a.ts)}</div>
+</div>
+<span style={{fontSize:11.5,fontWeight:800,borderRadius:20,padding:"5px 12px",whiteSpace:"nowrap",flexShrink:0,background:corNota(a.nota)+"29",color:corNota(a.nota)}}>{lblNota(a.nota)}</span>
+</div>
+);})}
+</div>
+<div style={{textAlign:"center",fontSize:11,color:G.muted,marginTop:18,lineHeight:1.5}}>{"📵 Tela de leitura. O botão abre a conversa no WhatsApp para você responder."}</div>
+</>}
+</div>
+);
+}
+
 export default function App(){
 const [user,setUser]=useState(null);const [view,setView]=useState("dash");
 const [agendaSelDate,setAgendaSelDate]=useState(today());
@@ -8944,7 +9044,7 @@ var sent=Object.assign({},D.waSent||{});
 var keep={};var purged=false;
 Object.keys(sent).forEach(function(k){
 var ds=sent[k];var days=Math.floor((new Date(t+"T12:00")-new Date(ds+"T12:00"))/86400000);
-var max=k.slice(0,2)==="a_"?400:(k.slice(0,2)==="s_"?200:120);
+var max=k.slice(0,3)==="ps_"?190:(k.slice(0,2)==="a_"?400:(k.slice(0,2)==="s_"?200:120));
 if(days<=max)keep[k]=ds;else purged=true;
 });
 if(purged){sent=keep;setWaSent(keep);}
@@ -8998,7 +9098,7 @@ var p=(D.pats||[]).find(function(x){return x.id===a.patientId;});if(!p||!p.phone
 var isCir=PCIR_WA.some(function(w){return (a.procedure||"").toLowerCase().indexOf(w)>=0;});
 var d=dOf(a.dentistId);
 if(isCir&&cfg.poscirurgia)addJob("Pós-cirurgia","pc_"+a.id,"pos__procedimento_",p.phone,[p.name,d.name,a.procedure||"procedimento"],p.name);
-else if(!isCir&&cfg.posconsulta&&a.status==="done")addJob("Pós-consulta","ps_"+a.id,"pos__consulta",p.phone,[p.name,d.name],p.name);
+else if(!isCir&&cfg.posconsulta&&a.status==="done"){var psk="ps_"+p.id;var psLast=sent[psk];var psDias=psLast?Math.floor((new Date(t+"T12:00")-new Date(psLast+"T12:00"))/86400000):99999;if(psDias>=180){if(psLast)delete sent[psk];addJob("Pós-consulta",psk,"pos__consulta",p.phone,[p.name,d.name],p.name);}}
 });
 }
 if(cfg.orcamento){
@@ -9071,7 +9171,7 @@ const prosBadge=pros.filter(p=>p.due===today()&&p.status==="waiting").length;
 const ALL_NAV=[
 {id:"dash",l:"Visão Geral",ic:"ph-house",lv:3},{id:"agenda",l:"Agenda",ic:"ph-calendar-blank",lv:1},{id:"ponto",l:"Ponto",ic:"ph-clock",lv:1},
 {id:"pacs",l:"Pacientes",ic:"ph-users",lv:1},{id:"remarcar",l:"Remarcar",ic:"ph-arrows-clockwise",lv:2},{id:"pros",l:"Próteses",ic:"ph-first-aid-kit",lv:2,b:prosBadge},
-{id:"impl",l:"Implantes",ic:"ph-syringe",lv:2},{id:"lems",l:"Lembretes",ic:"ph-bell",lv:1,b:remBadge},{id:"conversas",l:"Conversas",ic:"ph-chat-circle",lv:2,b:waUnread},
+{id:"impl",l:"Implantes",ic:"ph-syringe",lv:2},{id:"lems",l:"Lembretes",ic:"ph-bell",lv:1,b:remBadge},{id:"conversas",l:"Conversas",ic:"ph-chat-circle",lv:2,b:waUnread},{id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2},
 {id:"fin",l:"Financeiro",ic:"ph-wallet",lv:3},{id:"pixdent",l:"Pix Dentistas",ic:"ph-hand-coins",lv:1},{id:"rel",l:"Relatórios",ic:"ph-chart-bar",lv:2},
 {id:"desp",l:"Gastos",ic:"ph-receipt",lv:3},{id:"stk",l:"Estoque",ic:"ph-package",lv:2},
 {id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1},{id:"pdent",l:"Recebimentos",ic:"ph-currency-dollar",lv:1},{id:"audit",l:"Auditoria",ic:"ph-magnifying-glass",lv:3},{id:"adm",l:"Administrativo",ic:"ph-gear",lv:3},
@@ -9147,6 +9247,7 @@ return <>
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha}/>}
       {view==="conversas"&&<Conversas pats={pats} user={user} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
+      {view==="satisf"&&<Satisfacao pats={pats} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} treats={treats} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
