@@ -8193,6 +8193,9 @@ const [msgs,setMsgs]=useState([]);
 const [loading,setLoading]=useState(true);
 const [sel,setSel]=useState(null);
 const [q,setQ]=useState("");
+const [txt,setTxt]=useState("");
+const [sending,setSending]=useState(false);
+const [erro,setErro]=useState("");
 const bottomRef=useRef(null);
 const load=function(){
 supabase.loadWaMessages().then(function(rows){
@@ -8232,6 +8235,13 @@ var selPac=selGroup?acharPac(selGroup.phone):null;
 var selName=selGroup?(selPac?selPac.name:(selGroup.msgs.map(function(m){return m.patient_name;}).filter(Boolean)[0]||("+"+selGroup.phone))):"";
 if(selGroup){
 var selMsgs=selGroup.msgs.slice().sort(function(a,b){return (a.id||0)-(b.id||0);});
+var ultimaIn=null;for(var _i=selMsgs.length-1;_i>=0;_i--){if(selMsgs[_i].direction==="in"){ultimaIn=selMsgs[_i];break;}}
+var ultimaInTs=ultimaIn?(ultimaIn.ts||ultimaIn.created_at):null;
+var janelaAberta=false;
+if(ultimaInTs){var _dif=Date.now()-new Date(ultimaInTs).getTime();janelaAberta=(_dif>=0&&_dif<86400000);}
+var abrirZap=function(){try{var n=String(selGroup.phone||"").replace(/\D/g,"");if(n.indexOf("55")!==0)n="55"+n;var u="https://wa.me/"+n+(txt?("?text="+encodeURIComponent(txt)):"");var a=document.createElement("a");a.href=u;a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);}catch(e){}};
+var responderWA=async function(fone,texto){try{var n=String(fone||"").replace(/\D/g,"");if(n.length===11||n.length===10)n="55"+n;var r=await fetch("https://whatsapp-webhook-production-d5be.up.railway.app/api/responder",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":"affonso2025"},body:JSON.stringify({telefone:n,texto:texto})});var d=await r.json().catch(function(){return {};});if(d&&d.ok)return {ok:true,wamid:d.wamid||d.id||null};return {ok:false,err:(d&&(d.error||d.err))||("HTTP "+r.status)};}catch(e){return {ok:false,err:"sem conexao com o servidor"};}};
+var enviar=async function(){var t=(txt||"").trim();if(!t||sending)return;setSending(true);setErro("");var res=await responderWA(selGroup.phone,t);setSending(false);if(res&&res.ok){setTxt("");var w=res.wamid||("tmp_"+Date.now());setMsgs(function(prev){return prev.concat([{id:"tmp_"+Date.now(),phone:selGroup.phone,body:t,direction:"out",status:"sent",wamid:w,ts:new Date().toISOString(),patient_name:selName}]);});setTimeout(load,1500);}else{setErro((res&&res.err)||"Falha ao enviar");}};
 return (
 <div className="fi" style={{display:"flex",flexDirection:"column",gap:0}}>
 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
@@ -8253,7 +8263,24 @@ return (
 </div>
 );})}
 </div>
-<div style={{textAlign:"center",fontSize:11,color:G.muted,marginTop:10,padding:"0 16px"}}>{"📵 Esta tela e so para visualizar. Para responder, use o WhatsApp normalmente."}</div>
+{janelaAberta?(
+<div style={{marginTop:9}}>
+<div style={{marginBottom:8}}><span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:11.5,fontWeight:700,borderRadius:20,padding:"5px 12px",background:"rgba(47,143,95,.13)",color:G.success}}><span style={{width:7,height:7,borderRadius:"50%",background:G.success,boxShadow:"0 0 0 3px rgba(47,143,95,.18)"}}></span>{"Janela aberta · resposta gratuita"}</span></div>
+{erro&&<div style={{fontSize:11.5,color:G.red,marginBottom:7,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span>{"⚠️ "+erro}</span><button onClick={abrirZap} style={{border:"none",background:"transparent",color:G.primary,fontWeight:700,fontSize:11.5,cursor:"pointer",textDecoration:"underline",padding:0}}>{"Abrir no WhatsApp"}</button></div>}
+<div style={{display:"flex",gap:9,alignItems:"flex-end"}}>
+<textarea value={txt} onChange={function(e){setTxt(e.target.value);e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";}} onKeyDown={function(e){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();enviar();}}} rows={1} placeholder={"Escreva uma resposta…"} style={{flex:1,resize:"none",fontSize:13.5,lineHeight:1.45,padding:"11px 14px",maxHeight:120}}/>
+<button onClick={enviar} disabled={sending||!txt.trim()} style={{flexShrink:0,width:46,height:46,border:"none",borderRadius:"50%",background:(sending||!txt.trim())?"#9fc8ad":"#25D366",color:"#fff",fontSize:20,cursor:(sending||!txt.trim())?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:(sending||!txt.trim())?"none":"0 4px 12px rgba(37,211,102,.4)"}}>{sending?<i className="ph ph-circle-notch" style={{animation:"nmpulse 1s linear infinite"}}></i>:<i className="ph-fill ph-paper-plane-right"></i>}</button>
+</div>
+</div>
+):(
+<div style={{marginTop:9}}>
+<div style={{marginBottom:8}}><span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:11.5,fontWeight:700,borderRadius:20,padding:"5px 12px",background:"rgba(183,149,11,.14)",color:G.gold}}><i className="ph-fill ph-lock-simple"></i>{"Janela de 24h fechada"}</span></div>
+<div style={{background:"rgba(183,149,11,.10)",border:"1.5px solid rgba(183,149,11,.35)",borderRadius:13,padding:"13px 14px",display:"flex",flexDirection:"column",gap:10}}>
+<div style={{display:"flex",gap:9,alignItems:"flex-start"}}><i className="ph-fill ph-clock-countdown" style={{fontSize:19,color:G.gold,marginTop:1,flexShrink:0}}></i><div style={{fontSize:12.3,lineHeight:1.5,color:"#5d5320"}}>{"Passou de 24h desde a última mensagem do paciente. Para responder por texto livre sem custo, ele precisa te escrever de novo — ou inicie um modelo aprovado pelo WhatsApp."}</div></div>
+<button onClick={abrirZap} style={{alignSelf:"flex-start",background:"#25D366",color:"#fff",border:"none",borderRadius:10,padding:"9px 15px",fontSize:12.5,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7}}><i className="ph-fill ph-whatsapp-logo"></i>{"Abrir no WhatsApp"}</button>
+</div>
+</div>
+)}
 </div>
 );
 }
@@ -8281,7 +8308,7 @@ return (
 </div>
 </div>
 );})}
-<div style={{textAlign:"center",fontSize:11,color:G.muted,marginTop:4,padding:"0 16px"}}>{"📵 Somente leitura - para responder, use o WhatsApp."}</div>
+<div style={{textAlign:"center",fontSize:11,color:G.muted,marginTop:4,padding:"0 16px"}}>{"💬 Toque em uma conversa para ler e responder pelo sistema."}</div>
 </div>
 );
 }
