@@ -6050,13 +6050,27 @@ function RelatorioPonto({pontos,pontoCfg,users}){
   var map={};
   filtrados.forEach(function(p){
     var k=p.uid+"|"+p.data;
-    if(!map[k])map[k]={uid:p.uid,nome:p.nome,data:p.data,ent:null,sai:null};
+    if(!map[k])map[k]={uid:p.uid,nome:p.nome,data:p.data,ent:null,sai:null,lista:[]};map[k].lista.push(p);
     if(p.tipo==="entrada"&&(!map[k].ent||p.hora<map[k].ent))map[k].ent=p.hora;
     if(p.tipo==="saida"&&(!map[k].sai||p.hora>map[k].sai))map[k].sai=p.hora;
   });
   var linhas=Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return a.data<b.data?1:(a.data>b.data?-1:(a.nome<b.nome?-1:1));});
 
   function horas(e,s){if(!e||!s)return "—";var ea=e.split(":"),sa=s.split(":");var m=(Number(sa[0])*60+Number(sa[1]))-(Number(ea[0])*60+Number(ea[1]));if(m<0)return "—";return Math.floor(m/60)+"h"+z(m%60);}
+  function horasReais(lista){
+    if(!lista||!lista.length)return "—";
+    var ev=lista.slice().sort(function(x,y){return x.hora<y.hora?-1:(x.hora>y.hora?1:0);});
+    var iv=Number((pontoCfg&&pontoCfg.intervalo!=null)?pontoCfg.intervalo:60);
+    var tot=0,abre=null,pares=0,spanUnico=0;
+    ev.forEach(function(p){
+      if(p.tipo==="entrada"){if(abre===null)abre=p.hora;}
+      else if(p.tipo==="saida"){if(abre!==null){var pa=abre.split(":"),pb=p.hora.split(":");var m=(Number(pb[0])*60+Number(pb[1]))-(Number(pa[0])*60+Number(pa[1]));if(m>0){tot+=m;spanUnico=m;}abre=null;pares++;}}
+    });
+    if(pares===0)return "—";
+    if(pares===1&&iv>0&&spanUnico>360){tot-=iv;}
+    if(tot<0)tot=0;
+    return Math.floor(tot/60)+"h"+z(tot%60);
+  }
   function fmtD(x){var p=x.split("-");return p[2]+"/"+p[1];}
 
   var card={background:G.card,borderRadius:14,padding:"16px 18px",boxShadow:"6px 6px 15px #c8d0c5,-6px -6px 15px #ffffff",border:"1px solid "+G.border};
@@ -6091,7 +6105,7 @@ function RelatorioPonto({pontos,pontoCfg,users}){
             <td style={{padding:"7px 8px"}}>{l.nome}</td>
             <td style={{padding:"7px 8px",color:atraso?G.red:G.text,fontWeight:atraso?700:400}}>{(l.ent||"—")+(atraso?" ⚠️":"")}</td>
             <td style={{padding:"7px 8px",color:antecip?G.red:G.text,fontWeight:antecip?700:400}}>{(l.sai||"—")+(antecip?" ⚠️":"")}</td>
-            <td style={{padding:"7px 8px"}}>{horas(l.ent,l.sai)}</td>
+            <td style={{padding:"7px 8px"}}>{horasReais(l.lista)}</td>
           </tr>;
         })}
         </tbody>
@@ -8659,6 +8673,7 @@ useEffect(function(){
           mergeArr(implMov,sd.implMov,setImplMov,"implMov");
           mergeArr(implCat,sd.implCat,setImplCat,"implCat");
           mergeArr(impl,sd.impl,setImpl,"impl");
+          mergeArr(pontos,sd.pontos,setPontos);
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
           if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
