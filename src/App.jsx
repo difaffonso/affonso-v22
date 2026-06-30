@@ -2411,7 +2411,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,feriados}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera}){
 
 const [selDate,setSelDate]=useState(today());
 const [agView,setAgView]=useState("dia");
@@ -2461,8 +2461,6 @@ const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
 const save=()=>{
-var _ferD=(feriados||[]).find(function(h){return h.data===f.date;});
-if(_ferD&&!f.blocked&&!edit){alert("Esse dia é feriado"+(_ferD.nome?(" ("+_ferD.nome+")"):"")+" e está fechado para novos agendamentos. Se precisar agendar mesmo assim, remova o feriado dessa data em Administrativo › Feriados.");return;}
 const finalTime=pad2((f.timeCustom||"").trim()||(f.time||"").trim());
 const hasPat=String(f.patientId||"").trim()||String(f.patientName||"").trim();
 // Permite salvar sem paciente - aparece como "A confirmar" na agenda
@@ -2568,7 +2566,6 @@ return (
     })}
   </div>}
 
-{agView==="dia"&&(function(){var _f=(feriados||[]).find(function(h){return h.data===selDate;});return _f?<div style={{background:"#FFEBEE",border:"2px solid "+G.red,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8,margin:"2px 0"}}><span style={{fontSize:18}}>🎉</span><div style={{fontSize:13,fontWeight:700,color:G.red,lineHeight:1.4}}>{"Feriado"+(_f.nome?(": "+_f.nome):"")+" — clínica fechada. Novos agendamentos estão bloqueados neste dia."}</div></div>:null;})()}
 {agView==="dia"&&hiddenToday.length>0&&<div onClick={function(){var od=dents.find(function(d){return d.id===hiddenToday[0].dentistId;});if(od)setDenF(String(od.id));}} style={{background:"#FFF8E1",border:"1.5px solid #FFB300",borderRadius:10,padding:"9px 13px",fontSize:12,fontWeight:700,color:"#E65100",cursor:"pointer",display:"flex",alignItems:"center",gap:6,margin:"2px 0"}}>{"⚠ "+hiddenToday.length+" consulta(s) de Ortodontia neste dia não aparecem aqui. Toque para ver →"}</div>}
 
 {agView==="dia"&&denF==="all"&&!isDent&&vd.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"6px 6px 15px #c8d0c5,-6px -6px 15px #ffffff"}}>{"Nenhum dentista clínico trabalhando neste dia. Selecione um dentista no filtro para agendar."}</div>}
@@ -5498,7 +5495,7 @@ function ImportWizard({pats,setPats}){
 }
 
 
-function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog,feriados,setFeriados}){
+function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog}){
 const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
 const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
 const TIPO_L_LOG={all:"Todos",agenda:"Agenda",paciente:"Paciente",financeiro:"Financeiro",estoque:"Estoque",protese:"Protese",lembrete:"Lembrete",remarcar:"Remarcar",admin:"Admin"};
@@ -5549,10 +5546,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
 <div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border,overflowX:"auto"}}>
-{[["users","Usuarios"],["import","Importar Dados"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["feriados","📅 Feriados"],["access","Acessos"],["wa","🤖 WhatsApp"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
+{[["users","Usuarios"],["import","Importar Dados"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["wa","🤖 WhatsApp"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
 {tab==="import"&&<ImportWizard pats={pats} setPats={setPats}/>}
-{tab==="feriados"&&<FeriadosAdmin feriados={feriados} setFeriados={setFeriados}/>}
 {tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
 <div style={{background:G.accent,borderRadius:10,padding:"9px 12px",fontSize:12,color:G.primary}}>
 Para adicionar dentista use a aba <strong>Dentistas</strong>. Aqui crie apenas credenciais de acesso.
@@ -5969,7 +5965,7 @@ function pegarLocal(){
   });
 }
 
-function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,feriados}){
+function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
   const isAdmin=user.level>=3;
   const [aba,setAba]=useState("reg");
   const [busy,setBusy]=useState(false);
@@ -5979,7 +5975,7 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,feriados}){
   const meuId=user.id;
   const meusHoje=pontos.filter(function(p){return String(p.uid)===String(meuId)&&p.data===hoje;}).sort(function(a,b){return a.ts<b.ts?-1:1;});
 
-  function registrar(tipo){
+  function registrar(tipo,sub){
     if(busy)return;
     setMsg(null);
     if(!pontoCfg||pontoCfg.ativo===false){setMsg({ok:false,txt:"O controle de ponto está desativado. Avise o administrador."});return;}
@@ -5990,10 +5986,10 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,feriados}){
       var raio=Number(pontoCfg.raio||150);
       if(d>raio){setBusy(false);setMsg({ok:false,txt:"❌ Você está a ~"+d+" m da clínica (limite "+raio+" m). Aproxime-se para registrar."});return;}
       var ag=new Date();
-      var reg={id:Date.now(),uid:meuId,nome:user.name,tipo:tipo,ts:ag.toISOString(),data:hoje,hora:z(ag.getHours())+":"+z(ag.getMinutes()),lat:loc.lat,lng:loc.lng,acc:loc.acc,dist:d};
+      var reg={id:Date.now(),uid:meuId,nome:user.name,tipo:tipo,sub:sub||null,ts:ag.toISOString(),data:hoje,hora:z(ag.getHours())+":"+z(ag.getMinutes()),lat:loc.lat,lng:loc.lng,acc:loc.acc,dist:d};
       setPontos(function(prev){return prev.concat([reg]);});
       setBusy(false);
-      setMsg({ok:true,txt:"✅ "+(tipo==="entrada"?"Entrada":"Saída")+" registrada às "+reg.hora+" — a "+d+" m da clínica."});
+      var lblReg=sub==="almoco"?(tipo==="saida"?"Saída p/ almoço":"Volta do almoço"):(tipo==="entrada"?"Entrada":"Saída");setMsg({ok:true,txt:"✅ "+lblReg+" registrada às "+reg.hora+" — a "+d+" m da clínica."});
     }).catch(function(e){setBusy(false);setMsg({ok:false,txt:"❌ "+(e.message||"Falha ao obter localização")});});
   }
 
@@ -6009,9 +6005,11 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,feriados}){
     {aba==="reg"&&<div style={card}>
       <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:700,color:G.primary,marginBottom:6}}>Olá, {user.name||""}!</div>
       <div style={{fontSize:13,color:G.muted,marginBottom:14}}>Toque para registrar sua entrada ou saída. Sua localização será verificada no momento do registro.</div>
-      <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-        <button disabled={busy} onClick={function(){registrar("entrada");}} style={{flex:1,minWidth:140,border:"none",borderRadius:13,padding:"20px 16px",fontSize:17,fontWeight:800,cursor:busy?"default":"pointer",color:"#fff",background:G.success,opacity:busy?.6:1}}>🟢 Registrar Entrada</button>
-        <button disabled={busy} onClick={function(){registrar("saida");}} style={{flex:1,minWidth:140,border:"none",borderRadius:13,padding:"20px 16px",fontSize:17,fontWeight:800,cursor:busy?"default":"pointer",color:"#fff",background:G.orange,opacity:busy?.6:1}}>🔴 Registrar Saída</button>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <button disabled={busy} onClick={function(){registrar("entrada");}} style={{border:"none",borderRadius:13,padding:"18px 12px",fontSize:15.5,fontWeight:800,lineHeight:1.15,cursor:busy?"default":"pointer",color:"#fff",background:G.success,opacity:busy?.6:1}}>🟢 Registrar Entrada</button>
+        <button disabled={busy} onClick={function(){registrar("saida","almoco");}} style={{border:"none",borderRadius:13,padding:"18px 12px",fontSize:15.5,fontWeight:800,lineHeight:1.15,cursor:busy?"default":"pointer",color:"#fff",background:"#C49A3C",opacity:busy?.6:1}}>🟡 Saída p/ Almoço</button>
+        <button disabled={busy} onClick={function(){registrar("entrada","almoco");}} style={{border:"none",borderRadius:13,padding:"18px 12px",fontSize:15.5,fontWeight:800,lineHeight:1.15,cursor:busy?"default":"pointer",color:"#fff",background:"#2E8C7E",opacity:busy?.6:1}}>🔵 Volta do Almoço</button>
+        <button disabled={busy} onClick={function(){registrar("saida");}} style={{border:"none",borderRadius:13,padding:"18px 12px",fontSize:15.5,fontWeight:800,lineHeight:1.15,cursor:busy?"default":"pointer",color:"#fff",background:G.orange,opacity:busy?.6:1}}>🔴 Registrar Saída</button>
       </div>
       {msg&&<div style={{marginTop:14,borderRadius:10,padding:"11px 14px",fontSize:13.5,fontWeight:600,background:msg.ok?G.accent:"#FDECEA",color:msg.ok?G.primary:G.red,border:"1px solid "+(msg.ok?G.border:"#F5B7B1")}}>{msg.txt}</div>}
 
@@ -6019,30 +6017,26 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,feriados}){
         <div style={{fontSize:12,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>Meus registros de hoje</div>
         {meusHoje.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum registro hoje.</div>:
           meusHoje.map(function(p){return <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:9,background:"#f7faf8",marginBottom:6}}>
-            <span style={{fontSize:16}}>{p.tipo==="entrada"?"🟢":"🔴"}</span>
-            <span style={{fontWeight:700,fontSize:14}}>{p.tipo==="entrada"?"Entrada":"Saída"}</span>
+            <span style={{fontSize:16}}>{p.sub==="almoco"?(p.tipo==="saida"?"🟡":"🔵"):(p.tipo==="entrada"?"🟢":"🔴")}</span>
+            <span style={{fontWeight:700,fontSize:14}}>{p.sub==="almoco"?(p.tipo==="saida"?"Saída p/ almoço":"Volta do almoço"):(p.tipo==="entrada"?"Entrada":"Saída")}</span>
             <span style={{fontSize:14,color:G.text}}>{p.hora}</span>
             <span style={{marginLeft:"auto",fontSize:11,color:G.muted}}>{p.dist!=null?("a "+p.dist+" m"):""}</span>
           </div>;})}
       </div>
     </div>}
 
-    {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} users={users} user={user}/>}
-    {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos} pontoCfg={pontoCfg} users={users} feriados={feriados}/>}
+    {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} pontoCfg={pontoCfg} users={users}/>}
+    {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos} pontoCfg={pontoCfg} users={users}/>}
     {aba==="cfg"&&isAdmin&&<ConfigPonto pontoCfg={pontoCfg} setPontoCfg={setPontoCfg}/>}
   </div>;
 }
 
-function RelatorioPonto({pontos,setPontos,pontoCfg,users,user}){
+function RelatorioPonto({pontos,pontoCfg,users}){
   const z=function(n){return ("0"+n).slice(-2);};
   var d0=new Date();
   const [de,setDe]=useState(d0.getFullYear()+"-"+z(d0.getMonth()+1)+"-01");
   const [ate,setAte]=useState(today());
   const [quem,setQuem]=useState("all");
-  const [aberto,setAberto]=useState({});
-  const [edit,setEdit]=useState(null);
-  const [exc,setExc]=useState(null);
-  const isAdmin=user&&user.level>=3;
 
   var entradaPadrao=(pontoCfg&&pontoCfg.entradaPadrao)||"08:00";
   var saidaPadrao=(pontoCfg&&pontoCfg.saidaPadrao)||"18:00";
@@ -6056,53 +6050,29 @@ function RelatorioPonto({pontos,setPontos,pontoCfg,users,user}){
   var map={};
   filtrados.forEach(function(p){
     var k=p.uid+"|"+p.data;
-    if(!map[k])map[k]={uid:p.uid,nome:p.nome,data:p.data,ent:null,sai:null,regs:[]};
-    map[k].regs.push(p);
-    if(p.excluido)return;
-    if(p.tipo==="entrada"&&(!map[k].ent||p.hora<map[k].ent))map[k].ent=p.hora;
-    if(p.tipo==="saida"&&(!map[k].sai||p.hora>map[k].sai))map[k].sai=p.hora;
+    if(!map[k])map[k]={uid:p.uid,nome:p.nome,data:p.data,ent:null,sai:null,almSai:null,almVol:null};
+    var ehAlm=p.sub==="almoco";
+    if(p.tipo==="entrada"&&ehAlm){if(!map[k].almVol||p.hora<map[k].almVol)map[k].almVol=p.hora;}
+    else if(p.tipo==="saida"&&ehAlm){if(!map[k].almSai||p.hora>map[k].almSai)map[k].almSai=p.hora;}
+    else if(p.tipo==="entrada"){if(!map[k].ent||p.hora<map[k].ent)map[k].ent=p.hora;}
+    else if(p.tipo==="saida"){if(!map[k].sai||p.hora>map[k].sai)map[k].sai=p.hora;}
   });
   var linhas=Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return a.data<b.data?1:(a.data>b.data?-1:(a.nome<b.nome?-1:1));});
 
-  function horas(e,s){if(!e||!s)return "—";var ea=e.split(":"),sa=s.split(":");var m=(Number(sa[0])*60+Number(sa[1]))-(Number(ea[0])*60+Number(ea[1]));if(m<0)return "—";return Math.floor(m/60)+"h"+z(m%60);}
+  function _toMin(h){var p=h.split(":");return Number(p[0])*60+Number(p[1]);}
+  function minTrab(l){
+    if(!l.ent||!l.sai)return null;
+    var e=_toMin(l.ent),s=_toMin(l.sai);
+    if(s<e)return null;
+    var t=s-e;
+    if(l.almSai&&l.almVol){var aS=_toMin(l.almSai),aV=_toMin(l.almVol);if(aV>aS&&aS>=e&&aV<=s)t-=(aV-aS);}
+    return t<0?null:t;
+  }
+  function fmtH(m){if(m==null)return "—";return Math.floor(m/60)+"h"+z(m%60);}
   function fmtD(x){var p=x.split("-");return p[2]+"/"+p[1];}
-  function fmtTs(iso){try{var d=new Date(iso);return z(d.getDate())+"/"+z(d.getMonth()+1)+" "+z(d.getHours())+":"+z(d.getMinutes());}catch(e){return "";}}
-
-  function salvarEdit(){
-    if(!edit)return;
-    var hh=(edit.hora||"").trim();
-    if(!/^[0-2][0-9]:[0-5][0-9]$/.test(hh)){alert("Informe a hora no formato HH:MM (ex.: 08:05).");return;}
-    if(!(edit.motivo||"").trim()){alert("Descreva o motivo da correção — fica registrado para controle.");return;}
-    setPontos(function(prev){return prev.map(function(p){
-      if(p.id!==edit.id)return p;
-      var np=Object.assign({},p);
-      if(np.origHora==null){np.origHora=p.hora;np.origTipo=p.tipo;}
-      np.hora=hh;np.tipo=edit.tipo;np.editado=true;
-      np.editadoPor=(user&&user.name)||"";np.editadoEm=new Date().toISOString();np.motivoEdit=(edit.motivo||"").trim();
-      return np;
-    });});
-    setEdit(null);
-  }
-  function confirmarExcluir(){
-    if(!exc)return;
-    if(!(exc.motivo||"").trim()){alert("Descreva o motivo da exclusão — fica registrado para controle.");return;}
-    setPontos(function(prev){return prev.map(function(p){
-      if(p.id!==exc.id)return p;
-      return Object.assign({},p,{excluido:true,excluidoPor:(user&&user.name)||"",excluidoEm:new Date().toISOString(),motivoExcl:(exc.motivo||"").trim()});
-    });});
-    setExc(null);
-  }
-  function restaurar(id){
-    setPontos(function(prev){return prev.map(function(p){
-      if(p.id!==id)return p;
-      var np=Object.assign({},p);np.excluido=false;np.restauradoPor=(user&&user.name)||"";np.restauradoEm=new Date().toISOString();return np;
-    });});
-  }
 
   var card={background:G.card,borderRadius:14,padding:"16px 18px",boxShadow:"6px 6px 15px #c8d0c5,-6px -6px 15px #ffffff",border:"1px solid "+G.border};
   var inp={background:G.card,border:"1.5px solid "+G.border,borderRadius:9,padding:"9px 11px",fontSize:13,color:G.text,outline:"none"};
-  var inpS={background:"#fff",border:"1.5px solid "+G.border,borderRadius:7,padding:"6px 8px",fontSize:12,color:G.text,outline:"none"};
-  var btnMini=function(bg,fg){return {border:"1px solid "+bg,background:fg?bg:"transparent",color:fg||bg,borderRadius:6,padding:"3px 8px",fontSize:11,fontWeight:700,cursor:"pointer"};};
 
   return <div style={card}>
     <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:700,color:G.primary,marginBottom:12}}>Relatório de ponto</div>
@@ -6116,82 +6086,46 @@ function RelatorioPonto({pontos,setPontos,pontoCfg,users,user}){
         </select>
       </div>
     </div>
-    <div style={{fontSize:11.5,color:G.muted,marginBottom:10}}>Esperado: entrada {entradaPadrao} · saída {saidaPadrao}. Atrasos e saídas antecipadas aparecem em vermelho com ⚠️.{isAdmin?" Toque numa linha para ver e corrigir as batidas — correções e exclusões ficam registradas para controle.":""}</div>
+    <div style={{fontSize:11.5,color:G.muted,marginBottom:10}}>Esperado: entrada {entradaPadrao} · saída {saidaPadrao}. Atrasos e saídas antecipadas aparecem em vermelho com ⚠️. As horas já descontam o almoço batido.</div>
 
     {linhas.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum registro no período.</div>:
-    <div style={{overflowX:"auto"}}>
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-        <thead><tr style={{textAlign:"left",color:G.muted,fontSize:11,textTransform:"uppercase"}}>
-          <th style={{padding:"6px 8px"}}>Data</th><th style={{padding:"6px 8px"}}>Pessoa</th><th style={{padding:"6px 8px"}}>Entrada</th><th style={{padding:"6px 8px"}}>Saída</th><th style={{padding:"6px 8px"}}>Horas</th>
-        </tr></thead>
-        <tbody>
-        {linhas.map(function(l){
-          var atraso=l.ent&&l.ent>entradaPadrao;
-          var antecip=l.sai&&l.sai<saidaPadrao;
-          var k=l.uid+"|"+l.data;
-          var op=!!aberto[k];
-          var temAlt=l.regs.some(function(r){return r.editado||r.excluido;});
-          var rows=[];
-          rows.push(<tr key={k} onClick={isAdmin?function(){setAberto(function(s){var n=Object.assign({},s);n[k]=!n[k];return n;});setEdit(null);setExc(null);}:undefined} style={{borderTop:"1px solid "+G.border,cursor:isAdmin?"pointer":"default",background:op?"#f7faf8":"transparent"}}>
-            <td style={{padding:"7px 8px",fontWeight:700}}>{(isAdmin?(op?"▾ ":"▸ "):"")+fmtD(l.data)}{temAlt?<span title="Há batidas corrigidas ou excluídas neste dia" style={{marginLeft:5,fontSize:10,color:G.orange,fontWeight:700}}>✱</span>:null}</td>
-            <td style={{padding:"7px 8px"}}>{l.nome}</td>
-            <td style={{padding:"7px 8px",color:atraso?G.red:G.text,fontWeight:atraso?700:400}}>{(l.ent||"—")+(atraso?" ⚠️":"")}</td>
-            <td style={{padding:"7px 8px",color:antecip?G.red:G.text,fontWeight:antecip?700:400}}>{(l.sai||"—")+(antecip?" ⚠️":"")}</td>
-            <td style={{padding:"7px 8px"}}>{horas(l.ent,l.sai)}</td>
-          </tr>);
-          if(isAdmin&&op){
-            var regsOrd=l.regs.slice().sort(function(a,b){return (a.hora||"")<(b.hora||"")?-1:1;});
-            rows.push(<tr key={k+"_d"} style={{background:"#f7faf8"}}>
-              <td colSpan={5} style={{padding:"2px 12px 12px"}}>
-                <div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",margin:"4px 0 8px"}}>Batidas do dia ({regsOrd.length})</div>
-                {regsOrd.map(function(r){
-                  var emEdit=edit&&edit.id===r.id;
-                  var emExc=exc&&exc.id===r.id;
-                  return <div key={r.id} style={{borderBottom:"1px solid "+G.border,padding:"7px 0"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                      <span style={{fontSize:14}}>{r.tipo==="entrada"?"🟢":"🔴"}</span>
-                      <span style={{fontWeight:700,fontSize:13,textDecoration:r.excluido?"line-through":"none",color:r.excluido?G.muted:G.text}}>{(r.tipo==="entrada"?"Entrada":"Saída")+" "+r.hora}</span>
-                      {r.editado?<span style={{fontSize:10,color:G.orange,fontWeight:700}}>✏️ corrigido (era {r.origTipo==="entrada"?"entrada":"saída"} {r.origHora})</span>:null}
-                      {r.excluido?<span style={{fontSize:10,color:G.red,fontWeight:700}}>🗑️ excluído</span>:null}
-                      <span style={{fontSize:11,color:G.muted}}>{r.dist!=null?("a "+r.dist+" m"):""}</span>
-                      {!emEdit&&!emExc?<span style={{marginLeft:"auto",display:"flex",gap:6}}>
-                        {!r.excluido?<button onClick={function(){setExc(null);setEdit({id:r.id,hora:r.hora,tipo:r.tipo,motivo:""});}} style={btnMini(G.blue)}>✏️ Editar</button>:null}
-                        {!r.excluido?<button onClick={function(){setEdit(null);setExc({id:r.id,motivo:""});}} style={btnMini(G.red)}>🗑️ Excluir</button>:
-                          <button onClick={function(){restaurar(r.id);}} style={btnMini(G.success)}>↩️ Restaurar</button>}
-                      </span>:null}
-                    </div>
-                    {emEdit?<div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginTop:8,background:"#fff",border:"1px solid "+G.border,borderRadius:8,padding:"8px 10px"}}>
-                      <select value={edit.tipo} onChange={function(e){setEdit(Object.assign({},edit,{tipo:e.target.value}));}} style={inpS}>
-                        <option value="entrada">Entrada</option><option value="saida">Saída</option>
-                      </select>
-                      <input value={edit.hora} onChange={function(e){setEdit(Object.assign({},edit,{hora:e.target.value}));}} placeholder="HH:MM" style={Object.assign({width:80},inpS)}/>
-                      <input value={edit.motivo} onChange={function(e){setEdit(Object.assign({},edit,{motivo:e.target.value}));}} placeholder="Motivo da correção" style={Object.assign({flex:1,minWidth:150},inpS)}/>
-                      <button onClick={salvarEdit} style={btnMini(G.success,"#fff")}>Salvar</button>
-                      <button onClick={function(){setEdit(null);}} style={btnMini(G.muted)}>Cancelar</button>
-                    </div>:null}
-                    {emExc?<div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginTop:8,background:"#FDECEA",border:"1px solid #F5B7B1",borderRadius:8,padding:"8px 10px"}}>
-                      <span style={{fontSize:12,color:G.red,fontWeight:700}}>Excluir esta batida?</span>
-                      <input value={exc.motivo} onChange={function(e){setExc(Object.assign({},exc,{motivo:e.target.value}));}} placeholder="Motivo da exclusão" style={Object.assign({flex:1,minWidth:150},inpS)}/>
-                      <button onClick={confirmarExcluir} style={btnMini(G.red,"#fff")}>Confirmar exclusão</button>
-                      <button onClick={function(){setExc(null);}} style={btnMini(G.muted)}>Cancelar</button>
-                    </div>:null}
-                    {(r.editado||r.excluido||r.restauradoPor)?<div style={{fontSize:10.5,color:G.muted,marginTop:5,lineHeight:1.5}}>
-                      {r.editado?<div>✏️ Corrigido por <b>{r.editadoPor||"—"}</b> em {fmtTs(r.editadoEm)}{r.motivoEdit?(" — "+r.motivoEdit):""}</div>:null}
-                      {r.excluido?<div>🗑️ Excluído por <b>{r.excluidoPor||"—"}</b> em {fmtTs(r.excluidoEm)}{r.motivoExcl?(" — "+r.motivoExcl):""}</div>:null}
-                      {r.restauradoPor?<div>↩️ Restaurado por <b>{r.restauradoPor}</b> em {fmtTs(r.restauradoEm)}</div>:null}
-                    </div>:null}
-                  </div>;
-                })}
-              </td>
-            </tr>);
-          }
-          return rows;
-        })}
-        </tbody>
-      </table>
+    <div style={{display:"flex",flexDirection:"column"}}>
+      {linhas.map(function(l){
+        var atraso=l.ent&&l.ent>entradaPadrao;
+        var antecip=l.sai&&l.sai<saidaPadrao;
+        var mins=minTrab(l);
+        var temAlm=l.almSai||l.almVol;
+        var chip={display:"inline-flex",alignItems:"center",gap:7,background:G.card,boxShadow:"2px 2px 5px #c8d0c5,-2px -2px 5px #fbfff7",borderRadius:11,padding:"7px 11px",fontSize:13.5,fontWeight:700,color:G.text,whiteSpace:"nowrap"};
+        var dotS={width:11,height:11,borderRadius:"50%",flexShrink:0,display:"inline-block"};
+        var lblS={fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".3px"};
+        var sepS={color:G.muted,fontSize:12,fontWeight:700,padding:"0 1px"};
+        var missS={display:"inline-flex",alignItems:"center",gap:7,border:"1.5px dashed #d9b3ad",borderRadius:11,padding:"6px 11px",fontSize:12.5,fontWeight:700,color:G.red};
+        return <div key={l.uid+l.data} style={{borderTop:"1px solid "+G.border,padding:"14px 2px 13px"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:11}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:10,minWidth:0}}>
+              <span style={{fontWeight:800,fontSize:15}}>{fmtD(l.data)}</span>
+              <span style={{fontSize:14,color:G.muted,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.nome}</span>
+            </div>
+            <span style={{flexShrink:0,background:G.card,boxShadow:"inset 2px 2px 5px #c8d0c5,inset -2px -2px 5px #fbfff7",borderRadius:9,padding:"6px 13px",fontSize:14,fontWeight:800,color:mins==null?G.muted:G.primary}}>{fmtH(mins)}</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:"6px 4px"}}>
+            <span style={chip}><span style={Object.assign({},dotS,{background:G.success})}/><span style={lblS}>Entr</span><span style={atraso?{color:G.red}:undefined}>{(l.ent||"—")+(atraso?" ⚠️":"")}</span></span>
+            <span style={sepS}>{"·"}</span>
+            {(l.almSai&&l.almVol)?
+              <span style={chip}><span style={Object.assign({},dotS,{background:"#C49A3C"})}/><span style={lblS}>Almoço</span>{l.almSai}<span style={{color:G.muted,fontWeight:800,padding:"0 2px"}}>{"→"}</span><span style={Object.assign({},dotS,{background:"#2E8C7E"})}/>{l.almVol}</span>
+              :(temAlm?<span style={missS}>{"⚠️ almoço incompleto"+(l.almSai?" (sem volta)":" (sem saída)")}</span>
+                :<span style={{fontSize:12,color:G.muted,fontStyle:"italic",fontWeight:600,padding:"0 2px"}}>sem almoço registrado</span>)}
+            <span style={sepS}>{"·"}</span>
+            {l.sai?
+              <span style={chip}><span style={Object.assign({},dotS,{background:G.orange})}/><span style={lblS}>Saída</span><span style={antecip?{color:G.red}:undefined}>{l.sai+(antecip?" ⚠️":"")}</span></span>
+              :<span style={missS}>{"⚠️ falta a saída"}</span>}
+          </div>
+        </div>;
+      })}
     </div>}
   </div>;
 }
+
 function ConfigPonto({pontoCfg,setPontoCfg}){
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState(null);
@@ -6224,8 +6158,6 @@ function ConfigPonto({pontoCfg,setPontoCfg}){
 
     <div style={{marginBottom:14}}><label style={lbl}>Carga horária semanal (horas)</label><input type="number" value={pontoCfg.cargaSemanal||44} onChange={function(e){up({cargaSemanal:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Hoje a jornada é 44h. Se mudar para 40h (ou outro valor), ajuste aqui — é a meta semanal usada no relatório Mensal.</div></div>
 
-    <div style={{marginBottom:14}}><label style={lbl}>Dias úteis por semana (para feriado)</label><input type="number" value={pontoCfg.diasUteis||5} onChange={function(e){up({diasUteis:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Usado só para calcular quanto vale 1 dia de feriado no Espelho (carga semanal ÷ dias úteis). Padrão 5 (seg–sex). Se trabalham sábado, use 6.</div></div>
-
     <div style={{marginBottom:14}}><label style={lbl}>Intervalo de almoço a descontar (min)</label><input type="number" value={pontoCfg.intervalo!=null?pontoCfg.intervalo:60} onChange={function(e){up({intervalo:Number(e.target.value)});}} style={Object.assign({width:160},inp)}/><div style={{fontSize:11.5,color:G.muted,marginTop:5}}>Descontado nos dias com uma única entrada/saída acima de 6h (almoço não batido). Se a pessoa bater saída e entrada no almoço, o intervalo real é usado automaticamente.</div></div>
 
     <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
@@ -6236,7 +6168,7 @@ function ConfigPonto({pontoCfg,setPontoCfg}){
   </div>;
 }
 
-function EspelhoMensal({pontos,pontoCfg,users,feriados}){
+function EspelhoMensal({pontos,pontoCfg,users}){
   const z=function(n){return ("0"+n).slice(-2);};
   var hoje0=new Date();
   const [mes,setMes]=useState(hoje0.getFullYear()+"-"+z(hoje0.getMonth()+1)); // "YYYY-MM"
@@ -6244,8 +6176,6 @@ function EspelhoMensal({pontos,pontoCfg,users,feriados}){
 
   var meta=Number((pontoCfg&&pontoCfg.cargaSemanal)||44);          // horas/semana
   var intervalo=Number((pontoCfg&&pontoCfg.intervalo!=null)?pontoCfg.intervalo:60); // min de almoço
-   var diasUteis=Number((pontoCfg&&pontoCfg.diasUteis)||5);
-   function feriadosNaSemana(ini,fim){var c=0;(feriados||[]).forEach(function(h){if((h.data||"")>=ini&&(h.data||"")<=fim){var wd=new Date(h.data+"T12:00").getDay();if(wd>=1&&wd<=5)c++;}});return c;}
 
   // minutos entre dois "HH:MM"
   function minHora(a,b){var pa=a.split(":"),pb=b.split(":");return (Number(pb[0])*60+Number(pb[1]))-(Number(pa[0])*60+Number(pa[1]));}
@@ -6282,21 +6212,21 @@ function EspelhoMensal({pontos,pontoCfg,users,feriados}){
 
   // quem aparece: na opção "todos", só quem tem registro no mês
   var noMes={};
-  pontos.forEach(function(p){if(p.excluido)return;if((p.data||"").slice(0,7)===mes)noMes[String(p.uid)]=true;});
+  pontos.forEach(function(p){if((p.data||"").slice(0,7)===mes)noMes[String(p.uid)]=true;});
   var base=(users||[]);
   var lista=quem!=="all"?base.filter(function(u){return String(u.id)===String(quem);})
                         :base.filter(function(u){return noMes[String(u.id)];});
 
   function dadosPessoa(uid){
     var porDia={};
-    pontos.forEach(function(p){if(String(p.uid)!==String(uid))return;if(p.excluido)return;(porDia[p.data]=porDia[p.data]||[]).push(p);});
+    pontos.forEach(function(p){if(String(p.uid)!==String(uid))return;(porDia[p.data]=porDia[p.data]||[]).push(p);});
     var linhas=semanas.map(function(s){
       var min=0;
       Object.keys(porDia).forEach(function(dia){if(dia>=s.iniYmd&&dia<=s.fimYmd)min+=minDia(porDia[dia]);});
-      var _nf=feriadosNaSemana(s.iniYmd,s.fimYmd);var _mm=meta*60-_nf*(meta*60/diasUteis);if(_mm<0)_mm=0;return {label:s.label,min:min,metaMin:_mm,nf:_nf,saldo:min-_mm};
+      return {label:s.label,min:min,saldo:min-meta*60};
     });
     var totMin=linhas.reduce(function(a,l){return a+l.min;},0);
-    var totMeta=linhas.reduce(function(a,l){return a+l.metaMin;},0);
+    var totMeta=semanas.length*meta*60;
     return {linhas:linhas,totMin:totMin,totMeta:totMeta,totSaldo:totMin-totMeta};
   }
 
@@ -6315,7 +6245,7 @@ function EspelhoMensal({pontos,pontoCfg,users,feriados}){
         </select>
       </div>
     </div>
-    <div style={{fontSize:11.5,color:G.muted,marginBottom:14,lineHeight:1.5}}>Meta semanal: <b>{meta}h</b> · semanas de segunda a domingo (a semana da virada do mês conta inteira). <b style={{color:G.red}}>Saldo negativo</b> = ficou a menos. <b style={{color:G.success}}>Feriado</b> abate a meta da semana (carga ÷ {diasUteis} dias úteis). Almoço: {intervalo} min descontados em dias acima de 6h sem batida de intervalo.</div>
+    <div style={{fontSize:11.5,color:G.muted,marginBottom:14,lineHeight:1.5}}>Meta semanal: <b>{meta}h</b> · semanas de segunda a domingo (a semana da virada do mês conta inteira). <b style={{color:G.red}}>Saldo negativo</b> = ficou a menos. Almoço: {intervalo} min descontados em dias acima de 6h sem batida de intervalo.</div>
 
     {lista.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum registro neste mês.</div>:
       lista.map(function(u){
@@ -6331,7 +6261,7 @@ function EspelhoMensal({pontos,pontoCfg,users,feriados}){
               {d.linhas.map(function(l,i){return <tr key={i} style={{borderTop:"1px solid "+G.border}}>
                 <td style={{padding:"7px 8px",fontWeight:600}}>{l.label}</td>
                 <td style={{padding:"7px 8px"}}>{hhmm(l.min)}</td>
-                <td style={{padding:"7px 8px",color:G.muted}}>{hhmm(l.metaMin)}{l.nf>0?<span style={{color:G.success,fontWeight:700,fontSize:11}}>{" −"+l.nf+" fer."}</span>:null}</td>
+                <td style={{padding:"7px 8px",color:G.muted}}>{meta}h00</td>
                 <td style={{padding:"7px 8px",fontWeight:700,color:corSaldo(l.saldo)}}>{(l.saldo>0?"+":"")+hhmm(l.saldo)}</td>
               </tr>;})}
               <tr style={{borderTop:"2px solid "+G.border,background:"#f7faf8"}}>
@@ -6345,58 +6275,6 @@ function EspelhoMensal({pontos,pontoCfg,users,feriados}){
           </div>
         </div>;
       })}
-  </div>;
-}
-
-function FeriadosAdmin({feriados,setFeriados}){
-  const [data,setData]=useState("");
-  const [nome,setNome]=useState("");
-  const [editId,setEditId]=useState(null);
-  var lista=(feriados||[]).slice().sort(function(a,b){return (a.data||"")<(b.data||"")?-1:1;});
-  function fmtBR(x){if(!x)return "";var p=x.split("-");return p[2]+"/"+p[1]+"/"+p[0];}
-  function diaSemana(x){try{var d=new Date(x+"T12:00");return ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"][d.getDay()];}catch(e){return "";}}
-  function salvar(){
-    var dt=(data||"").trim();
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(dt)){alert("Escolha a data do feriado.");return;}
-    var nm=(nome||"").trim();
-    setFeriados(function(prev){
-      var arr=(prev||[]).slice();
-      arr=arr.filter(function(h){return h.data!==dt||h.id===editId;});
-      if(editId){arr=arr.map(function(h){return h.id===editId?Object.assign({},h,{data:dt,nome:nm}):h;});}
-      else{arr.push({id:Date.now(),data:dt,nome:nm});}
-      return arr;
-    });
-    setData("");setNome("");setEditId(null);
-  }
-  function remover(id){setFeriados(function(prev){return (prev||[]).filter(function(h){return h.id!==id;});});if(editId===id){setEditId(null);setData("");setNome("");}}
-  function editar(h){setEditId(h.id);setData(h.data);setNome(h.nome||"");}
-  var card={background:G.card,borderRadius:13,padding:"16px 18px",boxShadow:"6px 6px 15px #c8d0c5,-6px -6px 15px #ffffff",border:"1px solid "+G.border};
-  var inp={background:"#fff",border:"1.5px solid "+G.border,borderRadius:9,padding:"9px 11px",fontSize:13,color:G.text,outline:"none"};
-  return <div style={card}>
-    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,fontWeight:700,color:G.primary,marginBottom:4}}>Feriados</div>
-    <div style={{fontSize:12,color:G.muted,marginBottom:14,lineHeight:1.5}}>Os dias cadastrados aqui aparecem como <b>fechados na Agenda</b> (sem novos agendamentos) e <b>abatem a meta da semana no Espelho de Ponto</b>, para ninguém ficar com saldo negativo por causa do feriado. Feriado que cai no fim de semana não altera a meta.</div>
-    <div style={{display:"flex",gap:9,flexWrap:"wrap",alignItems:"flex-end",marginBottom:16}}>
-      <div><label style={{fontSize:10,fontWeight:700,color:G.muted,display:"block",marginBottom:4}}>DATA</label><input type="date" value={data} onChange={function(e){setData(e.target.value);}} style={inp}/></div>
-      <div style={{flex:1,minWidth:170}}><label style={{fontSize:10,fontWeight:700,color:G.muted,display:"block",marginBottom:4}}>NOME (opcional)</label><input value={nome} onChange={function(e){setNome(e.target.value);}} placeholder="Ex.: Natal, Padroeiro da cidade" style={Object.assign({width:"100%",boxSizing:"border-box"},inp)}/></div>
-      <button onClick={salvar} style={{border:"none",borderRadius:9,padding:"10px 18px",fontSize:13,fontWeight:700,cursor:"pointer",color:"#fff",background:editId?G.orange:G.primary}}>{editId?"Salvar alteração":"+ Adicionar"}</button>
-      {editId?<button onClick={function(){setEditId(null);setData("");setNome("");}} style={{border:"1.5px solid "+G.border,background:"transparent",borderRadius:9,padding:"10px 14px",fontSize:13,fontWeight:700,cursor:"pointer",color:G.muted}}>Cancelar</button>:null}
-    </div>
-    {lista.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum feriado cadastrado.</div>:
-      <div style={{display:"flex",flexDirection:"column",gap:7}}>
-        {lista.map(function(h){
-          var wd=(function(){try{return new Date(h.data+"T12:00").getDay();}catch(e){return 1;}})();
-          var fimDeSemana=wd===0||wd===6;
-          return <div key={h.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f7faf8",borderRadius:9,padding:"9px 12px",borderLeft:"4px solid "+G.red}}>
-            <span style={{fontSize:18}}>🎉</span>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:700,fontSize:14,color:G.text}}>{fmtBR(h.data)}{h.nome?(" — "+h.nome):""}</div>
-              <div style={{fontSize:11,color:G.muted}}>{diaSemana(h.data)}{fimDeSemana?" · cai no fim de semana (não afeta a meta)":""}</div>
-            </div>
-            <button onClick={function(){editar(h);}} style={{border:"1px solid "+G.blue,background:"transparent",color:G.blue,borderRadius:7,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Editar</button>
-            <button onClick={function(){remover(h.id);}} style={{border:"1px solid "+G.red,background:"transparent",color:G.red,borderRadius:7,padding:"4px 9px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Remover</button>
-          </div>;
-        })}
-      </div>}
   </div>;
 }
 
@@ -7761,42 +7639,152 @@ return <div key={i} style={{background:G.card,borderRadius:9,padding:"8px 12px",
 // LOGIN
 // ══════════════════════════════════════════════════════════
 function Login({users,onLogin}){
-const [l,sl]=useState("");const [p,sp]=useState("");const [e,se]=useState("");
+const [l,sl]=useState("");const [p,sp]=useState("");const [e,se]=useState("");const [sw,ssw]=useState(false);
 const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});u?onLogin(u):se("Login ou senha inválidos");};
-return(
+const STY=`
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+.aff-login *{box-sizing:border-box;margin:0;padding:0;}
+.aff-login{--bg-glow:#f1f7f1;--bg-1:#dce8de;--bg-2:#c6d8cb;--bg-3:#b1c6b6;--vignette:rgba(15,56,38,.22);--card:#ffffff;--card-2:#f6faf6;--field:#eef3ee;--field-br:#d9e3da;--pine:#163d2a;--green:#2c6b4b;--green-2:#225a3e;--eucalyptus:#5e8a6e;--titanium:#9aa7ac;--titanium-lt:#d2dadd;--ink:#14241b;--label:#5c6f64;--muted:#7e8f84;position:relative;min-height:100vh;font-family:'Manrope',sans-serif;color:var(--ink);display:flex;align-items:center;justify-content:center;padding:28px 20px;overflow-x:hidden;-webkit-font-smoothing:antialiased;background:radial-gradient(115% 80% at 50% 20%, var(--bg-glow) 0%, rgba(241,247,241,0) 50%),radial-gradient(140% 120% at 50% 52%, rgba(15,56,38,0) 56%, var(--vignette) 100%),linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 56%, var(--bg-3) 100%);}
+.aff-login .amb{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+.aff-login .amb span{position:absolute;border-radius:50%;filter:blur(46px);}
+.aff-login .amb .a1{top:-90px;left:-70px;width:340px;height:340px;background:radial-gradient(circle,rgba(44,107,75,.34),transparent 70%);animation:affDrift 16s ease-in-out infinite, affPulse 8s ease-in-out infinite;}
+.aff-login .amb .a2{top:30%;right:-110px;width:320px;height:320px;background:radial-gradient(circle,rgba(120,170,140,.30),transparent 70%);animation:affDrift2 19s ease-in-out infinite, affPulse 11s ease-in-out infinite;}
+.aff-login .amb .a3{bottom:-120px;left:24%;width:380px;height:380px;background:radial-gradient(circle,rgba(22,80,56,.22),transparent 70%);animation:affDrift 22s ease-in-out infinite;}
+.aff-login .grain{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.05;mix-blend-mode:overlay;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");}
+.aff-login .screen{position:relative;z-index:1;width:100%;max-width:412px;display:flex;flex-direction:column;align-items:center;padding:8px 6px 0;}
+.aff-login .brand{display:flex;flex-direction:column;align-items:center;animation:affRise .8s cubic-bezier(.2,.7,.2,1) both;}
+.aff-login .logo{position:relative;width:188px;height:176px;margin-bottom:12px;display:flex;align-items:center;justify-content:center;animation:affFloat 6.5s ease-in-out infinite;}
+.aff-login .logo .halo{position:absolute;width:230px;height:182px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.78),rgba(255,255,255,0) 64%);filter:blur(6px);}
+.aff-login .logo .halo::after{content:"";position:absolute;inset:18px 6px;border-radius:50%;box-shadow:0 0 0 1px rgba(94,138,110,.18);}
+.aff-login .logo svg{position:relative;width:184px;height:175px;filter:drop-shadow(0 18px 22px rgba(28,58,40,.30));}
+.aff-login .logosvg{position:relative;display:flex;align-items:center;justify-content:center;}
+.aff-login .title{font-family:'Playfair Display',serif;font-weight:600;font-size:30px;line-height:1.06;letter-spacing:.004em;text-align:center;color:#172d20;}
+.aff-login .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.4em;color:#6f8377;margin-top:11px;padding-left:.4em;text-transform:uppercase;}
+.aff-login .rule{display:flex;align-items:center;gap:9px;margin:16px 0 24px;}
+.aff-login .rule i{display:block;width:46px;height:1px;}
+.aff-login .rule i:first-child{background:linear-gradient(90deg,transparent,var(--titanium));}
+.aff-login .rule i:last-child{background:linear-gradient(90deg,var(--titanium),transparent);}
+.aff-login .rule b{width:6px;height:6px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,var(--titanium) 80%);box-shadow:0 0 8px rgba(94,138,110,.55),0 0 0 1px rgba(255,255,255,.6);}
+.aff-login .card{position:relative;width:100%;background:linear-gradient(180deg,#ffffff 0%,#f4f9f4 68%,#eaf2eb 100%);border-radius:28px;padding:28px 26px 26px;box-shadow:0 2px 4px rgba(20,46,32,.06),0 8px 16px -6px rgba(20,46,32,.14),0 22px 38px -14px rgba(20,46,32,.26),0 48px 74px -30px rgba(20,46,32,.36),inset 0 1px 0 rgba(255,255,255,1),inset 0 -18px 32px -22px rgba(20,46,32,.13);border:1px solid rgba(204,219,207,.95);animation:affRise .85s cubic-bezier(.2,.7,.2,1) both;animation-delay:.08s;}
+.aff-login .card::before{content:"";position:absolute;left:24px;right:24px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(154,167,172,.55),transparent);}
+.aff-login .grp + .grp{margin-top:17px;}
+.aff-login label{display:block;font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--label);margin-bottom:9px;}
+.aff-login .field{position:relative;display:flex;align-items:center;}
+.aff-login .ficon{position:absolute;left:15px;top:50%;transform:translateY(-50%);color:#8aa093;pointer-events:none;transition:color .15s ease;}
+.aff-login input{width:100%;border:none;outline:none;background:var(--field);border-radius:15px;padding:15px 16px 15px 45px;font-size:15px;font-family:inherit;color:#21302a;box-shadow:inset 0 2px 5px rgba(20,46,32,.07), inset 0 0 0 1px var(--field-br);transition:box-shadow .18s ease, background .18s ease;}
+.aff-login input.pw{padding-right:48px;}
+.aff-login input::placeholder{color:#8a9b90;opacity:1;}
+.aff-login input:hover{background:#ecf2ec;}
+.aff-login input:focus{background:#fff;box-shadow:inset 0 2px 5px rgba(20,46,32,.06), inset 0 0 0 1.6px var(--green),0 0 0 4px rgba(44,107,75,.10);}
+.aff-login .field:focus-within .ficon{color:var(--green);}
+.aff-login .toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:9px;display:flex;border-radius:10px;color:#7c8c82;transition:color .15s ease, background .15s ease;}
+.aff-login .toggle:hover{color:var(--green);background:rgba(44,107,75,.08);}
+.aff-login .err{margin-top:14px;background:rgba(193,53,53,.08);border:1px solid rgba(193,53,53,.22);color:#a93636;border-radius:12px;padding:11px 14px;font-size:12.5px;font-weight:600;text-align:center;letter-spacing:.01em;}
+.aff-login .btn{position:relative;overflow:hidden;margin-top:24px;width:100%;border:none;cursor:pointer;border-radius:17px;padding:16px;font-size:15px;font-weight:700;font-family:inherit;color:#fff;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:6px;background:linear-gradient(180deg,var(--green),var(--pine));box-shadow:0 18px 30px -12px rgba(22,61,42,.6), inset 0 1px 0 rgba(255,255,255,.26);transition:transform .12s ease, box-shadow .12s ease;}
+.aff-login .btn .arrow{width:0;opacity:0;transform:translateX(-4px);overflow:hidden;transition:width .22s ease, opacity .22s ease, transform .22s ease;}
+.aff-login .btn:hover{box-shadow:0 22px 36px -12px rgba(22,61,42,.66), inset 0 1px 0 rgba(255,255,255,.3);}
+.aff-login .btn:hover .arrow{width:18px;opacity:1;transform:translateX(0);}
+.aff-login .btn:active{transform:translateY(1px);box-shadow:0 9px 18px -10px rgba(22,61,42,.6), inset 0 1px 0 rgba(255,255,255,.26);}
+.aff-login .btn::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.28) 50%,transparent 62%);transform:translateX(-120%);transition:transform .6s ease;}
+.aff-login .btn:hover::before{transform:translateX(120%);}
+.aff-login .foot{margin-top:24px;font-size:11px;color:var(--muted);letter-spacing:.04em;text-align:center;animation:affRise .9s ease both;animation-delay:.16s;}
+.aff-login .foot b{font-weight:600;color:#6c7d71;}
+.aff-login .btn:focus-visible,.aff-login .toggle:focus-visible{outline:2px solid var(--pine);outline-offset:2px;}
+@keyframes affDrift{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(22px,-18px) scale(1.16);}}
+@keyframes affDrift2{0%,100%{transform:translate(0,0) scale(1.06);}50%{transform:translate(-20px,16px) scale(.9);}}
+@keyframes affPulse{0%,100%{opacity:.42;}50%{opacity:.85;}}
+@keyframes affFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-7px);}}
+@keyframes affRise{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+@media (max-width:380px){.aff-login .logo{width:160px;height:150px;}.aff-login .logo svg{width:158px;height:150px;}.aff-login .title{font-size:29px;}.aff-login .card{padding:24px 20px;}}
+@media (prefers-reduced-motion: reduce){.aff-login *{animation:none !important;transition:none !important;}.aff-login .btn .arrow{width:18px;opacity:1;transform:none;}}
+`;
+const LOGO=`<svg viewBox="0 0 210 200" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="en" x1="0.3" y1="0" x2="0.72" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.45" stop-color="#f2f5f2"/><stop offset="0.78" stop-color="#e3e9e3"/><stop offset="1" stop-color="#ccd4cb"/></linearGradient>
+            <radialGradient id="gl" cx="0.36" cy="0.26" r="0.6"><stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+            <linearGradient id="met" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cdd6da"/><stop offset="0.18" stop-color="#ffffff"/><stop offset="0.42" stop-color="#aab4b9"/><stop offset="0.62" stop-color="#849096"/><stop offset="0.82" stop-color="#aeb8bc"/><stop offset="1" stop-color="#7c878c"/></linearGradient>
+            <filter id="bl" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="3.2"/></filter>
+            <clipPath id="crownN"><path d="M28 44 C29 26 43 18 58 18 C73 18 87 26 88 44 C88 70 80 96 58 100 C36 96 28 70 28 44 Z"/></clipPath>
+            <clipPath id="toothN"><path d="M28 44 C29 26 43 18 58 18 C73 18 87 26 88 44 C88 64 85 82 81 96 C83 124 84 150 81 167 C80 177 73 178 70 168 C66 150 62 130 59 114 C57 108 53 108 51 114 C49 130 45 150 42 167 C39 178 32 177 31 167 C29 150 28 124 30 96 C26 82 27 64 28 44 Z"/></clipPath>
+            <clipPath id="crownI"><path d="M120 44 C120 25 134 17 150 17 C166 17 180 25 180 44 C180 71 173 92 159 98 C153 101 147 101 141 98 C127 92 120 71 120 44 Z"/></clipPath>
+            <clipPath id="post"><path d="M134 116 L166 116 L165 150 C164 166 158 184 150 189 C142 184 136 166 135 150 Z"/></clipPath>
+          </defs>
 
-<div style={{minHeight:"100vh",background:"linear-gradient(160deg,#2f5d49 0%,#0a2e1e 60%,#051a10 100%)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-<div style={{width:"100%",maxWidth:380,display:"flex",flexDirection:"column",alignItems:"center"}}>
-<div style={{textAlign:"center",marginBottom:32}}>
-<div style={{fontSize:64,marginBottom:12}}>{"🦷"}</div>
-<div style={{fontFamily:"'Cormorant Garamond'",fontSize:34,color:"#fff",fontWeight:700,lineHeight:1.1}}>Affonso Odontologia</div>
-<div style={{fontSize:12,color:"rgba(255,255,255,.5)",marginTop:6,letterSpacing:"2px",textTransform:"uppercase"}}>Sistema de Gestão</div>
-<div style={{width:40,height:2,background:"rgba(255,255,255,.2)",margin:"14px auto 0",borderRadius:2}}/>
+          <!-- DENTE NATURAL -->
+          <path d="M28 44 C29 26 43 18 58 18 C73 18 87 26 88 44 C88 64 85 82 81 96 C83 124 84 150 81 167 C80 177 73 178 70 168 C66 150 62 130 59 114 C57 108 53 108 51 114 C49 130 45 150 42 167 C39 178 32 177 31 167 C29 150 28 124 30 96 C26 82 27 64 28 44 Z" fill="url(#en)"/>
+          <g clip-path="url(#toothN)">
+            <ellipse cx="76" cy="120" rx="26" ry="58" fill="#a6b6a8" opacity="0.30" filter="url(#bl)"/>
+            <path d="M55 100 C55 128 54 150 53 166" stroke="#93a394" stroke-opacity="0.42" stroke-width="3" fill="none" filter="url(#bl)"/>
+            <path d="M37 104 C36 128 36 150 37 166" stroke="#aebcae" stroke-opacity="0.3" stroke-width="2" fill="none" filter="url(#bl)"/>
+          </g>
+          <g clip-path="url(#crownN)">
+            <ellipse cx="74" cy="74" rx="30" ry="34" fill="#a6b6a8" opacity="0.36" filter="url(#bl)"/>
+            <ellipse cx="46" cy="38" rx="20" ry="24" fill="url(#gl)" filter="url(#bl)"/>
+            <path d="M52 26 C51 38 51 50 52 60" stroke="#9aaa9b" stroke-opacity="0.4" stroke-width="2.2" fill="none" filter="url(#bl)"/>
+            <path d="M65 26 C66 38 66 50 65 60" stroke="#9aaa9b" stroke-opacity="0.4" stroke-width="2.2" fill="none" filter="url(#bl)"/>
+          </g>
+          <ellipse cx="43" cy="32" rx="5" ry="8" fill="#ffffff" opacity="0.9" transform="rotate(-20 43 32)"/>
+
+          <!-- IMPLANTE -->
+          <path d="M134 116 L166 116 L165 150 C164 166 158 184 150 189 C142 184 136 166 135 150 Z" fill="url(#met)"/>
+          <g clip-path="url(#post)">
+            <path d="M132 124 Q150 129 168 124" fill="none" stroke="#73807f" stroke-width="2.4" stroke-opacity="0.6"/>
+            <path d="M132 122 Q150 127 168 122" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-opacity="0.55"/>
+            <path d="M132 134 Q150 139 168 134" fill="none" stroke="#73807f" stroke-width="2.4" stroke-opacity="0.6"/>
+            <path d="M132 132 Q150 137 168 132" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-opacity="0.55"/>
+            <path d="M132 144 Q150 149 168 144" fill="none" stroke="#73807f" stroke-width="2.4" stroke-opacity="0.6"/>
+            <path d="M132 142 Q150 147 168 142" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-opacity="0.55"/>
+            <path d="M134 154 Q150 159 166 154" fill="none" stroke="#73807f" stroke-width="2.4" stroke-opacity="0.6"/>
+            <path d="M134 152 Q150 157 166 152" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-opacity="0.55"/>
+            <path d="M137 164 Q150 168 163 164" fill="none" stroke="#73807f" stroke-width="2.2" stroke-opacity="0.6"/>
+            <path d="M137 162 Q150 166 163 162" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-opacity="0.5"/>
+            <path d="M141 174 Q150 177 159 174" fill="none" stroke="#73807f" stroke-width="2" stroke-opacity="0.55"/>
+          </g>
+          <rect x="129" y="99" width="42" height="17" rx="5" fill="url(#met)"/>
+          <rect x="129" y="99" width="42" height="4" rx="2.5" fill="#ffffff" opacity="0.5"/>
+          <rect x="129" y="112" width="42" height="3.5" rx="1.8" fill="#5f6c6c" opacity="0.45"/>
+          <path d="M120 44 C120 25 134 17 150 17 C166 17 180 25 180 44 C180 71 173 92 159 98 C153 101 147 101 141 98 C127 92 120 71 120 44 Z" fill="url(#en)"/>
+          <g clip-path="url(#crownI)">
+            <ellipse cx="166" cy="74" rx="30" ry="36" fill="#a6b6a8" opacity="0.38" filter="url(#bl)"/>
+            <ellipse cx="138" cy="36" rx="20" ry="24" fill="url(#gl)" filter="url(#bl)"/>
+            <path d="M144 24 C143 36 143 48 144 58" stroke="#9aaa9b" stroke-opacity="0.4" stroke-width="2.2" fill="none" filter="url(#bl)"/>
+            <path d="M157 24 C158 36 158 48 157 58" stroke="#9aaa9b" stroke-opacity="0.4" stroke-width="2.2" fill="none" filter="url(#bl)"/>
+          </g>
+          <ellipse cx="135" cy="30" rx="5" ry="8" fill="#ffffff" opacity="0.9" transform="rotate(-20 135 30)"/>
+        </svg>`;
+return(
+<div className="aff-login">
+<style dangerouslySetInnerHTML={{__html:STY}} />
+<div className="amb"><span className="a1"/><span className="a2"/><span className="a3"/></div>
+<div className="grain"/>
+<main className="screen">
+<div className="brand">
+<div className="logo"><div className="halo"/><div className="logosvg" dangerouslySetInnerHTML={{__html:LOGO}}/></div>
+<h1 className="title">Affonso Odontologia</h1>
+<div className="eyebrow">Sistema de Gestão</div>
+<div className="rule"><i/><b/><i/></div>
 </div>
-<div style={{background:"rgba(255,255,255,.07)",borderRadius:20,padding:"32px 28px",width:"100%",boxShadow:"0 24px 64px rgba(0,0,0,.4)",border:"1px solid rgba(255,255,255,.1)",boxSizing:"border-box"}}>
-<div style={{display:"flex",flexDirection:"column",gap:14}}>
-<div>
-<label style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",textTransform:"uppercase",letterSpacing:"1px",display:"block",marginBottom:6}}>Usuário</label>
-<input value={l} onChange={function(ev){sl(ev.target.value);}} onKeyDown={function(ev){if(ev.key==="Enter")go();}}
-placeholder="Digite seu usuário"
-style={{width:"100%",background:"rgba(255,255,255,.1)",border:"1.5px solid rgba(255,255,255,.15)",borderRadius:10,padding:"12px 14px",fontSize:14,color:"#fff",outline:"none",boxSizing:"border-box"}}/>
-</div>
-<div>
-<label style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,.5)",textTransform:"uppercase",letterSpacing:"1px",display:"block",marginBottom:6}}>Senha</label>
-<input value={p} onChange={function(ev){sp(ev.target.value);}} onKeyDown={function(ev){if(ev.key==="Enter")go();}}
-type="password" placeholder="••••••••"
-style={{width:"100%",background:"rgba(255,255,255,.1)",border:"1.5px solid rgba(255,255,255,.15)",borderRadius:10,padding:"12px 14px",fontSize:14,color:"#fff",outline:"none",boxSizing:"border-box"}}/>
-</div>
-{e&&<div style={{background:"rgba(244,67,54,.15)",border:"1px solid rgba(244,67,54,.3)",color:"#ff8a80",borderRadius:8,padding:"8px 12px",fontSize:12,textAlign:"center"}}>{e}</div>}
-<button onClick={go} style={{background:"linear-gradient(135deg,#2E7D5A,#2f5d49)",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer",color:"#fff",marginTop:4,boxShadow:"0 4px 16px rgba(0,0,0,.3)"}}>
-Entrar
-</button>
+<div className="card">
+<div className="grp">
+<label htmlFor="aff-user">USUÁRIO</label>
+<div className="field">
+<svg className="ficon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 19.5c.6-3.4 3.3-5.2 6.5-5.2s5.9 1.8 6.5 5.2"/></svg>
+<input id="aff-user" value={l} onChange={function(ev){sl(ev.target.value);}} onKeyDown={function(ev){if(ev.key==="Enter")go();}} type="text" placeholder="Digite seu usuário" autoComplete="username"/>
 </div>
 </div>
-<div style={{marginTop:20,fontSize:11,color:"rgba(255,255,255,.2)",textAlign:"center"}}>
-{"Affonso Odontologia © 2025"}
+<div className="grp">
+<label htmlFor="aff-pass">SENHA</label>
+<div className="field">
+<svg className="ficon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="10.5" width="14" height="9.5" rx="2.4"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+<input id="aff-pass" className="pw" value={p} onChange={function(ev){sp(ev.target.value);}} onKeyDown={function(ev){if(ev.key==="Enter")go();}} type={sw?"text":"password"} placeholder="Sua senha" autoComplete="current-password"/>
+<button type="button" className="toggle" onClick={function(){ssw(!sw);}} aria-label="Mostrar senha"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7"><ellipse cx="12" cy="12" rx="9" ry="6"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg></button>
 </div>
 </div>
+{e&&<div className="err">{e}</div>}
+<button type="button" className="btn" onClick={go}><span>Entrar</span><svg className="arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg></button>
+</div>
+<div className="foot">Acesso restrito à equipe · <b>Affonso Odontologia</b> © 2026</div>
+</main>
 </div>
 );
 }
@@ -8319,8 +8307,7 @@ const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [pontos,setPontos]=useState([]);
-const [feriados,setFeriados]=useState([]);
-const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60,diasUteis:5});
+const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60});
 const [sideOpen,setSideOpen]=useState(false);
 const [fichaPat,setFichaPat]=useState(null);
 const [waUnread,setWaUnread]=useState(0);
@@ -8480,8 +8467,7 @@ if(data.waAutoLog)setWaAutoLog(data.waAutoLog);
 if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
 if(data.pontos?.length)setPontos(data.pontos);
-if(data.feriados)setFeriados(data.feriados);
-if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60,diasUteis:5},data.pontoCfg));
+if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60},data.pontoCfg));
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
 if(data.espera?.length)setEspera(data.espera);
@@ -8699,6 +8685,7 @@ useEffect(function(){
           mergeArr(implMov,sd.implMov,setImplMov,"implMov");
           mergeArr(implCat,sd.implCat,setImplCat,"implCat");
           mergeArr(impl,sd.impl,setImpl,"impl");
+          mergeArr(pontos,sd.pontos,setPontos);
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
           if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
@@ -8709,7 +8696,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,pontoCfg,feriados};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,pontoCfg};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -9051,9 +9038,9 @@ if(user.level===2){
   var hm=now.getHours()*60+now.getMinutes();
   var seg_sex=dow>=1&&dow<=5;
   var sabado=dow===6;
-  var dentro=(seg_sex&&hm>=420&&hm<1260)||(sabado&&hm>=420&&hm<780);
+  var dentro=(seg_sex&&hm>=480&&hm<1200)||(sabado&&hm>=480&&hm<780);
   if(!dentro){
-    var proxMsg=sabado&&hm>=780?"Segunda-feira às 07:00":dow===0?"Segunda-feira às 07:00":hm<420?"hoje às 07:00":"Segunda-feira às 07:00";
+    var proxMsg=sabado&&hm>=780?"Segunda-feira às 08:00":dow===0?"Segunda-feira às 08:00":hm<480?"hoje às 08:00":"Segunda-feira às 08:00";
     return(
       <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#2f5d49,#0a2e1e)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
         <div style={{background:"rgba(255,255,255,.08)",borderRadius:20,padding:"36px 28px",maxWidth:360,width:"100%",textAlign:"center",border:"1px solid rgba(255,255,255,.12)"}}>
@@ -9061,8 +9048,8 @@ if(user.level===2){
           <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:"#fff",marginBottom:8}}>Fora do Horário</div>
           <div style={{fontSize:14,color:"rgba(255,255,255,.7)",marginBottom:20,lineHeight:1.6}}>
             O sistema está disponível:<br/>
-            <strong style={{color:"#fff"}}>Seg–Sex: 07:00 às 21:00</strong><br/>
-            <strong style={{color:"#fff"}}>Sábado: 07:00 às 13:00</strong>
+            <strong style={{color:"#fff"}}>Seg–Sex: 08:00 às 20:00</strong><br/>
+            <strong style={{color:"#fff"}}>Sábado: 08:00 às 13:00</strong>
           </div>
           <div style={{background:"rgba(255,255,255,.1)",borderRadius:10,padding:"10px 16px",fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:24}}>
             Próximo acesso: <strong style={{color:"#fff"}}>{proxMsg}</strong>
@@ -9153,7 +9140,7 @@ return <>
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent}/>}
-      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} feriados={feriados} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
+      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
@@ -9167,10 +9154,10 @@ return <>
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
-    {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users} feriados={feriados}/>}
+    {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users}/>}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientDirtyRef.current=true;setOrientacoes(v);}} user={user}/>}
     {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
-    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog} feriados={feriados} setFeriados={setFeriados}/>}
+    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog}/>}
     </div>
   </div>
 </div>
