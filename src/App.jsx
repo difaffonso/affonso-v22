@@ -5975,7 +5975,7 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
   const meuId=user.id;
   const meusHoje=pontos.filter(function(p){return String(p.uid)===String(meuId)&&p.data===hoje;}).sort(function(a,b){return a.ts<b.ts?-1:1;});
 
-  function registrar(tipo){
+  function registrar(tipo,sub){
     if(busy)return;
     setMsg(null);
     if(!pontoCfg||pontoCfg.ativo===false){setMsg({ok:false,txt:"O controle de ponto está desativado. Avise o administrador."});return;}
@@ -5986,10 +5986,10 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
       var raio=Number(pontoCfg.raio||150);
       if(d>raio){setBusy(false);setMsg({ok:false,txt:"❌ Você está a ~"+d+" m da clínica (limite "+raio+" m). Aproxime-se para registrar."});return;}
       var ag=new Date();
-      var reg={id:Date.now(),uid:meuId,nome:user.name,tipo:tipo,ts:ag.toISOString(),data:hoje,hora:z(ag.getHours())+":"+z(ag.getMinutes()),lat:loc.lat,lng:loc.lng,acc:loc.acc,dist:d};
+      var reg={id:Date.now(),uid:meuId,nome:user.name,tipo:tipo,sub:sub||null,ts:ag.toISOString(),data:hoje,hora:z(ag.getHours())+":"+z(ag.getMinutes()),lat:loc.lat,lng:loc.lng,acc:loc.acc,dist:d};
       setPontos(function(prev){return prev.concat([reg]);});
       setBusy(false);
-      setMsg({ok:true,txt:"✅ "+(tipo==="entrada"?"Entrada":"Saída")+" registrada às "+reg.hora+" — a "+d+" m da clínica."});
+      var lblReg=sub==="almoco"?(tipo==="saida"?"Saída p/ almoço":"Volta do almoço"):(tipo==="entrada"?"Entrada":"Saída");setMsg({ok:true,txt:"✅ "+lblReg+" registrada às "+reg.hora+" — a "+d+" m da clínica."});
     }).catch(function(e){setBusy(false);setMsg({ok:false,txt:"❌ "+(e.message||"Falha ao obter localização")});});
   }
 
@@ -6005,9 +6005,11 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
     {aba==="reg"&&<div style={card}>
       <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:700,color:G.primary,marginBottom:6}}>Olá, {user.name||""}!</div>
       <div style={{fontSize:13,color:G.muted,marginBottom:14}}>Toque para registrar sua entrada ou saída. Sua localização será verificada no momento do registro.</div>
-      <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-        <button disabled={busy} onClick={function(){registrar("entrada");}} style={{flex:1,minWidth:140,border:"none",borderRadius:13,padding:"20px 16px",fontSize:17,fontWeight:800,cursor:busy?"default":"pointer",color:"#fff",background:G.success,opacity:busy?.6:1}}>🟢 Registrar Entrada</button>
-        <button disabled={busy} onClick={function(){registrar("saida");}} style={{flex:1,minWidth:140,border:"none",borderRadius:13,padding:"20px 16px",fontSize:17,fontWeight:800,cursor:busy?"default":"pointer",color:"#fff",background:G.orange,opacity:busy?.6:1}}>🔴 Registrar Saída</button>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <button disabled={busy} onClick={function(){registrar("entrada");}} style={{border:"none",borderRadius:13,padding:"18px 12px",fontSize:15.5,fontWeight:800,lineHeight:1.15,cursor:busy?"default":"pointer",color:"#fff",background:G.success,opacity:busy?.6:1}}>🟢 Registrar Entrada</button>
+        <button disabled={busy} onClick={function(){registrar("saida","almoco");}} style={{border:"none",borderRadius:13,padding:"18px 12px",fontSize:15.5,fontWeight:800,lineHeight:1.15,cursor:busy?"default":"pointer",color:"#fff",background:"#C49A3C",opacity:busy?.6:1}}>🟡 Saída p/ Almoço</button>
+        <button disabled={busy} onClick={function(){registrar("entrada","almoco");}} style={{border:"none",borderRadius:13,padding:"18px 12px",fontSize:15.5,fontWeight:800,lineHeight:1.15,cursor:busy?"default":"pointer",color:"#fff",background:"#2E8C7E",opacity:busy?.6:1}}>🔵 Volta do Almoço</button>
+        <button disabled={busy} onClick={function(){registrar("saida");}} style={{border:"none",borderRadius:13,padding:"18px 12px",fontSize:15.5,fontWeight:800,lineHeight:1.15,cursor:busy?"default":"pointer",color:"#fff",background:G.orange,opacity:busy?.6:1}}>🔴 Registrar Saída</button>
       </div>
       {msg&&<div style={{marginTop:14,borderRadius:10,padding:"11px 14px",fontSize:13.5,fontWeight:600,background:msg.ok?G.accent:"#FDECEA",color:msg.ok?G.primary:G.red,border:"1px solid "+(msg.ok?G.border:"#F5B7B1")}}>{msg.txt}</div>}
 
@@ -6015,8 +6017,8 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
         <div style={{fontSize:12,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>Meus registros de hoje</div>
         {meusHoje.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum registro hoje.</div>:
           meusHoje.map(function(p){return <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:9,background:"#f7faf8",marginBottom:6}}>
-            <span style={{fontSize:16}}>{p.tipo==="entrada"?"🟢":"🔴"}</span>
-            <span style={{fontWeight:700,fontSize:14}}>{p.tipo==="entrada"?"Entrada":"Saída"}</span>
+            <span style={{fontSize:16}}>{p.sub==="almoco"?(p.tipo==="saida"?"🟡":"🔵"):(p.tipo==="entrada"?"🟢":"🔴")}</span>
+            <span style={{fontWeight:700,fontSize:14}}>{p.sub==="almoco"?(p.tipo==="saida"?"Saída p/ almoço":"Volta do almoço"):(p.tipo==="entrada"?"Entrada":"Saída")}</span>
             <span style={{fontSize:14,color:G.text}}>{p.hora}</span>
             <span style={{marginLeft:"auto",fontSize:11,color:G.muted}}>{p.dist!=null?("a "+p.dist+" m"):""}</span>
           </div>;})}
