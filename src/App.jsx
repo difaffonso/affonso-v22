@@ -4274,6 +4274,126 @@ return <div style={{display:"flex",flexDirection:"column",gap:13}}>
 
 
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// COMPARATIVO ANUAL
+// ══════════════════════════════════════════════════════════
+function ComparativoAnual({recs,gastos,dents,dn}){
+const MESES=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const MESESF=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const anoAtual=Number(today().slice(0,4));
+const clin=(gastos&&gastos.clinica)||[];
+const anosData=recs.map(r=>r.date&&r.date.slice(0,4)).concat(clin.map(e=>e.date&&e.date.slice(0,4))).filter(Boolean).map(Number);
+const minAno=anosData.length?Math.min(...anosData):anoAtual;
+const [ano,setAno]=useState(anoAtual);
+const [bruto,setBruto]=useState(true);
+
+const entradas=Array(12).fill(0);
+recs.forEach(r=>{
+  if(!r.paid||r.paid<=0)return;
+  if(dn!=="all"&&r.dentistId!==Number(dn))return;
+  if(!r.date||r.date.slice(0,4)!==String(ano))return;
+  var m=Number(r.date.slice(5,7))-1;
+  if(m<0||m>11)return;
+  entradas[m]+=bruto?r.paid:calcNet(r.paid,r.payment);
+});
+const parcAtivaMes=(e,ym)=>{if(!e.parcelado)return false;var k=(Number(ym.slice(0,4))*12+Number(ym.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));return k>=0&&k<Number(e.parcelas||1);};
+const saidas=Array(12).fill(0);
+for(var mm=0;mm<12;mm++){
+  var ym=ano+"-"+String(mm+1).padStart(2,"0");
+  clin.forEach(function(e){
+    var conta=(e.recorrente&&e.diaVenc)?true:e.parcelado?parcAtivaMes(e,ym):(e.date&&e.date.startsWith(ym));
+    if(conta)saidas[mm]+=Number(e.value||0);
+  });
+}
+const totIn=entradas.reduce((s,v)=>s+v,0);
+const totOut=saidas.reduce((s,v)=>s+v,0);
+const res=totIn-totOut;
+const mesesAtivos=entradas.filter((v,i)=>v>0||saidas[i]>0).length;
+const maxV=Math.max(...entradas,...saidas,1);
+const shiftAno=(d)=>{var n=ano+d;if(n<minAno||n>anoAtual)return;setAno(n);};
+
+return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
+{/* Seletor de ano */}
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+  <button onClick={()=>shiftAno(-1)} disabled={ano<=minAno} style={{border:"1.5px solid "+G.border,background:"var(--surface)",borderRadius:8,padding:"7px 15px",fontWeight:700,cursor:ano<=minAno?"default":"pointer",color:ano<=minAno?G.muted:G.primary,fontSize:18,opacity:ano<=minAno?0.4:1}}>{"<"}</button>
+  <div style={{flex:1,textAlign:"center",fontWeight:700,fontSize:20,color:G.primary,fontFamily:"'Cormorant Garamond'"}}>{ano}</div>
+  <button onClick={()=>shiftAno(1)} disabled={ano>=anoAtual} style={{border:"1.5px solid "+G.border,background:"var(--surface)",borderRadius:8,padding:"7px 15px",fontWeight:700,cursor:ano>=anoAtual?"default":"pointer",color:ano>=anoAtual?G.muted:G.primary,fontSize:18,opacity:ano>=anoAtual?0.4:1}}>{">"}</button>
+</div>
+
+{/* Toggle bruto/liquido */}
+<div style={{display:"flex",gap:0,background:G.bg,borderRadius:9,padding:3}}>
+  {[["Bruto",true],["Líquido",false]].map(([l,val])=>(
+    <button key={l} onClick={()=>setBruto(val)} style={{flex:1,border:"none",borderRadius:7,padding:"7px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:bruto===val?G.primary:"transparent",color:bruto===val?"#fff":G.muted}}>{l}</button>
+  ))}
+</div>
+
+{/* Cards resumo */}
+<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
+  {[["Entradas (ano)",totIn,G.success],["Saídas (ano)",totOut,G.red],["Resultado",res,res>=0?G.success:G.red],["Média/mês",mesesAtivos?totIn/mesesAtivos:0,G.primary]].map(([l,v,c])=>(
+    <div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+      <div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c}}>{cur(v)}</div>
+    </div>
+  ))}
+</div>
+
+{/* Grafico 12 meses */}
+<div style={{background:G.card,borderRadius:12,padding:"16px 12px 10px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+  <div style={{display:"flex",gap:16,justifyContent:"center",marginBottom:14,fontSize:11,fontWeight:600,color:G.muted}}>
+    <span><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:G.success,marginRight:5,verticalAlign:-1}}/>Entrada</span>
+    <span><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:G.red,marginRight:5,verticalAlign:-1}}/>Saída</span>
+  </div>
+  <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:2,height:130,padding:"0 2px"}}>
+    {MESES.map((mn,i)=>(
+      <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,height:"100%",justifyContent:"flex-end"}}>
+        <div style={{display:"flex",alignItems:"flex-end",gap:2,height:"100%",width:"100%",justifyContent:"center"}}>
+          <div style={{width:8,borderRadius:"3px 3px 0 0",background:G.success,height:(entradas[i]?Math.max(entradas[i]/maxV*100,3):0)+"%",transition:"height .4s"}}/>
+          <div style={{width:8,borderRadius:"3px 3px 0 0",background:G.red,height:(saidas[i]?Math.max(saidas[i]/maxV*100,3):0)+"%",transition:"height .4s"}}/>
+        </div>
+        <div style={{fontSize:9,color:G.muted,fontWeight:700}}>{mn}</div>
+      </div>
+    ))}
+  </div>
+</div>
+
+{/* Lista mes a mes */}
+<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+  <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>{"Detalhe mês a mês \u2014 "+ano}</div>
+  {mesesAtivos===0&&<p style={{color:G.muted,fontSize:12}}>Nenhum lançamento neste ano</p>}
+  {MESESF.map((mn,i)=>{
+    if(entradas[i]<=0&&saidas[i]<=0)return null;
+    var saldo=entradas[i]-saidas[i];
+    var sc=saldo>=0?G.success:G.red;
+    return <div key={i} style={{padding:"11px 0",borderBottom:"1px solid "+G.border}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7}}>
+        <span style={{fontWeight:700,fontSize:13.5,textTransform:"capitalize"}}>{mn}</span>
+        <span style={{fontWeight:700,fontSize:13,color:sc}}>{(saldo>=0?"+":"")+cur(saldo)}</span>
+      </div>
+      <div style={{marginBottom:5}}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:G.success,fontWeight:700}}>Entrou</span><span style={{fontWeight:700}}>{cur(entradas[i])}</span></div>
+        <div style={{background:G.border,borderRadius:6,height:7,overflow:"hidden"}}><div style={{height:7,borderRadius:6,background:G.success,width:Math.max(entradas[i]/maxV*100,2)+"%",transition:"width .5s"}}/></div>
+      </div>
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:G.red,fontWeight:700}}>Saiu</span><span style={{fontWeight:700}}>{cur(saidas[i])}</span></div>
+        <div style={{background:G.border,borderRadius:6,height:7,overflow:"hidden"}}><div style={{height:7,borderRadius:6,background:G.red,width:Math.max(saidas[i]/maxV*100,2)+"%",transition:"width .5s"}}/></div>
+      </div>
+    </div>;
+  })}
+  {mesesAtivos>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:12,borderTop:"2px solid "+G.border}}>
+    <span style={{fontWeight:700,fontSize:13}}>Total do ano</span>
+    <div style={{textAlign:"right"}}>
+      <div style={{fontWeight:700,fontSize:12,color:G.success}}>{"Entrou "+cur(totIn)}</div>
+      <div style={{fontWeight:700,fontSize:12,color:G.red}}>{"Saiu "+cur(totOut)}</div>
+      <div style={{fontWeight:800,fontSize:15,marginTop:2,color:res>=0?G.success:G.red}}>{(res>=0?"+":"")+cur(res)}</div>
+    </div>
+  </div>}
+</div>
+
+</div>;
+}
+
+// ══════════════════════════════════════════════════════════
 // FINANCEIRO
 // ══════════════════════════════════════════════════════════
 function Financeiro({recs,setRecs,pats,dents,expenses,gastos,treats,user}){
@@ -4304,6 +4424,7 @@ const mx=Math.max(...byP.map(x=>x.v),1);
 // Para modo diario: navegar dia a dia
 const prevDia=()=>{const d=new Date(dia+"T12:00");d.setDate(d.getDate()-1);setDia(d.toISOString().split("T")[0]);};
 const nextDia=()=>{const d=new Date(dia+"T12:00");d.setDate(d.getDate()+1);setDia(d.toISOString().split("T")[0]);};
+const shiftMes=(delta)=>{const y=Number(mo.slice(0,4)),m=Number(mo.slice(5,7));const d=new Date(y,m-1+delta,1);setMo(d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"));};
 
 // Para modo mensal: agrupar por dia
 const porDia={};
@@ -4330,14 +4451,19 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {/* Toggle mensal/diario */}
 
 <div style={{display:"flex",gap:0,background:G.bg,borderRadius:10,padding:3}}>
-  {[["mensal","📅 Mensal"],["diario","📆 Diário"],["fluxo","📈 Fluxo"]].map(([k,l])=>(
+  {[["mensal","📅 Mensal"],["diario","📆 Diário"],["fluxo","📈 Fluxo"],["anual","📊 Anual"]].map(([k,l])=>(
     <button key={k} onClick={()=>setModo(k)} style={{flex:1,border:"none",borderRadius:8,padding:"9px 4px",fontSize:13,fontWeight:700,cursor:"pointer",background:modo===k?G.primary:G.bg,color:modo===k?"#fff":G.muted,transition:"all .15s"}}>{l}</button>
   ))}
 </div>
 
 {/* Seletor de periodo */}
 {modo==="mensal"&&(
-<Inp val={mo} set={setMo} type="month" style={{width:"100%"}}/>
+  <div style={{display:"flex",alignItems:"center",gap:8}}>
+    <button onClick={()=>shiftMes(-1)} style={{border:"1.5px solid "+G.border,background:"var(--surface)",borderRadius:8,padding:"7px 13px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{"<"}</button>
+    <input type="month" value={mo} onChange={e=>setMo(e.target.value)} style={{flex:1,border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",textAlign:"center"}}/>
+    <button onClick={()=>shiftMes(1)} style={{border:"1.5px solid "+G.border,background:"var(--surface)",borderRadius:8,padding:"7px 13px",fontWeight:700,cursor:"pointer",color:G.primary,fontSize:16}}>{">"}</button>
+    <button onClick={()=>setMo(today().slice(0,7))} style={{border:"1.5px solid "+G.border,background:mo===today().slice(0,7)?G.primary:"var(--card)",color:mo===today().slice(0,7)?"#fff":G.primary,borderRadius:8,padding:"7px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>Atual</button>
+  </div>
 )}
 {modo==="diario"&&(
 
@@ -4351,10 +4477,11 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 {/* Fluxo de caixa: projecao 12 meses (somente leitura) */}
 {modo==="fluxo"&&<FluxoCaixa recs={recs} treats={treats} pats={pats} dents={dents} gastos={gastos} dn={dn}/>}
+{modo==="anual"&&<ComparativoAnual recs={recs} gastos={gastos} dents={dents} dn={dn}/>}
 
 {/* Cards resumo */}
 
-{modo!=="fluxo"&&<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
+{modo!=="fluxo"&&modo!=="anual"&&<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
   {[["Receita Bruta",raw,G.primary],["Receita Líquida",liq,G.success],["Gastos Clínica",clinicExp,G.red],["Resultado",liq-clinicExp,liq-clinicExp>=0?G.success:G.red]].map(([l,v,c])=>(
     <div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
       <div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div>
@@ -4364,7 +4491,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>}
 
 {/* Por forma de pagamento */}
-{modo!=="fluxo"&&byP.length>0&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+{modo!=="fluxo"&&modo!=="anual"&&byP.length>0&&<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
 
   <div style={{fontWeight:700,marginBottom:11,fontSize:13}}>Por Forma de Pagamento</div>
   {byP.map(({pt,v})=><div key={pt} style={{marginBottom:10}}>
