@@ -9559,13 +9559,16 @@ const remBadge=(user.level===1)
 const prosBadge=pros.filter(p=>p.due===today()&&p.status==="waiting").length;
 
 const ALL_NAV=[
-{id:"dash",l:"Visão Geral",ic:"ph-house",lv:3},{id:"agenda",l:"Agenda",ic:"ph-calendar-blank",lv:1},{id:"ponto",l:"Ponto",ic:"ph-clock",lv:1},
-{id:"pacs",l:"Pacientes",ic:"ph-users",lv:1},{id:"remarcar",l:"Remarcar",ic:"ph-arrows-clockwise",lv:2},{id:"pros",l:"Próteses",ic:"ph-first-aid-kit",lv:2,b:prosBadge},
-{id:"impl",l:"Implantes",ic:"ph-syringe",lv:2},{id:"lems",l:"Lembretes",ic:"ph-bell",lv:1,b:remBadge},{id:"conversas",l:"Conversas",ic:"ph-chat-circle",lv:2,b:waUnread},{id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2},
-{id:"fin",l:"Financeiro",ic:"ph-wallet",lv:3},{id:"pixdent",l:"Pix Dentistas",ic:"ph-hand-coins",lv:1},{id:"rel",l:"Relatórios",ic:"ph-chart-bar",lv:2},
-{id:"desp",l:"Gastos",ic:"ph-receipt",lv:3},{id:"stk",l:"Estoque",ic:"ph-package",lv:2},
-{id:"caixa",l:"Caixa",ic:"ph-cash-register",lv:2},
-{id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1},{id:"pdent",l:"Recebimentos",ic:"ph-currency-dollar",lv:1},{id:"audit",l:"Auditoria",ic:"ph-magnifying-glass",lv:3},{id:"adm",l:"Administrativo",ic:"ph-gear",lv:3},
+// Rotina
+{id:"dash",l:"Visão Geral",ic:"ph-house",lv:3,grp:"Rotina"},{id:"agenda",l:"Agenda",ic:"ph-calendar-blank",lv:1,grp:"Rotina"},{id:"pacs",l:"Pacientes",ic:"ph-users",lv:1,grp:"Rotina"},
+{id:"lems",l:"Lembretes",ic:"ph-bell",lv:1,b:remBadge,grp:"Rotina"},{id:"conversas",l:"Conversas",ic:"ph-chat-circle",lv:2,b:waUnread,grp:"Rotina"},{id:"remarcar",l:"Remarcar",ic:"ph-arrows-clockwise",lv:2,grp:"Rotina"},
+{id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2,grp:"Rotina"},{id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1,grp:"Rotina"},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1,grp:"Rotina"},{id:"ponto",l:"Ponto",ic:"ph-clock",lv:1,grp:"Rotina"},
+// Clínico
+{id:"pros",l:"Próteses",ic:"ph-first-aid-kit",lv:2,b:prosBadge,grp:"Clínico"},{id:"impl",l:"Implantes",ic:"ph-syringe",lv:2,grp:"Clínico"},{id:"stk",l:"Estoque",ic:"ph-package",lv:2,grp:"Clínico"},
+// Financeiro
+{id:"caixa",l:"Caixa",ic:"ph-cash-register",lv:2,grp:"Financeiro"},{id:"fin",l:"Financeiro",ic:"ph-wallet",lv:3,grp:"Financeiro"},{id:"pixdent",l:"Pix Dentistas",ic:"ph-hand-coins",lv:1,grp:"Financeiro"},{id:"pdent",l:"Recebimentos",ic:"ph-currency-dollar",lv:1,grp:"Financeiro"},{id:"desp",l:"Gastos",ic:"ph-receipt",lv:3,grp:"Financeiro"},
+// Gestão
+{id:"rel",l:"Relatórios",ic:"ph-chart-bar",lv:2,grp:"Gestão"},{id:"audit",l:"Auditoria",ic:"ph-magnifying-glass",lv:3,grp:"Gestão"},{id:"adm",l:"Administrativo",ic:"ph-gear",lv:3,grp:"Gestão"},
 ];
 const NAV=ALL_NAV.filter(n=>n.lv<=user.level);
 const go=v=>{
@@ -9605,10 +9608,13 @@ return <>
       <button onClick={()=>setSideOpen(false)} style={{border:"none",background:"var(--surface)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",borderRadius:8,color:"var(--text)",fontSize:15,cursor:"pointer",padding:"5px 9px",lineHeight:1}} className="sidebar-close-btn"><i className="ph ph-x"></i></button>
     </div>
     <div className="sidebar-scroll" style={{flex:1,overflowY:"auto",minHeight:0,display:"flex",flexDirection:"column",gap:2}}>
-    {NAV.map(n=><button key={n.id} onClick={()=>go(n.id)} style={{background:"var(--surface)",boxShadow:view===n.id?"inset 4px 4px 9px var(--nm-dark),inset -4px -4px 9px var(--nm-light)":"none",border:"none",borderRadius:11,padding:"10px 12px",cursor:"pointer",color:view===n.id?"var(--primary)":"var(--text)",fontFamily:"'Manrope'",fontWeight:view===n.id?700:600,fontSize:12.5,display:"flex",alignItems:"center",gap:10,textAlign:"left",transition:"box-shadow .15s"}}>
+    {NAV.map((n,i)=>[
+      (i===0||NAV[i-1].grp!==n.grp)&&n.grp?<div key={"grp_"+n.grp} style={{fontSize:10,fontWeight:700,letterSpacing:".6px",textTransform:"uppercase",color:"var(--muted)",padding:i===0?"2px 8px 4px 6px":"12px 8px 4px 6px",display:"flex",alignItems:"center",gap:7}}><span style={{width:4,height:4,borderRadius:"50%",background:"var(--primary)",opacity:.55,flexShrink:0}}></span>{n.grp}<span style={{flex:1,height:1,background:"var(--border)"}}></span></div>:null,
+      <button key={n.id} onClick={()=>go(n.id)} style={{background:"var(--surface)",boxShadow:view===n.id?"inset 4px 4px 9px var(--nm-dark),inset -4px -4px 9px var(--nm-light)":"none",border:"none",borderRadius:11,padding:"10px 12px",cursor:"pointer",color:view===n.id?"var(--primary)":"var(--text)",fontFamily:"'Manrope'",fontWeight:view===n.id?700:600,fontSize:12.5,display:"flex",alignItems:"center",gap:10,textAlign:"left",transition:"box-shadow .15s"}}>
       <i className={(view===n.id?"ph-fill ":"ph-light ")+n.ic} style={{fontSize:17,color:view===n.id?"var(--primary)":"var(--text)"}}></i><span style={{flex:1}}>{n.l}</span>
       {n.b>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>{n.b}</span>}
-    </button>)}
+    </button>
+    ])}
     </div>
     <div style={{flexShrink:0,borderTop:"1px solid var(--border)",paddingTop:10,marginTop:6}}>
       <div style={{fontSize:10,color:"var(--muted)",marginBottom:4,paddingLeft:3}}>{user.name}</div>
