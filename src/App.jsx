@@ -303,6 +303,10 @@ setLogs(function(prev){return[entry,...prev].slice(0,500);});
 };
 const isBday=d=>{if(!d)return false;return d.slice(5)===today().slice(5);};
 const mo6=d=>{const x=new Date(d+"T12:00");x.setMonth(x.getMonth()+6);return x.toISOString().split("T")[0];};
+const moN=(d,n)=>{const x=new Date(d+"T12:00");x.setMonth(x.getMonth()+(Number(n)||6));return x.toISOString().split("T")[0];};
+const retMonths=p=>{var m=p&&Number(p.retMeses);return (m&&m>0)?m:6;};
+const retDue=(p,lastDate)=>{if(!lastDate)return null;if(p&&p.retData&&p.retData>=lastDate)return p.retData;return moN(lastDate,retMonths(p));};
+const retLabel=(p,lastDate)=>{if(p&&p.retData&&(!lastDate||p.retData>=lastDate))return "Controle "+fmt(p.retData);var m=retMonths(p);return m===6?"Semestral":("Controle "+m+" meses");};
 const calcNet=(v,p)=>p==="Cartão Crédito"?v*0.965:p==="Cartão Débito"?v*0.98:v;
 const wa=(ph,msg)=>{const n=(ph||"").replace(/\D/g,"");const u="https://wa.me/"+(n.startsWith("55")?n:"55"+n)+"?text="+encodeURIComponent(msg);const a=document.createElement("a");a.href=u;a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);};
 const age=dob=>{if(!dob)return"";const d=new Date(dob+"T12:00");const a=new Date();let y=a.getFullYear()-d.getFullYear();if(a.getMonth()<d.getMonth()||(a.getMonth()===d.getMonth()&&a.getDate()<d.getDate()))y--;return y+" anos";};
@@ -397,7 +401,7 @@ function autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user){
     }
     // semestral vencido, sem agendamento futuro e nao tratado
     var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
-    if(lastRec&&mo6(lastRec.date)<=t){
+    if(lastRec&&retDue(p,lastRec.date)<=t){
       var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
       var tratado=st[p.id]&&st[p.id].done;
       if(!futura&&!tratado)n++;
@@ -422,7 +426,7 @@ const t=today(),y=yest(),tm=tom();const out=[];
 pats.forEach(p=>{
 if(isBday(p.dob))out.push({id:`b${p.id}`,title:`🎂 Aniversário -- ${p.name}`,desc:"Hoje é aniversário! Enviar parabéns.",date:t,priority:"medium",done:false,patientId:p.id,type:"bday"});
 const lr=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
-if(lr&&lr.paid>0&&mo6(lr.date)<=t)out.push({id:`s${p.id}`,title:`📅 Semestral -- ${p.name}`,desc:`Último atend: ${fmt(lr.date)}`,date:t,priority:"medium",done:false,patientId:p.id,type:"semi"});
+if(lr&&lr.paid>0&&retDue(p,lr.date)<=t)out.push({id:`s${p.id}`,title:`📅 ${retLabel(p,lr.date)} -- ${p.name}`,desc:`Último atend: ${fmt(lr.date)}`,date:t,priority:"medium",done:false,patientId:p.id,type:"semi"});
 const surg=recs.find(r=>r.patientId===p.id&&r.procedure==="Cirurgia"&&r.date===y);
 if(surg)out.push({id:`c${p.id}`,title:`🔴 Pós-Cirurgia -- ${p.name}`,desc:`Cirurgia ontem (D.${surg.tooth}).`,date:t,priority:"high",done:false,patientId:p.id,type:"surg"});
 });
@@ -843,6 +847,8 @@ const [recEdit,setRecEdit]=useState(null);
 const blankR={date:today(),procedure:"",tooth:"",dentistId:user.dentistId||dents[0]?.id||1,obs:"",rx:"",paid:"",payment:"Dinheiro",closed:false,inst:1,instM:[]};
 const [rf,setRf]=useState(blankR);
 const upR=k=>v=>setRf(p=>({...p,[k]:v}));
+const [retOpen,setRetOpen]=useState(false);
+const setRet=patch=>setPats(prev=>prev.map(x=>x.id===pat.id?{...x,...patch}:x));
 
 // Treatment modal
 const [treatModal,setTreatModal]=useState(false);
@@ -1487,6 +1493,43 @@ return <>
             <div style={{fontSize:13,fontWeight:700,color:G.yellow}}>📅 Sem consulta futura agendada</div>
             <div style={{fontSize:12,color:G.muted,marginTop:2}}>Este paciente não tem retorno marcado.</div>
           </div>}
+        {(function(){
+          var lp=patRecs.find(function(r){return Number(r.paid)>0;});
+          var due=lp?retDue(pat,lp.date):null;
+          var lbl=retLabel(pat,lp?lp.date:null);
+          var mm=retMonths(pat);
+          var chip=function(val,txt){var on=(!pat.retData&&mm===val);return <button key={txt} onClick={function(){setRet({retMeses:val,retData:""});}} style={{border:"1.5px solid "+(on?G.success:G.border),background:on?G.success:"var(--surface)",color:on?"#fff":G.text,borderRadius:20,padding:"5px 13px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{txt}</button>;};
+          return <div style={{background:"var(--green-soft)",border:"1.5px solid "+G.success,borderRadius:12,padding:"11px 14px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:11,fontWeight:700,color:G.success,textTransform:"uppercase",letterSpacing:".5px"}}>📅 Próximo Retorno</div>
+                <div style={{fontSize:13,color:G.text,marginTop:2}}>{due?(<span><strong>{fmt(due)}</strong> · {lbl}{pat.retMotivo?(" · "+pat.retMotivo):""}</span>):"Sem atendimento pago registrado ainda"}</div>
+              </div>
+              <button onClick={function(){setRetOpen(function(v){return !v;});}} style={{border:"1.5px solid "+G.success,background:"transparent",color:G.success,borderRadius:8,padding:"6px 13px",fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0}}>{retOpen?"Fechar":"Editar"}</button>
+            </div>
+            {retOpen&&<div style={{display:"flex",flexDirection:"column",gap:11,marginTop:11,paddingTop:11,borderTop:"1px solid "+G.success+"55"}}>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Prazo a partir da última consulta</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{chip(3,"3 meses")}{chip(6,"6 meses")}{chip(12,"12 meses")}</div>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <span style={{fontSize:12,color:G.muted,fontWeight:600}}>Outro:</span>
+                <input type="number" min="1" value={pat.retData?"":(pat.retMeses?String(pat.retMeses):"")} onChange={function(e){var v=e.target.value;setRet({retMeses:v?Number(v):"",retData:""});}} placeholder={String(mm)} style={{width:66,border:"1.5px solid "+G.border,borderRadius:8,padding:"6px 8px",fontSize:13,outline:"none"}}/>
+                <span style={{fontSize:12,color:G.muted}}>meses</span>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <span style={{fontSize:12,color:G.muted,fontWeight:600}}>Ou data exata:</span>
+                <input type="date" value={pat.retData||""} onChange={function(e){setRet({retData:e.target.value});}} style={{border:"1.5px solid "+(pat.retData?G.success:G.border),borderRadius:8,padding:"6px 8px",fontSize:13,outline:"none",background:"var(--surface)"}}/>
+                {pat.retData?<button onClick={function(){setRet({retData:""});}} style={{border:"none",background:"none",color:G.red,fontSize:12,fontWeight:700,cursor:"pointer"}}>limpar</button>:null}
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Motivo (opcional)</label>
+                <input value={pat.retMotivo||""} onChange={function(e){setRet({retMotivo:e.target.value});}} placeholder="Ex: acompanhar enxerto, controle de clareamento..." style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:13,outline:"none"}}/>
+              </div>
+              <div style={{fontSize:11,color:G.muted,lineHeight:1.5}}>{due?("O alerta de retorno vai aparecer em "+fmt(due)+" como ("+lbl+(pat.retMotivo?(" - "+pat.retMotivo):"")+")."):("Assim que houver um atendimento pago, o retorno é calculado automaticamente ("+(pat.retData?("data fixa "+fmt(pat.retData)):(mm+" meses"))+").")}</div>
+            </div>}
+          </div>;
+        })()}
         <div>
           <div style={{fontSize:11,color:G.muted,fontWeight:700,marginBottom:5}}>{since?("FREQUÊNCIA NO TRATAMENTO ATUAL (desde "+fmt(since)+")"):"FREQUÊNCIA (HISTÓRICO COMPLETO)"}</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
@@ -3818,7 +3861,7 @@ const semAtras2=pats.filter(function(p){
 var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
 if(!lastRec)return false; // never attended = don't show yet
 // Show when today >= lastRec date + 6 months
-if(mo6(lastRec.date)>t2)return false;
+if(retDue(p,lastRec.date)>t2)return false;
 // Exclui quem ja tem agendamento futuro (igual ao Relatorio)
 var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t2&&a.status!=="cancelled"&&a.status!=="missed";});
 if(futura)return false;
@@ -3961,14 +4004,14 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
     {pendSem.map(p=>{
       const lastRec=recs.filter(r=>r.patientId===p.id&&r.paid>0).sort((a,b)=>b.date.localeCompare(a.date))[0];
       const dias=lastRec?Math.floor((new Date(t2)-new Date(lastRec.date+"T12:00"))/86400000):null;
-      const sixMonthsDate=lastRec?mo6(lastRec.date):null;
+      const sixMonthsDate=lastRec?retDue(p,lastRec.date):null;
       const mesesPassados=lastRec?Math.floor(dias/30):null;
       return <div key={p.id} style={{background:'var(--card)',borderRadius:10,padding:'10px 12px',marginBottom:7,border:'1px solid #A5D6A7',display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontWeight:700,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
           <div style={{fontSize:11,color:G.muted}}>Última consulta: <strong>{lastRec?fmt(lastRec.date):'--'}</strong></div>
           <div style={{fontSize:11,color:G.orange,fontWeight:600}}>{dias?('⏰ '+mesesPassados+' meses atrás ('+dias+' dias)'):''}</div>
-          {sixMonthsDate&&<div style={{fontSize:10,color:G.muted}}>Semestral venceu em: {fmt(sixMonthsDate)}</div>}
+          {sixMonthsDate&&<div style={{fontSize:10,color:G.muted}}>{retLabel(p,lastRec&&lastRec.date)} venceu em: {fmt(sixMonthsDate)}</div>}
         </div>
         <div style={{display:'flex',gap:5,flexShrink:0}}>
           {p.phone&&<button onClick={()=>sendWA2(p.phone,'Ola, '+p.name+'! Ja faz um tempo desde sua ultima consulta. Que tal agendar sua revisao semestral? Affonso Odontologia')} style={{background:'#25D366',color:'#fff',border:'none',borderRadius:8,padding:'5px 9px',fontSize:11,fontWeight:700,cursor:'pointer'}}>WA</button>}
@@ -4721,7 +4764,7 @@ const semestral=pats.filter(function(p){
 var last=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
 if(!last)return false; // no record = don't show
 // Show on the exact day that completes 6 months
-var sixMonthsAfter=mo6(last.date);
+var sixMonthsAfter=retDue(p,last.date);
 if(sixMonthsAfter>t)return false;
 var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
 if(futura)return false;
@@ -4785,7 +4828,7 @@ return <div style={{background:overdue||todayB?"var(--red-soft)":G.card,borderRa
 const sections=[
 {id:"bday_week",label:"🎂 Aniversariantes esta semana",col:G.gold,list:bdayWeek,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
 {id:"bday_month",label:"🎉 Aniversariantes este mês",col:G.gold,list:bdayMonth,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
-{id:"semestral",label:"📅 Controle Semestral",col:G.orange,list:semestral,sub:"Mais de 6 meses sem atendimento",extra:p=>{const l=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];return`Último atend: ${fmt(l?.date)}`;},wa:waSemestral},
+{id:"semestral",label:"📅 Controle Semestral",col:G.orange,list:semestral,sub:"Mais de 6 meses sem atendimento",extra:p=>{const l=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];var _lb=retLabel(p,l&&l.date);return (_lb!=="Semestral"?_lb+" · ":"")+"Último atend: "+fmt(l&&l.date);},wa:waSemestral},
 {id:"sem_ret",label:"⚠️ Em tratamento sem agendamento",col:G.red,list:semRetorno,sub:"Plano ativo sem consulta futura",extra:x=>{const pend=x.items.filter(i=>!i.done).length;return`Plano: ${x.name} · ${pend} proc. pendente${pend>1?"s":""}`;},wa:waSemRet,isTreat:true},
 {id:"new_pats",label:"✨ Novos pacientes no mês",col:G.primary,list:newPats,extra:()=>"",wa:null},
 ];
@@ -8003,7 +8046,7 @@ function pacCoberto(pid){return (_pagoByPac[pid]||0)>=((_realByPac[pid]||0)-0.5)
 var baixaPend=appts.filter(function(a){return a.status==="done"&&Number(a.value)>0&&a.date<=ont&&a.date>=d14&&!hasBaixa(a)&&!pacCoberto(a.patientId);}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Atendimento")+" em "+fmt(a.date)+" · "+cur(a.value)+" sem baixa",key:"baixa_"+a.id};});
 
 // 7. Controle semestral (+6 meses sem consulta, sem agendamento)
-var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(mo6(last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:"Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias",key:"sem_"+p.id};});
+var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(retDue(p,last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:(retLabel(p,last.date)!=="Semestral"?retLabel(p,last.date)+" · ":"")+"Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias",key:"sem_"+p.id};});
 
 // 8. Lista de espera vencendo/vencida
 var esperaVenc=(espera||[]).filter(function(e){return e.valido&&e.valido<=amanha;}).sort(function(a,b){return a.valido.localeCompare(b.valido);}).map(function(e){return {nome:e.patName||nomeP(e.patientId),det:(e.proc||"")+" · "+(e.valido<t?"VENCIDO em "+fmt(e.valido):e.valido===t?"vence HOJE":"vence amanhã"),key:"espera_"+(e.id||e.patientId)};});
@@ -9159,7 +9202,7 @@ if(cfg.semestral){
 if(!p.phone)return;
 var last=(D.recs||[]).filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
 if(!last)return;
-if(mo6(last.date)>t)return;
+if(retDue(p,last.date)>t)return;
 var fut=(D.appts||[]).find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
 if(fut)return;
 var d=dOf(last.dentistId);
