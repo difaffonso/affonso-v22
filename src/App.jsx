@@ -18,6 +18,32 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
 ,async sendPortalAction(token,action){if(!SUPA_URL)return {ok:false};try{const r=await fetch(SUPA_URL+"/rest/v1/portal_actions",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,action:action})});return {ok:r.ok};}catch(e){return {ok:false};}}
 ,async fetchPortalActions(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-3*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/portal_actions?created_at=gte."+encodeURIComponent(since)+"&select=token,action,created_at&order=created_at.desc&limit=300",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
 };
+// ── PONTO: gravacao imediata e segura de uma batida (evita corrida entre aparelhos) ──
+// Grava direto no servidor em cima da versao mais fresca, com trava otimista por
+// updated_at (so grava se ninguem gravou no meio) e reencaixa a batida ate confirmar.
+async function pushPontoSupabase(reg){
+  if(!SUPA_URL||!reg)return false;
+  for(var attempt=0;attempt<6;attempt++){
+    try{
+      var full=await supabase.loadFull();
+      if(full&&full.data){
+        var base=full.data;
+        var srvP=Array.isArray(base.pontos)?base.pontos:[];
+        if(srvP.some(function(p){return p&&String(p.id)===String(reg.id);}))return true;
+        base.pontos=srvP.concat([reg]);
+        var ts0=full.updated_at||null;
+        var url=SUPA_URL+"/rest/v1/clinic_data?id=eq.main"+(ts0?("&updated_at=eq."+encodeURIComponent(ts0)):"");
+        var r=await fetch(url,{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({data:base,updated_at:new Date().toISOString()})});
+        if(r.ok){
+          var rows=[];try{rows=await r.json();}catch(e){rows=[];}
+          if(rows&&rows.length)return true;
+        }
+      }
+    }catch(e){}
+    await new Promise(function(res){setTimeout(res,300+attempt*250);});
+  }
+  return false;
+}
 const G = {
 bg:"var(--bg)",card:"var(--card)",primary:"var(--primary)",accent:"var(--accent)",accentDark:"var(--nm-dark)",
 text:"var(--text)",muted:"var(--muted)",red:"var(--red)",yellow:"var(--yellow)",blue:"var(--blue)",
@@ -6206,6 +6232,7 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
       var ag=new Date();
       var reg={id:Date.now(),uid:meuId,nome:user.name,tipo:tipo,sub:sub||null,ts:ag.toISOString(),data:hoje,hora:z(ag.getHours())+":"+z(ag.getMinutes()),lat:loc.lat,lng:loc.lng,acc:loc.acc,dist:d};
       setPontos(function(prev){return prev.concat([reg]);});
+      pushPontoSupabase(reg);
       setBusy(false);
       var lblReg=sub==="almoco"?(tipo==="saida"?"Saída p/ almoço":"Volta do almoço"):(tipo==="entrada"?"Entrada":"Saída");setMsg({ok:true,txt:"✅ "+lblReg+" registrada às "+reg.hora+" — a "+d+" m da clínica."});
     }).catch(function(e){setBusy(false);setMsg({ok:false,txt:"❌ "+(e.message||"Falha ao obter localização")});});
@@ -9194,6 +9221,7 @@ useEffect(function(){
       addArr(sd.pros,setPros,"pros");
       addArr(sd.rems,setRems,"rems");
       addArr(sd.logs,setLogs);
+      addArr(sd.pontos,setPontos);
       if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
       if(sd.gastos){var _dgp={};(delGastosRef.current||[]).forEach(function(k){_dgp[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgp);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
       if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
