@@ -5495,7 +5495,55 @@ function ImportWizard({pats,setPats}){
 }
 
 
-function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog}){
+function ConfigAcesso({acessoCfg,setAcessoCfg}){
+  var C=acessoCfg||{};
+  function up(patch){setAcessoCfg(function(prev){return Object.assign({},prev,patch);});}
+  var restr=C.restringir!==false;
+  var domOn=!!C.domOn;
+  var card={background:G.card,borderRadius:14,padding:"16px 18px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",border:"1px solid "+G.border,marginBottom:16};
+  var lbl={fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",display:"block",marginBottom:6};
+  var tinp={width:"100%"};
+  var togBase={display:"flex",gap:10,alignItems:"center",fontSize:14,fontWeight:600,cursor:"pointer",padding:"11px 13px",borderRadius:12,background:"var(--surface)",boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px var(--nm-light)"};
+  var dayname={fontSize:13,fontWeight:800,color:G.text,marginBottom:9};
+  var rowS={display:"flex",gap:12,alignItems:"flex-end",marginBottom:15,opacity:restr?1:.4,pointerEvents:restr?"auto":"none"};
+  var dash={alignSelf:"center",color:G.muted,fontWeight:800,paddingBottom:2};
+  return <div style={card}>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:700,color:G.primary,marginBottom:4}}>Acesso da Recepção</div>
+    <div style={{fontSize:12.5,color:G.muted,marginBottom:16,lineHeight:1.5}}>Define <b>em quais horários a Recepção/Secretária consegue entrar</b> no sistema. Você (admin) e os dentistas nunca são bloqueados. Salva sozinho e vale em todos os aparelhos.</div>
+    <label style={Object.assign({marginBottom:14},togBase)}>
+      <input type="checkbox" checked={restr} onChange={function(e){up({restringir:e.target.checked});}} style={{width:17,height:17,accentColor:G.primary}}/>
+      <span>Restringir horário de acesso<br/><small style={{fontWeight:500,fontSize:11.5,color:G.muted}}>Se desligar, a Recepção acessa a qualquer hora, todo dia.</small></span>
+    </label>
+    <div>
+      <div style={dayname}>Segunda a Sexta</div>
+      <div style={rowS}>
+        <div style={{flex:1,minWidth:0}}><label style={lbl}>Abre às</label><input type="time" value={C.segIni||"07:00"} onChange={function(e){up({segIni:e.target.value});}} style={tinp}/></div>
+        <div style={dash}>&ndash;</div>
+        <div style={{flex:1,minWidth:0}}><label style={lbl}>Fecha às</label><input type="time" value={C.segFim||"21:00"} onChange={function(e){up({segFim:e.target.value});}} style={tinp}/></div>
+      </div>
+      <div style={dayname}>Sábado</div>
+      <div style={rowS}>
+        <div style={{flex:1,minWidth:0}}><label style={lbl}>Abre às</label><input type="time" value={C.sabIni||"07:00"} onChange={function(e){up({sabIni:e.target.value});}} style={tinp}/></div>
+        <div style={dash}>&ndash;</div>
+        <div style={{flex:1,minWidth:0}}><label style={lbl}>Fecha às</label><input type="time" value={C.sabFim||"13:00"} onChange={function(e){up({sabFim:e.target.value});}} style={tinp}/></div>
+      </div>
+      <div style={{height:1,background:G.border,margin:"6px 0 14px"}}></div>
+      <label style={Object.assign({marginBottom:14,opacity:restr?1:.4,pointerEvents:restr?"auto":"none"},togBase)}>
+        <input type="checkbox" checked={domOn} onChange={function(e){up({domOn:e.target.checked});}} style={{width:17,height:17,accentColor:G.primary}}/>
+        <span>Liberar aos Domingos<br/><small style={{fontWeight:500,fontSize:11.5,color:G.muted}}>Fica fechado por padrão. Ligue se precisar abrir.</small></span>
+      </label>
+      <div style={{display:"flex",gap:12,alignItems:"flex-end",marginBottom:8,opacity:(restr&&domOn)?1:.4,pointerEvents:(restr&&domOn)?"auto":"none"}}>
+        <div style={{flex:1,minWidth:0}}><label style={lbl}>Abre às</label><input type="time" value={C.domIni||"08:00"} onChange={function(e){up({domIni:e.target.value});}} style={tinp}/></div>
+        <div style={dash}>&ndash;</div>
+        <div style={{flex:1,minWidth:0}}><label style={lbl}>Fecha às</label><input type="time" value={C.domFim||"12:00"} onChange={function(e){up({domFim:e.target.value});}} style={tinp}/></div>
+      </div>
+    </div>
+    <div style={{display:"flex",gap:9,fontSize:12,color:G.muted,lineHeight:1.5,background:"var(--green-soft)",borderRadius:10,padding:"11px 13px",marginTop:8}}>
+      <span>🛡️</span><span>Bloqueia apenas o <b>login da Recepção</b>. Seu acesso de administrador continua liberado 24h.</span>
+    </div>
+  </div>;
+}
+function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog,acessoCfg,setAcessoCfg}){
 const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
 const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
 const TIPO_L_LOG={all:"Todos",agenda:"Agenda",paciente:"Paciente",financeiro:"Financeiro",estoque:"Estoque",protese:"Protese",lembrete:"Lembrete",remarcar:"Remarcar",admin:"Admin"};
@@ -5683,7 +5731,7 @@ return <div>
 );
 })}
 </div>}
-{tab==="access"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+{tab==="access"&&<div style={{display:"flex",flexDirection:"column",gap:14}}><ConfigAcesso acessoCfg={acessoCfg} setAcessoCfg={setAcessoCfg}/>
 <div style={{background:G.accent,borderRadius:12,padding:"10px 14px",fontSize:12,color:G.primary}}>
 {"Defina as permissões de cada nível. Itens em cinza são fixos do sistema."}
 </div>
@@ -8436,6 +8484,7 @@ const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [pontos,setPontos]=useState([]);
 const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60});
+const [acessoCfg,setAcessoCfg]=useState({restringir:true,segIni:"07:00",segFim:"21:00",sabIni:"07:00",sabFim:"13:00",domOn:false,domIni:"08:00",domFim:"12:00"});
 const [sideOpen,setSideOpen]=useState(false);
 const [fichaPat,setFichaPat]=useState(null);
 const [waUnread,setWaUnread]=useState(0);
@@ -8596,6 +8645,7 @@ if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
 if(data.pontos?.length)setPontos(data.pontos);
 if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60},data.pontoCfg));
+if(data.acessoCfg)setAcessoCfg(Object.assign({restringir:true,segIni:"07:00",segFim:"21:00",sabIni:"07:00",sabFim:"13:00",domOn:false,domIni:"08:00",domFim:"12:00"},data.acessoCfg));
 if(data.logs?.length)setLogs(data.logs);
 if(data.remarcar?.length)setRemarcar(data.remarcar);
 if(data.espera?.length)setEspera(data.espera);
@@ -8824,7 +8874,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,pontoCfg};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,pontoCfg,acessoCfg};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -8884,7 +8934,7 @@ useEffect(function(){
       isSaving.current=false;
     }
   },800);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,pontoCfg]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,pontoCfg,acessoCfg]);
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -9159,35 +9209,52 @@ return function(){clearTimeout(t0);clearInterval(iv);};
 
 if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>
 
-// Bloqueio de horário para nível 2 (Recepção/Secretaria)
+// Bloqueio de horário de acesso para nível 2 (Recepção/Secretária) - configurável em Administrativo > Acessos
 if(user.level===2){
-  var now=new Date();
-  var dow=now.getDay(); // 0=Dom, 1=Seg...6=Sab
-  var hm=now.getHours()*60+now.getMinutes();
-  var seg_sex=dow>=1&&dow<=5;
-  var sabado=dow===6;
-  var dentro=(seg_sex&&hm>=480&&hm<1200)||(sabado&&hm>=480&&hm<780);
-  if(!dentro){
-    var proxMsg=sabado&&hm>=780?"Segunda-feira às 08:00":dow===0?"Segunda-feira às 08:00":hm<480?"hoje às 08:00":"Segunda-feira às 08:00";
-    return(
-      <div style={{minHeight:"100vh",background:"linear-gradient(160deg,var(--primary),#0a2e1e)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-        <div style={{background:"rgba(255,255,255,.08)",borderRadius:20,padding:"36px 28px",maxWidth:360,width:"100%",textAlign:"center",border:"1px solid rgba(255,255,255,.12)"}}>
-          <div style={{fontSize:52,marginBottom:16}}>🔒</div>
-          <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:"#fff",marginBottom:8}}>Fora do Horário</div>
-          <div style={{fontSize:14,color:"rgba(255,255,255,.7)",marginBottom:20,lineHeight:1.6}}>
-            O sistema está disponível:<br/>
-            <strong style={{color:"#fff"}}>Seg–Sex: 08:00 às 20:00</strong><br/>
-            <strong style={{color:"#fff"}}>Sábado: 08:00 às 13:00</strong>
+  var _ac=acessoCfg||{};
+  if(_ac.restringir!==false){
+    var _now=new Date();
+    var _dow=_now.getDay();
+    var _hm=_now.getHours()*60+_now.getMinutes();
+    var _toMin=function(s){var p=String(s||"0:0").split(":");return (Number(p[0])||0)*60+(Number(p[1])||0);};
+    var _janela=function(d){
+      if(d>=1&&d<=5)return {on:true,ini:_ac.segIni||"07:00",fim:_ac.segFim||"21:00"};
+      if(d===6)return {on:true,ini:_ac.sabIni||"07:00",fim:_ac.sabFim||"13:00"};
+      if(d===0)return _ac.domOn?{on:true,ini:_ac.domIni||"08:00",fim:_ac.domFim||"12:00"}:{on:false};
+      return {on:false};
+    };
+    var _j=_janela(_dow);
+    var _dentro=_j.on&&_hm>=_toMin(_j.ini)&&_hm<_toMin(_j.fim);
+    if(!_dentro){
+      var _DIAS=["domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"];
+      var _prox="em breve";
+      for(var _i=0;_i<8;_i++){
+        var _d=(_dow+_i)%7;var _w=_janela(_d);if(!_w.on)continue;
+        var _wi=_toMin(_w.ini);
+        if(_i===0){ if(_hm<_wi){_prox="hoje às "+(_w.ini);break;} continue; }
+        _prox=(_i===1?"amanhã":_DIAS[_d])+" às "+(_w.ini);break;
+      }
+      return(
+        <div style={{minHeight:"100vh",background:"linear-gradient(160deg,var(--primary),#0a2e1e)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"rgba(255,255,255,.08)",borderRadius:20,padding:"36px 28px",maxWidth:360,width:"100%",textAlign:"center",border:"1px solid rgba(255,255,255,.12)"}}>
+            <div style={{fontSize:52,marginBottom:16}}>🔒</div>
+            <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:"#fff",marginBottom:8}}>Fora do Horário</div>
+            <div style={{fontSize:14,color:"rgba(255,255,255,.7)",marginBottom:20,lineHeight:1.6}}>
+              O sistema está disponível:<br/>
+              <strong style={{color:"#fff"}}>Seg–Sex: {_ac.segIni||"07:00"} às {_ac.segFim||"21:00"}</strong><br/>
+              <strong style={{color:"#fff"}}>Sábado: {_ac.sabIni||"07:00"} às {_ac.sabFim||"13:00"}</strong>
+              {_ac.domOn?<span><br/><strong style={{color:"#fff"}}>Domingo: {_ac.domIni||"08:00"} às {_ac.domFim||"12:00"}</strong></span>:null}
+            </div>
+            <div style={{background:"rgba(255,255,255,.1)",borderRadius:10,padding:"10px 16px",fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:24}}>
+              Próximo acesso: <strong style={{color:"#fff"}}>{_prox}</strong>
+            </div>
+            <button onClick={()=>setUser(null)} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+              🚪 Sair
+            </button>
           </div>
-          <div style={{background:"rgba(255,255,255,.1)",borderRadius:10,padding:"10px 16px",fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:24}}>
-            Próximo acesso: <strong style={{color:"#fff"}}>{proxMsg}</strong>
-          </div>
-          <button onClick={()=>setUser(null)} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>
-            🚪 Sair
-          </button>
         </div>
-      </div>
-    );
+      );
+    }
   }
 };
 
@@ -9286,7 +9353,7 @@ return <>
     {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users}/>}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientDirtyRef.current=true;setOrientacoes(v);}} user={user}/>}
     {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
-    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog}/>}
+    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog} acessoCfg={acessoCfg} setAcessoCfg={setAcessoCfg}/>}
     </div>
   </div>
 </div>
