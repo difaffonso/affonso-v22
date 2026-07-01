@@ -3729,6 +3729,101 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
 // ══════════════════════════════════════════════════════════
 // DESPESAS - clinic + personal
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// CAIXA (dinheiro em especie da recepcao)
+// ══════════════════════════════════════════════════════════
+var MOTIVOS_CAIXA_OUT=["Material","Farmácia","Limpeza","Correios","Troco","Almoço equipe","Manutenção","Outros"];
+var MOTIVOS_CAIXA_IN=["Reposição de caixa","Fundo inicial","Devolução","Outros"];
+function Caixa({caixa,setCaixa,user}){
+if(user.level<2)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center"}}><p style={{color:G.red}}>{"Acesso restrito"}</p></div>;
+var isAdmin=user.level>=3;
+var [mo,setMo]=useState(today().slice(0,7));
+var [modal,setModal]=useState(null);
+var [fVal,setFVal]=useState("");
+var [fMot,setFMot]=useState("");
+var lista=(caixa||[]).slice().sort(function(a,b){return String(b.ts||"").localeCompare(String(a.ts||""));});
+var saldo=lista.reduce(function(s,m){return s+(m.tipo==="in"?Number(m.valor||0):-Number(m.valor||0));},0);
+var moList=lista.filter(function(m){return String(m.data||"").slice(0,7)===mo;});
+var mesIn=moList.filter(function(m){return m.tipo==="in";}).reduce(function(s,m){return s+Number(m.valor||0);},0);
+var mesOut=moList.filter(function(m){return m.tipo==="out";}).reduce(function(s,m){return s+Number(m.valor||0);},0);
+var motivos=modal==="in"?MOTIVOS_CAIXA_IN:MOTIVOS_CAIXA_OUT;
+var abrir=function(t){setModal(t);setFVal("");setFMot("");};
+var fechar=function(){setModal(null);};
+var salvar=function(){
+  var v=pmoney(fVal);var mot=(fMot||"").trim();
+  if(!v||v<=0)return alert("Informe o valor.");
+  if(modal==="out"&&!mot)return alert("Informe o motivo da saída.");
+  var now=new Date();var z=function(n){return ("0"+n).slice(-2);};
+  var obj={id:nid(),tipo:modal,valor:v,motivo:mot||"Entrada de caixa",who:user.name,uid:user.id,ts:now.toISOString(),data:today(),hora:z(now.getHours())+":"+z(now.getMinutes()),_ts:Date.now()};
+  setCaixa(function(prev){return [obj].concat(prev||[]);});
+  fechar();
+};
+var remover=function(id){if(!isAdmin)return;if(window.confirm("Remover esta movimentação?"))setCaixa(function(prev){return (prev||[]).filter(function(m){return m.id!==id;});});};
+return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+  <div style={{display:"flex",alignItems:"center",gap:11}}>
+    <div style={{width:42,height:42,borderRadius:12,display:"flex",alignItems:"center",justifyContent:"center",color:G.primary,fontSize:22,background:"var(--surface)",boxShadow:"5px 5px 12px var(--nm-dark),-5px -5px 12px var(--nm-light)",flexShrink:0}}><i className="ph-fill ph-cash-register"></i></div>
+    <div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Caixa</h2><div style={{fontSize:11,color:G.muted}}>Dinheiro em espécie da recepção</div></div>
+  </div>
+  <div style={{borderRadius:18,padding:"20px",textAlign:"center",background:"var(--surface)",boxShadow:"7px 7px 18px var(--nm-dark),-7px -7px 18px var(--nm-light)"}}>
+    <div style={{fontSize:11,color:G.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:".6px"}}>Saldo em caixa</div>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontWeight:700,fontSize:42,lineHeight:1.05,marginTop:6,color:saldo<0?G.red:G.success}}>{cur(saldo)}</div>
+    <div style={{fontSize:11,color:G.muted,marginTop:8}}>{lista.length+" movimentações"}</div>
+  </div>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+    <div style={{borderRadius:12,padding:"12px 14px",background:"var(--surface)",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px var(--nm-light)"}}><div style={{fontSize:10,color:G.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:".4px"}}>Entradas do mês</div><div style={{fontSize:19,fontWeight:800,marginTop:5,color:G.success}}>{cur(mesIn)}</div></div>
+    <div style={{borderRadius:12,padding:"12px 14px",background:"var(--surface)",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px var(--nm-light)"}}><div style={{fontSize:10,color:G.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:".4px"}}>Saídas do mês</div><div style={{fontSize:19,fontWeight:800,marginTop:5,color:G.red}}>{cur(mesOut)}</div></div>
+  </div>
+  <div style={{display:"flex",gap:10}}>
+    <button onClick={function(){abrir("out");}} style={{flex:1,border:"none",borderRadius:12,padding:"13px 10px",fontSize:13.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:7,cursor:"pointer",background:G.red,color:"#fff",boxShadow:"4px 4px 11px rgba(150,40,30,.32),-3px -3px 8px var(--nm-light)"}}><i className="ph-bold ph-minus-circle"></i> Registrar saída</button>
+    {isAdmin&&<button onClick={function(){abrir("in");}} style={{flex:1,border:"none",borderRadius:12,padding:"13px 10px",fontSize:13.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:7,cursor:"pointer",background:G.primary,color:"#ead9b6",boxShadow:"4px 4px 11px rgba(34,70,52,.40),-3px -3px 8px var(--nm-light)"}}><i className="ph-bold ph-plus-circle"></i> Adicionar valor</button>}
+  </div>
+  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+    <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Movimentações</h3>
+    <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:13,outline:"none"}}/>
+  </div>
+  <div style={{display:"flex",flexDirection:"column",gap:9}}>
+    {moList.length===0&&<div style={{borderRadius:13,padding:26,textAlign:"center",color:G.muted,fontSize:13,background:"var(--surface)",boxShadow:"inset 3px 3px 8px var(--nm-dark),inset -3px -3px 8px var(--nm-light)"}}>{"Nenhuma movimentação em "+mo}</div>}
+    {moList.map(function(m){var isIn=m.tipo==="in";return(
+      <div key={m.id} style={{display:"flex",alignItems:"center",gap:12,borderRadius:13,padding:"12px 14px",background:"var(--surface)",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px var(--nm-light)"}}>
+        <div style={{width:38,height:38,borderRadius:11,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0,color:isIn?G.success:G.red,background:isIn?"var(--green-soft)":"var(--red-soft)"}}><i className={"ph-fill "+(isIn?"ph-arrow-down":"ph-arrow-up")}></i></div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:13.5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.motivo}</div>
+          <div style={{fontSize:11,color:G.muted,marginTop:2}}><i className="ph-fill ph-user-circle"></i> {m.who}{" · "+fmt(m.data)+(m.hora?" · "+m.hora:"")}</div>
+        </div>
+        <div style={{fontWeight:800,fontSize:15,flexShrink:0,whiteSpace:"nowrap",color:isIn?G.success:G.red}}>{(isIn?"+":"−")+cur(Number(m.valor||0))}</div>
+        {isAdmin&&<button onClick={function(){remover(m.id);}} title="Remover" style={{border:"none",background:"none",color:G.muted,fontSize:17,flexShrink:0,padding:"2px 4px",cursor:"pointer"}}><i className="ph ph-trash"></i></button>}
+      </div>
+    );})}
+  </div>
+  <Modal open={!!modal} close={fechar} title={modal==="in"?"Adicionar valor":"Registrar saída"} ch={
+    <div style={{display:"flex",flexDirection:"column",gap:15}}>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{modal==="in"?"Valor a adicionar (R$)":"Valor da saída (R$)"}</label>
+        <input type="text" inputMode="decimal" value={fVal} onChange={function(e){setFVal(e.target.value);}} placeholder="0,00" style={{width:"100%",padding:"16px 13px",fontSize:26,fontWeight:800,textAlign:"center",border:"none",borderRadius:12,color:G.text,background:"var(--surface)",boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px var(--nm-light)",outline:"none"}}/>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{modal==="in"?"Observação":"Motivo da saída"}</label>
+        <input type="text" value={fMot} onChange={function(e){setFMot(e.target.value);}} placeholder={modal==="in"?"Ex: reposição de caixa":"Ex: material de limpeza"} style={{width:"100%",padding:"12px 13px",fontSize:15,border:"none",borderRadius:12,color:G.text,background:"var(--surface)",boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px var(--nm-light)",outline:"none"}}/>
+        <div style={{display:"flex",flexWrap:"wrap",gap:7,marginTop:3}}>
+          {motivos.map(function(x){var on=fMot===x;return <button key={x} onClick={function(){setFMot(x==="Outros"?"":x);}} style={{border:"none",borderRadius:20,padding:"7px 13px",fontSize:12,fontWeight:700,cursor:"pointer",background:on?(modal==="in"?G.primary:G.red):"var(--surface)",color:on?"#fff":G.muted,boxShadow:on?"none":"3px 3px 6px var(--nm-dark),-3px -3px 6px var(--nm-light)"}}>{x}</button>;})}
+        </div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:10,borderRadius:12,padding:"12px 14px",boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px var(--nm-light)"}}>
+        <div style={{width:34,height:34,borderRadius:"50%",background:G.primary,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:14,flexShrink:0}}>{String(user.name||"?").charAt(0).toUpperCase()}</div>
+        <div><div style={{fontSize:10,color:G.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:".4px"}}>Registrado por (login)</div><div style={{fontSize:14,fontWeight:700,marginTop:1}}>{user.name}</div></div>
+        <i className="ph-fill ph-lock-simple" style={{marginLeft:"auto",color:G.muted,fontSize:15}}></i>
+      </div>
+      {modal==="out"&&<div style={{fontSize:12,color:G.muted,lineHeight:1.4,background:"var(--amber-soft)",borderRadius:10,padding:"11px 13px"}}><i className="ph-fill ph-info"></i> Fica gravado quem tirou, o valor, o motivo e a data/hora.</div>}
+      <div style={{display:"flex",gap:10,paddingTop:6}}>
+        <button onClick={fechar} style={{flex:1,border:"none",borderRadius:12,padding:13,fontSize:15,fontWeight:700,cursor:"pointer",background:"transparent",color:G.primary,boxShadow:"inset 2px 2px 6px var(--nm-dark),inset -2px -2px 6px var(--nm-light)"}}>Cancelar</button>
+        <button onClick={salvar} style={{flex:1,border:"none",borderRadius:12,padding:13,fontSize:15,fontWeight:700,cursor:"pointer",color:modal==="in"?"#ead9b6":"#fff",background:modal==="in"?G.primary:G.red}}>{modal==="in"?"Confirmar entrada":"Confirmar saída"}</button>
+      </div>
+    </div>
+  }/>
+</div>;
+}
+
+
 function Gastos({gastos,setGastos,user}){
 const [tab,setTab]=useState("clinica");
 const [modal,setModal]=useState(false);
@@ -8679,7 +8774,7 @@ const [stock,setStock]=useState(STOCK0);const [impl,setImpl]=useState(IMPL_DATA_
 const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
-const [pontos,setPontos]=useState([]);
+const [pontos,setPontos]=useState([]);const [caixa,setCaixa]=useState([]);
 const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60});
 const [acessoCfg,setAcessoCfg]=useState({restringir:true,segIni:"07:00",segFim:"21:00",sabIni:"07:00",sabFim:"13:00",domOn:false,domIni:"08:00",domFim:"12:00"});
 const [sideOpen,setSideOpen]=useState(false);
@@ -8841,6 +8936,7 @@ if(data.waAutoLog)setWaAutoLog(data.waAutoLog);
 if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
 if(data.pontos?.length)setPontos(data.pontos);
+if(data.caixa?.length)setCaixa(data.caixa);
 if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60},data.pontoCfg));
 if(data.acessoCfg)setAcessoCfg(Object.assign({restringir:true,segIni:"07:00",segFim:"21:00",sabIni:"07:00",sabFim:"13:00",domOn:false,domIni:"08:00",domFim:"12:00"},data.acessoCfg));
 if(data.logs?.length)setLogs(data.logs);
@@ -9061,6 +9157,7 @@ useEffect(function(){
           mergeArr(implCat,sd.implCat,setImplCat,"implCat");
           mergeArr(impl,sd.impl,setImpl,"impl");
           mergeArr(pontos,sd.pontos,setPontos);
+          mergeArr(caixa,sd.caixa,setCaixa);
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
           if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
@@ -9071,7 +9168,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,pontoCfg,acessoCfg};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -9131,7 +9228,7 @@ useEffect(function(){
       isSaving.current=false;
     }
   },800);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,pontoCfg,acessoCfg]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg]);
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -9467,6 +9564,7 @@ const ALL_NAV=[
 {id:"impl",l:"Implantes",ic:"ph-syringe",lv:2},{id:"lems",l:"Lembretes",ic:"ph-bell",lv:1,b:remBadge},{id:"conversas",l:"Conversas",ic:"ph-chat-circle",lv:2,b:waUnread},{id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2},
 {id:"fin",l:"Financeiro",ic:"ph-wallet",lv:3},{id:"pixdent",l:"Pix Dentistas",ic:"ph-hand-coins",lv:1},{id:"rel",l:"Relatórios",ic:"ph-chart-bar",lv:2},
 {id:"desp",l:"Gastos",ic:"ph-receipt",lv:3},{id:"stk",l:"Estoque",ic:"ph-package",lv:2},
+{id:"caixa",l:"Caixa",ic:"ph-cash-register",lv:2},
 {id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1},{id:"pdent",l:"Recebimentos",ic:"ph-currency-dollar",lv:1},{id:"audit",l:"Auditoria",ic:"ph-magnifying-glass",lv:3},{id:"adm",l:"Administrativo",ic:"ph-gear",lv:3},
 ];
 const NAV=ALL_NAV.filter(n=>n.lv<=user.level);
@@ -9544,6 +9642,7 @@ return <>
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} treats={treats} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
+      {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
