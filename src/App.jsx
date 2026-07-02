@@ -9586,7 +9586,7 @@ const BOTTOM_NAV=user.level>=3
 ?[{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"pixdent",icon:"ph-hand-coins"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rel",icon:"ph-chart-bar"},{id:"ponto",icon:"ph-clock"}]
 :[{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"pixdent",icon:"ph-hand-coins"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rec",icon:"ph-clipboard-text"},{id:"ponto",icon:"ph-clock"}];
 
-const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}.sidebar-scroll::-webkit-scrollbar{width:6px;}.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--nm-dark);border-radius:4px;}.sidebar-scroll::-webkit-scrollbar-track{background:transparent;}`;
+const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}.sidebar-scroll::-webkit-scrollbar{width:6px;}.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--nm-dark);border-radius:4px;}.sidebar-scroll::-webkit-scrollbar-track{background:transparent;}.app-shell{height:100dvh!important;}`;
 
 return <>
 
@@ -9596,7 +9596,7 @@ return <>
 {/* Overlay for mobile sidebar */}
 {sideOpen&&<div className="sidebar-overlay" onClick={()=>setSideOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.18)",zIndex:499}}/>}
 
-<div style={{display:"flex",minHeight:"100vh",background:"var(--bg)"}}>
+<div className="app-shell" style={{display:"flex",height:"100vh",overflow:"hidden",background:"var(--bg)"}}>
   {/* Sidebar */}
   <div className={`sidebar${sideOpen?"":" closed"}`} style={{background:"var(--surface)",borderRight:"none",borderRadius:"0 18px 18px 0",boxShadow:"inset -9px 0 18px -12px var(--nm-dark)",display:"flex",flexDirection:"column",padding:"14px 10px",gap:2,flexShrink:0}}>
     {/* Header with close button on mobile */}
