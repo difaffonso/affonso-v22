@@ -488,7 +488,7 @@ return (
 {sel&&!open
 ?<div style={{display:"flex",alignItems:"center",gap:8,background:G.accent,borderRadius:8,padding:"8px 11px",border:"1.5px solid "+G.primary}}>
 <span style={{flex:1,fontSize:13,fontWeight:700}}>{sel.name}<span style={{fontWeight:400,color:G.muted}}>{" · "+sel.folder}</span></span>
-<button onClick={function(){set("");setQ("");}} style={{border:"none",background:"none",color:G.muted,cursor:"pointer",fontSize:18,lineHeight:1,padding:0}}>{"×"}</button>
+<button onClick={function(){set("");setQ("");}} style={{border:"none",background:"none",color:G.muted,cursor:"pointer",fontSize:12,fontWeight:700,lineHeight:1,padding:"2px 4px",display:"flex",alignItems:"center",gap:3}}>trocar <span style={{fontSize:16}}>{"×"}</span></button>
 </div>
 :<div>
 <input value={q} onChange={function(e){setQ(e.target.value);setOpen(true);}} onFocus={function(){setOpen(true);}}
@@ -2546,6 +2546,7 @@ extraSlots.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
 }
 const obj={...f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,patientName:f.patientId?"":(f.patientName||"A confirmar"),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
 if(edit&&edit.status!==f.status)obj.statusTs=new Date().toISOString();
+obj._ts=Date.now(); // V189: carimbo de edicao para o merge respeitar mudancas de paciente/dados
 setAppts(prev=>edit?prev.map(a=>a.id===edit.id?obj:a):[...prev,obj]);
 const p=pats.find(x=>x.id===Number(f.patientId));
 const nome=p?.name||f.patientName||"";
@@ -6327,9 +6328,14 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
       var ag=new Date();
       var reg={id:Date.now(),uid:meuId,nome:user.name,tipo:tipo,sub:sub||null,ts:ag.toISOString(),data:hoje,hora:z(ag.getHours())+":"+z(ag.getMinutes()),lat:loc.lat,lng:loc.lng,acc:loc.acc,dist:d};
       setPontos(function(prev){return prev.concat([reg]);});
-      pushPontoSupabase(reg);
-      setBusy(false);
-      var lblReg=sub==="almoco"?(tipo==="saida"?"Saída p/ almoço":"Volta do almoço"):(tipo==="entrada"?"Entrada":"Saída");setMsg({ok:true,txt:"✅ "+lblReg+" registrada às "+reg.hora+" — a "+d+" m da clínica."});
+      var lblReg=sub==="almoco"?(tipo==="saida"?"Saída p/ almoço":"Volta do almoço"):(tipo==="entrada"?"Entrada":"Saída");
+      // V190: aguarda confirmacao do servidor antes do check verde (evita registro "fantasma" no celular)
+      setMsg({ok:true,txt:"⏳ "+lblReg+" às "+reg.hora+" — salvando no servidor..."});
+      pushPontoSupabase(reg).then(function(okSrv){
+        setBusy(false);
+        if(okSrv)setMsg({ok:true,txt:"✅ "+lblReg+" registrada às "+reg.hora+" — a "+d+" m da clínica. Salvo no servidor."});
+        else setMsg({ok:false,txt:"⚠️ "+lblReg+" às "+reg.hora+" ficou registrada neste aparelho, mas AINDA NÃO foi confirmada no servidor (conexão fraca?). Mantenha o app aberto por alguns segundos e confira a lista de hoje."});
+      });
     }).catch(function(e){setBusy(false);setMsg({ok:false,txt:"❌ "+(e.message||"Falha ao obter localização")});});
   }
 
@@ -6469,7 +6475,7 @@ function RelatorioPonto({pontos,pontoCfg,users}){
 function ConfigPonto({pontoCfg,setPontoCfg}){
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState(null);
-  function up(patch){setPontoCfg(function(prev){return Object.assign({},prev,patch);});}
+  function up(patch){setPontoCfg(function(prev){return Object.assign({},prev,patch,{_ts:Date.now()});});} // V190: carimbo para o merge
   function capturar(){
     if(busy)return;setBusy(true);setMsg("📍 Obtendo localização…");
     pegarLocal().then(function(loc){up({lat:loc.lat,lng:loc.lng});setBusy(false);setMsg("✅ Localização capturada (precisão ~"+loc.acc+" m).");}).catch(function(e){setBusy(false);setMsg("❌ "+(e.message||"Falha"));});
@@ -9021,6 +9027,8 @@ function _itemKeys(map){var o={};if(map){Object.keys(map).forEach(function(t){(m
 function _waTs(a){if(!a)return "";var c=a.confirmadoWAts||"";var x=a.canceladoWAts||"";return c>x?c:x;}
 // Merge de consultas SEGURO: mantem o local (nao reverte mudancas manuais), adiciona consultas novas do servidor,
 // e adota o status do servidor SO quando ha confirmacao/cancelamento do WhatsApp mais recente (webhook) -> nao perde confirmacao nem reverte.
+// V190: entre duas versoes de config (pontoCfg), vence a de carimbo _ts mais novo
+function _newerCfg(a,b){if(!a)return b;if(!b)return a;return (b._ts||0)>(a._ts||0)?b:a;}
 function mergeAppts(localArr,serverArr,delSet){
   localArr=localArr||[];serverArr=serverArr||[];delSet=delSet||{};
   var byId={};
@@ -9031,6 +9039,10 @@ function mergeAppts(localArr,serverArr,delSet){
     if(!l){byId[s.id]=s;return;}
     var lM=l.statusTs||"",sM=s.statusTs||"";
     if(sM>lM){byId[s.id]=s;return;}
+    // V189: edicoes (troca de paciente, horario etc.) carimbam _ts; o mais recente vence
+    var lE=l._ts||0,sE=s._ts||0;
+    if(sE>lE){byId[s.id]=s;return;}
+    if(lE>sE)return;
     if(lM)return;
     var sW=_waTs(s),lW=_waTs(l);
     if(sW&&sW>lW)byId[s.id]=s;
@@ -9158,6 +9170,7 @@ useEffect(function(){
           mergeArr(impl,sd.impl,setImpl,"impl");
           mergeArr(pontos,sd.pontos,setPontos);
           mergeArr(caixa,sd.caixa,setCaixa);
+          if(sd.pontoCfg)setPontoCfg(function(prev){var n=_newerCfg(prev,sd.pontoCfg);return n===prev?prev:n;}); // V190
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
           if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
@@ -9254,7 +9267,7 @@ useEffect(function(){
 
 // ── SINCRONIZACAO entre dispositivos: polling a cada 15s ──
 useEffect(function(){
-  var poll=setInterval(async function(){
+  var doPoll=async function(){
     if(!initialized.current||isSaving.current||pendingSave.current||lastSaveFailed.current||document.hidden)return;
     if(dirtyRef.current)return;
     if(Date.now()-lastLocalChangeTs.current<12000)return;
@@ -9319,6 +9332,8 @@ useEffect(function(){
       addArr(sd.rems,setRems,"rems");
       addArr(sd.logs,setLogs);
       addArr(sd.pontos,setPontos);
+      addArr(sd.caixa,setCaixa); // V190: caixa agora sincroniza no poll
+      if(sd.pontoCfg)setPontoCfg(function(prev){var n=_newerCfg(prev,sd.pontoCfg);return n===prev?prev:n;}); // V190
       if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
       if(sd.gastos){var _dgp={};(delGastosRef.current||[]).forEach(function(k){_dgp[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgp);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
       if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
@@ -9342,8 +9357,11 @@ useEffect(function(){
       if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
       lastServerTs.current=fresh.updated_at;
     }catch(e){}
-  },15000);
-  return function(){clearInterval(poll);};
+  };
+  var poll=setInterval(doPoll,8000); // V189: 15s -> 8s
+  var _onVis=function(){if(!document.hidden)doPoll();}; // V189: sync imediato ao voltar para a aba
+  document.addEventListener("visibilitychange",_onVis);
+  return function(){clearInterval(poll);document.removeEventListener("visibilitychange",_onVis);};
 },[]);
 
 // Polling removido - causava race condition sobrescrevendo dados locais;
@@ -9586,7 +9604,7 @@ const BOTTOM_NAV=user.level>=3
 ?[{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"pixdent",icon:"ph-hand-coins"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rel",icon:"ph-chart-bar"},{id:"ponto",icon:"ph-clock"}]
 :[{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"pixdent",icon:"ph-hand-coins"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rec",icon:"ph-clipboard-text"},{id:"ponto",icon:"ph-clock"}];
 
-const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}.sidebar-scroll::-webkit-scrollbar{width:6px;}.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--nm-dark);border-radius:4px;}.sidebar-scroll::-webkit-scrollbar-track{background:transparent;}.app-shell{height:100dvh!important;}`;
+const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}.sidebar-scroll::-webkit-scrollbar{width:6px;}.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--nm-dark);border-radius:4px;}.sidebar-scroll::-webkit-scrollbar-track{background:transparent;}`;
 
 return <>
 
@@ -9596,7 +9614,7 @@ return <>
 {/* Overlay for mobile sidebar */}
 {sideOpen&&<div className="sidebar-overlay" onClick={()=>setSideOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.18)",zIndex:499}}/>}
 
-<div className="app-shell" style={{display:"flex",height:"100vh",overflow:"hidden",background:"var(--bg)"}}>
+<div style={{display:"flex",minHeight:"100vh",background:"var(--bg)"}}>
   {/* Sidebar */}
   <div className={`sidebar${sideOpen?"":" closed"}`} style={{background:"var(--surface)",borderRight:"none",borderRadius:"0 18px 18px 0",boxShadow:"inset -9px 0 18px -12px var(--nm-dark)",display:"flex",flexDirection:"column",padding:"14px 10px",gap:2,flexShrink:0}}>
     {/* Header with close button on mobile */}
