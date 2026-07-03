@@ -554,7 +554,7 @@ function anamHTML(pat){
   function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
   function brd(d){if(!d)return "";var p=String(d).split("-");return p.length===3?(p[2]+"/"+p[1]+"/"+p[0]):d;}
   var conds=ANAM_CONDS;
-  var rows=conds.map(function(c){var s=a[c[0]];return "<tr><td>"+c[1]+"</td><td style='font-weight:700;color:"+(s?"var(--red)":"#2c3e50")+"'>"+(s?"Sim":"Nao")+"</td></tr>";}).join("");
+  var rows=conds.map(function(c){var s=a[c[0]];var det=a[c[0]+"_det"];return "<tr><td>"+c[1]+"</td><td style='font-weight:700;color:"+(s?"#C0392B":"#2c3e50")+"'>"+(s?"Sim":"Nao")+((s&&det)?(" <span style='font-weight:400;color:#555'>("+esc(det)+")</span>"):"")+"</td></tr>";}).join("");
   var nome=CLINICA_INFO.nome;
   var ender=CLINICA_INFO.endereco;
   var sig=a.signature?("<img src='"+a.signature+"' style='max-height:90px;max-width:300px'/>"):"<div style='height:64px'></div>";
@@ -585,10 +585,13 @@ function AnamForm({patientName,initial,onSubmit,onCancel,submitting}){
     </div>
     <div style={{background:G.accent,borderRadius:10,padding:"10px 13px",fontSize:12.5,color:G.primary}}>Responda SIM ou NÃO em cada item. Leva menos de 2 minutos.</div>
     <div style={{display:"flex",flexDirection:"column",gap:8}}>
-      {conds.map(function(c){var v=a[c[0]];return <div key={c[0]} style={{display:"flex",alignItems:"center",gap:10,background:G.bg,borderRadius:10,padding:"9px 12px"}}>
+      {conds.map(function(c){var v=a[c[0]];return <div key={c[0]} style={{display:"flex",flexDirection:"column",gap:7,background:G.bg,borderRadius:10,padding:"9px 12px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
         <span style={{flex:1,fontSize:13.5,color:G.text}}>{c[1]}</span>
         <button onClick={function(){set(c[0],true);}} style={{border:"2px solid "+(v?G.red:G.border),background:v?G.red:"var(--card)",color:v?"#fff":G.muted,borderRadius:8,padding:"6px 15px",fontSize:13,fontWeight:700,cursor:"pointer"}}>SIM</button>
         <button onClick={function(){set(c[0],false);}} style={{border:"2px solid "+(!v?G.success:G.border),background:!v?G.success:"var(--card)",color:!v?"#fff":G.muted,borderRadius:8,padding:"6px 15px",fontSize:13,fontWeight:700,cursor:"pointer"}}>NÃO</button>
+        </div>
+        {v&&<input value={a[c[0]+"_det"]||""} onChange={function(e){set(c[0]+"_det",e.target.value);}} placeholder="Quando? Já tratou ou ainda tem? (opcional)" style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none",width:"100%"}}/>}
       </div>;})}
     </div>
     <div style={{display:"flex",flexDirection:"column",gap:4}}>
@@ -629,7 +632,7 @@ async function avisarAnamnese(token,a){
     }catch(e){}
   }
   var alertas=[];
-  try{ANAM_ALERT.forEach(function(k){if(a&&a[k]){var c=ANAM_CONDS.find(function(x){return x[0]===k;});alertas.push(c?c[1]:k);}});}catch(e){}
+  try{ANAM_ALERT.forEach(function(k){if(a&&a[k]){var c=ANAM_CONDS.find(function(x){return x[0]===k;});var det=a[k+"_det"];alertas.push((c?c[1]:k)+(det?(" — "+String(det)):""));}});}catch(e){}
   var txt="\uD83D\uDCCB *ANAMNESE RECEBIDA*\n\n\uD83D\uDC64 "+(nome||("Paciente ID "+pid))+"\n\nO paciente preencheu a ficha de saude pelo WhatsApp.\n\u27A1\uFE0F Abra o prontuario e clique em *Buscar* na aba Anamnese para revisar e salvar.";
   if(alertas.length>0)txt+="\n\n\u26A0\uFE0F *Atencao:* "+alertas.join(", ");
   try{
@@ -647,6 +650,7 @@ function PublicAnamnese({token}){
     supabase.submitAnam(token,a).then(function(res){setSubmitting(false);if(res&&res.ok){setDone(true);try{avisarAnamnese(token,a);}catch(e){}}else{var m=(res&&res.msg)?res.msg:"Verifique a conexao e tente novamente.";setErr("Nao foi possivel enviar. "+m+((res&&res.status)?(" (codigo "+res.status+")"):""));}});
   }
   return <div style={{minHeight:"100vh",background:G.bg,padding:"24px 16px"}}>
+    <style>{CSS}</style>{/* V191: sem o CSS global, as vars --red/--green nao existiam na pagina publica e o botao NAO ficava branco-sobre-branco (invisivel) */}
     <div style={{maxWidth:560,margin:"0 auto",background:G.card,borderRadius:16,boxShadow:"0 4px 24px rgba(0,0,0,.1)",padding:"22px 20px"}}>
       {done
         ? <div style={{textAlign:"center",display:"flex",flexDirection:"column",gap:12,padding:"24px 0"}}>
@@ -774,8 +778,8 @@ function PatientPortal({token}){
   }
   var wrap={minHeight:"100vh",background:G.bg,padding:"24px 16px"};
   var card={maxWidth:520,margin:"0 auto",background:G.card,borderRadius:16,boxShadow:"0 4px 24px rgba(0,0,0,.1)",overflow:"hidden"};
-  if(data===undefined)return <div style={wrap}><div style={Object.assign({},card,{padding:"40px 20px",textAlign:"center",color:G.muted})}>Carregando…</div></div>;
-  if(data===null)return <div style={wrap}><div style={Object.assign({},card,{padding:"40px 20px",textAlign:"center"})}>
+  if(data===undefined)return <div style={wrap}><style>{CSS}</style><div style={Object.assign({},card,{padding:"40px 20px",textAlign:"center",color:G.muted})}>Carregando…</div></div>;
+  if(data===null)return <div style={wrap}><style>{CSS}</style><div style={Object.assign({},card,{padding:"40px 20px",textAlign:"center"})}>
     <div style={{fontSize:40}}>{"🔍"}</div>
     <div style={{fontFamily:"'Cormorant Garamond'",fontSize:22,color:G.primary,marginTop:8}}>Link não encontrado</div>
     <div style={{fontSize:13,color:G.muted,marginTop:6}}>Este link pode ter expirado ou sido substituído. Fale com a clínica para receber um novo.</div>
@@ -783,7 +787,7 @@ function PatientPortal({token}){
   const clin=data.clinica||{nome:CLINICA_INFO.nome};
   const sec={padding:"16px 18px",borderTop:"1px solid "+G.border};
   const h={fontSize:12,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:.4,marginBottom:8};
-  return <div style={wrap}><div style={card}>
+  return <div style={wrap}><style>{CSS}</style><div style={card}>
     <div style={{background:G.primary,padding:"20px 18px",color:"#fff"}}>
       <div style={{fontSize:12,opacity:.85}}>{clin.nome||CLINICA_INFO.nome}</div>
       <div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,fontWeight:600,marginTop:2}}>Olá, {data.name||"paciente"}!</div>
@@ -1213,11 +1217,14 @@ return <>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
       {ANAM_CONDS.map(([k,l])=>{
         const v=pf.anamnese?.[k]||false;
-        return <label key={k} style={{display:"flex",alignItems:"center",gap:9,background:v?G.red+"12":G.bg,borderRadius:9,padding:"10px 13px",cursor:"pointer",border:`1.5px solid ${v?G.red:G.border}`}}>
+        return <div key={k} style={{display:"flex",flexDirection:"column",gap:6}}>
+        <label style={{display:"flex",alignItems:"center",gap:9,background:v?G.red+"12":G.bg,borderRadius:9,padding:"10px 13px",cursor:"pointer",border:`1.5px solid ${v?G.red:G.border}`}}>
           <input type="checkbox" checked={v} disabled={!editMode} onChange={e=>setPf(p=>({...p,anamnese:{...p.anamnese,[k]:e.target.checked}}))} style={{accentColor:G.red,width:15,height:15}}/>
           <span style={{fontSize:13,fontWeight:v?700:400,color:v?G.red:G.text}}>{l}</span>
           {v&&<span style={{marginLeft:"auto",fontSize:11,color:G.red,fontWeight:700}}>⚠ Sim</span>}
-        </label>;
+        </label>
+        {v&&<input value={pf.anamnese?.[k+"_det"]||""} readOnly={!editMode} onChange={e=>setPf(p=>({...p,anamnese:{...p.anamnese,[k+"_det"]:e.target.value}}))} placeholder="Quando? Já tratou ou ainda tem?" style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:12.5,outline:"none"}}/>}
+        </div>;
       })}
     </div>
     <Div lb="Medicamentos e Detalhes"/>
