@@ -2,21 +2,30 @@ import { useState, useEffect, useRef } from "react";
 
 const SUPA_URL="https://ncfsepyzrqaljswjiuiv.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jZnNlcHl6cnFhbGpzd2ppdWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTg1NzYsImV4cCI6MjA5NDA5NDU3Nn0.j_7sctB2bP0zljxPbh3Q4I_MzEksgL8PO5QNdzbaJDM";
+// === AUTENTICACAO (Supabase Auth) — protecao de acesso ===
+let __ACCESS=null,__REFRESH=null,__EXP=0,__REFTIMER=null;
+function __authTok(){return __ACCESS||SUPA_KEY;}
+function __authed(){return !!__ACCESS;}
+function __scheduleRefresh(){try{if(__REFTIMER)clearTimeout(__REFTIMER);}catch(e){}var ms=Math.max(30000,(__EXP-Date.now())-120000);__REFTIMER=setTimeout(function(){__doRefresh();},ms);}
+let __lastAuthErr="";async function __signIn(login,pass){__lastAuthErr="";var r;try{var email=String(login||"").trim().toLowerCase()+"@affonso.local";r=await fetch(SUPA_URL+"/auth/v1/token?grant_type=password",{method:"POST",headers:{"apikey":SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify({email:email,password:pass})});}catch(e){__lastAuthErr="network";return false;}try{if(r.status>=400&&r.status<500){__lastAuthErr="invalid";return false;}if(!r.ok){__lastAuthErr="server";return false;}var t=await r.json();if(!t||!t.access_token){__lastAuthErr="invalid";return false;}__ACCESS=t.access_token;__REFRESH=t.refresh_token||null;__EXP=Date.now()+((t.expires_in||3600)*1000);__scheduleRefresh();return true;}catch(e){__lastAuthErr="server";return false;}}
+async function __doRefresh(){try{if(!__REFRESH)return false;var r=await fetch(SUPA_URL+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:{"apikey":SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:__REFRESH})});if(!r.ok)return false;var t=await r.json();if(!t||!t.access_token)return false;__ACCESS=t.access_token;__REFRESH=t.refresh_token||__REFRESH;__EXP=Date.now()+((t.expires_in||3600)*1000);__scheduleRefresh();return true;}catch(e){return false;}}
+function __signOut(){__ACCESS=null;__REFRESH=null;__EXP=0;try{if(__REFTIMER)clearTimeout(__REFTIMER);}catch(e){}}
+try{if(typeof window!=="undefined")window.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&__ACCESS&&(__EXP-Date.now()<180000))__doRefresh();});}catch(e){}
 const supabase={
-async loadFull(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=data,updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return {data:rows[0].data,updated_at:rows[0].updated_at};return null;}catch(e){return null;}},
+async loadFull(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=data,updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return {data:rows[0].data,updated_at:rows[0].updated_at};return null;}catch(e){return null;}},
 async load(){const f=await this.loadFull();return f?f.data:null;},
-async getTimestamp(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
-async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}},
-async loadPatients(){if(!SUPA_URL)return null;try{var all=[];var lastId=0;var step=1000;for(var guard=0;guard<500;guard++){var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=id.asc&limit="+step+"&id=gt."+lastId,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});if(!r.ok)return all.length?all:null;var rows=await r.json();if(!rows||!rows.length)break;for(var k=0;k<rows.length;k++){all.push(rows[k].data);}lastId=rows[rows.length-1].id;if(rows.length<step)break;}return all;}catch(e){return null;}},
-async loadPatientsSince(ts){if(!SUPA_URL)return null;try{var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=updated_at.asc&updated_at=gt."+encodeURIComponent(ts)+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});if(!r.ok)return null;var d=await r.json();return (d||[]).map(function(row){return {id:row.id,data:row.data,ts:row.updated_at};});}catch(e){return null;}},
-async upsertPatients(arr){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!arr||!arr.length)return {ok:true};var now=new Date().toISOString();var CH=400;for(var i=0;i<arr.length;i+=CH){var chunk=arr.slice(i,i+CH).map(function(p){return {id:p.id,data:p,updated_at:now};});try{var r=await fetch(SUPA_URL+"/rest/v1/patients",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(chunk)});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}return {ok:true};},
-async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao com o banco"};try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,payload:payload})});if(r.ok)return {ok:true};var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}},
-async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
-,async fetchAnamRecent(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,payload,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
-,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
-,async fetchPortal(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/patients?data->>portalToken=eq."+encodeURIComponent(token)+"&select=portal:data->_portal&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});const rows=await r.json();if(rows&&rows[0]&&rows[0].portal)return rows[0].portal;return null;}catch(e){return null;}}
-,async sendPortalAction(token,action){if(!SUPA_URL)return {ok:false};try{const r=await fetch(SUPA_URL+"/rest/v1/portal_actions",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,action:action})});return {ok:r.ok};}catch(e){return {ok:false};}}
-,async fetchPortalActions(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-3*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/portal_actions?created_at=gte."+encodeURIComponent(since)+"&select=token,action,created_at&order=created_at.desc&limit=300",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
+async getTimestamp(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
+async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}},
+async loadPatients(){if(!SUPA_URL)return null;try{var all=[];var lastId=0;var step=1000;for(var guard=0;guard<500;guard++){var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=id.asc&limit="+step+"&id=gt."+lastId,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return all.length?all:null;var rows=await r.json();if(!rows||!rows.length)break;for(var k=0;k<rows.length;k++){all.push(rows[k].data);}lastId=rows[rows.length-1].id;if(rows.length<step)break;}return all;}catch(e){return null;}},
+async loadPatientsSince(ts){if(!SUPA_URL)return null;try{var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=updated_at.asc&updated_at=gt."+encodeURIComponent(ts)+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return null;var d=await r.json();return (d||[]).map(function(row){return {id:row.id,data:row.data,ts:row.updated_at};});}catch(e){return null;}},
+async upsertPatients(arr){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!arr||!arr.length)return {ok:true};var now=new Date().toISOString();var CH=400;for(var i=0;i<arr.length;i+=CH){var chunk=arr.slice(i,i+CH).map(function(p){return {id:p.id,data:p,updated_at:now};});try{var r=await fetch(SUPA_URL+"/rest/v1/patients",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(chunk)});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}return {ok:true};},
+async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao com o banco"};try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,payload:payload})});if(r.ok)return {ok:true};var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}},
+async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
+,async fetchAnamRecent(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,payload,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
+,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
+,async fetchPortal(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/patients?data->>portalToken=eq."+encodeURIComponent(token)+"&select=portal:data->_portal&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0]&&rows[0].portal)return rows[0].portal;return null;}catch(e){return null;}}
+,async sendPortalAction(token,action){if(!SUPA_URL)return {ok:false};try{const r=await fetch(SUPA_URL+"/rest/v1/portal_actions",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,action:action})});return {ok:r.ok};}catch(e){return {ok:false};}}
+,async fetchPortalActions(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-3*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/portal_actions?created_at=gte."+encodeURIComponent(since)+"&select=token,action,created_at&order=created_at.desc&limit=300",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
 };
 // ── PONTO: gravacao imediata e segura de uma batida (evita corrida entre aparelhos) ──
 // Grava direto no servidor em cima da versao mais fresca, com trava otimista por
@@ -33,7 +42,7 @@ async function pushPontoSupabase(reg){
         base.pontos=srvP.concat([reg]);
         var ts0=full.updated_at||null;
         var url=SUPA_URL+"/rest/v1/clinic_data?id=eq.main"+(ts0?("&updated_at=eq."+encodeURIComponent(ts0)):"");
-        var r=await fetch(url,{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({data:base,updated_at:new Date().toISOString()})});
+        var r=await fetch(url,{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({data:base,updated_at:new Date().toISOString()})});
         if(r.ok){
           var rows=[];try{rows=await r.json();}catch(e){rows=[];}
           if(rows&&rows.length)return true;
@@ -626,7 +635,7 @@ async function avisarAnamnese(token,a){
   var nome="";
   if(SUPA_URL&&pid){
     try{
-      var r=await fetch(SUPA_URL+"/rest/v1/patients?id=eq."+encodeURIComponent(pid)+"&select=name&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});
+      var r=await fetch(SUPA_URL+"/rest/v1/patients?id=eq."+encodeURIComponent(pid)+"&select=name&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});
       var rows=await r.json();
       if(rows&&rows[0]&&rows[0].name)nome=rows[0].name;
     }catch(e){}
@@ -1414,7 +1423,7 @@ return <>
       var path="pac"+pat.id+"/"+nome;
       var r=await fetch(SUPA_URL+"/storage/v1/object/imagens/"+path,{
         method:"POST",
-        headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Content-Type":"image/jpeg","x-upsert":"true"},
+        headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"image/jpeg","x-upsert":"true"},
         body:blob
       });
       if(!r.ok){var t="";try{t=await r.text();}catch(e){}throw new Error("upload "+r.status+" "+t);}
@@ -1435,7 +1444,7 @@ return <>
     };
     var removerImg=async function(im){
       if(!window.confirm("Remover esta imagem?"))return;
-      try{await fetch(SUPA_URL+"/storage/v1/object/imagens/"+im.path,{method:"DELETE",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY}});}catch(e){}
+      try{await fetch(SUPA_URL+"/storage/v1/object/imagens/"+im.path,{method:"DELETE",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});}catch(e){}
       setPats(function(prev){return prev.map(function(p){return p.id===pat.id?Object.assign({},p,{imagens:(p.imagens||[]).filter(function(x){return x.id!==im.id;})}):p;});});
     };
     return <div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -7993,7 +8002,7 @@ return <div key={i} style={{background:G.card,borderRadius:9,padding:"8px 12px",
 // ══════════════════════════════════════════════════════════
 function Login({users,onLogin}){
 const [l,sl]=useState("");const [p,sp]=useState("");const [e,se]=useState("");const [sw,ssw]=useState(false);
-const go=function(){var u=users.find(function(u){return u.login===l&&u.pass===p&&u.active;});u?onLogin(u):se("Login ou senha inválidos");};
+const go=async function(){se("");if(!l||!p){se("Preencha login e senha");return;}var ok=false;try{ok=await __signIn(l,p);}catch(err){se("Erro de conexao. Tente novamente.");return;}if(!ok){se(__lastAuthErr==="network"?"Sem conexão com o servidor de login. Teste em navegador real (não no preview).":(__lastAuthErr==="server"?"Servidor de login indisponível. Tente novamente.":"Login ou senha inválidos"));return;}var found=null;try{var full=await supabase.loadFull();var us=(full&&full.data&&full.data.users)||users;found=us.find(function(u){return String(u.login).trim().toLowerCase()===String(l).trim().toLowerCase()&&u.active;});}catch(e){}if(!found)found=users.find(function(u){return String(u.login).trim().toLowerCase()===String(l).trim().toLowerCase()&&u.active;});if(!found){se("Usuário sem cadastro ativo nesta clínica.");return;}onLogin(found);};
 const STY=`
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 .aff-login *{box-sizing:border-box;margin:0;padding:0;}
@@ -8798,7 +8807,7 @@ useEffect(function(){
 if(!user)return;
 var ativo=true;
 var checar=function(){
-fetch(SUPA_URL+"/rest/v1/wa_messages?direction=eq.in&id=gt."+(waSeenRef.current||0)+"&select=id",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,"Prefer":"count=exact","Range":"0-0"}}).then(function(r){var cr=r.headers.get("content-range")||"";var tot=cr.split("/")[1];if(ativo)setWaUnread(tot?Number(tot):0);}).catch(function(){});
+fetch(SUPA_URL+"/rest/v1/wa_messages?direction=eq.in&id=gt."+(waSeenRef.current||0)+"&select=id",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Prefer":"count=exact","Range":"0-0"}}).then(function(r){var cr=r.headers.get("content-range")||"";var tot=cr.split("/")[1];if(ativo)setWaUnread(tot?Number(tot):0);}).catch(function(){});
 };
 checar();
 var t=setInterval(checar,25000);
@@ -8902,6 +8911,7 @@ useEffect(function(){
 
 // ── CARREGAR do Supabase ──
 useEffect(()=>{
+if(!user)return;
 supabase.loadFull().then(full=>{
 const data=full?full.data:null;
 if(full)lastServerTs.current=full.updated_at;
@@ -8977,7 +8987,7 @@ var flushSave=function(){
 };
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flushSave();});
 });
-},[]);
+},[user]);
 
 // ── SALVAR no Supabase (robusto com retry + fila + anti-sobrescrita) ──
 const pendingSave=useRef(false);
@@ -9568,7 +9578,7 @@ if(user.level===2){
             <div style={{background:"rgba(255,255,255,.1)",borderRadius:10,padding:"10px 16px",fontSize:13,color:"rgba(255,255,255,.6)",marginBottom:24}}>
               Próximo acesso: <strong style={{color:"#fff"}}>{_prox}</strong>
             </div>
-            <button onClick={()=>setUser(null)} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            <button onClick={()=>(__signOut(),setUser(null))} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",borderRadius:10,padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>
               🚪 Sair
             </button>
           </div>
@@ -9644,7 +9654,7 @@ return <>
     <div style={{flexShrink:0,borderTop:"1px solid var(--border)",paddingTop:10,marginTop:6}}>
       <div style={{fontSize:10,color:"var(--muted)",marginBottom:4,paddingLeft:3}}>{user.name}</div>
       <div style={{fontSize:9,color:"var(--muted)",paddingLeft:3,marginBottom:6}}>{["","Básico","Intermediário","Total"][user.level]}</div><div style={{display:"flex",gap:4,background:"var(--bg)",borderRadius:10,padding:3,marginTop:8,marginBottom:8,boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px var(--nm-light)"}}>{[["light","ph-sun","Claro"],["dark","ph-moon","Escuro"]].map(function(o){var tv=o[0],ic=o[1],tl=o[2];var on=theme===tv;return <button key={tv} onClick={function(){setTheme(tv);}} style={{flex:1,border:"none",cursor:"pointer",borderRadius:8,padding:"7px 4px",fontSize:10.5,fontFamily:"'Manrope'",fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:5,color:on?"var(--primary)":"var(--muted)",background:on?"var(--card)":"transparent",boxShadow:on?"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)":"none",transition:"all .15s"}}><i className={(on?"ph-fill ":"ph-light ")+ic} style={{fontSize:14,color:on?"var(--primary)":"var(--muted)"}}></i>{tl}</button>;})}</div>
-      <button onClick={()=>setUser(null)} style={{border:"none",background:"var(--surface)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",borderRadius:9,padding:"8px 12px",color:"var(--text)",fontSize:11.5,fontWeight:600,cursor:"pointer",width:"100%",textAlign:"left",display:"flex",alignItems:"center",gap:8}}><i className="ph-light ph-sign-out"></i>Sair</button>
+      <button onClick={()=>(__signOut(),setUser(null))} style={{border:"none",background:"var(--surface)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",borderRadius:9,padding:"8px 12px",color:"var(--text)",fontSize:11.5,fontWeight:600,cursor:"pointer",width:"100%",textAlign:"left",display:"flex",alignItems:"center",gap:8}}><i className="ph-light ph-sign-out"></i>Sair</button>
     </div>
   </div>
 
