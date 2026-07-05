@@ -680,6 +680,131 @@ function PublicAnamnese({token}){
 /* ===================== PORTAL DO PACIENTE (inicio) ===================== */
 function genToken(){var c="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";var s="";try{var a=new Uint8Array(28);(window.crypto||window.msCrypto).getRandomValues(a);for(var i=0;i<a.length;i++)s+=c[a[i]%c.length];}catch(e){for(var j=0;j<28;j++)s+=c[Math.floor(Math.random()*c.length)];}return s;}
 
+// ══════════════════════════════════════════════════════════
+// CONTRATO DE TRATAMENTO — assinatura eletrônica (V195)
+// Dados na tabela 'contratos' do Supabase (FORA do blob principal — sem impacto no mergeArr/sync).
+// Acesso via Edge Function 'contratos': fetch/sign públicas por token; create/list/renew só logado.
+// ══════════════════════════════════════════════════════════
+const CONTRATO_FN=SUPA_URL+"/functions/v1/contratos";
+const contratoApi={
+  async call(body){try{const r=await fetch(CONTRATO_FN,{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json"},body:JSON.stringify(body)});var j=null;try{j=await r.json();}catch(e){}if(!r.ok)return {ok:false,http:r.status,msg:(j&&j.error)||("Erro "+r.status)};return Object.assign({ok:true},j||{});}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}},
+  fetchC(token){return this.call({op:"fetch",token:token});},
+  signC(token,signature){return this.call({op:"sign",token:token,signature:signature});},
+  createC(o){return this.call(Object.assign({op:"create"},o));},
+  listC(patientId){return this.call({op:"list",patientId:patientId});},
+  renewC(id){return this.call({op:"renew",id:id});}
+};
+function contratoLink(token){return appBase()+"?contrato="+encodeURIComponent(token);}
+function buildContratoHTML(o){
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  function brd2(d){if(!d)return "";var p=String(d).split("-");return p.length===3?(p[2]+"/"+p[1]+"/"+p[0]):String(d);}
+  var pat=o.pat||{},dent=o.dent||{},itens=o.itens||[],disc=Number(o.disc)||0;
+  var total=itens.reduce(function(s,it){return s+(Number(it.v)||0);},0)-disc;
+  var linhas=itens.map(function(it){return "<tr><td style='padding:7px 10px;border-bottom:1px solid #d8ded3'>"+esc(it.d)+"</td><td style='padding:7px 10px;border-bottom:1px solid #d8ded3;text-align:right;white-space:nowrap'>"+esc(cur(it.v))+"</td></tr>";}).join("");
+  if(disc>0)linhas+="<tr><td style='padding:7px 10px;color:#C0392B'>Desconto</td><td style='padding:7px 10px;text-align:right;color:#C0392B'>-"+esc(cur(disc))+"</td></tr>";
+  var hoje=new Date();var dEmiss=("0"+hoje.getDate()).slice(-2)+"/"+("0"+(hoje.getMonth()+1)).slice(-2)+"/"+hoje.getFullYear();
+  return "<div style='font-family:Georgia,serif;color:#23332b;max-width:720px;margin:0 auto;font-size:14px;line-height:1.55'>"
+   +"<div style='text-align:center;margin-bottom:18px'><div style='font-size:22px;font-weight:700;color:#2f5d49'>"+esc(CLINICA_INFO.nome)+"</div><div style='font-size:12px;color:#7c8a80'>"+esc(CLINICA_INFO.endereco)+" · Tel: "+esc(CLINICA_INFO.telefone)+"</div></div>"
+   +"<div style='text-align:center;font-size:16px;font-weight:700;margin:14px 0 18px;text-transform:uppercase;letter-spacing:.5px'>Contrato de Prestação de Serviços Odontológicos</div>"
+   +"<p><b>CONTRATADA:</b> "+esc(CLINICA_INFO.nome)+", com endereço em "+esc(CLINICA_INFO.endereco)+", telefone "+esc(CLINICA_INFO.telefone)+", neste ato representada pelo(a) cirurgião(ã)-dentista responsável <b>"+esc(dent.name||"")+"</b>"+(dent.cro?(", CRO "+esc(dent.cro)):"")+".</p>"
+   +"<p style='margin-top:8px'><b>CONTRATANTE:</b> <b>"+esc(pat.name||"")+"</b>"+(pat.cpf?(", CPF "+esc(pat.cpf)):"")+(pat.rg?(", RG "+esc(pat.rg)):"")+".</p>"
+   +"<p style='margin-top:12px'><b>CLÁUSULA 1ª — DO OBJETO.</b> A CONTRATADA prestará ao CONTRATANTE os serviços odontológicos abaixo relacionados, conforme orçamento"+(o.budgetDate?(" de "+esc(brd2(o.budgetDate))):"")+" aprovado pelo CONTRATANTE:</p>"
+   +"<table style='width:100%;border-collapse:collapse;margin:10px 0;font-size:13px'><thead><tr><th style='text-align:left;padding:7px 10px;background:#eef1ec;border-bottom:2px solid #2f5d49'>Procedimento</th><th style='text-align:right;padding:7px 10px;background:#eef1ec;border-bottom:2px solid #2f5d49'>Valor</th></tr></thead><tbody>"+linhas
+   +"<tr><td style='padding:8px 10px;font-weight:700'>TOTAL</td><td style='padding:8px 10px;text-align:right;font-weight:700;color:#2f5d49'>"+esc(cur(total))+"</td></tr></tbody></table>"
+   +"<p><b>CLÁUSULA 2ª — DO PAGAMENTO.</b> O valor total de <b>"+esc(cur(total))+"</b> será pago pelo CONTRATANTE na seguinte forma: <b>"+esc(o.formaPagamento||"a combinar")+"</b>.</p>"
+   +"<p style='margin-top:8px'><b>CLÁUSULA 3ª — DAS OBRIGAÇÕES.</b> A CONTRATADA executará os procedimentos com a técnica e os materiais adequados, ficando o CONTRATANTE responsável por comparecer às consultas agendadas, seguir as orientações pré e pós-operatórias e informar corretamente seu histórico de saúde. O não comparecimento ou o abandono do tratamento não isenta o CONTRATANTE do pagamento dos procedimentos já realizados.</p>"
+   +"<p style='margin-top:8px'><b>CLÁUSULA 4ª — DA NATUREZA DOS SERVIÇOS.</b> Os serviços odontológicos constituem, em regra, obrigação de meio, empregando a CONTRATADA todos os recursos técnicos disponíveis, sem garantia de resultado estético ou funcional específico, salvo quando expressamente ajustado por escrito. Eventuais procedimentos adicionais não previstos neste contrato serão objeto de novo orçamento.</p>"
+   +"<p style='margin-top:8px'><b>CLÁUSULA 5ª — DA ASSINATURA ELETRÔNICA.</b> As partes reconhecem a validade jurídica da assinatura eletrônica deste documento, nos termos do art. 10, §2º, da MP 2.200-2/2001, sendo registrados como evidência a imagem da assinatura, a data e hora, o endereço IP do assinante e o código de verificação (hash SHA-256) do documento.</p>"
+   +"<p style='margin-top:14px'>São Paulo, "+dEmiss+".</p>"
+   +"</div>";
+}
+function contratoPrintHTML(c){
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  var ev="";
+  if(c&&c.status==="assinado"){
+    var dt=c.signed_at?new Date(c.signed_at).toLocaleString("pt-BR"):"";
+    ev="<div style='max-width:720px;margin:26px auto 0;padding:14px 16px;border:1.5px solid #2f8f5f;border-radius:10px;font-family:Arial,sans-serif;font-size:12px;color:#23332b'>"
+      +"<div style='font-weight:700;color:#2f8f5f;margin-bottom:8px'>✔ DOCUMENTO ASSINADO ELETRONICAMENTE</div>"
+      +(c.signature?("<img src='"+c.signature+"' style='max-height:90px;max-width:300px;display:block;margin-bottom:6px'/>"):"")
+      +"<div>Assinado por: <b>"+esc(c.patient_name||"")+"</b></div>"
+      +(dt?("<div>Data/hora: "+esc(dt)+"</div>"):"")
+      +(c.signer_ip?("<div>IP do assinante: "+esc(c.signer_ip)+"</div>"):"")
+      +(c.hash_sha256?("<div style='word-break:break-all'>Hash SHA-256: "+esc(c.hash_sha256)+"</div>"):"")
+      +"<div style='color:#7c8a80;margin-top:6px'>Assinatura eletrônica nos termos do art. 10, §2º, da MP 2.200-2/2001.</div></div>";
+  }
+  return "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Contrato - "+esc((c&&c.patient_name)||"")+"</title></head><body style='background:#ffffff;margin:24px'>"+((c&&c.html)||"")+ev
+   +"<div style='max-width:720px;margin:18px auto 0;text-align:center' class='no-print'><button onclick='window.print()' style='padding:10px 22px;font-size:14px;cursor:pointer'>🖨 Imprimir / Salvar PDF</button></div>"
+   +"<style>@media print{.no-print{display:none}}</style></body></html>";
+}
+function abrirContratoPrint(c){try{var w=window.open("","_blank");if(!w){alert("Permita pop-ups para visualizar o contrato.");return;}w.document.write(contratoPrintHTML(c));w.document.close();}catch(e){alert("Não foi possível abrir a janela de impressão.");}}
+function PublicContrato({token}){
+  const [st,setSt]=useState("loading");
+  const [data,setData]=useState(null);
+  const [sig,setSig]=useState("");
+  const [agree,setAgree]=useState(false);
+  const [sending,setSending]=useState(false);
+  const [err,setErr]=useState("");
+  useEffect(function(){var alive=true;contratoApi.fetchC(token).then(function(r){if(!alive)return;if(!r.ok){setSt("erro");return;}setData(r);if(r.status==="expirado")setSt("expirado");else if(r.status==="assinado")setSt("assinado");else setSt("pendente");}).catch(function(){if(alive)setSt("erro");});return function(){alive=false;};},[token]);
+  function assinar(){if(!sig||!agree||sending)return;setSending(true);setErr("");contratoApi.signC(token,sig).then(function(r){setSending(false);if(r.ok)setSt("sucesso");else setErr(r.msg||"Não foi possível assinar. Tente novamente.");});}
+  var card={background:G.card,borderRadius:14,padding:18,maxWidth:760,margin:"0 auto",boxShadow:"0 8px 30px rgba(30,45,38,.14)"};
+  return <div style={{minHeight:"100vh",background:G.bg,padding:"22px 12px"}}>
+    <div style={{textAlign:"center",marginBottom:14}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:G.primary}}>{CLINICA_INFO.nome}</div><div style={{fontSize:12,color:G.muted}}>Contrato de tratamento</div></div>
+    {st==="loading"&&<div style={card}><div style={{textAlign:"center",color:G.muted,padding:30}}>Carregando contrato…</div></div>}
+    {st==="erro"&&<div style={card}><div style={{textAlign:"center",color:G.red,padding:30,fontSize:14}}>Contrato não encontrado. Confira o link ou peça um novo à clínica.</div></div>}
+    {st==="expirado"&&<div style={card}><div style={{textAlign:"center",padding:30}}><div style={{fontSize:34}}>⏰</div><div style={{fontWeight:700,marginTop:8,fontSize:15}}>Este link expirou.</div><div style={{fontSize:13,color:G.muted,marginTop:6}}>{"Por segurança o link vale 48 horas. Entre em contato com a "+CLINICA_INFO.nome+" pelo telefone "+CLINICA_INFO.telefone+" para receber um novo link."}</div></div></div>}
+    {(st==="assinado"||st==="sucesso")&&data&&<div style={card}>
+      <div style={{background:"var(--green-soft)",borderRadius:10,padding:"12px 14px",marginBottom:14,textAlign:"center"}}><div style={{fontSize:26}}>✅</div><div style={{fontWeight:700,color:G.success}}>{st==="sucesso"?"Contrato assinado com sucesso!":"Este contrato já foi assinado."}</div><div style={{fontSize:12,color:G.muted,marginTop:4}}>A clínica foi notificada. Você pode fechar esta página.</div></div>
+      {data.html&&<div style={{background:"#ffffff",borderRadius:10,padding:14,maxHeight:420,overflowY:"auto",border:"1px solid "+G.border}} dangerouslySetInnerHTML={{__html:data.html}}/>}
+    </div>}
+    {st==="pendente"&&data&&<div style={card}>
+      <div style={{background:"#ffffff",borderRadius:10,padding:14,maxHeight:"48vh",overflowY:"auto",border:"1px solid "+G.border}} dangerouslySetInnerHTML={{__html:data.html||""}}/>
+      <div style={{marginTop:14}}>
+        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Sua assinatura</label>
+        <div style={{marginTop:6}}><SignaturePad value={sig} disabled={false} onChange={setSig}/></div>
+      </div>
+      <label style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:12,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={agree} onChange={e=>setAgree(e.target.checked)} style={{marginTop:2}}/><span>Li o contrato acima e <b>concordo</b> com todas as condições.</span></label>
+      {err&&<div style={{marginTop:10,background:"var(--red-soft)",color:G.red,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:600}}>{err}</div>}
+      <button onClick={assinar} disabled={!sig||!agree||sending} style={{marginTop:14,width:"100%",background:(!sig||!agree||sending)?G.muted:G.primary,color:"#fff",border:"none",borderRadius:10,padding:"13px 16px",fontSize:15,fontWeight:700,cursor:(!sig||!agree||sending)?"not-allowed":"pointer"}}>{sending?"Enviando…":"✍️ Assinar contrato"}</button>
+      <div style={{fontSize:11,color:G.muted,marginTop:8,textAlign:"center"}}>Serão registrados data/hora, IP e código de verificação do documento (MP 2.200-2/2001, art. 10 §2º).</div>
+    </div>}
+  </div>;
+}
+function DocsContratos({pat}){
+  const [rows,setRows]=useState(null);
+  const [msg,setMsg]=useState("");
+  function load(){setRows(null);contratoApi.listC(String(pat.id)).then(function(r){setRows((r.ok&&r.contratos)||[]);});}
+  useEffect(function(){load();},[pat.id]);
+  var CCOL={pendente:G.yellow,assinado:G.success,expirado:G.red};
+  var CLAB={pendente:"Pendente",assinado:"Assinado",expirado:"Expirado"};
+  function copiar(t){var link=contratoLink(t);try{navigator.clipboard.writeText(link).then(function(){setMsg("Link copiado!");setTimeout(function(){setMsg("");},2000);});}catch(e){window.prompt("Copie o link:",link);}}
+  function reenviar(t){var link=contratoLink(t);wa(pat.phone,"Olá, "+(pat.name||"")+"! 😊\n\nSegue o contrato do seu tratamento na "+CLINICA_INFO.nome+" para leitura e assinatura:\n"+link+"\n\nO link é pessoal e vale por 48 horas.");}
+  function renovar(id){contratoApi.renewC(id).then(function(r){if(r.ok){setMsg("Validade renovada por +48h. Reenvie o link ao paciente.");setTimeout(function(){setMsg("");},3000);load();}else alert(r.msg||"Não foi possível renovar.");});}
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <Div lb="Documentos — Contratos"/>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <div style={{fontSize:12,color:G.muted}}>Contratos gerados a partir de orçamentos aprovados (aba Tratamento).</div>
+      <Btn ch="↻ Atualizar" v="g" sm onClick={load}/>
+    </div>
+    {msg&&<div style={{background:"var(--green-soft)",color:G.success,borderRadius:8,padding:"8px 12px",fontSize:12.5,fontWeight:700}}>{msg}</div>}
+    {rows===null&&<div style={{fontSize:13,color:G.muted,padding:"14px 4px"}}>Carregando…</div>}
+    {rows&&rows.length===0&&<div style={{fontSize:13,color:G.muted,background:G.bg,borderRadius:10,padding:"14px 16px"}}>Nenhum contrato ainda. Aprove um orçamento na aba <b>Tratamento</b> e clique em <b>📝 Contrato</b>.</div>}
+    {rows&&rows.map(function(c){var totalFmt=(c.payload&&c.payload.totalFmt)||"";return <div key={c.id} style={{background:G.bg,borderRadius:10,padding:"11px 13px",borderLeft:"3px solid "+(CCOL[c.status]||G.muted)}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}}>
+        <div style={{display:"flex",flexDirection:"column"}}>
+          <span style={{fontWeight:700,fontSize:13}}>{"Contrato de tratamento"+(totalFmt?(" · "+totalFmt):"")}</span>
+          <span style={{fontSize:11,color:G.muted}}>{"Criado em "+(c.created_at?new Date(c.created_at).toLocaleString("pt-BR"):"-")+(c.signed_at?(" · Assinado em "+new Date(c.signed_at).toLocaleString("pt-BR")):"")}</span>
+        </div>
+        <Bdg l={CLAB[c.status]||c.status} col={CCOL[c.status]||G.muted} sm/>
+      </div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
+        <Btn ch="👁 Ver / Imprimir" v="g" sm onClick={function(){abrirContratoPrint(c);}}/>
+        {c.status==="pendente"&&<Btn ch="📱 Reenviar link" v="w" sm onClick={function(){reenviar(c.token);}}/>}
+        {c.status==="pendente"&&<Btn ch="📋 Copiar link" v="g" sm onClick={function(){copiar(c.token);}}/>}
+        {c.status==="expirado"&&<Btn ch="🔄 Renovar 48h" v="y" sm onClick={function(){renovar(c.id);}}/>}
+      </div>
+    </div>;})}
+  </div>;
+}
 function appBase(){try{var u=((CLINICA_INFO&&CLINICA_INFO.appUrl)||"").trim();if(u)return u.replace(/\?.*$/,"").replace(/\/+$/,"");}catch(e){}try{return window.location.origin+window.location.pathname;}catch(e2){return "";}}
 
 function buildPortal(p,appts,treats,budgets,dents){
@@ -905,6 +1030,13 @@ const [bni,setBni]=useState({d:"",v:""});
 
 // Orçamento PDF Premium (envio ao paciente)
 const [pdfBudget,setPdfBudget]=useState(null);
+// Contrato de tratamento com assinatura eletrônica (V195)
+const [ctrBudget,setCtrBudget]=useState(null);
+const [ctrPag,setCtrPag]=useState("");
+const [ctrDent,setCtrDent]=useState(null);
+const [ctrBusy,setCtrBusy]=useState(false);
+const [ctrDone,setCtrDone]=useState(null);
+const [ctrErr,setCtrErr]=useState("");
 const defPayCfg=()=>({avista:{on:true,desc:7},credito:{on:true,parcelas:12},debito:{on:false},carne:{on:false,parcelas:6},custom:{on:false,text:""}});
 const [payCfg,setPayCfg]=useState(defPayCfg());
 // Frases de benefício por procedimento (venda) — usadas só se reconhecer o nome
@@ -1098,7 +1230,7 @@ setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",n
 };
 const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
-const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
+const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],["docs","📑 Documentos"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
 // NF (Nota Fiscal) state
 const [nfModal,setNfModal]=useState(false);
 const [showAtestado,setShowAtestado]=useState(false);
@@ -1385,6 +1517,7 @@ return <>
           {b.attach&&<Bdg l={`📎 ${b.attach}`} col={G.blue} sm/>}
           <Btn ch="📄 PDF" sm onClick={()=>{setPdfBudget(b);setPayCfg(defPayCfg());}}/>
           <Btn ch="📱" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! Orçamento:\n${b.items.map(i=>`• ${i.d}: ${cur(i.v)}`).join("\n")}\nTotal: ${cur(tot)}`)}/> 
+          {b.status==="approved"&&!isDentUser&&<Btn ch="📝 Contrato" sm onClick={()=>{var mets=[];(patTreats||[]).forEach(function(t){(t.payments||[]).forEach(function(pg){if(pg.method&&mets.indexOf(pg.method)<0)mets.push(pg.method);});});setCtrPag(mets.length?mets.join(" / "):"");setCtrDent((b.dentistId!=null?b.dentistId:(dents&&dents[0]&&dents[0].id))||null);setCtrDone(null);setCtrErr("");setCtrBudget(b);}}/>}
           {!isDentUser&&<Btn ch="Editar" v="g" sm onClick={()=>{setBudgEdit(b);setBf({...b,disc:b.disc||0});setBudgModal(true);}}/>}
         </div>
       </div>
@@ -1661,6 +1794,8 @@ return <>
   </div>}
 
   {/* ── NOTA FISCAL ── */}
+  {tab==="docs"&&<DocsContratos pat={pat}/>}
+
   {tab==="atestado"&&(function(){
   var dentAtest=dents.find(function(d){return d.id===Number(atDentId);})||dents.find(function(d){return d.id===(user.dentistId||dents[0]&&dents[0].id);});
   var dentName=dentAtest&&dentAtest.name||"Dr. Diego Affonso";
@@ -2291,6 +2426,59 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
     </div>
   </div>
 </div>}
+
+{/* Contrato de tratamento — modal (V195) */}
+{ctrBudget&&(function(){
+var bC=ctrBudget;
+var totalC=bC.items.reduce(function(s,i){return s+i.v;},0)-(bC.disc||0);
+var dentC=(dents||[]).find(function(d){return String(d.id)===String(ctrDent);})||(dents&&dents[0])||{};
+var linkC=ctrDone?contratoLink(ctrDone.token):"";
+return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+  <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
+      <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>📝 Contrato — {pat.name}</span>
+      <button onClick={()=>setCtrBudget(null)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+    </div>
+    <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+      {!ctrDone&&<>
+        <div style={{background:G.bg,borderRadius:10,padding:"10px 13px"}}>
+          {bC.items.map(function(it,i){return <div key={i} style={{fontSize:12.5,display:"flex",justifyContent:"space-between",padding:"2px 0"}}><span>{it.d}</span><span>{cur(it.v)}</span></div>;})}
+          {(bC.disc||0)>0&&<div style={{fontSize:12.5,display:"flex",justifyContent:"space-between",color:G.red}}><span>Desconto</span><span>{"-"+cur(bC.disc)}</span></div>}
+          <div style={{fontSize:13.5,display:"flex",justifyContent:"space-between",fontWeight:700,marginTop:4,color:G.primary}}><span>Total</span><span>{cur(totalC)}</span></div>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Profissional responsável</label>
+          <select value={ctrDent==null?"":ctrDent} onChange={e=>setCtrDent(e.target.value)} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--surface)"}}>
+            {(dents||[]).map(function(d){return <option key={d.id} value={d.id}>{d.name+(d.cro?(" — CRO "+d.cro):"")}</option>;})}
+          </select>
+        </div>
+        <Inp lb="Forma de pagamento" val={ctrPag} set={setCtrPag} ph="Ex: PIX em 3 parcelas de R$ 500,00"/>
+        {ctrErr&&<div style={{background:"var(--red-soft)",color:G.red,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:600}}>{ctrErr}</div>}
+        <button disabled={ctrBusy} onClick={()=>{
+          if(!String(ctrPag||"").trim()){setCtrErr("Informe a forma de pagamento.");return;}
+          setCtrBusy(true);setCtrErr("");
+          var htmlC=buildContratoHTML({pat:pat,dent:dentC,itens:bC.items,disc:bC.disc||0,formaPagamento:ctrPag,budgetDate:bC.date});
+          contratoApi.createC({patientId:String(pat.id),patientName:pat.name,budgetId:String(bC.id),html:htmlC,payload:{total:totalC,totalFmt:cur(totalC),formaPagamento:ctrPag,dentista:dentC.name||""}}).then(function(r){
+            setCtrBusy(false);
+            if(r.ok)setCtrDone({token:r.token,html:htmlC});
+            else setCtrErr(r.msg||"Não foi possível gerar o contrato. Verifique a conexão e o login.");
+          });
+        }} style={{background:ctrBusy?G.muted:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"11px 14px",fontSize:14,fontWeight:700,cursor:ctrBusy?"wait":"pointer"}}>{ctrBusy?"Gerando…":"📝 Gerar Contrato"}</button>
+        <div style={{fontSize:11,color:G.muted}}>O contrato usa os dados do cadastro e fica registrado na aba <b>Documentos</b>. O link de assinatura vale 48 horas.</div>
+      </>}
+      {ctrDone&&<>
+        <div style={{background:"var(--green-soft)",borderRadius:10,padding:"12px 14px",textAlign:"center"}}><div style={{fontSize:24}}>✅</div><div style={{fontWeight:700,color:G.success}}>Contrato gerado!</div><div style={{fontSize:12,color:G.muted,marginTop:3}}>Envie o link para o paciente ler e assinar pelo celular.</div></div>
+        <div style={{background:"var(--green-soft)",borderRadius:10,padding:"10px 12px",fontSize:11,color:"var(--primary)",wordBreak:"break-all",fontWeight:600}}>{linkC}</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Btn ch="📱 Enviar para assinar" v="w" onClick={()=>{wa(pat.phone,"Olá, "+(pat.name||"")+"! 😊\n\nSegue o contrato do seu tratamento na "+CLINICA_INFO.nome+" para leitura e assinatura:\n"+linkC+"\n\nO link é pessoal e vale por 48 horas.");}}/>
+          <Btn ch="👁 Visualizar" v="g" onClick={()=>{abrirContratoPrint({html:ctrDone.html,patient_name:pat.name,status:"pendente"});}}/>
+          <Btn ch="📋 Copiar link" v="g" onClick={()=>{try{navigator.clipboard.writeText(linkC);}catch(e){window.prompt("Copie o link:",linkC);}}}/>
+        </div>
+        <button onClick={()=>setCtrBudget(null)} style={{border:`1.5px solid ${G.muted}`,background:"transparent",color:G.muted,borderRadius:8,padding:"9px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Fechar</button>
+      </>}
+    </div>
+  </div>
+</div>;})()}
 
 {/* Budget modal - inline render to avoid state closure bug */}
 {budgModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -5479,11 +5667,137 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
 // ══════════════════════════════════════════════════════════
 // ESTOQUE
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// IMPORTAÇÃO DE NF-e (XML) — Estoque (V195)
+// Autocontido: só usa (stock,setStock). Parse com DOMParser nativo (NF-e 4.00).
+// ══════════════════════════════════════════════════════════
+function nfeNorm(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim();}
+function nfeBigrams(s){var out={};for(var i=0;i<s.length-1;i++){var b=s.slice(i,i+2);out[b]=(out[b]||0)+1;}return out;}
+function nfeDice(a,b){var A=nfeBigrams(a),B=nfeBigrams(b);var inter=0,ta=0,tb=0,k;for(k in A)ta+=A[k];for(k in B)tb+=B[k];if(!ta||!tb)return 0;for(k in A)if(B[k])inter+=Math.min(A[k],B[k]);return (2*inter)/(ta+tb);}
+function nfeScore(itNF,itStk){
+  if(itNF.cod&&itStk.codigo&&String(itStk.codigo).trim()===String(itNF.cod).trim())return 1;
+  var a=nfeNorm(itNF.desc),b=nfeNorm(itStk.name);
+  if(!a||!b)return 0;
+  if(a.indexOf(b)>=0||b.indexOf(a)>=0)return 0.9;
+  return nfeDice(a,b);
+}
+function nfeParse(txt){
+  var doc;
+  try{doc=new DOMParser().parseFromString(txt,"text/xml");}catch(e){return {err:"Não foi possível ler o arquivo."};}
+  if(!doc||doc.getElementsByTagName("parsererror").length)return {err:"Arquivo XML inválido. Confira se é o XML da NF-e."};
+  function tag(el,name){if(!el)return "";var ns=el.getElementsByTagName(name);return (ns&&ns[0]&&ns[0].textContent)||"";}
+  var emit=doc.getElementsByTagName("emit")[0];
+  var ide=doc.getElementsByTagName("ide")[0];
+  var forn=tag(emit,"xNome")||"Fornecedor";
+  var num=tag(ide,"nNF")||"?";
+  var dt=(tag(ide,"dhEmi")||tag(ide,"dEmi")||"").slice(0,10)||today();
+  var dets=doc.getElementsByTagName("det");
+  if(!dets.length)return {err:"Nenhum item encontrado. Confira se o arquivo é o XML da NF-e."};
+  var itens=[];
+  for(var i=0;i<dets.length;i++){
+    var prod=dets[i].getElementsByTagName("prod")[0];
+    if(!prod)continue;
+    itens.push({cod:tag(prod,"cProd"),desc:tag(prod,"xProd"),un:(tag(prod,"uCom")||"un").toLowerCase(),q:parseFloat(tag(prod,"qCom"))||0,vu:parseFloat(tag(prod,"vUnCom"))||0});
+  }
+  if(!itens.length)return {err:"Nenhum item válido encontrado no XML."};
+  return {forn:forn,num:num,date:dt,itens:itens};
+}
+function ImportNFe({stock,setStock,addLog,onClose}){
+  const [nf,setNf]=useState(null);
+  const [sel,setSel]=useState({});
+  const [erro,setErro]=useState("");
+  const [done,setDone]=useState(null);
+  var sorted=[...(stock||[])].sort(function(a,b){return String(a.name).localeCompare(String(b.name),"pt-BR",{sensitivity:"base"});});
+  function onFile(e){
+    var f=e.target.files&&e.target.files[0];
+    if(!f)return;
+    setErro("");
+    var rd=new FileReader();
+    rd.onload=function(){
+      var r=nfeParse(String(rd.result||""));
+      if(r.err){setErro(r.err);return;}
+      var s={};
+      r.itens.forEach(function(it,i){
+        var best=null,bestScore=0;
+        (stock||[]).forEach(function(st){var sc=nfeScore(it,st);if(sc>bestScore){bestScore=sc;best=st;}});
+        s[i]=(best&&bestScore>=0.45)?String(best.id):"novo";
+      });
+      setSel(s);setNf(r);
+    };
+    rd.onerror=function(){setErro("Não foi possível ler o arquivo.");};
+    rd.readAsText(f);
+  }
+  function confirmar(){
+    if(!nf)return;
+    var casados=0,criados=0;
+    nf.itens.forEach(function(it,i){if(sel[i]==="novo")criados++;else casados++;});
+    setStock(function(prev){
+      var next=prev.map(function(s){return Object.assign({},s);});
+      nf.itens.forEach(function(it,i){
+        var mov={t:"in",q:it.q,date:nf.date,note:"NF-e nº "+nf.num+" - "+nf.forn};
+        var alvo=sel[i];
+        if(alvo==="novo"){
+          next.push({id:nid(),name:it.desc,qty:it.q,unit:it.un||"un",min:1,price:it.vu,codigo:it.cod||"",movs:[mov]});
+        }else{
+          var s=next.find(function(x){return String(x.id)===String(alvo);});
+          if(s){s.qty=Number(s.qty||0)+it.q;s.price=it.vu;if(!s.codigo&&it.cod)s.codigo=it.cod;s.movs=[mov].concat(s.movs||[]);}
+        }
+      });
+      return next;
+    });
+    try{if(addLog)addLog("estoque","Entrada NF-e nº "+nf.num+" - "+nf.forn+" ("+nf.itens.length+" itens)","");}catch(e){}
+    setDone({tot:nf.itens.length,casados:casados,criados:criados});
+  }
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:640,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
+        <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>📥 Importar NF-e (XML)</span>
+        <button onClick={onClose} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+      </div>
+      <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
+        {done&&<>
+          <div style={{background:"var(--green-soft)",borderRadius:10,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:26}}>✅</div><div style={{fontWeight:700,color:G.success}}>{done.tot+" entrada"+(done.tot>1?"s":"")+" registrada"+(done.tot>1?"s":"")+" no estoque!"}</div><div style={{fontSize:12.5,color:G.muted,marginTop:4}}>{done.casados+" item(ns) atualizado(s) · "+done.criados+" criado(s)"}</div></div>
+          <Btn ch="Fechar" onClick={onClose}/>
+        </>}
+        {!done&&!nf&&<>
+          <div style={{fontSize:13,color:G.muted}}>Selecione o arquivo <b>XML da nota fiscal do fornecedor</b>. Os itens aparecem para conferência antes de entrar no estoque.</div>
+          <input type="file" accept=".xml,text/xml" onChange={onFile} style={{fontSize:13,padding:"10px 12px"}}/>
+          {erro&&<div style={{background:"var(--red-soft)",color:G.red,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:600}}>{erro}</div>}
+        </>}
+        {!done&&nf&&<>
+          <div style={{background:G.bg,borderRadius:10,padding:"10px 13px",fontSize:12.5}}>
+            <div style={{fontWeight:700}}>{nf.forn}</div>
+            <div style={{color:G.muted}}>{"NF-e nº "+nf.num+" · "+fmt(nf.date)+" · "+nf.itens.length+" item(ns)"}</div>
+          </div>
+          <div style={{fontSize:11.5,color:G.muted}}>Confira o casamento de cada item. Ao confirmar: soma a quantidade, atualiza o preço com o valor da nota e aprende o código do produto para as próximas notas.</div>
+          {nf.itens.map(function(it,i){var isNovo=sel[i]==="novo";return <div key={i} style={{background:G.bg,borderRadius:10,padding:"10px 13px",display:"flex",flexDirection:"column",gap:6}}>
+            <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+              <span style={{fontSize:12.5,fontWeight:700,flex:1,minWidth:180}}>{it.desc}</span>
+              <span style={{fontSize:12,color:G.muted,whiteSpace:"nowrap"}}>{it.q+" "+it.un+" × "+cur(it.vu)}</span>
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+              <Bdg l={isNovo?"Criar novo":"Casado"} col={isNovo?G.blue:G.success} sm/>
+              <select value={sel[i]} onChange={function(e){var v=e.target.value;setSel(function(p){var n=Object.assign({},p);n[i]=v;return n;});}} style={{flex:1,minWidth:200,border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:13,outline:"none",color:G.text,background:"var(--surface)"}}>
+                <option value="novo">{"➕ Criar novo item: "+it.desc}</option>
+                {sorted.map(function(s){return <option key={s.id} value={String(s.id)}>{s.name+(s.codigo?(" ["+s.codigo+"]"):"")}</option>;})}
+              </select>
+            </div>
+          </div>;})}
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
+            <button onClick={function(){setNf(null);setSel({});}} style={{border:"1.5px solid "+G.muted,background:"transparent",color:G.muted,borderRadius:8,padding:"9px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Voltar</button>
+            <Btn ch={"✔ Confirmar "+nf.itens.length+" entrada(s)"} onClick={confirmar}/>
+          </div>
+        </>}
+      </div>
+    </div>
+  </div>;
+}
 function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
+const [impNfe,setImpNfe]=useState(false); // Importação NF-e (V195)
 const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
 const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note},...(s.movs||[])]}:s));setMv(null);};
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -5496,8 +5810,12 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {stkTab==="material"&&<>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Estoque</h2>
+<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+<Btn ch="📥 Importar NF-e" v="g" onClick={()=>setImpNfe(true)}/>
 <Btn ch="+ Novo Item" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/>
 </div>
+</div>
+{impNfe&&<ImportNFe stock={stock} setStock={setStock} addLog={addLog} onClose={()=>setImpNfe(false)}/>}
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:11}}>
 {[...stock].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"})).map(s=>{const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${low?G.red:G.success}`}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -9387,6 +9705,8 @@ const portalToken=(function(){try{return new URLSearchParams(window.location.sea
 if(portalToken)return <PatientPortal token={portalToken}/>;
 const anamToken=(function(){try{return new URLSearchParams(window.location.search).get("anam");}catch(e){return null;}})();
 if(anamToken)return <PublicAnamnese token={anamToken}/>;
+const contratoToken=(function(){try{return new URLSearchParams(window.location.search).get("contrato");}catch(e){return null;}})();
+if(contratoToken)return <PublicContrato token={contratoToken}/>;
 // === PORTAL DO PACIENTE: (a) recalcula pat._portal  (b) reconcilia confirmacoes de presenca ===
 useEffect(function(){
   var changed=[];
