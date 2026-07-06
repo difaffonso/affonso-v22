@@ -15,14 +15,49 @@ const supabase={
 async loadFull(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=data,updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return {data:rows[0].data,updated_at:rows[0].updated_at};return null;}catch(e){return null;}},
 async load(){const f=await this.loadFull();return f?f.data:null;},
 async getTimestamp(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
+// V196: no login, baixar apenas a lista de usuarios (poucos KB) em vez do banco inteiro
+async loadUsersOnly(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=users:data->users",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0]&&Array.isArray(rows[0].users)&&rows[0].users.length)return rows[0].users;return null;}catch(e){return null;}},
 async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}},
 async loadPatients(){if(!SUPA_URL)return null;try{var all=[];var lastId=0;var step=1000;for(var guard=0;guard<500;guard++){var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=id.asc&limit="+step+"&id=gt."+lastId,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return all.length?all:null;var rows=await r.json();if(!rows||!rows.length)break;for(var k=0;k<rows.length;k++){all.push(rows[k].data);}lastId=rows[rows.length-1].id;if(rows.length<step)break;}return all;}catch(e){return null;}},
 async loadPatientsSince(ts){if(!SUPA_URL)return null;try{var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=updated_at.asc&updated_at=gt."+encodeURIComponent(ts)+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return null;var d=await r.json();return (d||[]).map(function(row){return {id:row.id,data:row.data,ts:row.updated_at};});}catch(e){return null;}},
 async upsertPatients(arr){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!arr||!arr.length)return {ok:true};var now=new Date().toISOString();var CH=400;for(var i=0;i<arr.length;i+=CH){var chunk=arr.slice(i,i+CH).map(function(p){return {id:p.id,data:p,updated_at:now};});try{var r=await fetch(SUPA_URL+"/rest/v1/patients",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(chunk)});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}return {ok:true};},
 async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao com o banco"};try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,payload:payload})});if(r.ok)return {ok:true};var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}},
 async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
-,async fetchAnamRecent(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,payload,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
+,__anamCur:null // V196: cursor incremental - depois da 1a busca (7 dias), so baixa fichas novas (com folga de 15min p/ corridas de sync)
+,async fetchAnamRecent(){if(!SUPA_URL)return [];try{var since=this.__anamCur||new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,payload,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();if(!Array.isArray(rows))return [];var mx=null;rows.forEach(function(x){if(x&&x.created_at&&(!mx||x.created_at>mx))mx=x.created_at;});if(mx){try{this.__anamCur=new Date(Date.parse(mx)-15*60000).toISOString();}catch(e2){}}return rows;}catch(e){return [];}}
 ,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
+// V196: versao economica do carregamento de conversas. Na 1a chamada baixa tudo (como antes);
+// nas seguintes baixa apenas mensagens novas + a "cauda" (ultimos 60 ids) para capturar
+// mudancas de status (enviado -> entregue -> lido). Corta ~95% do egress do polling.
+,__waCache:{rows:[],maxId:0,loaded:false}
+,async loadWaMessagesLite(){
+  if(!SUPA_URL)return [];
+  var C=this.__waCache;
+  if(!C.loaded){
+    var all=await this.loadWaMessages();
+    if(Array.isArray(all)){
+      C.rows=all.slice();
+      C.maxId=0;C.rows.forEach(function(x){if(x&&(x.id||0)>C.maxId)C.maxId=x.id;});
+      if(C.rows.length)C.loaded=true; // so trava o cache quando a 1a carga veio com dados (ou banco realmente vazio apos 1a resposta ok)
+      else C.loaded=true;
+    }
+    return C.rows.slice();
+  }
+  try{
+    var since=Math.max(0,(C.maxId||0)-60);
+    const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&id=gt."+since+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});
+    if(r.ok){
+      var rows=await r.json();
+      if(Array.isArray(rows)&&rows.length){
+        var by={};C.rows.forEach(function(x,i){if(x&&x.id!=null)by[x.id]=i;});
+        rows.forEach(function(x){if(!x||x.id==null)return;if(by[x.id]!=null)C.rows[by[x.id]]=x;else C.rows.push(x);if(x.id>C.maxId)C.maxId=x.id;});
+        C.rows.sort(function(a,b){return (b.id||0)-(a.id||0);});
+        if(C.rows.length>1000)C.rows=C.rows.slice(0,1000);
+      }
+    }
+  }catch(e){}
+  return C.rows.slice();
+}
 ,async fetchPortal(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/rpc/portal_get",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json"},body:JSON.stringify({p_token:token})});if(!r.ok)return null;const v=await r.json();return v||null;}catch(e){return null;}}
 ,async sendPortalAction(token,action){if(!SUPA_URL)return {ok:false};try{const r=await fetch(SUPA_URL+"/rest/v1/portal_actions",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,action:action})});return {ok:r.ok};}catch(e){return {ok:false};}}
 ,async fetchPortalActions(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-3*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/portal_actions?created_at=gte."+encodeURIComponent(since)+"&select=token,action,created_at&order=created_at.desc&limit=300",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
@@ -8320,7 +8355,7 @@ return <div key={i} style={{background:G.card,borderRadius:9,padding:"8px 12px",
 // ══════════════════════════════════════════════════════════
 function Login({users,onLogin}){
 const [l,sl]=useState("");const [p,sp]=useState("");const [e,se]=useState("");const [sw,ssw]=useState(false);
-const go=async function(){se("");if(!l||!p){se("Preencha login e senha");return;}var ok=false;try{ok=await __signIn(l,p);}catch(err){se("Erro de conexao. Tente novamente.");return;}if(!ok){se(__lastAuthErr==="network"?"Sem conexão com o servidor de login. Teste em navegador real (não no preview).":(__lastAuthErr==="server"?"Servidor de login indisponível. Tente novamente.":"Login ou senha inválidos"));return;}var found=null;try{var full=await supabase.loadFull();var us=(full&&full.data&&full.data.users)||users;found=us.find(function(u){return String(u.login).trim().toLowerCase()===String(l).trim().toLowerCase()&&u.active;});}catch(e){}if(!found)found=users.find(function(u){return String(u.login).trim().toLowerCase()===String(l).trim().toLowerCase()&&u.active;});if(!found){se("Usuário sem cadastro ativo nesta clínica.");return;}onLogin(found);};
+const go=async function(){se("");if(!l||!p){se("Preencha login e senha");return;}var ok=false;try{ok=await __signIn(l,p);}catch(err){se("Erro de conexao. Tente novamente.");return;}if(!ok){se(__lastAuthErr==="network"?"Sem conexão com o servidor de login. Teste em navegador real (não no preview).":(__lastAuthErr==="server"?"Servidor de login indisponível. Tente novamente.":"Login ou senha inválidos"));return;}var found=null;try{var us=(await supabase.loadUsersOnly())||users;found=us.find(function(u){return String(u.login).trim().toLowerCase()===String(l).trim().toLowerCase()&&u.active;});}catch(e){}if(!found)found=users.find(function(u){return String(u.login).trim().toLowerCase()===String(l).trim().toLowerCase()&&u.active;});if(!found){se("Usuário sem cadastro ativo nesta clínica.");return;}onLogin(found);};
 const STY=`
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 .aff-login *{box-sizing:border-box;margin:0;padding:0;}
@@ -8878,7 +8913,7 @@ const [sending,setSending]=useState(false);
 const [erro,setErro]=useState("");
 const bottomRef=useRef(null);
 const load=function(){
-supabase.loadWaMessages().then(function(rows){
+supabase.loadWaMessagesLite().then(function(rows){ // V196: poll economico (delta por id)
 setMsgs(rows);setLoading(false);
 var maxId=0;rows.forEach(function(m){if((m.id||0)>maxId)maxId=m.id;});
 if(onSeen)onSeen(maxId);
@@ -8997,7 +9032,7 @@ function Satisfacao({pats,user,pacsTicks,setPacsTicks,abrirFicha}){
 const [msgs,setMsgs]=useState([]);
 const [loading,setLoading]=useState(true);
 const [per,setPer]=useState(30);
-const load=function(){supabase.loadWaMessages().then(function(rows){setMsgs(Array.isArray(rows)?rows:[]);setLoading(false);});};
+const load=function(){supabase.loadWaMessagesLite().then(function(rows){setMsgs(Array.isArray(rows)?rows:[]);setLoading(false);});}; // V196: poll economico
 useEffect(function(){load();var t=setInterval(load,30000);return function(){clearInterval(t);};},[]);
 var soDig=function(s){return (s||"").replace(/\D/g,"");};
 var last8=function(s){var d=soDig(s);return d.slice(-8);};
