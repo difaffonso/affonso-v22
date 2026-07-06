@@ -11,6 +11,15 @@ let __lastAuthErr="";async function __signIn(login,pass){__lastAuthErr="";var r;
 async function __doRefresh(){try{if(!__REFRESH)return false;var r=await fetch(SUPA_URL+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:{"apikey":SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:__REFRESH})});if(!r.ok)return false;var t=await r.json();if(!t||!t.access_token)return false;__ACCESS=t.access_token;__REFRESH=t.refresh_token||__REFRESH;__EXP=Date.now()+((t.expires_in||3600)*1000);__scheduleRefresh();return true;}catch(e){return false;}}
 function __signOut(){__ACCESS=null;__REFRESH=null;__EXP=0;try{if(__REFTIMER)clearTimeout(__REFTIMER);}catch(e){}}
 try{if(typeof window!=="undefined")window.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&__ACCESS&&(__EXP-Date.now()<180000))__doRefresh();});}catch(e){}
+// V198: cache local em IndexedDB. Guarda o banco e os pacientes no aparelho para
+// login instantaneo e para baixar apenas o que mudou (corte de egress do Supabase).
+// Se o navegador nao suportar/bloquear (aba anonima), tudo cai no caminho antigo.
+const idb={
+  _db:null,
+  open(){var self=this;return new Promise(function(res){if(self._db)return res(self._db);try{if(typeof indexedDB==="undefined")return res(null);var rq=indexedDB.open("affonso_cache",1);rq.onupgradeneeded=function(){try{rq.result.createObjectStore("kv");}catch(e){}};rq.onsuccess=function(){self._db=rq.result;res(self._db);};rq.onerror=function(){res(null);};rq.onblocked=function(){res(null);};}catch(e){res(null);}});},
+  async get(k){var db=await this.open();if(!db)return null;return new Promise(function(res){try{var rq=db.transaction("kv","readonly").objectStore("kv").get(k);rq.onsuccess=function(){res(rq.result==null?null:rq.result);};rq.onerror=function(){res(null);};}catch(e){res(null);}});},
+  async set(k,v){var db=await this.open();if(!db)return false;return new Promise(function(res){try{var rq=db.transaction("kv","readwrite").objectStore("kv").put(v,k);rq.onsuccess=function(){res(true);};rq.onerror=function(){res(false);};}catch(e){res(false);}});}
+};
 const supabase={
 async loadFull(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=data,updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return {data:rows[0].data,updated_at:rows[0].updated_at};return null;}catch(e){return null;}},
 async load(){const f=await this.loadFull();return f?f.data:null;},
@@ -9268,7 +9277,21 @@ useEffect(function(){
 // ── CARREGAR do Supabase ──
 useEffect(()=>{
 if(!user)return;
-supabase.loadFull().then(full=>{
+(async function(){ // V198: cache do banco - compara so o timestamp (bytes) antes de baixar tudo
+  var full=null;
+  try{
+    var cached=await idb.get("blob_v1");
+    if(cached&&cached.updated_at&&cached.data){
+      var ts=await supabase.getTimestamp();
+      if(ts&&ts===cached.updated_at)full={data:cached.data,updated_at:cached.updated_at};
+    }
+  }catch(e){}
+  if(!full){
+    full=await supabase.loadFull();
+    if(full){try{idb.set("blob_v1",{data:full.data,updated_at:full.updated_at});}catch(e){}}
+  }
+  return full;
+})().then(full=>{
 const data=full?full.data:null;
 if(full)lastServerTs.current=full.updated_at;
 if(data){
@@ -9330,13 +9353,52 @@ lastSaved.current=JSON.stringify(data);
 }
 // === PACIENTES: tabela propria (migracao automatica + fallback seguro) ===
 var oldPats=(data&&data.pats)||[];
-supabase.loadPatients().then(function(tp){
+(async function(){ // V198: pacientes do cache na hora + baixar so o que mudou desde entao
+  try{
+    var cp=await idb.get("pats_v1");
+    var cts=await idb.get("pats_ts_v1");
+    if(cp&&cp.length&&cts){
+      var _dpc={};(delPatsRef.current||[]).forEach(function(i){_dpc[i]=true;});
+      cp=cp.filter(function(p){return !(p&&p.id!=null&&_dpc[p.id]);});
+      patTableOk.current=true;
+      setPats(cp);
+      var mmc={};cp.forEach(function(p){if(p&&p.id!=null)mmc[p.id]=JSON.stringify(p);});lastSavedPats.current=mmc;
+      lastPatPollTs.current=cts;
+      try{
+        var chg=await supabase.loadPatientsSince(cts);
+        if(chg&&chg.length){
+          var maxTs=cts;chg.forEach(function(c){if(c&&c.ts&&c.ts>maxTs)maxTs=c.ts;});
+          lastPatPollTs.current=maxTs;
+          setPats(function(prev){
+            prev=prev||[];
+            var idx={};prev.forEach(function(p,i){if(p&&p.id!=null)idx[p.id]=i;});
+            var next=prev.slice();
+            chg.forEach(function(c){
+              if(!c||c.id==null||!c.data)return;
+              if(_dpc[c.id])return;
+              if(idx[c.id]!=null)next[idx[c.id]]=c.data;else next.push(c.data);
+            });
+            var mm2=lastSavedPats.current||{};
+            chg.forEach(function(c){if(c&&c.id!=null&&c.data&&!_dpc[c.id])mm2[c.id]=JSON.stringify(c.data);});
+            lastSavedPats.current=mm2;
+            return next;
+          });
+        }
+      }catch(e){}
+      return; // cache valido: nao faz a carga completa
+    }
+  }catch(e){}
+  // 1a vez neste aparelho (ou cache indisponivel): carga completa como sempre
+  supabase.loadPatients().then(function(tp){
 if(tp===null){patTableOk.current=false;if(oldPats.length)setPats(oldPats);return;}
 if(tp.length>0){patTableOk.current=true;var _dpi={};(delPatsRef.current||[]).forEach(function(i){_dpi[i]=true;});tp=tp.filter(function(p){return !(p&&p.id!=null&&_dpi[p.id]);}); // V197
-setPats(tp);var mm={};tp.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;}
+setPats(tp);var mm={};tp.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;
+try{idb.set("pats_v1",tp);idb.set("pats_ts_v1",new Date(Date.now()-10*60000).toISOString());}catch(e){} // V198
+}
 else if(oldPats.length>0){setPats(oldPats);supabase.upsertPatients(oldPats).then(function(res){if(res&&res.ok){var mm={};oldPats.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;patTableOk.current=true;}else{patTableOk.current=false;}});}
 else{patTableOk.current=true;lastSavedPats.current={};}
 });
+})(); // V198
 setTimeout(()=>{initialized.current=true;},1000);
 // Salvar imediatamente ao sair/esconder a pagina
 var flushSave=function(){
@@ -9566,6 +9628,7 @@ useEffect(function(){
           if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
           if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
           lastServerTs.current=fresh.updated_at;
+          try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){} // V198
           // Cancelar este save - o useEffect vai disparar de novo com o estado mergeado
           return "merged";
         }
@@ -9585,6 +9648,7 @@ useEffect(function(){
           // Atualizar timestamp do servidor para o nosso
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
+          if(newTs){try{idb.set("blob_v1",{data:payload,updated_at:newTs});}catch(e){}} // V198
           if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
           if(lastLocalChangeTs.current===_editAtStart)orientDirtyRef.current=false;
           ok=true;
@@ -9651,6 +9715,7 @@ useEffect(function(){
       if(changed.length){var r=await supabase.upsertPatients(changed);if(!(r&&r.ok))okAll=false;}
       if(okAll){var mm={};cur.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;}
     }while(patPending.current);
+    try{idb.set("pats_v1",patsRef.current||[]);idb.set("pats_ts_v1",new Date(Date.now()-10*60000).toISOString());}catch(e){} // V198: ts com folga de 10min p/ nunca perder mudanca de outro aparelho
     patSaving.current=false;
   },1000);
 },[pats]);
@@ -9748,6 +9813,7 @@ useEffect(function(){
       if(sd.implMov)setImplMov(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implMov)?prev:sd.implMov;});
       if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
       lastServerTs.current=fresh.updated_at;
+      try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){} // V198
     }catch(e){}
   };
   var poll=setInterval(doPoll,8000); // V189: 15s -> 8s
