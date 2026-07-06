@@ -20,6 +20,7 @@ async loadUsersOnly(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=
 async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}},
 async loadPatients(){if(!SUPA_URL)return null;try{var all=[];var lastId=0;var step=1000;for(var guard=0;guard<500;guard++){var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=id.asc&limit="+step+"&id=gt."+lastId,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return all.length?all:null;var rows=await r.json();if(!rows||!rows.length)break;for(var k=0;k<rows.length;k++){all.push(rows[k].data);}lastId=rows[rows.length-1].id;if(rows.length<step)break;}return all;}catch(e){return null;}},
 async loadPatientsSince(ts){if(!SUPA_URL)return null;try{var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=updated_at.asc&updated_at=gt."+encodeURIComponent(ts)+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return null;var d=await r.json();return (d||[]).map(function(row){return {id:row.id,data:row.data,ts:row.updated_at};});}catch(e){return null;}},
+async deletePatients(ids){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!ids||!ids.length)return {ok:true};try{var r=await fetch(SUPA_URL+"/rest/v1/patients?id=in.("+ids.map(function(i){return encodeURIComponent(i);}).join(",")+")",{method:"DELETE",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Prefer":"return=minimal"}});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}return {ok:true};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}, // V197
 async upsertPatients(arr){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!arr||!arr.length)return {ok:true};var now=new Date().toISOString();var CH=400;for(var i=0;i<arr.length;i+=CH){var chunk=arr.slice(i,i+CH).map(function(p){return {id:p.id,data:p,updated_at:now};});try{var r=await fetch(SUPA_URL+"/rest/v1/patients",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(chunk)});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}return {ok:true};},
 async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao com o banco"};try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,payload:payload})});if(r.ok)return {ok:true};var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}},
 async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
@@ -3323,7 +3324,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 // ══════════════════════════════════════════════════════════
 // PACIENTES - list with folder button
 // ══════════════════════════════════════════════════════════
-function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog}){
+function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat}){
 const [srch,setSrch]=useState("");
 const [pPage,setPPage]=useState(0);
 const PER_PAGE=50;
@@ -3435,7 +3436,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <div style={{fontSize:13,color:"var(--muted)"}}>Esta ação não pode ser desfeita.</div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid var(--border)"}}>
 <button onClick={()=>setDelModal(null)} style={{border:"1.5px solid var(--primary)",background:"transparent",color:"var(--primary)",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
-<button onClick={()=>{setPats(prev=>prev.filter(x=>x.id!==delModal.pat.id));setDelModal(null);}} style={{background:"var(--red)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Excluir Permanentemente</button>
+<button onClick={async ()=>{if(delModal._busy)return;setDelModal(Object.assign({},delModal,{_busy:true}));var _r=null;try{_r=delPat?await delPat(delModal.pat.id):{ok:true};}catch(e){_r={ok:false,msg:String((e&&e.message)||e)};}if(_r&&_r.ok){setPats(prev=>prev.filter(x=>x.id!==delModal.pat.id));if(addLog)addLog("paciente","Excluiu paciente: "+delModal.pat.name,delModal.pat.name);setDelModal(null);}else{alert("Não foi possível excluir no servidor"+((_r&&_r.msg)?(": "+_r.msg):".")+" Verifique a conexão e tente novamente.");setDelModal(prev=>prev?Object.assign({},prev,{_busy:false}):prev);}}} style={{background:"var(--red)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:delModal._busy?0.6:1}}>{delModal._busy?"Excluindo...":"Excluir Permanentemente"}</button>
 </div></div></div></div>}
 {openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 
@@ -9196,12 +9197,14 @@ useEffect(function(){
       var maxTs=lastPatPollTs.current;
       chg.forEach(function(c){if(c&&c.ts&&c.ts>maxTs)maxTs=c.ts;});
       lastPatPollTs.current=maxTs;
+      var _dpT={};(delPatsRef.current||[]).forEach(function(i){_dpT[i]=true;}); // V197
       setPats(function(prev){
         prev=prev||[];
         var idx={};prev.forEach(function(p,i){if(p&&p.id!=null)idx[p.id]=i;});
         var next=prev.slice();var mut=false;
         chg.forEach(function(c){
           if(!c||c.id==null||!c.data)return;
+          if(_dpT[c.id])return; // V197: excluido, nao ressuscitar
           var sj=JSON.stringify(c.data);
           if(idx[c.id]!=null){if(JSON.stringify(next[idx[c.id]])!==sj){next[idx[c.id]]=c.data;mut=true;}}
           else{next.push(c.data);mut=true;}
@@ -9273,6 +9276,7 @@ try{
 if(data.appts?.length)setAppts(data.appts.map(function(a){return a&&a.time?Object.assign({},a,{time:pad2(a.time)}):a;}));
 {var _ai={};(data.appts||[]).forEach(function(a){if(a&&a.id!=null)_ai[a.id]=true;});lastSavedApptIds.current=_ai;}
 delAptsRef.current=data.delApts||[];
+delPatsRef.current=data.delPats||[]; // V197
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
 lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl});
@@ -9328,7 +9332,8 @@ lastSaved.current=JSON.stringify(data);
 var oldPats=(data&&data.pats)||[];
 supabase.loadPatients().then(function(tp){
 if(tp===null){patTableOk.current=false;if(oldPats.length)setPats(oldPats);return;}
-if(tp.length>0){patTableOk.current=true;setPats(tp);var mm={};tp.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;}
+if(tp.length>0){patTableOk.current=true;var _dpi={};(delPatsRef.current||[]).forEach(function(i){_dpi[i]=true;});tp=tp.filter(function(p){return !(p&&p.id!=null&&_dpi[p.id]);}); // V197
+setPats(tp);var mm={};tp.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;}
 else if(oldPats.length>0){setPats(oldPats);supabase.upsertPatients(oldPats).then(function(res){if(res&&res.ok){var mm={};oldPats.forEach(function(p){if(p&&p.id!=null)mm[p.id]=JSON.stringify(p);});lastSavedPats.current=mm;patTableOk.current=true;}else{patTableOk.current=false;}});}
 else{patTableOk.current=true;lastSavedPats.current={};}
 });
@@ -9348,6 +9353,7 @@ const lastServerTs=useRef(null);
 const lastLocalChangeTs=useRef(0);
 const lastSaveFailed=useRef(false);
 const delAptsRef=useRef([]);
+const delPatsRef=useRef([]); // V197: tombstone de pacientes excluidos
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
 const delItemsRef=useRef([]);
@@ -9355,6 +9361,18 @@ const mergeLoopRef=useRef(0);
 const lastSavedItemKeys=useRef(null);
 const lastSavedApptIds=useRef(null);
 const dirtyRef=useRef(false);
+// V197: exclusao real de paciente no servidor. So remove localmente apos confirmacao (padrao V190/Ponto).
+const delPatServer=async function(id){
+  if(id==null)return {ok:false,msg:"ID invalido"};
+  if(patTableOk.current){
+    var r=await supabase.deletePatients([id]);
+    if(!(r&&r.ok))return r||{ok:false,msg:"Falha na exclusao"};
+  }
+  var dp=delPatsRef.current||[];if(dp.indexOf(id)<0)dp.push(id);delPatsRef.current=dp.length>3000?dp.slice(-3000):dp;
+  try{if(lastSavedPats.current)delete lastSavedPats.current[id];}catch(e){}
+  lastLocalChangeTs.current=Date.now();
+  return {ok:true};
+};
 // Merge aditivo de "ticks" (aniversario/contatos): nunca perde uma marcação local.
 // União das chaves; em conflito, vence o ts mais novo; sem ts, vence "done:true".
 function mergeTicks(local,server){
@@ -9508,6 +9526,8 @@ useEffect(function(){
           var sd=fresh.data;
           // unir exclusoes do servidor com as nossas
           if(sd.delApts&&sd.delApts.length){var _dd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_dd.indexOf(id)<0)_dd.push(id);});delAptsRef.current=_dd.length>3000?_dd.slice(-3000):_dd;}
+          if(sd.delPats&&sd.delPats.length){var _dpp=delPatsRef.current||[];sd.delPats.forEach(function(id){if(_dpp.indexOf(id)<0)_dpp.push(id);});delPatsRef.current=_dpp.length>3000?_dpp.slice(-3000):_dpp;} // V197
+          if(delPatsRef.current&&delPatsRef.current.length){var _dpmA={};delPatsRef.current.forEach(function(i){_dpmA[i]=true;});setPats(function(prev){prev=prev||[];var n=prev.filter(function(p){return !(p&&p.id!=null&&_dpmA[p.id]);});return n.length===prev.length?prev:n;});} // V197
           if(sd.delGastos&&sd.delGastos.length){var _dgs=delGastosRef.current||[];sd.delGastos.forEach(function(k){if(_dgs.indexOf(k)<0)_dgs.push(k);});delGastosRef.current=_dgs.length>3000?_dgs.slice(-3000):_dgs;}
           if(sd.delItems&&sd.delItems.length){var _dis=delItemsRef.current||[];sd.delItems.forEach(function(k){if(_dis.indexOf(k)<0)_dis.push(k);});delItemsRef.current=_dis.length>5000?_dis.slice(-5000):_dis;}
           var _diSet={};(delItemsRef.current||[]).forEach(function(k){_diSet[k]=true;});
@@ -9551,7 +9571,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg};
     if(!patTableOk.current)payload.pats=pats;
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
@@ -9654,6 +9674,8 @@ useEffect(function(){
       if(Date.now()-lastLocalChangeTs.current<12000)return;
       // une exclusoes do servidor com as nossas
       if(sd.delApts&&sd.delApts.length){var _pd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_pd.indexOf(id)<0)_pd.push(id);});delAptsRef.current=_pd.length>3000?_pd.slice(-3000):_pd;}
+      if(sd.delPats&&sd.delPats.length){var _pdp=delPatsRef.current||[];sd.delPats.forEach(function(id){if(_pdp.indexOf(id)<0)_pdp.push(id);});delPatsRef.current=_pdp.length>3000?_pdp.slice(-3000):_pdp;} // V197
+      if(delPatsRef.current&&delPatsRef.current.length){var _dpmB={};delPatsRef.current.forEach(function(i){_dpmB[i]=true;});setPats(function(prev){prev=prev||[];var n=prev.filter(function(p){return !(p&&p.id!=null&&_dpmB[p.id]);});return n.length===prev.length?prev:n;});} // V197
       if(sd.delItems&&sd.delItems.length){var _pdi=delItemsRef.current||[];sd.delItems.forEach(function(k){if(_pdi.indexOf(k)<0)_pdi.push(k);});delItemsRef.current=_pdi.length>5000?_pdi.slice(-5000):_pdi;}
       // adota a versao do servidor (reflete exclusoes). itens novos ainda nao salvos
       // estao protegidos pelas travas (12s recente / save pendente / falha de save) acima.
@@ -10028,7 +10050,7 @@ return <>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent}/>}
       {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
-      {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}}/>}
+      {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
