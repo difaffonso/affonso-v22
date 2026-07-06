@@ -5453,7 +5453,7 @@ Object.entries(doneCf).forEach(([k,v])=>{allCf[k]=(allCf[k]||0)+v;});
 return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom};
 
 });
-const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&p.sent.startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0)*(p.qty||1),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
+const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&(p.returned||"").startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0)*(p.qty||1),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
 const gastoMes=arr=>(arr||[]).filter(e=>(e.recorrente&&e.diaVenc)?true:e.parcelado?(function(){var k=(Number(mo.slice(0,4))*12+Number(mo.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));return k>=0&&k<Number(e.parcelas||1);})():(e.date&&e.date.startsWith(mo)));
 const isPagoG=e=>(e.recorrente||e.parcelado)?!!(e.pagoMeses&&e.pagoMeses[mo]):!!e.paid;
 const clinicaG=gastoMes(gastos&&gastos.clinica);
@@ -5529,10 +5529,10 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 <div onClick={()=>setOpenProt(p=>Object.assign({},p,{[l.id]:!p[l.id]}))} style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:aberto?11:0,cursor:"pointer",alignItems:"center"}}>
 <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{fontSize:13,color:G.primary,transition:"transform .2s",transform:aberto?"rotate(90deg)":"none"}}>▶</span><div><div style={{fontWeight:700,fontSize:15}}>{l.name}</div><div style={{fontSize:11,color:G.muted}}>{l.contact} · {l.phone}{aberto?"":" · toque para abrir"}</div></div></div>
 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-{[["Enviados",tot,G.primary],["Instalados",done,G.success],["Pendentes",wait,G.yellow],["Custo Total",cur(cost),G.red]].map(([lbl,v,c])=><div key={lbl} style={{textAlign:"center",background:G.bg,borderRadius:8,padding:"6px 11px"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{lbl}</div></div>)}
+{[["Retornados",tot,G.primary],["Instalados",done,G.success],["Pendentes",wait,G.yellow],["Custo Total",cur(cost),G.red]].map(([lbl,v,c])=><div key={lbl} style={{textAlign:"center",background:G.bg,borderRadius:8,padding:"6px 11px"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{lbl}</div></div>)}
 </div>
 </div>
-{aberto&&(ps.length>0?ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.sent)}</span><span style={{flex:1}}>{pat?.name} -- {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{(p.qty||1)>1?p.qty+"× ":""}{cur((p.price||0)*(p.qty||1))}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;}):<div style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhuma prótese neste mês</div>)}
+{aberto&&(ps.length>0?ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.returned||p.sent)}</span><span style={{flex:1}}>{pat?.name} -- {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{(p.qty||1)>1?p.qty+"× ":""}{cur((p.price||0)*(p.qty||1))}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;}):<div style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhuma prótese neste mês</div>)}
 </div>;})}
 </div>}
 {tab==="orc"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
