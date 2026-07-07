@@ -35,8 +35,9 @@ async submitAnam(token,payload){if(!SUPA_URL)return {ok:false,msg:"Sem conexao c
 async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?token=eq."+encodeURIComponent(token)+"&select=payload,created_at&order=created_at.desc&limit=1",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0])return rows[0].payload;return null;}catch(e){return null;}}
 ,__anamCur:null // V196: cursor incremental - depois da 1a busca (7 dias), so baixa fichas novas (com folga de 15min p/ corridas de sync)
 ,async fetchAnamRecent(){if(!SUPA_URL)return [];try{var since=this.__anamCur||new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,payload,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();if(!Array.isArray(rows))return [];var mx=null;rows.forEach(function(x){if(x&&x.created_at&&(!mx||x.created_at>mx))mx=x.created_at;});if(mx){try{this.__anamCur=new Date(Date.parse(mx)-15*60000).toISOString();}catch(e2){}}return rows;}catch(e){return [];}}
-,async loadVers(){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at,vers:data->_vers",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
-,async loadKeys(keys){if(!SUPA_URL||!keys||!keys.length)return null;try{var sel="updated_at,"+keys.map(function(k){return k+":data->"+k;}).join(",");const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select="+encodeURIComponent(sel),{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
+// V200: versao economica do poll - retorna so token+created_at (sem payload, ~poucas centenas de bytes).
+// Usa o mesmo cursor __anamCur (recuo de 15min p/ tolerar commits fora de ordem); dedup fica no handler.
+,async fetchAnamTokens(){if(!SUPA_URL)return [];try{var since=this.__anamCur||new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();if(!Array.isArray(rows))return [];var mx=null;rows.forEach(function(x){if(x&&x.created_at&&(!mx||x.created_at>mx))mx=x.created_at;});if(mx){try{this.__anamCur=new Date(Date.parse(mx)-15*60000).toISOString();}catch(e2){}}return rows;}catch(e){return [];}}
 ,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
 // V196: versao economica do carregamento de conversas. Na 1a chamada baixa tudo (como antes);
 // nas seguintes baixa apenas mensagens novas + a "cauda" (ultimos 60 ids) para capturar
@@ -5455,7 +5456,7 @@ Object.entries(doneCf).forEach(([k,v])=>{allCf[k]=(allCf[k]||0)+v;});
 return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom};
 
 });
-const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&p.sent.startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0)*(p.qty||1),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
+const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&(p.returned||"").startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0)*(p.qty||1),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
 const gastoMes=arr=>(arr||[]).filter(e=>(e.recorrente&&e.diaVenc)?true:e.parcelado?(function(){var k=(Number(mo.slice(0,4))*12+Number(mo.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));return k>=0&&k<Number(e.parcelas||1);})():(e.date&&e.date.startsWith(mo)));
 const isPagoG=e=>(e.recorrente||e.parcelado)?!!(e.pagoMeses&&e.pagoMeses[mo]):!!e.paid;
 const clinicaG=gastoMes(gastos&&gastos.clinica);
@@ -5531,10 +5532,10 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 <div onClick={()=>setOpenProt(p=>Object.assign({},p,{[l.id]:!p[l.id]}))} style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:aberto?11:0,cursor:"pointer",alignItems:"center"}}>
 <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{fontSize:13,color:G.primary,transition:"transform .2s",transform:aberto?"rotate(90deg)":"none"}}>▶</span><div><div style={{fontWeight:700,fontSize:15}}>{l.name}</div><div style={{fontSize:11,color:G.muted}}>{l.contact} · {l.phone}{aberto?"":" · toque para abrir"}</div></div></div>
 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-{[["Enviados",tot,G.primary],["Instalados",done,G.success],["Pendentes",wait,G.yellow],["Custo Total",cur(cost),G.red]].map(([lbl,v,c])=><div key={lbl} style={{textAlign:"center",background:G.bg,borderRadius:8,padding:"6px 11px"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{lbl}</div></div>)}
+{[["Retornados",tot,G.primary],["Instalados",done,G.success],["Pendentes",wait,G.yellow],["Custo Total",cur(cost),G.red]].map(([lbl,v,c])=><div key={lbl} style={{textAlign:"center",background:G.bg,borderRadius:8,padding:"6px 11px"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{lbl}</div></div>)}
 </div>
 </div>
-{aberto&&(ps.length>0?ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.sent)}</span><span style={{flex:1}}>{pat?.name} -- {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{(p.qty||1)>1?p.qty+"× ":""}{cur((p.price||0)*(p.qty||1))}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;}):<div style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhuma prótese neste mês</div>)}
+{aberto&&(ps.length>0?ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.returned||p.sent)}</span><span style={{flex:1}}>{pat?.name} -- {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{(p.qty||1)>1?p.qty+"× ":""}{cur((p.price||0)*(p.qty||1))}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;}):<div style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhuma prótese neste mês</div>)}
 </div>;})}
 </div>}
 {tab==="orc"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -9238,27 +9239,38 @@ useEffect(function(){
     if(Date.now()-anamPullRef.current<25000)return;
     anamPullRef.current=Date.now();
     try{
-      var rows=await supabase.fetchAnamRecent();
+      var rows=await supabase.fetchAnamTokens(); // V200: poll leve - so token+created_at (payload nao trafega aqui)
       if(!rows||!rows.length)return;
       var cur=patsRef.current||[];
       var byId={};cur.forEach(function(p){if(p&&p.id!=null)byId[String(p.id)]=p;});
       var seen=anamSeenRef.current||{};
       var updates=[];
+      var novos=[];var pidsNoLote={};
       rows.forEach(function(row){
-        if(!row||!row.token||!row.payload)return;
+        if(!row||!row.token)return;
         var pid="";try{pid=atob(row.token).replace("orbe:","");}catch(e){pid="";}
         if(!pid)return;
         var p=byId[pid];if(!p)return;
         var sig=pid+"|"+(row.created_at||"");
         if(seen[pid]===sig)return; // ja vista nesta sessao
-        seen[pid]=sig;
-        // assinatura da ficha que o paciente acabou de enviar
-        var nova=(row.payload.signedAt||row.created_at||"")+"|"+((row.payload.signature||"").slice(0,12));
-        // assinatura ja gravada no paciente
-        var atual=(p.anamnese&&(p.anamnese.signedAt||p.anamnese._imp))?((p.anamnese.signedAt||p.anamnese._imp||"")+"|"+((p.anamnese.signature||"").slice(0,12))):"";
-        if(atual===nova&&atual!=="")return; // mesma ficha ja importada
-        updates.push({pid:pid,payload:row.payload,sig:nova});
+        if(pidsNoLote[pid])return; // ordem desc: 1a linha do pid ja e a mais recente
+        pidsNoLote[pid]=true;
+        novos.push({token:row.token,pid:pid,created_at:row.created_at||"",sig:sig});
       });
+      // V200: payload (~20KB) so e baixado para fichas realmente novas, uma a uma
+      for(var ni=0;ni<novos.length;ni++){
+        var nv=novos[ni];
+        var pay=null;try{pay=await supabase.fetchAnam(nv.token);}catch(e3){pay=null;}
+        if(!pay)continue; // falhou: nao marca como vista - o recuo de 15min do cursor permite nova tentativa no proximo poll
+        seen[nv.pid]=nv.sig;
+        var p2=byId[nv.pid];if(!p2)continue;
+        // assinatura da ficha que o paciente acabou de enviar
+        var nova=(pay.signedAt||nv.created_at||"")+"|"+((pay.signature||"").slice(0,12));
+        // assinatura ja gravada no paciente
+        var atual=(p2.anamnese&&(p2.anamnese.signedAt||p2.anamnese._imp))?((p2.anamnese.signedAt||p2.anamnese._imp||"")+"|"+((p2.anamnese.signature||"").slice(0,12))):"";
+        if(atual===nova&&atual!=="")continue; // mesma ficha ja importada
+        updates.push({pid:nv.pid,payload:pay,sig:nova});
+      }
       anamSeenRef.current=seen;
       if(updates.length){
         setPats(function(prev){
@@ -9302,12 +9314,6 @@ if(data.appts?.length)setAppts(data.appts.map(function(a){return a&&a.time?Objec
 {var _ai={};(data.appts||[]).forEach(function(a){if(a&&a.id!=null)_ai[a.id]=true;});lastSavedApptIds.current=_ai;}
 delAptsRef.current=data.delApts||[];
 delPatsRef.current=data.delPats||[]; // V197
-try{ // V199: base para comparacao de carimbos por chave
-  blobVersRef.current=(data&&data._vers&&typeof data._vers==="object")?Object.assign({},data._vers):{};
-  var _lkj={};
-  if(data){Object.keys(data).forEach(function(k){if(k==="_vers")return;try{_lkj[k]=JSON.stringify(data[k]);}catch(e){}});}
-  lastSavedKeyJsonRef.current=_lkj;
-}catch(e){lastSavedKeyJsonRef.current={};}
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
 lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl});
@@ -9424,8 +9430,6 @@ const lastLocalChangeTs=useRef(0);
 const lastSaveFailed=useRef(false);
 const delAptsRef=useRef([]);
 const delPatsRef=useRef([]); // V197: tombstone de pacientes excluidos
-const blobVersRef=useRef({}); // V199: carimbo de versao por chave do blob
-const lastSavedKeyJsonRef=useRef(null); // V199: JSON por chave da ultima gravacao/leitura
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
 const delItemsRef=useRef([]);
@@ -9444,42 +9448,6 @@ const delPatServer=async function(id){
   try{if(lastSavedPats.current)delete lastSavedPats.current[id];}catch(e){}
   lastLocalChangeTs.current=Date.now();
   return {ok:true};
-};
-// V199: busca so as chaves do blob que mudaram (comparando carimbos _vers).
-// Retorna {data,updated_at,partial}. Em QUALQUER anormalidade, cai no loadFull antigo.
-const BLOB_TOMB_KEYS=["delApts","delPats","delGastos","delItems"];
-const fetchBlobDelta=async function(){
-  try{
-    if(lastSavedKeyJsonRef.current){
-      var v=await supabase.loadVers();
-      if(v&&v.updated_at&&v.vers&&typeof v.vers==="object"&&!Array.isArray(v.vers)){
-        var lv=blobVersRef.current||{};
-        var changed=[];
-        Object.keys(v.vers).forEach(function(k){if(k==="_vers"||k==="pats")return;if(v.vers[k]!==lv[k])changed.push(k);});
-        if(!changed.length)return {data:{},updated_at:v.updated_at,partial:true};
-        BLOB_TOMB_KEYS.forEach(function(k){if(changed.indexOf(k)<0)changed.push(k);});
-        var part=await supabase.loadKeys(changed);
-        if(part&&part.updated_at){
-          var sd={};
-          changed.forEach(function(k){
-            if(part[k]!==undefined&&part[k]!==null){
-              sd[k]=part[k];
-              if(v.vers[k]!=null)blobVersRef.current[k]=v.vers[k];
-              try{lastSavedKeyJsonRef.current[k]=JSON.stringify(part[k]);}catch(e){}
-            }
-          });
-          return {data:sd,updated_at:part.updated_at,partial:true};
-        }
-      }
-    }
-  }catch(e){}
-  // fallback: comportamento identico ao anterior (download completo)
-  var fresh=await supabase.loadFull();
-  if(fresh&&fresh.data){
-    try{if(fresh.data._vers&&typeof fresh.data._vers==="object")blobVersRef.current=Object.assign({},fresh.data._vers);}catch(e){}
-    return {data:fresh.data,updated_at:fresh.updated_at,partial:false};
-  }
-  return null;
 };
 // Merge aditivo de "ticks" (aniversario/contatos): nunca perde uma marcação local.
 // União das chaves; em conflito, vence o ts mais novo; sem ts, vence "done:true".
@@ -9629,7 +9597,7 @@ useEffect(function(){
       var serverTs=await supabase.getTimestamp();
       if(serverTs&&lastServerTs.current&&serverTs!==lastServerTs.current){
         // Outro computador salvou! Recarregar antes de gravar para nao perder dados
-        var fresh=await fetchBlobDelta(); // V199: baixa so o que mudou
+        var fresh=await supabase.loadFull();
         if(fresh&&fresh.data){
           var sd=fresh.data;
           // unir exclusoes do servidor com as nossas
@@ -9674,7 +9642,7 @@ useEffect(function(){
           if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
           if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
           lastServerTs.current=fresh.updated_at;
-          if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
+          try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){} // V198
           // Cancelar este save - o useEffect vai disparar de novo com o estado mergeado
           return "merged";
         }
@@ -9682,16 +9650,6 @@ useEffect(function(){
     }catch(e){}}
     const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg};
     if(!patTableOk.current)payload.pats=pats;
-    try{ // V199: carimbo de versao so nas chaves cujo conteudo mudou
-      if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
-      var _vNow=new Date().toISOString();
-      Object.keys(payload).forEach(function(k){
-        var _js;try{_js=JSON.stringify(payload[k]);}catch(e){_js=null;}
-        if(_js===null)return;
-        if(lastSavedKeyJsonRef.current[k]!==_js||!blobVersRef.current[k]){blobVersRef.current[k]=_vNow;lastSavedKeyJsonRef.current[k]=_js;}
-      });
-      payload._vers=Object.assign({},blobVersRef.current);
-    }catch(e){}
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
       try{
@@ -9788,7 +9746,7 @@ useEffect(function(){
       if(lastServerTs.current===null){lastServerTs.current=serverTs;return;}
       if(serverTs===lastServerTs.current)return;
       // Servidor mudou - carregar e fazer merge
-      var fresh=await fetchBlobDelta(); // V199: baixa so o que mudou
+      var fresh=await supabase.loadFull();
       if(!fresh||!fresh.data)return;
       var sd=fresh.data;
       // re-checa: se o usuario mexeu durante o carregamento, nao sobrescreve
@@ -9869,7 +9827,7 @@ useEffect(function(){
       if(sd.implMov)setImplMov(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implMov)?prev:sd.implMov;});
       if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
       lastServerTs.current=fresh.updated_at;
-      if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
+      try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){} // V198
     }catch(e){}
   };
   var poll=setInterval(doPoll,8000); // V189: 15s -> 8s
