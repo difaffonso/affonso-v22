@@ -5398,6 +5398,152 @@ return <div key={"d"+(sec.isTreat?x.id:p.id)} style={{background:"var(--green-so
 // ══════════════════════════════════════════════════════════
 // RELATÓRIOS
 // ══════════════════════════════════════════════════════════
+
+/* ===== V201: Busca de orcamentos por procedimento/periodo/status ===== */
+function BuscaOrcTab({treats=[],pats=[],dents=[],abrirFicha}){
+const [bProc,setBProc]=useState("");
+const [bDe,setBDe]=useState("");
+const [bAte,setBAte]=useState("");
+const [bDent,setBDent]=useState("all");
+const [bVal,setBVal]=useState("");
+const [bSts,setBSts]=useState({aprovado:false,espera:true,parcial:false,naofechado:true});
+const [bEnv,setBEnv]=useState("all");
+const [bMot,setBMot]=useState("all");
+const [copiado,setCopiado]=useState(false);
+const totOf=t=>(t.items||[]).reduce((s,i)=>s+Number(i.value||0),0);
+const paidOf=t=>(t.payments||[]).reduce((s,p)=>s+Number(p.value||0),0);
+const stOf=t=>{var s=t.orcStatus||"espera";if((s==="parcial"||s==="espera")&&totOf(t)>0&&paidOf(t)>=totOf(t)-0.005)return "aprovado";if(s==="espera"&&paidOf(t)>0)return "parcial";return s;};
+const STC={aprovado:G.success,espera:G.yellow,parcial:G.blue,naofechado:G.red};
+const STL={aprovado:"Aprovado",espera:"Em espera",parcial:"Parcial",naofechado:"Não fechado"};
+const pacDe=id=>pats.find(p=>p.id===id)||{};
+const dentDe=id=>dents.find(d=>String(d.id)===String(id))||{};
+const q=bProc.toLowerCase().trim();
+const nenhumSt=!bSts.aprovado&&!bSts.espera&&!bSts.parcial&&!bSts.naofechado;
+const res=treats.filter(function(t){
+  var tot=totOf(t);
+  if(q){var hitItem=(t.items||[]).some(function(i){return String(i.desc||"").toLowerCase().indexOf(q)>=0;});var hitName=String(t.name||"").toLowerCase().indexOf(q)>=0;if(!hitItem&&!hitName)return false;}
+  if(bDe&&(t.start||"")<bDe)return false;
+  if(bAte&&(t.start||"")>bAte)return false;
+  if(bDent!=="all"&&String(t.dentistId)!==String(bDent))return false;
+  if(Number(bVal||0)>0&&tot<Number(bVal))return false;
+  if(!nenhumSt&&!bSts[stOf(t)])return false;
+  if(bEnv==="nao"&&t.orcEnviado)return false;
+  if(bEnv==="sim"&&!t.orcEnviado)return false;
+  if(bMot!=="all"&&(t.orcMotivo||"")!==bMot)return false;
+  return true;
+}).sort(function(a,b){return String(b.start||"").localeCompare(String(a.start||""));});
+const totalV=res.reduce(function(s,t){return s+totOf(t);},0);
+const copiarFones=function(){
+  var linhas=res.map(function(t){var p=pacDe(t.patientId);return (p.name||"?")+" - "+(p.phone||"sem telefone");});
+  var txt=linhas.join("\n");
+  try{navigator.clipboard.writeText(txt).then(function(){setCopiado(true);setTimeout(function(){setCopiado(false);},2000);});}
+  catch(e){var ta=document.createElement("textarea");ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand("copy");document.body.removeChild(ta);setCopiado(true);setTimeout(function(){setCopiado(false);},2000);}
+};
+const imprimirLista=function(){
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  var filtros=[];
+  if(q)filtros.push("Procedimento: "+bProc);
+  if(bDe)filtros.push("De: "+fmt(bDe));
+  if(bAte)filtros.push("Até: "+fmt(bAte));
+  if(bDent!=="all")filtros.push("Dentista: "+(dentDe(bDent).name||""));
+  if(Number(bVal||0)>0)filtros.push("Valor mín.: "+cur(Number(bVal)));
+  var stsAtivos=["aprovado","espera","parcial","naofechado"].filter(function(k){return bSts[k];}).map(function(k){return STL[k];});
+  if(stsAtivos.length&&stsAtivos.length<4)filtros.push("Status: "+stsAtivos.join(", "));
+  if(bEnv==="nao")filtros.push("Só não enviados");
+  if(bEnv==="sim")filtros.push("Só enviados");
+  if(bMot!=="all")filtros.push("Motivo: "+bMot);
+  var linhas=res.map(function(t){
+    var p=pacDe(t.patientId),d=dentDe(t.dentistId),st=stOf(t);
+    var cores={aprovado:"#2f8f5f",espera:"#C0902E",parcial:"#1A5276",naofechado:"#C0392B"};
+    return "<tr>"
+      +"<td style='padding:7px 9px;border-bottom:1px solid #d8ded3'><b>"+esc(p.name||"?")+"</b><br><span style='color:#7c8a80;font-size:11px'>"+esc(p.phone||"")+"</span></td>"
+      +"<td style='padding:7px 9px;border-bottom:1px solid #d8ded3;font-size:12px'>"+esc((t.items||[]).map(function(i){return i.desc;}).join(", "))+"</td>"
+      +"<td style='padding:7px 9px;border-bottom:1px solid #d8ded3;font-size:12px'>"+esc(fmt(t.start))+"<br><span style='color:#7c8a80;font-size:11px'>"+esc(d.name||"")+"</span></td>"
+      +"<td style='padding:7px 9px;border-bottom:1px solid #d8ded3;text-align:right;font-weight:700'>"+esc(cur(totOf(t)))+"</td>"
+      +"<td style='padding:7px 9px;border-bottom:1px solid #d8ded3;text-align:center'><span style='color:"+cores[st]+";font-weight:700;font-size:12px'>"+STL[st]+"</span>"+((st==="naofechado"&&t.orcMotivo)?("<br><span style='color:#7c8a80;font-size:10px'>"+esc(t.orcMotivo)+"</span>"):"")+"</td>"
+      +"</tr>";
+  }).join("");
+  var html="<html><head><meta charset='utf-8'><title>Busca de Orçamentos</title></head>"
+    +"<body style='font-family:Arial,sans-serif;color:#23332b;padding:24px'>"
+    +"<h2 style='color:#2f5d49;margin-bottom:2px'>Busca de Orçamentos — Affonso Odontologia</h2>"
+    +"<div style='color:#7c8a80;font-size:12px;margin-bottom:6px'>Gerado em "+esc(fmt(today()))+(filtros.length?(" · "+esc(filtros.join(" · "))):"")+"</div>"
+    +"<div style='font-size:13px;margin-bottom:14px'><b>"+res.length+"</b> paciente(s) · valor total <b style='color:#2f5d49'>"+esc(cur(totalV))+"</b></div>"
+    +"<table style='width:100%;border-collapse:collapse;font-size:13px'>"
+    +"<thead><tr><th style='text-align:left;padding:7px 9px;background:#eef1ec;border-bottom:2px solid #2f5d49'>Paciente</th><th style='text-align:left;padding:7px 9px;background:#eef1ec;border-bottom:2px solid #2f5d49'>Procedimentos</th><th style='text-align:left;padding:7px 9px;background:#eef1ec;border-bottom:2px solid #2f5d49'>Data / Dentista</th><th style='text-align:right;padding:7px 9px;background:#eef1ec;border-bottom:2px solid #2f5d49'>Valor</th><th style='text-align:center;padding:7px 9px;background:#eef1ec;border-bottom:2px solid #2f5d49'>Status</th></tr></thead>"
+    +"<tbody>"+linhas+"</tbody></table></body></html>";
+  var w=window.open("","_blank");if(!w)return alert("Permita pop-ups para imprimir");
+  w.document.write(html);w.document.close();setTimeout(function(){w.print();},350);
+};
+return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+<div style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px var(--nm-light)"}}>
+  <div style={{marginBottom:11}}>
+    <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Procedimento (busca em qualquer item do orçamento)</label>
+    <input value={bProc} onChange={e=>setBProc(e.target.value)} placeholder="Ex.: implante, clareamento, coroa..." style={{width:"100%",padding:"9px 12px",fontSize:13}}/>
+  </div>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:11,marginBottom:11}}>
+    <div><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>De (data do orçamento)</label><input type="date" value={bDe} onChange={e=>setBDe(e.target.value)} style={{width:"100%",padding:"9px 12px",fontSize:13}}/></div>
+    <div><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Até</label><input type="date" value={bAte} onChange={e=>setBAte(e.target.value)} style={{width:"100%",padding:"9px 12px",fontSize:13}}/></div>
+  </div>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:11,marginBottom:11}}>
+    <div><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Dentista</label>
+      <select value={bDent} onChange={e=>setBDent(e.target.value)} style={{width:"100%",padding:"9px 12px",fontSize:13}}>
+        <option value="all">Todos</option>
+        {dents.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+      </select></div>
+    <div><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Valor mínimo (R$)</label><input type="number" value={bVal} onChange={e=>setBVal(e.target.value)} placeholder="0" style={{width:"100%",padding:"9px 12px",fontSize:13}}/></div>
+  </div>
+  <div style={{marginBottom:11}}>
+    <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Status (toque pra marcar/desmarcar)</label>
+    <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+      {["aprovado","espera","parcial","naofechado"].map(function(k){var on=bSts[k];
+        return <button key={k} onClick={()=>setBSts(prev=>Object.assign({},prev,{[k]:!prev[k]}))} style={{background:on?STC[k]:"var(--card)",color:on?"#fff":G.muted,border:"1.5px solid "+(on?STC[k]:G.border),borderRadius:9,padding:"6px 13px",fontSize:11,fontWeight:700,cursor:"pointer",boxShadow:"none"}}>{STL[k]}</button>;})}
+    </div>
+  </div>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:11}}>
+    <div><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Envio</label>
+      <select value={bEnv} onChange={e=>setBEnv(e.target.value)} style={{width:"100%",padding:"9px 12px",fontSize:13}}>
+        <option value="all">Todos</option><option value="nao">Só não enviados</option><option value="sim">Só enviados</option>
+      </select></div>
+    <div><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Motivo (não fechado)</label>
+      <select value={bMot} onChange={e=>setBMot(e.target.value)} style={{width:"100%",padding:"9px 12px",fontSize:13}}>
+        <option value="all">Todos</option>
+        {MOTIVOS_ORC.map(m=><option key={m} value={m}>{m}</option>)}
+      </select></div>
+  </div>
+</div>
+<div style={{background:G.primary,borderRadius:12,padding:"14px 16px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+  <div><div style={{fontSize:12,opacity:.9,fontWeight:700}}>{res.length} paciente{res.length===1?"":"s"} encontrado{res.length===1?"":"s"}</div><div style={{fontSize:11,opacity:.8}}>Valor total dos orçamentos filtrados</div></div>
+  <div style={{fontFamily:"'Cormorant Garamond'",fontSize:30,fontWeight:700,lineHeight:1}}>{cur(totalV)}</div>
+</div>
+<div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
+  <button onClick={imprimirLista} disabled={!res.length} style={{background:G.primary,color:"#fff",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:res.length?"pointer":"default",opacity:res.length?1:.5}}>{"🖨️ Imprimir lista"}</button>
+  <button onClick={copiarFones} disabled={!res.length} style={{background:"var(--card)",color:copiado?G.success:G.text,border:"1.5px solid "+(copiado?G.success:G.border),borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:res.length?"pointer":"default",opacity:res.length?1:.5,boxShadow:"none"}}>{copiado?"✓ Copiado!":"📋 Copiar telefones"}</button>
+</div>
+<div style={{display:"flex",flexDirection:"column",gap:11}}>
+{res.map(function(t){
+  var p=pacDe(t.patientId),d=dentDe(t.dentistId),st=stOf(t),tot=totOf(t);
+  return <div key={t.id} style={{background:G.card,borderRadius:12,padding:"13px 14px",boxShadow:"5px 5px 12px var(--nm-dark),-5px -5px 12px var(--nm-light)",borderLeft:"4px solid "+STC[st]}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+      <div style={{flex:1,minWidth:180}}>
+        <div onClick={function(){if(abrirFicha)abrirFicha(t.patientId);}} style={{fontWeight:800,fontSize:15,cursor:abrirFicha?"pointer":"default",color:G.text}}>{p.name||"Paciente removido"}</div>
+        <div style={{fontSize:11,color:G.muted,marginTop:2}}>{(p.phone||"sem telefone")+" · "+(d.name||"")+" · orçamento de "+fmt(t.start)}{t.orcEnviado?" · 📤 enviado":""}{!t.orcEnviado?<b style={{color:G.red}}>{" · não enviado"}</b>:null}</div>
+        {st==="naofechado"&&t.orcMotivo?<div style={{fontSize:11,color:G.red,marginTop:3,fontWeight:600}}>{"Motivo: "+t.orcMotivo+((t.orcMotivo==="Outro"&&t.orcMotivoObs)?(" — "+t.orcMotivoObs):"")}</div>:null}
+        <div style={{fontSize:12,color:G.text,marginTop:5}}>{(t.items||[]).map(function(i){return i.desc;}).join(" · ")}</div>
+      </div>
+      <div style={{textAlign:"right"}}>
+        <span style={{background:STC[st],color:"#fff",borderRadius:8,padding:"3px 11px",fontSize:11,fontWeight:700,display:"inline-block"}}>{STL[st]}</span>
+        <div style={{fontWeight:800,fontSize:16,color:G.primary,margin:"6px 0"}}>{cur(tot)}</div>
+        {p.phone?<button onClick={function(){wa(p.phone,"Olá "+String(p.name||"").split(" ")[0]+", tudo bem? Aqui é da Affonso Odontologia 😊");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:9,padding:"7px 13px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 Chamar"}</button>:null}
+      </div>
+    </div>
+  </div>;
+})}
+{!res.length&&<div style={{background:G.bg,borderRadius:10,padding:"12px 14px",fontSize:12,color:G.muted}}>Nenhum orçamento encontrado com esses filtros. Ajuste os filtros acima.</div>}
+</div>
+</div>;
+}
+/* ===== fim V201 ===== */
+
 function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha}){
 const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [orcFilter,setOrcFilter]=useState(null);const [openOrto,setOpenOrto]=useState({});const [openDent,setOpenDent]=useState({});const [openProt,setOpenProt]=useState({});
 const [selMsg,setSelMsg]=useState(null);
@@ -5462,7 +5608,7 @@ const isPagoG=e=>(e.recorrente||e.parcelado)?!!(e.pagoMeses&&e.pagoMeses[mo]):!!
 const clinicaG=gastoMes(gastos&&gastos.clinica);
 const pessoalG=gastoMes(gastos&&gastos.pessoal);
 
-const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
+const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["buscar","🔎 Buscar"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
 if(user.level>=3)TABS.push(["gastos","💸 Gastos"]);
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -5707,6 +5853,7 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
 {tab==="pacs"&&<PacsTab pats={pats} recs={recs} treats={treats} appts={appts} dents={dents} mo={mo} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
 
 {/* ── WHATSAPP ── */}
+{tab==="buscar"&&<BuscaOrcTab treats={treats} pats={pats} dents={dents} abrirFicha={abrirFicha}/>}
 {tab==="msg"&&<MsgTab pats={pats} selMsg={selMsg} setSelMsg={setSelMsg} selPatsMsg={selPatsMsg} setSelPatsMsg={setSelPatsMsg} allSelMsg={allSelMsg} setAllSelMsg={setAllSelMsg} waTemplates={waTemplates} setWaTemplates={setWaTemplates} user={user}/>}
 
   </div>;
