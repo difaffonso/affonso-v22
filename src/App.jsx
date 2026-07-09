@@ -38,6 +38,8 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
 // V200: versao economica do poll - retorna so token+created_at (sem payload, ~poucas centenas de bytes).
 // Usa o mesmo cursor __anamCur (recuo de 15min p/ tolerar commits fora de ordem); dedup fica no handler.
 ,async fetchAnamTokens(){if(!SUPA_URL)return [];try{var since=this.__anamCur||new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();if(!Array.isArray(rows))return [];var mx=null;rows.forEach(function(x){if(x&&x.created_at&&(!mx||x.created_at>mx))mx=x.created_at;});if(mx){try{this.__anamCur=new Date(Date.parse(mx)-15*60000).toISOString();}catch(e2){}}return rows;}catch(e){return [];}}
+,async loadVers(){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at,vers:data->_vers",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
+,async loadKeys(keys){if(!SUPA_URL||!keys||!keys.length)return null;try{var sel="updated_at,"+keys.map(function(k){return k+":data->"+k;}).join(",");const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select="+encodeURIComponent(sel),{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
 ,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
 // V196: versao economica do carregamento de conversas. Na 1a chamada baixa tudo (como antes);
 // nas seguintes baixa apenas mensagens novas + a "cauda" (ultimos 60 ids) para capturar
@@ -46,6 +48,15 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
 ,async loadWaMessagesLite(){
   if(!SUPA_URL)return [];
   var C=this.__waCache;
+  if(!C.loaded&&!C.idbTried){ // V203: recuperar cache persistido (evita rebaixar 1000 msgs a cada recarga)
+    C.idbTried=true;
+    try{
+      var saved=await idb.get("wa_cache_v1");
+      if(saved&&Array.isArray(saved.rows)&&saved.rows.length&&saved.maxId){
+        C.rows=saved.rows;C.maxId=saved.maxId;C.loaded=true;
+      }
+    }catch(e){}
+  }
   if(!C.loaded){
     var all=await this.loadWaMessages();
     if(Array.isArray(all)){
@@ -53,12 +64,14 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
       C.maxId=0;C.rows.forEach(function(x){if(x&&(x.id||0)>C.maxId)C.maxId=x.id;});
       if(C.rows.length)C.loaded=true; // so trava o cache quando a 1a carga veio com dados (ou banco realmente vazio apos 1a resposta ok)
       else C.loaded=true;
+      try{idb.set("wa_cache_v1",{rows:C.rows.slice(0,1000),maxId:C.maxId});}catch(e){} // V203
     }
     return C.rows.slice();
   }
   try{
-    var since=Math.max(0,(C.maxId||0)-60);
-    const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&id=gt."+since+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});
+    var mudou=false;
+    // V203: (a) mensagens NOVAS completas (id acima do cursor)
+    const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&id=gt."+(C.maxId||0)+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});
     if(r.ok){
       var rows=await r.json();
       if(Array.isArray(rows)&&rows.length){
@@ -66,8 +79,20 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
         rows.forEach(function(x){if(!x||x.id==null)return;if(by[x.id]!=null)C.rows[by[x.id]]=x;else C.rows.push(x);if(x.id>C.maxId)C.maxId=x.id;});
         C.rows.sort(function(a,b){return (b.id||0)-(a.id||0);});
         if(C.rows.length>1000)C.rows=C.rows.slice(0,1000);
+        mudou=true;
       }
     }
+    // V203: (b) SO O STATUS das ultimas 60 (poucos bytes) p/ manter os ticks atualizados
+    var since=Math.max(0,(C.maxId||0)-60);
+    const rs=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=id,status&id=gt."+since+"&limit=100",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});
+    if(rs.ok){
+      var sts=await rs.json();
+      if(Array.isArray(sts)&&sts.length){
+        var byId={};C.rows.forEach(function(x,i){if(x&&x.id!=null)byId[x.id]=i;});
+        sts.forEach(function(s){if(!s||s.id==null)return;var i=byId[s.id];if(i!=null&&C.rows[i]&&C.rows[i].status!==s.status){C.rows[i]=Object.assign({},C.rows[i],{status:s.status});mudou=true;}});
+      }
+    }
+    if(mudou){try{idb.set("wa_cache_v1",{rows:C.rows.slice(0,1000),maxId:C.maxId});}catch(e){}}
   }catch(e){}
   return C.rows.slice();
 }
@@ -9461,6 +9486,12 @@ if(data.appts?.length)setAppts(data.appts.map(function(a){return a&&a.time?Objec
 {var _ai={};(data.appts||[]).forEach(function(a){if(a&&a.id!=null)_ai[a.id]=true;});lastSavedApptIds.current=_ai;}
 delAptsRef.current=data.delApts||[];
 delPatsRef.current=data.delPats||[]; // V197
+try{ // V199: base para comparacao de carimbos por chave
+  blobVersRef.current=(data&&data._vers&&typeof data._vers==="object")?Object.assign({},data._vers):{};
+  var _lkj={};
+  if(data){Object.keys(data).forEach(function(k){if(k==="_vers")return;try{_lkj[k]=JSON.stringify(data[k]);}catch(e){}});}
+  lastSavedKeyJsonRef.current=_lkj;
+}catch(e){lastSavedKeyJsonRef.current={};}
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
 lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl});
@@ -9577,6 +9608,8 @@ const lastLocalChangeTs=useRef(0);
 const lastSaveFailed=useRef(false);
 const delAptsRef=useRef([]);
 const delPatsRef=useRef([]); // V197: tombstone de pacientes excluidos
+const blobVersRef=useRef({}); // V199: carimbo de versao por chave do blob
+const lastSavedKeyJsonRef=useRef(null); // V199: JSON por chave da ultima gravacao/leitura
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
 const delItemsRef=useRef([]);
@@ -9595,6 +9628,42 @@ const delPatServer=async function(id){
   try{if(lastSavedPats.current)delete lastSavedPats.current[id];}catch(e){}
   lastLocalChangeTs.current=Date.now();
   return {ok:true};
+};
+// V199: busca so as chaves do blob que mudaram (comparando carimbos _vers).
+// Retorna {data,updated_at,partial}. Em QUALQUER anormalidade, cai no loadFull antigo.
+const BLOB_TOMB_KEYS=["delApts","delPats","delGastos","delItems"];
+const fetchBlobDelta=async function(){
+  try{
+    if(lastSavedKeyJsonRef.current){
+      var v=await supabase.loadVers();
+      if(v&&v.updated_at&&v.vers&&typeof v.vers==="object"&&!Array.isArray(v.vers)){
+        var lv=blobVersRef.current||{};
+        var changed=[];
+        Object.keys(v.vers).forEach(function(k){if(k==="_vers"||k==="pats")return;if(v.vers[k]!==lv[k])changed.push(k);});
+        if(!changed.length)return {data:{},updated_at:v.updated_at,partial:true};
+        BLOB_TOMB_KEYS.forEach(function(k){if(changed.indexOf(k)<0)changed.push(k);});
+        var part=await supabase.loadKeys(changed);
+        if(part&&part.updated_at){
+          var sd={};
+          changed.forEach(function(k){
+            if(part[k]!==undefined&&part[k]!==null){
+              sd[k]=part[k];
+              if(v.vers[k]!=null)blobVersRef.current[k]=v.vers[k];
+              try{lastSavedKeyJsonRef.current[k]=JSON.stringify(part[k]);}catch(e){}
+            }
+          });
+          return {data:sd,updated_at:part.updated_at,partial:true};
+        }
+      }
+    }
+  }catch(e){}
+  // fallback: comportamento identico ao anterior (download completo)
+  var fresh=await supabase.loadFull();
+  if(fresh&&fresh.data){
+    try{if(fresh.data._vers&&typeof fresh.data._vers==="object")blobVersRef.current=Object.assign({},fresh.data._vers);}catch(e){}
+    return {data:fresh.data,updated_at:fresh.updated_at,partial:false};
+  }
+  return null;
 };
 // Merge aditivo de "ticks" (aniversario/contatos): nunca perde uma marcação local.
 // União das chaves; em conflito, vence o ts mais novo; sem ts, vence "done:true".
@@ -9744,7 +9813,7 @@ useEffect(function(){
       var serverTs=await supabase.getTimestamp();
       if(serverTs&&lastServerTs.current&&serverTs!==lastServerTs.current){
         // Outro computador salvou! Recarregar antes de gravar para nao perder dados
-        var fresh=await supabase.loadFull();
+        var fresh=await fetchBlobDelta(); // V199: baixa so o que mudou
         if(fresh&&fresh.data){
           var sd=fresh.data;
           // unir exclusoes do servidor com as nossas
@@ -9789,7 +9858,7 @@ useEffect(function(){
           if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
           if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
           lastServerTs.current=fresh.updated_at;
-          try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){} // V198
+          if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
           // Cancelar este save - o useEffect vai disparar de novo com o estado mergeado
           return "merged";
         }
@@ -9797,6 +9866,16 @@ useEffect(function(){
     }catch(e){}}
     const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg};
     if(!patTableOk.current)payload.pats=pats;
+    try{ // V199: carimbo de versao so nas chaves cujo conteudo mudou
+      if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
+      var _vNow=new Date().toISOString();
+      Object.keys(payload).forEach(function(k){
+        var _js;try{_js=JSON.stringify(payload[k]);}catch(e){_js=null;}
+        if(_js===null)return;
+        if(lastSavedKeyJsonRef.current[k]!==_js||!blobVersRef.current[k]){blobVersRef.current[k]=_vNow;lastSavedKeyJsonRef.current[k]=_js;}
+      });
+      payload._vers=Object.assign({},blobVersRef.current);
+    }catch(e){}
     var ok=false;
     for(var i=0;i<3&&!ok;i++){
       try{
@@ -9893,7 +9972,7 @@ useEffect(function(){
       if(lastServerTs.current===null){lastServerTs.current=serverTs;return;}
       if(serverTs===lastServerTs.current)return;
       // Servidor mudou - carregar e fazer merge
-      var fresh=await supabase.loadFull();
+      var fresh=await fetchBlobDelta(); // V199: baixa so o que mudou
       if(!fresh||!fresh.data)return;
       var sd=fresh.data;
       // re-checa: se o usuario mexeu durante o carregamento, nao sobrescreve
@@ -9974,7 +10053,7 @@ useEffect(function(){
       if(sd.implMov)setImplMov(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implMov)?prev:sd.implMov;});
       if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
       lastServerTs.current=fresh.updated_at;
-      try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){} // V198
+      if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
     }catch(e){}
   };
   var poll=setInterval(doPoll,8000); // V189: 15s -> 8s
