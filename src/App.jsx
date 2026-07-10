@@ -2762,6 +2762,7 @@ function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRec
 const [selDate,setSelDate]=useState(today());
 const [agView,setAgView]=useState("dia");
 const [agZoom,setAgZoom]=useState(1);
+const [agViewMode,setAgViewMode]=useState(function(){try{return localStorage.getItem("agenda_view_mode")||"normal";}catch(e){return "normal";}});
 const [openFolder,setOpenFolder]=useState(null);
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(new Date().getFullYear());
@@ -2886,6 +2887,10 @@ return (
     <div style={{display:"flex",gap:2,background:G.bg,borderRadius:9,padding:3}}>
       {[["dia","Dia"],["semana","Semana"]].map(function(v){return <button key={v[0]} onClick={function(){if(v[0]==="semana"&&!isDent&&denF==="all"){var d1=dents.filter(function(d){return !isOrto(d);})[0]||dents[0];if(d1)setDenF(String(d1.id));}setAgView(v[0]);}} style={{border:"none",borderRadius:7,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",background:agView===v[0]?G.primary:"transparent",color:agView===v[0]?"#fff":G.muted}}>{v[1]}</button>;})}
     </div>
+    {agView==="dia"&&<div style={{display:"flex",gap:0,background:G.bg,borderRadius:12,boxShadow:"inset 4px 4px 9px var(--nm-dark),inset -4px -4px 9px var(--nm-light)",padding:4}} title="Modo de exibicao do dia">
+      <button onClick={function(){try{localStorage.setItem("agenda_view_mode","normal");}catch(e){}setAgViewMode("normal");}} style={{border:"none",background:agViewMode!=="compact"?G.primary:"transparent",color:agViewMode!=="compact"?"#ead9b6":G.muted,borderRadius:9,padding:"7px 13px",fontSize:12,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:5,boxShadow:agViewMode!=="compact"?"3px 3px 8px rgba(34,70,52,.4)":"none"}}>{"☰ Normal"}</button>
+      <button onClick={function(){try{localStorage.setItem("agenda_view_mode","compact");}catch(e){}setAgViewMode("compact");}} style={{border:"none",background:agViewMode==="compact"?G.primary:"transparent",color:agViewMode==="compact"?"#ead9b6":G.muted,borderRadius:9,padding:"7px 13px",fontSize:12,fontWeight:800,cursor:"pointer",display:"flex",alignItems:"center",gap:5,boxShadow:agViewMode==="compact"?"3px 3px 8px rgba(34,70,52,.4)":"none"}}>{"▤ Compacta"}</button>
+    </div>}
     {!isDent&&<select value={denF} onChange={e=>setDenF(e.target.value)} style={{border:"1.5px solid "+G.border,borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:600,outline:"none",background:"var(--surface)"}}>
       {agView!=="semana"&&<option value="all">Todos</option>}
       {dents.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
@@ -3021,6 +3026,73 @@ return(
 </div>
 )
 });
+// ===== MODO COMPACTO (V204) — visao Dia, dentista unico =====
+var _slotsCompact=null;
+if(agViewMode==="compact"){
+var _consumed={};
+_slotsCompact=[];
+var _selDayC=new Date(selDate+"T12:00").getDay();
+var _isOffDayC=(d.dias||[1,2,3,4,5]).indexOf(_selDayC)<0;
+var _alIniC=(d.almoco&&d.almoco.ini)||"";var _alFimC=(d.almoco&&d.almoco.fim)||"";
+allSlots.forEach(function(slot,idx){
+if(_consumed[slot])return;
+var isAlmC=_alIniC&&_alFimC&&slot>=_alIniC&&slot<_alFimC;
+var isOutC=slot<(d.entrada||"08:00")||slot>=(d.saida||"18:00");
+var aC=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentistId===d.id&&x.status!=="cancelled"&&x.status!=="rescheduled"&&x.status!=="missed";});
+if(aC&&!aC.blocked){
+var occ=[slot].concat((aC.extraSlots||[]).slice()).filter(function(v,i,arr){return arr.indexOf(v)===i;}).sort(function(x,y){return t2m(x)-t2m(y);});
+occ.forEach(function(s){_consumed[s]=1;});
+var lbl=occ.length===1?occ[0]:occ[0]+" – "+occ[occ.length-1];
+var multi=occ.length>1;
+var pC=pats.find(function(x){return x.id===aC.patientId;});
+var isPartC=!aC.patientId&&aC.patientName;
+var anC=(pC&&pC.anamnese)||{};
+var hasAlertC=ANAM_CONDS.some(function(c){return anC[c[0]];});
+var nmC=isPartC?aC.patientName:((pC&&pC.name)||"A confirmar");
+_slotsCompact.push(
+<div key={"c"+slot} onClick={function(){setViewA(aC);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:10,background:"var(--surface)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",marginBottom:5,cursor:"pointer",borderLeft:hasAlertC?"3px solid var(--yellow)":"none"}}>
+<span style={{fontFamily:"'Cormorant Garamond'",fontSize:multi?15:16,fontWeight:700,color:"var(--green)",minWidth:multi?96:46,lineHeight:1,whiteSpace:"nowrap"}}>{lbl}</span>
+<div style={{width:3.5,height:22,borderRadius:3,flexShrink:0,background:hasAlertC?"linear-gradient(180deg,#d9b45f,#C0902E)":"linear-gradient(180deg,#3f8f66,#2f5d49)"}}></div>
+<span style={{fontSize:12.5,fontWeight:800,color:isPartC?G.red:G.text,flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:".2px"}}>{nmC}</span>
+<span style={{fontSize:10,color:G.muted,fontWeight:700,whiteSpace:"nowrap",maxWidth:92,overflow:"hidden",textOverflow:"ellipsis"}}>{aC.procedureCustom||aC.procedure}</span>
+{hasAlertC&&<span style={{width:19,height:19,borderRadius:6,background:"#D32F2F",color:"#fff",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:900,boxShadow:"0 1px 4px rgba(180,30,30,.45)"}}>!</span>}
+<span style={{width:16,height:16,borderRadius:5,background:SCN[aC.status]||G.primary,color:"#fff",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:900}}><i className={"ph-fill "+(SCN_IC[aC.status]||"ph-circle")} style={{fontSize:11}}></i></span>
+</div>
+);
+return;
+}
+var ablkC=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentistId===d.id&&x.blocked;});
+if(ablkC){
+var blkSlots=[slot];_consumed[slot]=1;
+for(var b=idx+1;b<allSlots.length;b++){var sb=allSlots[b];var sbBlk=appts.find(function(x){return x.date===selDate&&x.time===sb&&x.dentistId===d.id&&x.blocked;});if(sbBlk&&(sbBlk.blockReason||"")===(ablkC.blockReason||"")){blkSlots.push(sb);_consumed[sb]=1;}else break;}
+var blkLbl=blkSlots.length===1?blkSlots[0]:blkSlots[0]+" – "+blkSlots[blkSlots.length-1];
+_slotsCompact.push(<div key={"cb"+slot} onClick={function(){if(!isDent&&window.confirm("Desbloquear este horario?"))setAppts(function(prev){return prev.filter(function(x){return !(x.blocked&&x.date===selDate&&x.dentistId===d.id&&blkSlots.indexOf(x.time)>=0);});});}} style={{display:"flex",alignItems:"center",gap:8,padding:"3px 10px",borderRadius:8,background:"var(--red-soft)",color:G.red,border:"1px solid #FFCDD2",marginBottom:5,fontSize:10.5,fontWeight:800,cursor:isDent?"default":"pointer"}}><span style={{minWidth:blkSlots.length>1?96:46,fontWeight:800}}>{blkLbl}</span>{"🔒 "+(ablkC.blockReason||"Bloqueado")}{!isDent&&<span style={{marginLeft:"auto",fontWeight:600,opacity:.7}}>desbloquear</span>}</div>);
+return;
+}
+if(isAlmC){
+var lunchSlots=[slot];_consumed[slot]=1;
+for(var j=idx+1;j<allSlots.length;j++){var sj=allSlots[j];var sjAlm=_alIniC&&_alFimC&&sj>=_alIniC&&sj<_alFimC;var sjAppt=appts.find(function(x){return x.date===selDate&&x.time===sj&&x.dentistId===d.id&&x.status!=="cancelled"&&x.status!=="rescheduled"&&x.status!=="missed";});if(sjAlm&&!sjAppt){lunchSlots.push(sj);_consumed[sj]=1;}else break;}
+var lunchLbl=lunchSlots.length===1?lunchSlots[0]:lunchSlots[0]+" – "+lunchSlots[lunchSlots.length-1];
+_slotsCompact.push(<div key={"cl"+slot} style={{display:"flex",alignItems:"center",gap:8,padding:"3px 10px",borderRadius:8,background:"var(--amber-soft)",color:G.orange,marginBottom:5,fontSize:10.5,fontWeight:700}}><span style={{minWidth:lunchSlots.length>1?96:46,fontWeight:800,color:G.muted}}>{lunchLbl}</span>{"🍽️ Almoco"}</div>);
+return;
+}
+if(_isOffDayC||isOutC){
+var offSlots=[slot];_consumed[slot]=1;var offKind=_isOffDayC?"folga":"out";
+for(var k=idx+1;k<allSlots.length;k++){var sk=allSlots[k];var skAlm=_alIniC&&_alFimC&&sk>=_alIniC&&sk<_alFimC;var skOut=sk<(d.entrada||"08:00")||sk>=(d.saida||"18:00");var skAppt=appts.find(function(x){return x.date===selDate&&x.time===sk&&x.dentistId===d.id;});var skKind=_isOffDayC?"folga":skOut?"out":null;if(!skAppt&&!skAlm&&skKind===offKind){offSlots.push(sk);_consumed[sk]=1;}else break;}
+var offLbl=offSlots.length===1?offSlots[0]:offSlots[0]+" – "+offSlots[offSlots.length-1];
+_slotsCompact.push(<div key={"co"+slot} style={{display:"flex",alignItems:"center",gap:8,padding:"3px 10px",borderRadius:8,marginBottom:5,fontSize:10.5,fontWeight:700,background:_isOffDayC?"var(--red-soft)":"var(--purple-soft)",color:_isOffDayC?"#C62828":"#6A1B9A",opacity:.6}}><span style={{minWidth:offSlots.length>1?96:46,fontWeight:700}}>{offLbl}</span>{_isOffDayC?"🚫 Folga":"⛔ Fechado"}</div>);
+return;
+}
+_consumed[slot]=1;
+_slotsCompact.push(
+<div key={"cf"+slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF(Object.assign({},blank,{date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id}));setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 10px",borderRadius:9,border:"1.2px dashed "+G.border,background:"var(--surface)",marginBottom:5,cursor:isDent?"default":"pointer"}}>
+<span style={{fontSize:11,fontWeight:700,color:G.muted,minWidth:46}}>{slot}</span>
+{isDent?<span style={{fontSize:10.5,color:G.border,flex:1}}>{"──────"}</span>:<span style={{fontSize:10.5,color:G.muted,flex:1}}>{"+ agendar"}</span>}
+{!isDent&&<button onClick={function(e){e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{background:"transparent",border:"none",fontSize:12,cursor:"pointer",padding:0,lineHeight:1}} title="Bloquear horario">{"🔒"}</button>}
+</div>
+);
+});
+}
 var doCancelados=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&(x.status==="cancelled"||x.status==="rescheduled"||x.status==="missed");});
 var _cancelled=doCancelados.length>0?<div style={{marginTop:8,background:"var(--red-soft)",border:"2px solid "+SC.cancelled,borderRadius:12,padding:"10px 14px"}}>
 <div style={{fontWeight:700,fontSize:12,color:SC.cancelled,marginBottom:8}}>{"❌ "+doCancelados.length+" cancelado(s)/desmarcado(s) -- horário liberado"}</div>
@@ -3035,7 +3107,7 @@ return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:
 </div>;
 })}
 </div>:null;
-return [_slots, _cancelled];
+return [agViewMode==="compact"?_slotsCompact:_slots, _cancelled];
 })()}
 
   </div>}
