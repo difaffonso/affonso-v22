@@ -3049,10 +3049,11 @@ var isPartC=!aC.patientId&&aC.patientName;
 var anC=(pC&&pC.anamnese)||{};
 var hasAlertC=ANAM_CONDS.some(function(c){return anC[c[0]];});
 var nmC=isPartC?aC.patientName:((pC&&pC.name)||"A confirmar");
+var stColC=isPartC?G.red:(SCN[aC.status]||G.primary);
 _slotsCompact.push(
 <div key={"c"+slot} onClick={function(){setViewA(aC);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:10,background:"var(--surface)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",marginBottom:5,cursor:"pointer",borderLeft:hasAlertC?"3px solid var(--yellow)":"none"}}>
-<span style={{fontFamily:"'Cormorant Garamond'",fontSize:multi?15:16,fontWeight:700,color:"var(--green)",minWidth:multi?96:46,lineHeight:1,whiteSpace:"nowrap"}}>{lbl}</span>
-<div style={{width:3.5,height:22,borderRadius:3,flexShrink:0,background:hasAlertC?"linear-gradient(180deg,#d9b45f,#C0902E)":"linear-gradient(180deg,#3f8f66,#2f5d49)"}}></div>
+<span style={{fontFamily:"'Cormorant Garamond'",fontSize:multi?15:16,fontWeight:700,color:stColC,minWidth:multi?96:46,lineHeight:1,whiteSpace:"nowrap"}}>{lbl}</span>
+<div style={{width:3.5,height:22,borderRadius:3,flexShrink:0,background:GRAD[aC.status]||GRAD.confirmed}}></div>
 <span style={{fontSize:12.5,fontWeight:800,color:isPartC?G.red:G.text,flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:".2px"}}>{nmC}</span>
 <span style={{fontSize:10,color:G.muted,fontWeight:700,whiteSpace:"nowrap",maxWidth:92,overflow:"hidden",textOverflow:"ellipsis"}}>{aC.procedureCustom||aC.procedure}</span>
 {hasAlertC&&<span style={{width:19,height:19,borderRadius:6,background:"#D32F2F",color:"#fff",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:900,boxShadow:"0 1px 4px rgba(180,30,30,.45)"}}>!</span>}
