@@ -10199,6 +10199,12 @@ if(running)return;running=true;
 try{
 var D=waRef.current||{};var cfg=D.waAuto||{};var u=D.user;
 if(!cfg.master||!u||u.level<2){running=false;return;}
+// V205: os envios automaticos DIARIOS (vespera, aniversario, semestral, pos-cirurgia,
+// pos-consulta, orcamento) passaram a sair pelo SERVIDOR (Railway) todo dia as 12h,
+// com varredura de vespera de hora em hora (13h-20h). O app nao dispara mais esses --
+// evita adiantar/duplicar. Os imediatos (confirmacao ao agendar e reagendamento)
+// continuam pelo app via waEvent. Para reativar aqui, remova a linha abaixo.
+running=false;return;
 var h=new Date().getHours();
 if(h<8||h>=19){running=false;return;}
 var t=today();
