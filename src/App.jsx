@@ -1060,6 +1060,42 @@ function PatientPortal({token}){
 }
 /* ===================== PORTAL DO PACIENTE (fim) ===================== */
 
+// ── V207: ODONTOGRAMA 3D + PERIOGRAMA — aba 🦷 3D do prontuário (iframe + postMessage) ──
+function Odonto3DTab({pat,setPats,setPf}){
+const [visao,setVisao]=useState("odonto"); // odonto = Odontograma 3D | perio = Periograma (modo Osso)
+const frRef=useRef(null);
+const patRef=useRef(pat);patRef.current=pat;
+useEffect(function(){
+  function onMsg3d(ev){
+    if(ev.origin!==location.origin)return;
+    var fr=frRef.current;if(!fr||ev.source!==fr.contentWindow)return;
+    var d=ev.data||{};
+    if(d.tipo==="odonto3d-pronto"){
+      try{fr.contentWindow.postMessage({tipo:"odonto3d-estado",dados:(patRef.current&&patRef.current.odonto3d)||{},historico:(patRef.current&&patRef.current.odonto3d_hist)||[]},location.origin);}catch(e){}
+    }else if(d.tipo==="odonto3d-alterado"&&d.dados){
+      var pid=patRef.current&&patRef.current.id;if(pid==null)return;
+      setPats(function(prev){return prev.map(function(p){return p.id===pid?Object.assign({},p,{odonto3d:d.dados}):p;});});
+      if(setPf)setPf(function(prev){return Object.assign({},prev,{odonto3d:d.dados});});
+    }else if(d.tipo==="odonto3d-historico"){
+      var pid2=patRef.current&&patRef.current.id;if(pid2==null)return;
+      var h3d=d.historico||[];
+      setPats(function(prev){return prev.map(function(p){return p.id===pid2?Object.assign({},p,{odonto3d_hist:h3d}):p;});});
+      if(setPf)setPf(function(prev){return Object.assign({},prev,{odonto3d_hist:h3d});});
+    }
+  }
+  window.addEventListener("message",onMsg3d);
+  return function(){window.removeEventListener("message",onMsg3d);};
+},[setPats,setPf]);
+var src3d=visao==="perio"?"/odontograma3d.html?integrado=1&modo=osso":"/odontograma3d.html?integrado=1";
+return (<div style={{display:"flex",flexDirection:"column",gap:10}}>
+  <div style={{display:"flex",gap:4,background:"var(--green-soft)",borderRadius:12,padding:4,alignSelf:"flex-start"}}>
+    <button onClick={function(){setVisao("odonto");}} style={{border:"none",background:visao==="odonto"?G.primary:"transparent",color:visao==="odonto"?"#fff":G.muted,borderRadius:9,padding:"8px 14px",fontSize:12.5,fontWeight:800,cursor:"pointer"}}>{"🦷 Odontograma 3D"}</button>
+    <button onClick={function(){setVisao("perio");}} style={{border:"none",background:visao==="perio"?G.primary:"transparent",color:visao==="perio"?"#fff":G.muted,borderRadius:9,padding:"8px 14px",fontSize:12.5,fontWeight:800,cursor:"pointer"}}>{"🦴 Periograma"}</button>
+  </div>
+  <iframe key={visao} ref={frRef} src={src3d} title={visao==="perio"?"Periograma":"Odontograma 3D"} style={{width:"100%",height:"70vh",minHeight:420,border:"1.5px solid "+G.border,borderRadius:14,background:"#fff"}}/>
+</div>);
+}
+
 function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose}){
 // Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
@@ -1303,7 +1339,7 @@ setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",n
 };
 const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
-const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],["docs","📑 Documentos"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
+const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["odonto3d","🦷 3D"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],["docs","📑 Documentos"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
 // NF (Nota Fiscal) state
 const [nfModal,setNfModal]=useState(false);
 const [showAtestado,setShowAtestado]=useState(false);
@@ -1868,6 +1904,7 @@ return <>
 
   {/* ── NOTA FISCAL ── */}
   {tab==="docs"&&<DocsContratos pat={pat}/>}
+  {tab==="odonto3d"&&<Odonto3DTab pat={pat} setPats={setPats} setPf={setPf}/>}
 
   {tab==="atestado"&&(function(){
   var dentAtest=dents.find(function(d){return d.id===Number(atDentId);})||dents.find(function(d){return d.id===(user.dentistId||dents[0]&&dents[0].id);});
