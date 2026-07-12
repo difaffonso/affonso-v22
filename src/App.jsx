@@ -9,6 +9,8 @@ function __authed(){return !!__ACCESS;}
 function __scheduleRefresh(){try{if(__REFTIMER)clearTimeout(__REFTIMER);}catch(e){}var ms=Math.max(30000,(__EXP-Date.now())-120000);__REFTIMER=setTimeout(function(){__doRefresh();},ms);}
 let __lastAuthErr="";async function __signIn(login,pass){__lastAuthErr="";var r;try{var email=String(login||"").trim().toLowerCase()+"@affonso.local";r=await fetch(SUPA_URL+"/auth/v1/token?grant_type=password",{method:"POST",headers:{"apikey":SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify({email:email,password:pass})});}catch(e){__lastAuthErr="network";return false;}try{if(r.status>=400&&r.status<500){__lastAuthErr="invalid";return false;}if(!r.ok){__lastAuthErr="server";return false;}var t=await r.json();if(!t||!t.access_token){__lastAuthErr="invalid";return false;}__ACCESS=t.access_token;__REFRESH=t.refresh_token||null;__EXP=Date.now()+((t.expires_in||3600)*1000);__scheduleRefresh();return true;}catch(e){__lastAuthErr="server";return false;}}
 async function __doRefresh(){try{if(!__REFRESH)return false;var r=await fetch(SUPA_URL+"/auth/v1/token?grant_type=refresh_token",{method:"POST",headers:{"apikey":SUPA_KEY,"Content-Type":"application/json"},body:JSON.stringify({refresh_token:__REFRESH})});if(!r.ok)return false;var t=await r.json();if(!t||!t.access_token)return false;__ACCESS=t.access_token;__REFRESH=t.refresh_token||__REFRESH;__EXP=Date.now()+((t.expires_in||3600)*1000);__scheduleRefresh();return true;}catch(e){return false;}}
+// V209: sincroniza a senha REAL de login (Supabase Auth) via Edge Function 'admin-users'.
+async function __syncCred(login,pass){try{if(!__ACCESS)return {ok:false,msg:"Sessão expirada. Saia e entre novamente."};var r=await fetch(SUPA_URL+"/functions/v1/admin-users",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__ACCESS,"Content-Type":"application/json"},body:JSON.stringify({login:String(login||"").trim().toLowerCase(),pass:pass})});var d=null;try{d=await r.json();}catch(e){}if(r.ok&&d&&d.ok)return {ok:true,created:!!d.created};return {ok:false,msg:(d&&d.msg)||("Erro "+r.status)};}catch(e){return {ok:false,msg:"Sem conexão com o servidor"};}}
 function __signOut(){__ACCESS=null;__REFRESH=null;__EXP=0;try{if(__REFTIMER)clearTimeout(__REFTIMER);}catch(e){}}
 try{if(typeof window!=="undefined")window.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&__ACCESS&&(__EXP-Date.now()<180000))__doRefresh();});}catch(e){}
 // V198: cache local em IndexedDB. Guarda o banco e os pacientes no aparelho para
@@ -6531,6 +6533,8 @@ setDents(prev=>[...prev,newDent]);
 dentId=newDent.id;
 }
 const obj={...uf,dentistId:dentId,id:eu?eu.id:nid(users),criaDentista:undefined};
+const passMudou=!!uf.pass&&(!eu||String(uf.pass)!==String(eu.pass||"")); // V209
+if(passMudou){__syncCred(uf.login,uf.pass).then(function(r){if(r.ok)alert("✅ Senha de login de \""+String(uf.login).trim().toLowerCase()+"\" atualizada com sucesso."+(r.created?" (credencial criada)":""));else alert("⚠️ Usuário salvo, mas a senha de LOGIN não foi sincronizada: "+(r.msg||"erro desconhecido")+"\n\nAbra o usuário e salve novamente.");});} // V209
 setUsers(prev=>eu?prev.map(u=>u.id===eu.id?obj:u):[...prev,obj]);
 setUm(false);
 };
