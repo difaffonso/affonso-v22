@@ -5112,6 +5112,129 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 }
 
 // ══════════════════════════════════════════════════════════
+// NF TAB - Relatorio de Notas Fiscais (admin only) - V211
+function NFTab({pats,dents,mo,abrirFicha}){
+const [dia,setDia]=useState("");
+const [emit,setEmit]=useState("all");
+const [stF,setStF]=useState("all");
+const [busca,setBusca]=useState("");
+const statusC={pending:G.yellow,issued:G.success,cancelled:G.red};
+const statusL={pending:"Pendente",issued:"Emitida",cancelled:"Cancelada"};
+const digits=function(s){return String(s||"").replace(/\D/g,"");};
+const all=[];
+pats.forEach(function(p){(p.nfs||[]).forEach(function(n){all.push({n:n,p:p});});});
+const res=all.filter(function(x){
+  var n=x.n,p=x.p;
+  if(!n.date||!n.date.startsWith(mo))return false;
+  if(dia&&n.date!==dia)return false;
+  if(emit==="empresa"&&n.payer!=="empresa")return false;
+  if(emit!=="all"&&emit!=="empresa"&&!(n.payer==="dentista"&&String(n.dentistId)===emit))return false;
+  if(stF!=="all"&&(n.status||"pending")!==stF)return false;
+  if(busca){
+    var q=busca.toLowerCase(),qd=digits(busca);
+    var hit=(p.name||"").toLowerCase().indexOf(q)>=0
+      ||(n.payerName||"").toLowerCase().indexOf(q)>=0
+      ||(n.procedure||"").toLowerCase().indexOf(q)>=0
+      ||String(n.number||"").toLowerCase().indexOf(q)>=0
+      ||(qd.length>0&&digits(n.payerCnpj).indexOf(qd)>=0);
+    if(!hit)return false;
+  }
+  return true;
+}).sort(function(a,b){return (b.n.date||"").localeCompare(a.n.date||"")||((b.n.id||0)-(a.n.id||0));});
+const bruto=res.reduce(function(s,x){return s+Number(x.n.value||0);},0);
+const imp=res.reduce(function(s,x){return s+Number(x.n.tax||0);},0);
+const MESES_PT=["Janeiro","Fevereiro","Marco","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const moLabel=(function(){var pr=mo.split("-");return (MESES_PT[Number(pr[1])-1]||pr[1])+" de "+pr[0];})();
+const imprimir=function(){
+  var w=window.open("","_blank");
+  if(!w){alert("Permita pop-ups para imprimir o relatorio.");return;}
+  var rows=res.map(function(x){
+    var n=x.n,d=dents.find(function(dd){return dd.id===Number(n.dentistId);});
+    var emitente=n.payer==="empresa"?((n.payerName||"Empresa")+(n.payerCnpj?" - CNPJ "+n.payerCnpj:"")):(d?d.name:"Dentista");
+    return "<tr><td>"+fmt(n.date)+"</td><td>"+(n.number||"-")+"</td><td>"+(x.p.name||"")+"</td><td>"+(n.procedure||"")+"</td><td>"+emitente+"</td><td style='text-align:right'>"+cur(n.value)+"</td><td style='text-align:right'>"+cur(n.tax||0)+"</td><td style='text-align:right'>"+cur(Number(n.value||0)-Number(n.tax||0))+"</td><td>"+(statusL[n.status||"pending"]||"")+"</td></tr>";
+  }).join("");
+  var html="<!DOCTYPE html><html><head><meta charset='utf-8'><title>Notas Fiscais - "+moLabel+"</title><style>body{font-family:Arial,sans-serif;font-size:12px;color:#23332b;padding:24px;}h1{font-size:18px;margin-bottom:2px;}h2{font-size:13px;font-weight:normal;color:#666;margin-bottom:16px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;}th{background:#eef2ec;font-size:11px;text-transform:uppercase;}tfoot td{font-weight:bold;background:#eef2ec;}@media print{body{padding:0;}}</style></head><body>"
+    +"<h1>Affonso Odontologia - Relatorio de Notas Fiscais</h1>"
+    +"<h2>"+moLabel+(dia?" - Dia "+fmt(dia):"")+" - "+res.length+" nota(s)</h2>"
+    +"<table><thead><tr><th>Data</th><th>N&ordm;</th><th>Paciente</th><th>Procedimento</th><th>Emitente</th><th>Valor</th><th>ISS</th><th>Liquido</th><th>Status</th></tr></thead>"
+    +"<tbody>"+rows+"</tbody>"
+    +"<tfoot><tr><td colspan='5'>Totais</td><td style='text-align:right'>"+cur(bruto)+"</td><td style='text-align:right'>"+cur(imp)+"</td><td style='text-align:right'>"+cur(bruto-imp)+"</td><td></td></tr></tfoot></table>"
+    +"<script>window.onload=function(){window.print();};<\/script></body></html>";
+  w.document.write(html);w.document.close();
+};
+return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+    <span style={{fontWeight:700,fontSize:15,color:G.primary}}>{"\U0001F9FE Notas Fiscais \u00b7 "+moLabel}</span>
+    <Btn ch={"\U0001F5A8\uFE0F Imprimir"} sm onClick={imprimir}/>
+  </div>
+  {/* Cards de totais */}
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:11}}>
+    {[
+      ["Notas",String(res.length),G.text],
+      ["Valor bruto",cur(bruto),G.primary],
+      ["Impostos / ISS",cur(imp),G.red],
+      ["Liquido",cur(bruto-imp),G.success],
+    ].map(function(c){return <div key={c[0]} className="nm-raised" style={{borderRadius:14,padding:"12px 14px"}}>
+      <div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{c[0]}</div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:c[2],marginTop:2}}>{c[1]}</div>
+    </div>;})}
+  </div>
+  {/* Filtros */}
+  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Dia (opcional)</label>
+      <input type="date" value={dia} min={mo+"-01"} max={mo+"-31"} onChange={function(e){setDia(e.target.value);}} style={{padding:"8px 11px",fontSize:13,width:150}}/>
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Emitente</label>
+      <select value={emit} onChange={function(e){setEmit(e.target.value);}} style={{padding:"8px 11px",fontSize:13,minWidth:150}}>
+        <option value="all">Todos</option>
+        <option value="empresa">{"\U0001F3E2 Empresa (CNPJ)"}</option>
+        {dents.map(function(d){return <option key={d.id} value={String(d.id)}>{d.name}</option>;})}
+      </select>
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+      <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Status</label>
+      <select value={stF} onChange={function(e){setStF(e.target.value);}} style={{padding:"8px 11px",fontSize:13,minWidth:120}}>
+        <option value="all">Todos</option>
+        <option value="issued">Emitida</option>
+        <option value="pending">Pendente</option>
+        <option value="cancelled">Cancelada</option>
+      </select>
+    </div>
+    <div style={{display:"flex",flexDirection:"column",gap:4,flex:1,minWidth:180}}>
+      <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Buscar</label>
+      <input type="text" value={busca} placeholder={"\U0001F50E Empresa, CNPJ, paciente, procedimento ou n\u00ba..."} onChange={function(e){setBusca(e.target.value);}} style={{padding:"8px 11px",fontSize:13,width:"100%"}}/>
+    </div>
+    {(dia||emit!=="all"||stF!=="all"||busca)&&<button onClick={function(){setDia("");setEmit("all");setStF("all");setBusca("");}} style={{border:"none",background:"none",color:G.red,fontSize:12,fontWeight:700,cursor:"pointer",padding:"8px 4px"}}>{"\u2715 Limpar"}</button>}
+  </div>
+  {/* Lista */}
+  {res.length===0&&<div style={{background:G.bg,borderRadius:10,padding:20,textAlign:"center",color:G.muted,fontSize:13}}>Nenhuma nota fiscal encontrada nesse periodo com esses filtros.</div>}
+  {res.map(function(x){
+    var n=x.n,p=x.p;
+    var d=dents.find(function(dd){return dd.id===Number(n.dentistId);});
+    return <div key={p.id+"-"+n.id} onClick={function(){if(abrirFicha)abrirFicha(p);}} className="nm-raised" style={{borderRadius:13,padding:"12px 15px",cursor:"pointer",borderLeft:"4px solid "+(n.payer==="empresa"?G.blue:G.purple)}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+        <div>
+          <div style={{fontWeight:700,fontSize:13.5}}>{p.name}<span style={{color:G.muted,fontWeight:500}}>{n.number?" \u00b7 NF "+n.number:" \u00b7 sem n\u00ba"}</span></div>
+          <div style={{fontSize:11.5,color:G.muted,marginTop:2}}>{fmt(n.date)+" \u00b7 "+(n.procedure||"")}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontWeight:800,fontSize:15,color:G.primary}}>{cur(n.value)}</div>
+          {Number(n.tax)>0&&<div style={{fontSize:11,color:G.muted}}>{"ISS: "+cur(n.tax)+" \u00b7 l\u00edq "+cur(Number(n.value||0)-Number(n.tax||0))}</div>}
+        </div>
+      </div>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginTop:7}}>
+        <span style={{background:(statusC[n.status||"pending"]||G.muted)+"22",color:statusC[n.status||"pending"]||G.muted,borderRadius:12,padding:"2px 10px",fontSize:10.5,fontWeight:700}}>{statusL[n.status||"pending"]||"Pendente"}</span>
+        {n.payer==="empresa"
+          ?<span style={{fontSize:11,color:G.blue,fontWeight:600}}>{"\U0001F3E2 "+(n.payerName||"Empresa")+(n.payerCnpj?" \u00b7 "+n.payerCnpj:"")}</span>
+          :<span style={{fontSize:11,color:G.purple,fontWeight:600}}>{"\U0001F468\u200D\u2695\uFE0F "+(d?d.name:"Dentista")}</span>}
+      </div>
+    </div>;
+  })}
+</div>;
+}
+
 // MSG TAB - WhatsApp component (outside Relatorios to allow useState)
 // ══════════════════════════════════════════════════════════
 function MsgTab({pats,waTemplates,setWaTemplates,user}){
@@ -5747,6 +5870,7 @@ const pessoalG=gastoMes(gastos&&gastos.pessoal);
 
 const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["buscar","🔎 Buscar"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
 if(user.level>=3)TABS.push(["gastos","💸 Gastos"]);
+if(user.level>=3)TABS.push(["nf","🧾 Notas"]);
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
@@ -5992,6 +6116,7 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
 {/* ── WHATSAPP ── */}
 {tab==="buscar"&&<BuscaOrcTab treats={treats} pats={pats} dents={dents} abrirFicha={abrirFicha}/>}
 {tab==="msg"&&<MsgTab pats={pats} selMsg={selMsg} setSelMsg={setSelMsg} selPatsMsg={selPatsMsg} setSelPatsMsg={setSelPatsMsg} allSelMsg={allSelMsg} setAllSelMsg={setAllSelMsg} waTemplates={waTemplates} setWaTemplates={setWaTemplates} user={user}/>}
+{tab==="nf"&&user.level>=3&&<NFTab pats={pats} dents={dents} mo={mo} abrirFicha={abrirFicha}/>}
 
   </div>;
 }
