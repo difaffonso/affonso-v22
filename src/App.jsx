@@ -1357,7 +1357,8 @@ const [atHoraFim,setAtHoraFim]=useState("12:00");
 const [atDentId,setAtDentId]=useState(String((user&&user.dentistId)||(dents[0]&&dents[0].id)||""));
 const [nfEdit,setNfEdit]=useState(null);
 const [confirmDel,setConfirmDel]=useState(null); // {type,id,label}
-const blankNF={date:today(),number:"",payer:"empresa",payerName:"",payerCnpj:"",dentistId:"",procedure:"",value:"",tax:"",notes:"",status:"pending"};
+const lastEmpNF=(function(){var best=null;(pats||[]).forEach(function(pp){(pp.nfs||[]).forEach(function(n){if(n.payer==="empresa"&&(n.payerName||n.payerCnpj)){if(!best||(n.date||"")>(best.date||"")||((n.date||"")===(best.date||"")&&(n.id||0)>(best.id||0)))best=n;}});});return best;})();
+const blankNF={date:today(),number:"",payer:"empresa",payerName:(lastEmpNF&&lastEmpNF.payerName)||"",payerCnpj:(lastEmpNF&&lastEmpNF.payerCnpj)||"",dentistId:"",procedure:"",value:"",tax:"",notes:"",status:"pending"};
 const [nff,setNff]=useState(blankNF);
 const patNFs=(pat.nfs||[]);
 const saveNF=()=>{
