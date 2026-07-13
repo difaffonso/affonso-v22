@@ -9709,7 +9709,9 @@ setTimeout(()=>{initialized.current=true;},1000);
 // Salvar imediatamente ao sair/esconder a pagina
 var flushSave=function(){
   if(!initialized.current||isSaving.current)return;
+  if(!dirtyRef.current)return; // V210: nada pendente, nada a fazer
   if(saveTimer.current){clearTimeout(saveTimer.current);saveTimer.current=null;}
+  try{if(runSaveRef.current)runSaveRef.current();}catch(e){} // V210: dispara o save real (com anti-sobrescrita e merge)
 };
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flushSave();});
 });
@@ -9731,6 +9733,7 @@ const mergeLoopRef=useRef(0);
 const lastSavedItemKeys=useRef(null);
 const lastSavedApptIds=useRef(null);
 const dirtyRef=useRef(false);
+const runSaveRef=useRef(null); // V210: ponte p/ disparar o save de fora do efeito
 // V197: exclusao real de paciente no servidor. So remove localmente apos confirmacao (padrao V190/Ponto).
 const delPatServer=async function(id){
   if(id==null)return {ok:false,msg:"ID invalido"};
@@ -10012,7 +10015,7 @@ useEffect(function(){
     }
     return ok;
   };
-  saveTimer.current=setTimeout(async function runSave(){
+  var runSave=async function runSave(){
     if(isSaving.current){ pendingSave.current=true; return; }
     isSaving.current=true;
     var ok=await doSave(false);
@@ -10048,7 +10051,9 @@ useEffect(function(){
       }
       isSaving.current=false;
     }
-  },800);
+  };
+  runSaveRef.current=runSave; // V210
+  saveTimer.current=setTimeout(runSave,800);
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg]);
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
@@ -10171,7 +10176,7 @@ useEffect(function(){
     }catch(e){}
   };
   var poll=setInterval(doPoll,8000); // V189: 15s -> 8s
-  var _onVis=function(){if(!document.hidden)doPoll();}; // V189: sync imediato ao voltar para a aba
+  var _onVis=function(){if(document.hidden)return;if(dirtyRef.current&&!isSaving.current&&!saveTimer.current&&runSaveRef.current){saveTimer.current=setTimeout(runSaveRef.current,300);} doPoll();}; // V189+V210: re-arma save pendente e sincroniza ao voltar
   document.addEventListener("visibilitychange",_onVis);
   return function(){clearInterval(poll);document.removeEventListener("visibilitychange",_onVis);};
 },[]);
