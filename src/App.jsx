@@ -8452,13 +8452,23 @@ var TIPOS_ITEM=["Implante","Componente","UCLA","Cicatrizador","Pilar","Coping","
 var stockMap={};
 implMov.forEach(function(m){if(!stockMap[m.itemId])stockMap[m.itemId]=0;if(m.tipo==="entrada")stockMap[m.itemId]+=Number(m.qty);else stockMap[m.itemId]-=Number(m.qty);});
 var movsDoMes=implMov.filter(function(m){return m.date.startsWith(filtMes);});
-var totalUsado=movsDoMes.filter(function(m){return m.tipo==="saida";}).reduce(function(s,m){return s+Number(m.qty);},0);
-var totalPagarMes=movsDoMes.filter(function(m){return m.tipo==="saida";}).reduce(function(s,m){var it=implCat.find(function(x){return x.id===m.itemId;});return s+(it?Number(it.preco||0):0)*Number(m.qty);},0);
+var totalUsado=movsDoMes.filter(function(m){return m.tipo==="saida"&&!m.ajuste;}).reduce(function(s,m){return s+Number(m.qty);},0);
+var totalPagarMes=movsDoMes.filter(function(m){return m.tipo==="saida"&&!m.ajuste;}).reduce(function(s,m){var it=implCat.find(function(x){return x.id===m.itemId;});return s+(it?Number(it.preco||0):0)*Number(m.qty);},0);
 var saveCat=function(){
 if(!catF.desc.trim())return;
 var obj={...catF,preco:pmoney(catF.preco)};
 delete obj.qtdIni;
-if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...obj,id:x.id}:x;});});}
+var qtdAtualEdit=obj.qtdAtual;delete obj.qtdAtual;// V213 ajuste de quantidade (admin)
+if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...obj,id:x.id}:x;});});
+if(user&&user.level>=3&&qtdAtualEdit!==undefined&&qtdAtualEdit!==null&&String(qtdAtualEdit).trim()!==""){
+var atualQ=stockMap[editCat.id]||0;var novaQ=Number(qtdAtualEdit);
+if(!isNaN(novaQ)&&novaQ>=0&&novaQ!==atualQ){
+var diffQ=novaQ-atualQ;
+setImplMov(function(prev){return[...prev,{id:nid(),tipo:diffQ>0?"entrada":"saida",itemId:editCat.id,qty:Math.abs(diffQ),patId:null,dentId:null,obs:"Ajuste manual (admin)",date:t,itemName:obj.desc,patName:"Ajuste manual",dente:"-",ajuste:true}];});
+if(addLog)addLog("estoque","Ajuste manual: "+obj.desc+" de "+atualQ+" para "+novaQ+" un","");
+}
+}
+}
 else{
 var newId=nid();
 setImplCat(function(prev){return[...prev,{...obj,id:newId}];});
@@ -8516,7 +8526,7 @@ return(
 </div>
 </div>
 <div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>
-<button onClick={function(){setEditCat(item);setCatF({tipo:item.tipo,marca:item.marca,desc:item.desc,codigo:item.codigo||"",estoque_min:item.estoque_min,preco:item.preco!=null?String(item.preco):""});setShowCat(true);}} style={{background:G.bg,border:"1px solid "+G.border,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.muted}}>{"Editar"}</button>
+<button onClick={function(){setEditCat(item);setCatF({tipo:item.tipo,marca:item.marca,desc:item.desc,codigo:item.codigo||"",estoque_min:item.estoque_min,preco:item.preco!=null?String(item.preco):"",qtdAtual:String(stockMap[item.id]||0)});setShowCat(true);}} style={{background:G.bg,border:"1px solid "+G.border,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.muted}}>{"Editar"}</button>
 <button onClick={function(){setShowMov(true);setMovF({tipo:"entrada",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"var(--green-soft)",border:"1px solid #27AE60",borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:"#1E7D45",fontWeight:700}}>{"+ Entrada"}</button>
 <button onClick={function(){setShowMov(true);setMovF({tipo:"saida",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"var(--red-soft)",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700}}>{"- Saida"}</button>
 <button onClick={function(){if(window.confirm("Excluir "+item.desc+"? Esta acao nao pode ser desfeita."))setImplCat(function(prev){return prev.filter(function(x){return x.id!==item.id;});});}} style={{background:"var(--surface)",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700,marginLeft:"auto"}}>{"🗑 Excluir"}</button>
@@ -8554,7 +8564,7 @@ return(
 {totalPagarMes>0&&<div style={{fontSize:18,fontWeight:800,color:"#2E7D32",marginTop:6,borderTop:"1px solid #A5D6A7",paddingTop:6}}>{"Total: "+cur(totalPagarMes)}</div>}
 </div>
 {implCat.map(function(item){
-var saidas=movsDoMes.filter(function(m){return m.tipo==="saida"&&m.itemId===item.id;});
+var saidas=movsDoMes.filter(function(m){return m.tipo==="saida"&&m.itemId===item.id&&!m.ajuste;});
 if(saidas.length===0)return null;
 var qtdTotal=saidas.reduce(function(s,m){return s+Number(m.qty||0);},0);
 return(
@@ -8592,6 +8602,10 @@ return(
 <Inp lb="Estoque minimo" val={String(catF.estoque_min)} set={function(v){setCatF(function(p){return{...p,estoque_min:Number(v)};});}} type="number"/>
 <Inp lb="Preco unitario (R$)" val={String(catF.preco||"")} set={function(v){setCatF(function(p){return{...p,preco:v};});}} type="number" ph="0,00"/>
 {!editCat&&<Inp lb="Quantidade atual" val={String(catF.qtdIni||"")} set={function(v){setCatF(function(p){return{...p,qtdIni:v};});}} type="number" ph="0"/>}
+{editCat&&user&&user.level>=3&&<div style={{background:G.primary+"12",border:"1.5px solid "+G.primary+"55",borderRadius:10,padding:"10px 12px"}}>
+<Inp lb="Quantidade em estoque (admin)" val={String(catF.qtdAtual!=null?catF.qtdAtual:"")} set={function(v){setCatF(function(p){return{...p,qtdAtual:v};});}} type="number" ph="0"/>
+<div style={{fontSize:10,color:G.muted,marginTop:4}}>Se alterar, o sistema registra um ajuste automático nas movimentações (fora do fechamento Titaniofix).</div>
+</div>}
 <button onClick={saveCat} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Salvar"}</button>
 </div>
 </div>
