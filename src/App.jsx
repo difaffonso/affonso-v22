@@ -3624,7 +3624,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // PRÓTESES - with editable proc types
 // ══════════════════════════════════════════════════════════
 function Proteses({pros,setPros,pats,dents,labs,prosProcs,setProsProcs,user}){
-const [filt,setFilt]=useState("today");const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);
+const [filt,setFilt]=useState("today");const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);const [srch,setSrch]=useState("");// V212 busca paciente
 const [procModal,setProcModal]=useState(false);const [procForm,setProcForm]=useState({name:"",price:""});const [editProc,setEditProc]=useState(null);
 const b0={patientId:"",dentistId:1,labId:"",type:PROS_T[0],proc:"",tooth:"",sent:today(),due:"",returned:"",status:"waiting",notes:"",price:"",qty:"1"};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
@@ -3636,6 +3636,14 @@ const todayOnly=pros.filter(p=>p.due===t&&p.status==="waiting");
 // "Hoje" mostra atrasadas (destaque vermelho) em primeiro + as de hoje
 const todP=[...lateP,...todayOnly];
 const flt=filt==="today"?todP:filt==="all"?pros:pros.filter(p=>p.status===filt).sort((a,b)=>(a.due||"9999-99-99").localeCompare(b.due||"9999-99-99"));
+// V212: busca de paciente dentro do relatorio de proteses
+const nrmP=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+const srchAct=srch.trim().length>0;
+const srchList=srchAct?pros.filter(p=>{const pt=pats.find(x=>x.id===p.patientId);return pt&&nrmP(pt.name).indexOf(nrmP(srch))>=0;}).filter(p=>(filt==="all"||filt==="today")?true:p.status===filt).sort((a,b)=>String(b.sent||"").localeCompare(String(a.sent||""))):null;
+const flt2=srchAct?srchList:flt;
+const srchPatIds=srchAct?[...new Set(srchList.map(p=>p.patientId))]:[];
+const srchTot=srchAct?srchList.reduce((s,p)=>s+(Number(p.price)||0)*(Number(p.qty)||1),0):0;
+const srchInst=srchAct?srchList.filter(p=>p.status==="placed").length:0;
 const save=()=>{if(!f.patientId||!f.labId)return alert("Informe paciente e laboratório");const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,id:edit?edit.id:nid(pros),_ts:Date.now()};setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[...prev,obj]);setModal(false);};
 const saveProc=()=>{if(!procForm.name)return;const obj={name:procForm.name,price:Number(procForm.price)||0,id:editProc?editProc.id:nid(prosProcs)};setProsProcs(prev=>editProc?prev.map(p=>p.id===editProc.id?obj:p):[...prev,obj]);setProcForm({name:"",price:""});setEditProc(null);};
 
@@ -3648,11 +3656,26 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
 {[{k:"today",l:`Hoje (${todP.length})`,c:G.orange},{k:"waiting",l:"Aguardando",c:G.yellow},{k:"returned",l:"Retornou",c:G.blue},{k:"placed",l:"Instaladas",c:G.success},{k:"all",l:"Todas",c:G.muted}].map(({k,l,c})=><button key={k} onClick={()=>setFilt(k)} style={{border:`2px solid ${filt===k?c:G.border}`,background:filt===k?c:"var(--card)",color:filt===k?"#fff":G.muted,borderRadius:20,padding:"5px 12px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
 </div>
-{filt==="today"&&todP.length===0&&<div style={{background:G.card,borderRadius:12,padding:28,textAlign:"center",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}><div style={{fontSize:28,marginBottom:6}}>✅</div><div style={{fontWeight:700,color:G.success}}>Nenhum trabalho previsto para hoje!</div></div>}
-{filt==="today"&&lateP.length>0&&<div style={{background:G.red,borderRadius:10,padding:"11px 14px",boxShadow:`0 2px 10px ${G.red}55`}}><div style={{fontWeight:700,color:"#fff",fontSize:14}}>⚠️ {lateP.length} prótese(s) ATRASADA(S)!</div><div style={{color:"#fff",opacity:.85,fontSize:12,marginTop:2}}>Cobrar o laboratório com urgência</div></div>}
-{filt==="today"&&todayOnly.length>0&&<div style={{background:G.orange+"15",border:`2px solid ${G.orange}`,borderRadius:10,padding:"10px 14px"}}><div style={{fontWeight:700,color:G.orange}}>🔔 {todayOnly.length} trabalho(s) para fechar hoje</div></div>}
+{/* V212: campo de busca de paciente */}
+<div style={{display:"flex",alignItems:"center",gap:8,background:G.card,borderRadius:12,padding:"10px 14px",boxShadow:"inset 3px 3px 8px var(--nm-dark),inset -3px -3px 8px #ffffff"}}>
+<span style={{fontSize:15}}>{"\uD83D\uDD0E"}</span>
+<input value={srch} onChange={e=>setSrch(e.target.value)} placeholder="Buscar paciente no relatório..." style={{flex:1,border:"none",background:"none",outline:"none",fontSize:14,fontFamily:"'Manrope'",color:G.text}}/>
+{srchAct&&<button onClick={()=>setSrch("")} style={{border:"none",background:"none",fontSize:18,cursor:"pointer",color:G.muted,lineHeight:1}}>{"\u00d7"}</button>}
+</div>
+{srchAct&&srchList.length===0&&<div style={{background:G.card,borderRadius:12,padding:22,textAlign:"center",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",fontSize:13,color:G.muted}}>Nenhum trabalho protético encontrado para "{srch}"</div>}
+{srchAct&&srchPatIds.length===1&&(()=>{const pt=pats.find(x=>x.id===srchPatIds[0]);return <div style={{background:`linear-gradient(135deg,${G.primary},#3e7a60)`,borderRadius:14,padding:"15px 17px",color:"#fff",boxShadow:`0 4px 14px ${G.primary}55`}}>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,fontWeight:700}}>{pt?.name}</div>
+<div style={{fontSize:11,opacity:.75,marginBottom:9}}>P.{pt?.folder||"--"} · Histórico protético{filt!=="all"&&filt!=="today"?" (filtro: "+PROS_SL[filt]+")":""}</div>
+<div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
+{[["Trabalhos",srchList.length],["Instaladas",srchInst],["Custo Lab Total",cur(srchTot)]].map(([lb,vl])=><div key={lb} style={{flex:1,minWidth:95,background:"rgba(255,255,255,.13)",borderRadius:10,padding:"8px 11px"}}><div style={{fontSize:10,textTransform:"uppercase",letterSpacing:".4px",opacity:.8}}>{lb}</div><div style={{fontSize:16,fontWeight:800,marginTop:2}}>{vl}</div></div>)}
+</div>
+</div>;})()}
+{srchAct&&srchPatIds.length>1&&<div style={{background:G.card,borderRadius:10,padding:"10px 14px",fontSize:12,color:G.muted,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>{"\uD83D\uDD0E"} {srchPatIds.length} pacientes encontrados ({srchList.length} trabalhos, total {cur(srchTot)}) — digite mais letras para ver o resumo individual</div>}
+{!srchAct&&filt==="today"&&todP.length===0&&<div style={{background:G.card,borderRadius:12,padding:28,textAlign:"center",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}><div style={{fontSize:28,marginBottom:6}}>✅</div><div style={{fontWeight:700,color:G.success}}>Nenhum trabalho previsto para hoje!</div></div>}
+{!srchAct&&filt==="today"&&lateP.length>0&&<div style={{background:G.red,borderRadius:10,padding:"11px 14px",boxShadow:`0 2px 10px ${G.red}55`}}><div style={{fontWeight:700,color:"#fff",fontSize:14}}>⚠️ {lateP.length} prótese(s) ATRASADA(S)!</div><div style={{color:"#fff",opacity:.85,fontSize:12,marginTop:2}}>Cobrar o laboratório com urgência</div></div>}
+{!srchAct&&filt==="today"&&todayOnly.length>0&&<div style={{background:G.orange+"15",border:`2px solid ${G.orange}`,borderRadius:10,padding:"10px 14px"}}><div style={{fontWeight:700,color:G.orange}}>🔔 {todayOnly.length} trabalho(s) para fechar hoje</div></div>}
 <div style={{display:"flex",flexDirection:"column",gap:9}}>
-{flt.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];const lab=labs.find(x=>x.id===p.labId);const late=p.status==="waiting"&&p.due&&p.due<t;const isT=p.due===t&&p.status==="waiting";
+{flt2.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];const lab=labs.find(x=>x.id===p.labId);const late=p.status==="waiting"&&p.due&&p.due<t;const isT=p.due===t&&p.status==="waiting";
 return <div key={p.id} style={late?{background:G.red+"10",borderRadius:12,padding:"13px 15px",border:`2px solid ${G.red}`,boxShadow:`0 2px 12px ${G.red}40`}:{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${isT?G.orange:PROS_SC[p.status]}`}}>
 <div style={{display:"flex",gap:11,flexWrap:"wrap"}}>
 <div style={{flex:1,minWidth:170}}>
