@@ -10460,7 +10460,8 @@ if(!cfg.master||!u||u.level<2){running=false;return;}
 // comercial): plano com status efetivo "Em espera", sem pagamento, criado/enviado
 // ha 3+ dias (e no maximo 30, para nao resgatar planos antigos), envia 1x o template
 // orcamento_pendente. Dedupe por chave "ot_"+id no waSent.
-if(cfg.orcamento){
+if(false){ // V217: DESATIVADO. Envio de orcamento pelo app causou duplicidade
+// (multi-dispositivo + race do waSent). Sera reimplementado no SERVIDOR (index.js).
 try{
 var hOrc=new Date().getHours();
 if(hOrc>=9&&hOrc<19){
