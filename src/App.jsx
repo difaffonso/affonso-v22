@@ -9391,7 +9391,7 @@ var acharPac=function(phone){var l8=last8(phone);if(l8.length<8)return null;retu
 var fmtHora=function(ts){if(!ts)return "";try{var d=new Date(ts);var h=new Date();if(d.toDateString()===h.toDateString())return d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"});}catch(e){return "";}};
 var tick=function(s){if(s==="read"||s==="delivered")return "\u2713\u2713";if(s==="sent")return "\u2713";return "";};
 // V214: classificacao da conversa pelo texto da ultima mensagem
-var WA_TIPOS={responder:{cor:"#c0392b",label:"AGUARDANDO RESPOSTA",emo:"\ud83d\udcac"},agendamento:{cor:"#3b6ea5",label:"AGENDAMENTO",emo:"\ud83d\udcc5"},vespera:{cor:"#7c5cbf",label:"V\u00c9SPERA",emo:"\ud83d\udd14"},confirmou:{cor:"#2f8f5f",label:"CONFIRMOU",emo:"\u2705"},poscir:{cor:"#c2703d",label:"P\u00d3S-CIR\u00daRGICO",emo:"\ud83c\udfe5"},aniversario:{cor:"#c25b8a",label:"ANIVERS\u00c1RIO",emo:"\ud83c\udf82"},outros:{cor:"#b7950b",label:"AUTOM\u00c1TICO",emo:"\ud83d\udce8"},neutro:{cor:null,label:null,emo:null}};
+var WA_TIPOS={responder:{cor:"#c0392b",label:"AGUARDANDO RESPOSTA",emo:"\ud83d\udcac"},agendamento:{cor:"#3b6ea5",label:"AGENDAMENTO",emo:"\ud83d\udcc5"},vespera:{cor:"#7c5cbf",label:"V\u00c9SPERA",emo:"\ud83d\udd14"},confirmou:{cor:"#2f8f5f",label:"CONFIRMOU",emo:"\u2705"},poscir:{cor:"#c2703d",label:"P\u00d3S-CIR\u00daRGICO",emo:"\ud83c\udfe5"},aniversario:{cor:"#c25b8a",label:"ANIVERS\u00c1RIO",emo:"\ud83c\udf82"},orcamento:{cor:"#d4930d",label:"OR\u00c7AMENTO",emo:"\ud83d\udcb0"},outros:{cor:"#b7950b",label:"AUTOM\u00c1TICO",emo:"\ud83d\udce8"},neutro:{cor:null,label:null,emo:null}};
 var waTipo=function(g){
 var nb=function(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");};
 var b=nb(g.lastBody);var t=(g.lastBody||"").trim();
@@ -9406,7 +9406,7 @@ if(b.indexOf("apos o procedimento")>=0||b.indexOf("se sentindo")>=0||b.indexOf("
 if(b.indexOf("aniversario")>=0||b.indexOf("parabens")>=0)return Object.assign({k:"aniversario"},WA_TIPOS.aniversario);
 if(b.indexOf("agendad")>=0||b.indexOf("agendamento")>=0)return Object.assign({k:"agendamento"},WA_TIPOS.agendamento);
 if(b.indexOf("6 meses")>=0||b.indexOf("seis meses")>=0||b.indexOf("controle")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"CONTROLE SEMESTRAL"});
-if(b.indexOf("orcamento")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"OR\u00c7AMENTO"});
+if(b.indexOf("orcamento")>=0)return Object.assign({k:"orcamento"},WA_TIPOS.orcamento);
 if(b.indexOf("reagendar")>=0||b.indexOf("faltou")>=0||b.indexOf("desmarc")>=0||b.indexOf("cancelamento")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"REAGENDAMENTO"});
 if(b.indexOf("bem-vindo")>=0||b.indexOf("bem vindo")>=0||b.indexOf("bem-vinda")>=0||b.indexOf("bem vinda")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"BOAS-VINDAS"});
 if(b.indexOf("pesquisa")>=0||b.indexOf("avalie")>=0||b.indexOf("nota de 0")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"PESQUISA"});
@@ -9496,12 +9496,12 @@ return (
 </div>
 <Inp val={q} set={setQ} ph={"🔍 Buscar por nome ou telefone"}/>
 {/* V214: legenda de cores + filtro por tipo */}
-<style>{"@keyframes waResp{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.4)}50%{box-shadow:0 0 0 6px rgba(192,57,43,0)}}"}</style>
+<style>{"@keyframes waResp{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.4)}50%{box-shadow:0 0 0 6px rgba(192,57,43,0)}}@keyframes waOrc{0%,100%{box-shadow:0 0 0 0 rgba(212,147,13,.45)}50%{box-shadow:0 0 0 6px rgba(212,147,13,0)}}"}</style>
 <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
-{[["responder","\ud83d\udcac Responder","#c0392b"],["agendamento","\ud83d\udcc5 Agendamento","#3b6ea5"],["vespera","\ud83d\udd14 V\u00e9spera","#7c5cbf"],["confirmou","\u2705 Confirmou","#2f8f5f"],["poscir","\ud83c\udfe5 P\u00f3s-cir\u00fargico","#c2703d"],["aniversario","\ud83c\udf82 Anivers\u00e1rio","#c25b8a"],["outros","\ud83d\udce8 Outros","#b7950b"]].map(function(ch){
+{[["responder","\ud83d\udcac Responder","#c0392b"],["orcamento","\ud83d\udcb0 Or\u00e7amento","#d4930d"],["agendamento","\ud83d\udcc5 Agendamento","#3b6ea5"],["vespera","\ud83d\udd14 V\u00e9spera","#7c5cbf"],["confirmou","\u2705 Confirmou","#2f8f5f"],["poscir","\ud83c\udfe5 P\u00f3s-cir\u00fargico","#c2703d"],["aniversario","\ud83c\udf82 Anivers\u00e1rio","#c25b8a"],["outros","\ud83d\udce8 Outros","#b7950b"]].map(function(ch){
 var atv=filtroTipo===ch[0];
 var qtd=lista.filter(function(g){return g.tipo&&g.tipo.k===ch[0];}).length;
-return (<button key={ch[0]} onClick={function(){setFiltroTipo(atv?null:ch[0]);}} style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:5,fontSize:10.5,fontWeight:700,borderRadius:20,padding:"5px 10px",background:atv?"#dfe7e0":(ch[0]==="responder"?"rgba(192,57,43,.10)":G.card),border:atv?("1.5px solid "+G.primary):(ch[0]==="responder"?"1.5px solid rgba(192,57,43,.45)":"1.5px solid transparent"),color:ch[0]==="responder"?"#c0392b":G.text,whiteSpace:"nowrap",cursor:"pointer",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff",fontFamily:"'Manrope'"}}>
+return (<button key={ch[0]} onClick={function(){setFiltroTipo(atv?null:ch[0]);}} style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:5,fontSize:10.5,fontWeight:700,borderRadius:20,padding:"5px 10px",background:atv?"#dfe7e0":(ch[0]==="responder"?"rgba(192,57,43,.10)":(ch[0]==="orcamento"?"rgba(212,147,13,.12)":G.card)),border:atv?("1.5px solid "+G.primary):(ch[0]==="responder"?"1.5px solid rgba(192,57,43,.45)":(ch[0]==="orcamento"?"1.5px solid rgba(212,147,13,.5)":"1.5px solid transparent")),color:ch[0]==="responder"?"#c0392b":(ch[0]==="orcamento"?"#a9750a":G.text),whiteSpace:"nowrap",cursor:"pointer",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff",fontFamily:"'Manrope'"}}>
 <span style={{width:9,height:9,borderRadius:"50%",background:ch[2],flexShrink:0}}></span>{ch[1]}{qtd>0?(" \u00b7 "+qtd):""}
 </button>);
 })}
@@ -9510,7 +9510,7 @@ return (<button key={ch[0]} onClick={function(){setFiltroTipo(atv?null:ch[0]);}}
 {loading&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>{"Carregando..."}</div>}
 {!loading&&listaF.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13}}>{q?"Nenhuma conversa encontrada.":"Nenhuma conversa ainda. As mensagens trocadas pelo WhatsApp aparecerao aqui."}</div>}
 {listaF.map(function(g){return (
-<div key={g.phone} onClick={function(){setSel(g.phone);}} style={Object.assign({background:G.card,borderRadius:12,padding:"11px 14px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",display:"flex",gap:11,alignItems:"center",cursor:"pointer",borderLeft:(g.tipo&&g.tipo.cor)?("5px solid "+g.tipo.cor):(g.unread>0?("4px solid "+G.success):"4px solid transparent")},(g.tipo&&g.tipo.k==="responder")?{border:"1.5px solid rgba(192,57,43,.5)",borderLeft:"5px solid #c0392b",background:"linear-gradient(90deg,rgba(192,57,43,.07),"+G.card+" 60%)",boxShadow:"0 0 0 3px rgba(192,57,43,.10),6px 6px 15px var(--nm-dark)"}:{})}>
+<div key={g.phone} onClick={function(){setSel(g.phone);}} style={Object.assign({background:G.card,borderRadius:12,padding:"11px 14px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",display:"flex",gap:11,alignItems:"center",cursor:"pointer",borderLeft:(g.tipo&&g.tipo.cor)?("5px solid "+g.tipo.cor):(g.unread>0?("4px solid "+G.success):"4px solid transparent")},(g.tipo&&g.tipo.k==="responder")?{border:"1.5px solid rgba(192,57,43,.5)",borderLeft:"5px solid #c0392b",background:"linear-gradient(90deg,rgba(192,57,43,.07),"+G.card+" 60%)",boxShadow:"0 0 0 3px rgba(192,57,43,.10),6px 6px 15px var(--nm-dark)"}:((g.tipo&&g.tipo.k==="orcamento")?{border:"1.5px solid rgba(212,147,13,.55)",borderLeft:"5px solid #d4930d",background:"linear-gradient(90deg,rgba(212,147,13,.10),"+G.card+" 60%)",boxShadow:"0 0 0 3px rgba(212,147,13,.12),6px 6px 15px var(--nm-dark)"}:{}))}>
 <div style={{width:44,height:44,borderRadius:"50%",background:(g.tipo&&g.tipo.cor)?g.tipo.cor:(g.unread>0?G.success:G.accent),display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:(g.tipo&&g.tipo.cor)?"#fff":(g.unread>0?"#fff":G.primary),flexShrink:0,fontWeight:700}}>{((g.name||"?")[0]||"?").toUpperCase()}</div>
 <div style={{flex:1,minWidth:0}}>
 <div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"center"}}>
@@ -9521,7 +9521,7 @@ return (<button key={ch[0]} onClick={function(){setFiltroTipo(atv?null:ch[0]);}}
 <span style={{fontSize:12,color:g.unread>0?G.text:G.muted,fontWeight:g.unread>0?600:400,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(g.lastDir==="out"?"Voce: ":"")+(g.lastBody||"").slice(0,55)}</span>
 {g.unread>0&&<span style={{background:(g.tipo&&g.tipo.k==="responder")?"#c0392b":G.success,color:"#fff",borderRadius:20,minWidth:19,height:19,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,padding:"0 5px",flexShrink:0}}>{g.unread}</span>}
 </div>
-{g.tipo&&g.tipo.label&&<div style={{marginTop:5}}><span style={g.tipo.k==="responder"?{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:"#c0392b",animation:"waResp 1.6s ease-in-out infinite"}:{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:g.tipo.cor}}>{g.tipo.emo+" "+g.tipo.label}</span></div>}
+{g.tipo&&g.tipo.label&&<div style={{marginTop:5}}><span style={g.tipo.k==="responder"?{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:"#c0392b",animation:"waResp 1.6s ease-in-out infinite"}:(g.tipo.k==="orcamento"?{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:"#d4930d",animation:"waOrc 1.6s ease-in-out infinite"}:{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:g.tipo.cor})}>{g.tipo.emo+" "+g.tipo.label}</span></div>}
 </div>
 </div>
 );})}
@@ -10421,7 +10421,7 @@ useEffect(function(){
 },[]);
 // === WHATSAPP AUTO: eventos + motor diário ===
 const waRef=useRef({});
-useEffect(function(){waRef.current={appts:appts,pats:pats,recs:recs,budgets:budgets,dents:dents,user:user,waAuto:waAuto,waSent:waSent,waAutoLog:waAutoLog};});
+useEffect(function(){waRef.current={appts:appts,pats:pats,recs:recs,budgets:budgets,treats:treats,dents:dents,user:user,waAuto:waAuto,waSent:waSent,waAutoLog:waAutoLog};});
 const waPushLog=function(entry){setWaAutoLog(function(prev){return [entry].concat(prev||[]).slice(0,300);});};
 const waEvent=function(tipo,info){
 try{
@@ -10454,6 +10454,50 @@ if(!cfg.master||!u||u.level<2){running=false;return;}
 // com varredura de vespera de hora em hora (13h-20h). O app nao dispara mais esses --
 // evita adiantar/duplicar. Os imediatos (confirmacao ao agendar e reagendamento)
 // continuam pelo app via waEvent. Para reativar aqui, remova a linha abaixo.
+// V215: ORCAMENTO PENDENTE via PLANO DE TRATAMENTO. O disparo do servidor cobre
+// apenas a lista "Orcamentos" da ficha (que a clinica nao usa); os orcamentos reais
+// sao feitos como planos de tratamento. Este bloco roda no app (nivel 2+, horario
+// comercial): plano com status efetivo "Em espera", sem pagamento, criado/enviado
+// ha 3+ dias (e no maximo 30, para nao resgatar planos antigos), envia 1x o template
+// orcamento_pendente. Dedupe por chave "ot_"+id no waSent.
+if(cfg.orcamento){
+try{
+var hOrc=new Date().getHours();
+if(hOrc>=9&&hOrc<19){
+var tOrc=today();
+var sentOrc=Object.assign({},D.waSent||{});
+var dOfOrc=function(id){return (D.dents||[]).find(function(x){return x.id===Number(id);})||(D.dents||[])[0]||{name:"Diego Affonso"};};
+var filaOrc=[];
+(D.treats||[]).forEach(function(tr){
+if(filaOrc.length>=10)return;
+if(!tr||tr.orcEnviado===undefined&&tr.orcStatus===undefined&&!tr.start)return;
+var st=tr.orcStatus||"espera";
+var pago=(tr.payments||[]).reduce(function(s,pg){return s+(Number(pg.value)||0);},0);
+if(st!=="espera"||pago>0)return;
+var ref=tr.orcEnviadoAt||tr.start||"";
+if(!ref)return;
+var dias=Math.floor((new Date(tOrc+"T12:00")-new Date(String(ref).slice(0,10)+"T12:00"))/86400000);
+if(!(dias>=3&&dias<=30))return;
+var key="ot_"+tr.id;
+if(sentOrc[key])return;
+var p=(D.pats||[]).find(function(x){return x.id===tr.patientId;});
+if(!p||!p.phone)return;
+var d=dOfOrc(tr.dentistId);
+sentOrc[key]=tOrc;
+filaOrc.push({key:key,fone:p.phone,params:[p.name,d.name],patName:p.name});
+});
+if(filaOrc.length){
+setWaSent(function(prev){var n=Object.assign({},prev);filaOrc.forEach(function(j){n[j.key]=tOrc;});return n;});
+for(var iOrc=0;iOrc<filaOrc.length;iOrc++){
+var jOrc=filaOrc[iOrc];
+var rOrc=await dispararWA("orcamento_pendente",jOrc.fone,jOrc.params);
+waPushLog({ts:new Date().toISOString(),tipo:"Or\u00e7amento",pat:jOrc.patName,fone:jOrc.fone,ok:rOrc.ok,err:rOrc.err||""});
+await new Promise(function(res){setTimeout(res,1300);});
+}
+}
+}
+}catch(eOrc){}
+}
 running=false;return;
 var h=new Date().getHours();
 if(h<8||h>=19){running=false;return;}
