@@ -9367,6 +9367,8 @@ return <div key={o.id} style={{background:G.card,borderRadius:12,boxShadow:"6px 
 
 function Conversas({pats,user,waSeenRef,onSeen,abrirFicha}){
 const [msgs,setMsgs]=useState([]);
+const [filtroTipo,setFiltroTipo]=useState(null); // V214: filtro por tipo de mensagem
+
 const [loading,setLoading]=useState(true);
 const [sel,setSel]=useState(null);
 const [q,setQ]=useState("");
@@ -9387,7 +9389,29 @@ var soDig=function(s){return (s||"").replace(/\D/g,"");};
 var last8=function(s){var d=soDig(s);return d.slice(-8);};
 var acharPac=function(phone){var l8=last8(phone);if(l8.length<8)return null;return pats.find(function(p){return last8(p.phone)===l8;});};
 var fmtHora=function(ts){if(!ts)return "";try{var d=new Date(ts);var h=new Date();if(d.toDateString()===h.toDateString())return d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});return d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"});}catch(e){return "";}};
-var tick=function(s){if(s==="read"||s==="delivered")return "✓✓";if(s==="sent")return "✓";return "";};
+var tick=function(s){if(s==="read"||s==="delivered")return "\u2713\u2713";if(s==="sent")return "\u2713";return "";};
+// V214: classificacao da conversa pelo texto da ultima mensagem
+var WA_TIPOS={responder:{cor:"#c0392b",label:"AGUARDANDO RESPOSTA",emo:"\ud83d\udcac"},agendamento:{cor:"#3b6ea5",label:"AGENDAMENTO",emo:"\ud83d\udcc5"},vespera:{cor:"#7c5cbf",label:"V\u00c9SPERA",emo:"\ud83d\udd14"},confirmou:{cor:"#2f8f5f",label:"CONFIRMOU",emo:"\u2705"},poscir:{cor:"#c2703d",label:"P\u00d3S-CIR\u00daRGICO",emo:"\ud83c\udfe5"},aniversario:{cor:"#c25b8a",label:"ANIVERS\u00c1RIO",emo:"\ud83c\udf82"},outros:{cor:"#b7950b",label:"AUTOM\u00c1TICO",emo:"\ud83d\udce8"},neutro:{cor:null,label:null,emo:null}};
+var waTipo=function(g){
+var nb=function(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");};
+var b=nb(g.lastBody);var t=(g.lastBody||"").trim();
+if(g.lastDir==="in"){
+if(t==="1")return Object.assign({k:"confirmou"},WA_TIPOS.confirmou);
+if(t==="2")return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"CANCELOU"});
+return Object.assign({k:"responder"},WA_TIPOS.responder);
+}
+if(b.indexOf("presenca confirmada")>=0)return Object.assign({k:"confirmou"},WA_TIPOS.confirmou);
+if(b.indexOf("vespera")>=0||b.indexOf("amanha")>=0||b.indexOf("lembrete de confirmacao")>=0||b.indexOf("lembrete:")>=0)return Object.assign({k:"vespera"},WA_TIPOS.vespera);
+if(b.indexOf("apos o procedimento")>=0||b.indexOf("se sentindo")>=0||b.indexOf("pos-cirurg")>=0||b.indexOf("pos cirurg")>=0||b.indexOf("pos-operatorio")>=0||b.indexOf("pos operatorio")>=0)return Object.assign({k:"poscir"},WA_TIPOS.poscir);
+if(b.indexOf("aniversario")>=0||b.indexOf("parabens")>=0)return Object.assign({k:"aniversario"},WA_TIPOS.aniversario);
+if(b.indexOf("agendad")>=0||b.indexOf("agendamento")>=0)return Object.assign({k:"agendamento"},WA_TIPOS.agendamento);
+if(b.indexOf("6 meses")>=0||b.indexOf("seis meses")>=0||b.indexOf("controle")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"CONTROLE SEMESTRAL"});
+if(b.indexOf("orcamento")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"OR\u00c7AMENTO"});
+if(b.indexOf("reagendar")>=0||b.indexOf("faltou")>=0||b.indexOf("desmarc")>=0||b.indexOf("cancelamento")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"REAGENDAMENTO"});
+if(b.indexOf("bem-vindo")>=0||b.indexOf("bem vindo")>=0||b.indexOf("bem-vinda")>=0||b.indexOf("bem vinda")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"BOAS-VINDAS"});
+if(b.indexOf("pesquisa")>=0||b.indexOf("avalie")>=0||b.indexOf("nota de 0")>=0)return Object.assign({k:"outros"},WA_TIPOS.outros,{label:"PESQUISA"});
+return Object.assign({k:"neutro"},WA_TIPOS.neutro);
+};
 var seenW={};var msgsD=[];
 msgs.forEach(function(m){var w=m.wamid;if(w&&seenW[w])return;if(w)seenW[w]=1;msgsD.push(m);});
 var grupos={};
@@ -9403,10 +9427,13 @@ g.lastDir=lastM.direction;
 var pac=acharPac(ph);g.pac=pac;
 g.name=pac?pac.name:(g.msgs.map(function(m){return m.patient_name;}).filter(Boolean)[0]||("+"+ph));
 g.unread=g.msgs.filter(function(m){return m.direction==="in"&&(m.id||0)>seen;}).length;
+g.tipo=waTipo(g); // V214
 return g;
 }).sort(function(a,b){return (b.lastTs||"").localeCompare(a.lastTs||"");});
 var norm=function(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");};
-var listaF=q?lista.filter(function(g){return norm(g.name).indexOf(norm(q))>=0||g.phone.indexOf(soDig(q))>=0;}):lista;
+// V214: fix buscador (telefone so conta se a busca tiver digitos) + filtro por tipo
+var listaF=q?lista.filter(function(g){var qd=soDig(q);var okNome=norm(g.name).indexOf(norm(q))>=0;var okFone=qd.length>0&&g.phone.indexOf(qd)>=0;return okNome||okFone;}):lista;
+if(filtroTipo)listaF=listaF.filter(function(g){return g.tipo&&g.tipo.k===filtroTipo;});
 var selGroup=sel?grupos[sel]:null;
 var selPac=selGroup?acharPac(selGroup.phone):null;
 var selName=selGroup?(selPac?selPac.name:(selGroup.msgs.map(function(m){return m.patient_name;}).filter(Boolean)[0]||("+"+selGroup.phone))):"";
@@ -9468,11 +9495,23 @@ return (
 <Btn ch={"↻ Atualizar"} v="g" sm onClick={load}/>
 </div>
 <Inp val={q} set={setQ} ph={"🔍 Buscar por nome ou telefone"}/>
+{/* V214: legenda de cores + filtro por tipo */}
+<style>{"@keyframes waResp{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.4)}50%{box-shadow:0 0 0 6px rgba(192,57,43,0)}}"}</style>
+<div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
+{[["responder","\ud83d\udcac Responder","#c0392b"],["agendamento","\ud83d\udcc5 Agendamento","#3b6ea5"],["vespera","\ud83d\udd14 V\u00e9spera","#7c5cbf"],["confirmou","\u2705 Confirmou","#2f8f5f"],["poscir","\ud83c\udfe5 P\u00f3s-cir\u00fargico","#c2703d"],["aniversario","\ud83c\udf82 Anivers\u00e1rio","#c25b8a"],["outros","\ud83d\udce8 Outros","#b7950b"]].map(function(ch){
+var atv=filtroTipo===ch[0];
+var qtd=lista.filter(function(g){return g.tipo&&g.tipo.k===ch[0];}).length;
+return (<button key={ch[0]} onClick={function(){setFiltroTipo(atv?null:ch[0]);}} style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:5,fontSize:10.5,fontWeight:700,borderRadius:20,padding:"5px 10px",background:atv?"#dfe7e0":(ch[0]==="responder"?"rgba(192,57,43,.10)":G.card),border:atv?("1.5px solid "+G.primary):(ch[0]==="responder"?"1.5px solid rgba(192,57,43,.45)":"1.5px solid transparent"),color:ch[0]==="responder"?"#c0392b":G.text,whiteSpace:"nowrap",cursor:"pointer",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff",fontFamily:"'Manrope'"}}>
+<span style={{width:9,height:9,borderRadius:"50%",background:ch[2],flexShrink:0}}></span>{ch[1]}{qtd>0?(" \u00b7 "+qtd):""}
+</button>);
+})}
+</div>
+{filtroTipo&&<div style={{fontSize:11,color:G.muted,display:"flex",alignItems:"center",gap:8}}><span>{"Mostrando apenas: "+filtroTipo}</span><button onClick={function(){setFiltroTipo(null);}} style={{border:"none",background:"transparent",color:G.primary,fontWeight:700,fontSize:11,cursor:"pointer",textDecoration:"underline",padding:0}}>{"limpar filtro"}</button></div>}
 {loading&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:13}}>{"Carregando..."}</div>}
 {!loading&&listaF.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13}}>{q?"Nenhuma conversa encontrada.":"Nenhuma conversa ainda. As mensagens trocadas pelo WhatsApp aparecerao aqui."}</div>}
 {listaF.map(function(g){return (
-<div key={g.phone} onClick={function(){setSel(g.phone);}} style={{background:G.card,borderRadius:12,padding:"11px 14px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",display:"flex",gap:11,alignItems:"center",cursor:"pointer",borderLeft:g.unread>0?("4px solid "+G.success):"4px solid transparent"}}>
-<div style={{width:44,height:44,borderRadius:"50%",background:g.unread>0?G.success:G.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:g.unread>0?"#fff":G.primary,flexShrink:0,fontWeight:700}}>{((g.name||"?")[0]||"?").toUpperCase()}</div>
+<div key={g.phone} onClick={function(){setSel(g.phone);}} style={Object.assign({background:G.card,borderRadius:12,padding:"11px 14px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",display:"flex",gap:11,alignItems:"center",cursor:"pointer",borderLeft:(g.tipo&&g.tipo.cor)?("5px solid "+g.tipo.cor):(g.unread>0?("4px solid "+G.success):"4px solid transparent")},(g.tipo&&g.tipo.k==="responder")?{border:"1.5px solid rgba(192,57,43,.5)",borderLeft:"5px solid #c0392b",background:"linear-gradient(90deg,rgba(192,57,43,.07),"+G.card+" 60%)",boxShadow:"0 0 0 3px rgba(192,57,43,.10),6px 6px 15px var(--nm-dark)"}:{})}>
+<div style={{width:44,height:44,borderRadius:"50%",background:(g.tipo&&g.tipo.cor)?g.tipo.cor:(g.unread>0?G.success:G.accent),display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:(g.tipo&&g.tipo.cor)?"#fff":(g.unread>0?"#fff":G.primary),flexShrink:0,fontWeight:700}}>{((g.name||"?")[0]||"?").toUpperCase()}</div>
 <div style={{flex:1,minWidth:0}}>
 <div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"center"}}>
 <span style={{fontWeight:700,fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{g.name}</span>
@@ -9480,8 +9519,9 @@ return (
 </div>
 <div style={{display:"flex",justifyContent:"space-between",gap:6,alignItems:"center",marginTop:2}}>
 <span style={{fontSize:12,color:g.unread>0?G.text:G.muted,fontWeight:g.unread>0?600:400,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(g.lastDir==="out"?"Voce: ":"")+(g.lastBody||"").slice(0,55)}</span>
-{g.unread>0&&<span style={{background:G.success,color:"#fff",borderRadius:20,minWidth:19,height:19,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,padding:"0 5px",flexShrink:0}}>{g.unread}</span>}
+{g.unread>0&&<span style={{background:(g.tipo&&g.tipo.k==="responder")?"#c0392b":G.success,color:"#fff",borderRadius:20,minWidth:19,height:19,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,padding:"0 5px",flexShrink:0}}>{g.unread}</span>}
 </div>
+{g.tipo&&g.tipo.label&&<div style={{marginTop:5}}><span style={g.tipo.k==="responder"?{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:"#c0392b",animation:"waResp 1.6s ease-in-out infinite"}:{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:g.tipo.cor}}>{g.tipo.emo+" "+g.tipo.label}</span></div>}
 </div>
 </div>
 );})}
