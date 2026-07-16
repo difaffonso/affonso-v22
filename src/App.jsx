@@ -1577,7 +1577,7 @@ return <>
                 <span>💳</span><span>Comissão aguarda crédito do cartão</span>
               </div>}
               {/* V219: mês de pagamento do dentista, por procedimento (planos clínicos) */}
-              {isDone&&!it.orto&&(user.level>=3
+              {isDone&&!it.orto&&(user.level>=2
                 ?<div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
                   <span style={{fontSize:10,fontWeight:800,color:G.blue}}>{"💰 Pagar dentista em:"}</span>
                   <select value={it.payMonth||""} onChange={e=>{var v=e.target.value;setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,_ts:Date.now(),items:tr.items.map((x,xi)=>xi!==i?x:{...x,payMonth:v||null,_dts:Date.now()})}));}}
@@ -6015,7 +6015,7 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 <Bdg l={r.payment} col={PC[r.payment]||G.muted} sm/>
 {r.inst>1&&<Bdg l={`${r.inst}x`} col={G.blue} sm/>}
 {r.payMonth&&!r.date.startsWith(mo)&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"💵 recebido "+pagMesLabel(r.date.slice(0,7))}</span>}
-{user.level>=3&&!isORec(r)&&<select value={r.payMonth||""} onChange={e=>{var v=e.target.value;setRecs(prev=>prev.map(x=>x.id!==r.id?x:{...x,payMonth:v||null,_ts:Date.now()}));}} style={{border:"1.5px solid "+(r.payMonth?G.blue:G.border),borderRadius:7,padding:"1px 5px",fontSize:10,fontWeight:700,color:r.payMonth?G.blue:G.muted,background:"var(--card)",outline:"none",maxWidth:118}}>
+{user.level>=2&&!isORec(r)&&<select value={r.payMonth||""} onChange={e=>{var v=e.target.value;setRecs(prev=>prev.map(x=>x.id!==r.id?x:{...x,payMonth:v||null,_ts:Date.now()}));}} style={{border:"1.5px solid "+(r.payMonth?G.blue:G.border),borderRadius:7,padding:"1px 5px",fontSize:10,fontWeight:700,color:r.payMonth?G.blue:G.muted,background:"var(--card)",outline:"none",maxWidth:118}}>
 <option value="">💰 mês recebido</option>
 {pagMesOpts(r.date.slice(0,7)).map(([v,l])=><option key={v} value={v}>{"💰 "+l}</option>)}
 </select>}
@@ -6030,7 +6030,7 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 <span style={{flex:1,color:G.muted}}>{p?.name} -- {r.procedure}</span>
 <Bdg l={r.payment} col={PC[r.payment]||G.muted} sm/>
 <span style={{background:"var(--amber-soft)",color:G.orange,borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"→ "+pagMesLabel(r.payMonth)}</span>
-{user.level>=3&&<select value={r.payMonth||""} onChange={e=>{var v=e.target.value;setRecs(prev=>prev.map(x=>x.id!==r.id?x:{...x,payMonth:v||null,_ts:Date.now()}));}} style={{border:"1.5px solid "+G.orange,borderRadius:7,padding:"1px 5px",fontSize:10,fontWeight:700,color:G.orange,background:"var(--card)",outline:"none",maxWidth:118}}>
+{user.level>=2&&<select value={r.payMonth||""} onChange={e=>{var v=e.target.value;setRecs(prev=>prev.map(x=>x.id!==r.id?x:{...x,payMonth:v||null,_ts:Date.now()}));}} style={{border:"1.5px solid "+G.orange,borderRadius:7,padding:"1px 5px",fontSize:10,fontWeight:700,color:G.orange,background:"var(--card)",outline:"none",maxWidth:118}}>
 <option value="">💰 mês recebido</option>
 {pagMesOpts(r.date.slice(0,7)).map(([v,l])=><option key={v} value={v}>{"💰 "+l}</option>)}
 </select>}
