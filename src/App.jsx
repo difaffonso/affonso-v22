@@ -5883,7 +5883,17 @@ doneCf[mo]+=it.liqValue*(d.commission||40)/100;
 const allCf={...cf};
 Object.entries(doneCf).forEach(([k,v])=>{allCf[k]=(allCf[k]||0)+v;});
 
-return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom};
+// V218: split mensalidades Plano Orto x tratamento clínico
+const isOrtoRec=r=>{if(!r.fromTreat)return false;const tt=treats.find(x=>x.id===r.fromTreat);return !!(tt&&tt.orto);};
+const ortoRs=rs.filter(isOrtoRec);
+const clinRs=rs.filter(r=>!isOrtoRec(r));
+const ortoRaw=ortoRs.reduce((s,r)=>s+r.paid,0);
+const ortoLiq=ortoRs.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
+const ortoCom=ortoLiq*(d.commission||40)/100;
+const clinRaw=clinRs.reduce((s,r)=>s+r.paid,0);
+const clinLiq=clinRs.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
+const clinCom=clinLiq*(d.commission||40)/100;
+return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom,ortoRs,clinRs,ortoRaw,ortoCom,clinRaw,clinCom};
 
 });
 const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&(p.returned||"").startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0)*(p.qty||1),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
@@ -5906,7 +5916,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 15px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2,flexShrink:0,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
 {tab==="dent"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-{dr.map(({d,rs,raw,liq,com,cf,donedItems,doneLiq,doneCom})=>{const aberto=!!openDent[d.id];return <div key={d.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${d.color}`}}>
+{dr.map(({d,rs,raw,liq,com,cf,donedItems,doneLiq,doneCom,ortoRs,clinRs,ortoRaw,ortoCom,clinRaw,clinCom})=>{const aberto=!!openDent[d.id];return <div key={d.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${d.color}`}}>
 <div onClick={()=>setOpenDent(p=>Object.assign({},p,{[d.id]:!p[d.id]}))} style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:aberto?11:0,cursor:"pointer",alignItems:"center"}}>
 <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{fontSize:13,color:d.color,transition:"transform .2s",transform:aberto?"rotate(90deg)":"none"}}>▶</span><div><div style={{fontWeight:700,fontSize:15,color:d.color}}>{d.name}</div><div style={{fontSize:11,color:G.muted}}>{d.specialty} · {rs.length} atend.{aberto?"":" · toque para abrir"}</div></div></div>
 <div style={{textAlign:"right"}}><div style={{fontWeight:700,fontSize:17,color:G.primary}}>{cur(com+doneCom)}</div><div style={{fontSize:11,color:G.muted}}>Comissão total ({d.commission}%)</div></div>
@@ -5916,6 +5926,21 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:9,marginBottom:11}}>
 {[["Receita Bruta",raw,G.text],["Receita Líquida",liq,G.success],["Comissão Recibos",com,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.bg,borderRadius:8,padding:"6px 10px",textAlign:"center"}}><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div><div style={{fontWeight:700,color:c,fontSize:13}}>{cur(v)}</div></div>)}
 </div>
+{/* V218: Plano Orto x Tratamento Clínico */}
+{ortoRs.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:11}}>
+<div style={{background:"rgba(139,95,168,.10)",border:"1.5px solid rgba(139,95,168,.35)",borderRadius:10,padding:"9px 11px"}}>
+<div style={{fontSize:11,fontWeight:800,color:"#8b5fa8",marginBottom:5}}>🦷 PLANO ORTO</div>
+<div style={{fontWeight:800,fontSize:16,color:"#8b5fa8"}}>{cur(ortoRaw)}</div>
+<div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{ortoRs.length} mensalidade{ortoRs.length>1?"s":""}</div>
+<div style={{fontSize:11,fontWeight:700,color:G.primary,background:G.bg,borderRadius:6,padding:"3px 8px",display:"inline-block"}}>Comissão: {cur(ortoCom)}</div>
+</div>
+<div style={{background:G.blue+"10",border:"1.5px solid "+G.blue+"55",borderRadius:10,padding:"9px 11px"}}>
+<div style={{fontSize:11,fontWeight:800,color:G.blue,marginBottom:5}}>🩺 TRAT. CLÍNICO</div>
+<div style={{fontWeight:800,fontSize:16,color:G.blue}}>{cur(clinRaw)}</div>
+<div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{clinRs.length} atendimento{clinRs.length!==1?"s":""}</div>
+<div style={{fontSize:11,fontWeight:700,color:G.primary,background:G.bg,borderRadius:6,padding:"3px 8px",display:"inline-block"}}>Comissão: {cur(clinCom)}</div>
+</div>
+</div>}
 {/* Done treatment procedures */}
 {donedItems.length>0&&<>
 <Div lb="Procedimentos Realizados (Baixa)"/>
@@ -5945,9 +5970,20 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 </div>
 </>}
 {/* Attendance list */}
-{rs.length>0&&<>
-<Div lb="Atendimentos do Mês"/>
-{rs.map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{display:"flex",gap:8,fontSize:11,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap"}}>
+{/* V218: mensalidades Orto em seção separada */}
+{ortoRs.length>0&&<>
+<Div lb="🦷 Mensalidades Plano Orto"/>
+{ortoRs.map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{display:"flex",gap:8,fontSize:11,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap"}}>
+<span style={{color:G.muted,minWidth:70}}>{fmt(r.date)}</span>
+<span style={{flex:1}}>{p?.name} -- {r.procedure}</span>
+<Bdg l={r.payment} col={PC[r.payment]||G.muted} sm/>
+{r.inst>1&&<Bdg l={`${r.inst}x`} col={G.blue} sm/>}
+<span style={{fontWeight:700,color:"#8b5fa8"}}>{cur(r.paid)}</span>
+</div>;})}
+</>}
+{(ortoRs.length>0?clinRs:rs).length>0&&<>
+<Div lb={ortoRs.length>0?"🩺 Tratamento Clínico":"Atendimentos do Mês"}/>
+{(ortoRs.length>0?clinRs:rs).map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{display:"flex",gap:8,fontSize:11,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap"}}>
 <span style={{color:G.muted,minWidth:70}}>{fmt(r.date)}</span>
 <span style={{flex:1}}>{p?.name} -- {r.procedure}</span>
 <Bdg l={r.payment} col={PC[r.payment]||G.muted} sm/>
