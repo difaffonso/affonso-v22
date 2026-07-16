@@ -1358,6 +1358,7 @@ const [atHoraFim,setAtHoraFim]=useState("12:00");
 const [atDentId,setAtDentId]=useState(String((user&&user.dentistId)||(dents[0]&&dents[0].id)||""));
 const [nfEdit,setNfEdit]=useState(null);
 const [confirmDel,setConfirmDel]=useState(null); // {type,id,label}
+const [detFin,setDetFin]=useState(null); // V223: popup quem lancou {titulo,sub,by,ts,verbo}
 const lastEmpNF=(function(){var best=null;(pats||[]).forEach(function(pp){(pp.nfs||[]).forEach(function(n){if(n.payer==="empresa"&&(n.payerName||n.payerCnpj)){if(!best||(n.date||"")>(best.date||"")||((n.date||"")===(best.date||"")&&(n.id||0)>(best.id||0)))best=n;}});});return best;})();
 const blankNF={date:today(),number:"",payer:"empresa",payerName:(lastEmpNF&&lastEmpNF.payerName)||"",payerCnpj:(lastEmpNF&&lastEmpNF.payerCnpj)||"",dentistId:"",procedure:"",value:"",tax:"",notes:"",status:"pending"};
 const [nff,setNff]=useState(blankNF);
@@ -1510,6 +1511,7 @@ return <>
           <div>
   <div style={{display:"flex",alignItems:"center",gap:7}}>
     <span style={{fontWeight:700,fontSize:14}}>{t.name}</span>
+    {user.level>=3&&<button onClick={(e)=>{e.stopPropagation();setDetFin({titulo:"Quem criou este plano?",sub:t.name+(t.start?" \u00b7 in\u00edcio "+fmt(t.start):""),by:t._by,ts:null,verbo:"Criou o plano de tratamento"});}} title="Quem criou?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:24,height:24,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}
     {t.finalizado&&<span style={{background:G.success+"20",color:G.success,borderRadius:10,padding:"1px 8px",fontSize:10,fontWeight:700}}>{"✅ Concluído"}</span>}
   </div>
   <div style={{fontSize:12,color:G.muted}}>{"Início: "+fmt(t.start)}{t.finalizado?" · Finalizado: "+fmt(t.finalizadoEm):""}</div>
@@ -1643,6 +1645,7 @@ return <>
           <Btn ch="📱" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! Orçamento:\n${b.items.map(i=>`• ${i.d}: ${cur(i.v)}`).join("\n")}\nTotal: ${cur(tot)}`)}/> 
           {b.status==="approved"&&!isDentUser&&<Btn ch="📝 Contrato" sm onClick={()=>{var mets=[];(patTreats||[]).forEach(function(t){(t.payments||[]).forEach(function(pg){if(pg.method&&mets.indexOf(pg.method)<0)mets.push(pg.method);});});setCtrPag(mets.length?mets.join(" / "):"");setCtrDent((b.dentistId!=null?b.dentistId:(dents&&dents[0]&&dents[0].id))||null);setCtrDone(null);setCtrErr("");setCtrBudget(b);}}/>}
           {!isDentUser&&<Btn ch="Editar" v="g" sm onClick={()=>{setBudgEdit(b);setBf({...b,disc:b.disc||0});setBudgModal(true);}}/>}
+          {user.level>=3&&<button onClick={()=>setDetFin({titulo:"Quem criou este orçamento?",sub:fmt(b.date)+" \u00b7 "+cur(tot),by:b._by,ts:null,verbo:"Criou o orçamento"})} title="Quem criou?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:24,height:24,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}
         </div>
       </div>
       {b.items.map((it,i)=><div key={i} style={{fontSize:12,color:G.muted,display:"flex",justifyContent:"space-between",marginTop:2}}><span>{it.d}</span><span>{cur(it.v)}</span></div>)}
@@ -1903,6 +1906,7 @@ return <>
       {r.inst>1&&<Bdg l={`${r.inst}x`} col={G.blue} sm/>}
       <span style={{fontWeight:700,color:G.success,fontSize:12}}>{cur(r.paid)}</span>
       <span style={{fontSize:11,color:G.muted}}>líq: {cur(calcNet(r.paid,r.payment))}</span>
+      {user.level>=3&&<button onClick={()=>setDetFin({titulo:"Quem lançou este pagamento?",sub:cur(r.paid)+" \u00b7 "+(r.payment||"")+(r.procedure?" \u00b7 "+r.procedure:"")+" \u00b7 "+fmt(r.date),by:r._by,ts:r.ts,verbo:"Lançou o pagamento"})} title="Quem lançou?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:24,height:24,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}
       {user.level>=3&&<button onClick={()=>setConfirmDel({type:"rec",id:r.id,label:"Pagamento de "+cur(r.paid)+" em "+fmt(r.date)})} style={{background:G.red,color:"#fff",border:"none",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0}}>Excluir</button>}
     </div>)}
     <Div lb="Pagamentos de Planos de Tratamento"/>
@@ -1912,6 +1916,7 @@ return <>
         <span style={{color:G.muted,minWidth:72}}>{fmt(p.date)}</span>
         <span style={{flex:1}}>{p.method}{p.note?` · ${p.note}`:""}</span>
         <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
+        {user.level>=3&&<button onClick={()=>setDetFin({titulo:"Quem lançou este pagamento?",sub:cur(p.value)+" \u00b7 "+(p.method||"")+" \u00b7 "+t.name+" \u00b7 "+fmt(p.date),by:p._by,ts:null,verbo:"Lançou o pagamento"})} title="Quem lançou?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:24,height:24,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}
       </div>)}
       {(t.payments||[]).length===0&&<p style={{fontSize:12,color:G.muted,marginBottom:6}}>Nenhum pagamento</p>}
     </div>)}
@@ -2662,6 +2667,30 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
 </div>}
 
 {/* Confirm delete modal */}
+{detFin&&(function(){ // V223: popup quem lancou (admin)
+var d=detFin;
+var zz=function(n){return String(n).padStart(2,"0");};
+var fmtTs=function(iso){if(!iso)return "";var x=new Date(iso);if(isNaN(x))return "";return zz(x.getDate())+"/"+zz(x.getMonth()+1)+"/"+x.getFullYear()+" \u00e0s "+zz(x.getHours())+":"+zz(x.getMinutes());};
+var quando=d.ts?fmtTs(d.ts):"";
+return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIndex:3300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={function(){setDetFin(null);}}>
+<div style={{background:"var(--surface)",borderRadius:16,padding:18,width:"100%",maxWidth:400}} onClick={function(e){e.stopPropagation();}}>
+<div style={{fontSize:15,fontWeight:800,color:G.primary}}>{"\ud83d\udd75\ufe0f "+d.titulo}</div>
+<div style={{fontSize:12,color:G.muted,margin:"2px 0 13px"}}>{d.sub}</div>
+{d.by
+?<div style={{borderRadius:12,padding:"13px 14px",display:"flex",gap:11,alignItems:"flex-start",background:G.accent,border:"1.5px solid "+G.primary}}>
+<span style={{fontSize:24,lineHeight:1}}>{"\ud83d\udc64"}</span>
+<div><div style={{fontSize:14,fontWeight:800,color:G.primary}}>{d.by}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{(d.verbo||"Lançou")+" pelo sistema"+(quando?" em "+quando:"")+"."}</div></div>
+</div>
+:<div style={{borderRadius:12,padding:"13px 14px",display:"flex",gap:11,alignItems:"flex-start",background:"var(--amber-soft)",border:"1.5px solid #FFD54F"}}>
+<span style={{fontSize:24,lineHeight:1}}>{"\ud83d\udcdc"}</span>
+<div><div style={{fontSize:14,fontWeight:800,color:"#8a6d00"}}>{"Sem registro"}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{"Este registro \u00e9 anterior ao V222, quando o sistema ainda n\u00e3o gravava quem lan\u00e7ou. Todos os lan\u00e7amentos novos ficam registrados."}</div></div>
+</div>}
+<button onClick={function(){setDetFin(null);}} style={{width:"100%",marginTop:14,border:"none",borderRadius:12,padding:12,fontSize:14,fontWeight:700,cursor:"pointer",background:G.primary,color:"#fff"}}>{"Fechar"}</button>
+</div>
+</div>;
+})()}
 {confirmDel&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 
   <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:360,boxShadow:"0 16px 48px rgba(0,0,0,.25)"}}>
