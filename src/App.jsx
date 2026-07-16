@@ -1576,6 +1576,17 @@ return <>
               {isDone&&it.creditFuture&&<div style={{fontSize:10,color:G.blue,marginTop:1,display:"flex",alignItems:"center",gap:4}}>
                 <span>💳</span><span>Comissão aguarda crédito do cartão</span>
               </div>}
+              {/* V219: mês de pagamento do dentista, por procedimento (planos clínicos) */}
+              {isDone&&!it.orto&&(user.level>=3
+                ?<div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                  <span style={{fontSize:10,fontWeight:800,color:G.blue}}>{"💰 Pagar dentista em:"}</span>
+                  <select value={it.payMonth||""} onChange={e=>{var v=e.target.value;setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,_ts:Date.now(),items:tr.items.map((x,xi)=>xi!==i?x:{...x,payMonth:v||null,_dts:Date.now()})}));}}
+                    style={{border:"1.5px solid "+(it.payMonth?G.blue:G.border),borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700,color:it.payMonth?G.blue:G.muted,background:"var(--card)",outline:"none"}}>
+                    <option value="">mês da baixa</option>
+                    {pagMesOpts((it.doneDate||today()).slice(0,7)).map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                :(it.payMonth?<div style={{marginTop:4}}><span style={{background:G.blue,color:"#fff",borderRadius:8,padding:"2px 9px",fontSize:10,fontWeight:700}}>{"💰 Pagar em: "+pagMesLabel(it.payMonth)}</span></div>:null))}
             </div>
             <span style={{fontSize:13,fontWeight:700,color:isDone?G.muted:G.primary}}>{cur(it.value)}</span>
             {!isDone&&<button onClick={()=>{setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,_ts:Date.now(),items:tr.items.filter((_,idx)=>idx!==i)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}} title="Remover procedimento">✕</button>}
@@ -5828,7 +5839,17 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
 }
 /* ===== fim V201 ===== */
 
-function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha}){
+// V219: opções de mês para "pagar dentista em" (13 meses a partir do mês base)
+function pagMesOpts(baseMonth){
+var out=[];var y=Number(String(baseMonth).slice(0,4));var m=Number(String(baseMonth).slice(5,7))-1;
+var MM=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+if(isNaN(y)||isNaN(m)){y=Number(today().slice(0,4));m=Number(today().slice(5,7))-1;}
+for(var i=0;i<13;i++){var yy=y+Math.floor((m+i)/12);var mm=(m+i)%12;out.push([yy+"-"+String(mm+1).padStart(2,"0"),MM[mm]+"/"+yy]);}
+return out;
+}
+function pagMesLabel(mo){if(!mo)return "";var MM=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];var mi=Number(String(mo).slice(5,7))-1;return (MM[mi]||"?")+"/"+String(mo).slice(0,4);}
+
+function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha,setRecs=function(){}}){
 const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [orcFilter,setOrcFilter]=useState(null);const [openOrto,setOpenOrto]=useState({});const [openDent,setOpenDent]=useState({});const [openProt,setOpenProt]=useState({});
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
@@ -5837,7 +5858,12 @@ const PC={"Dinheiro":G.success,"PIX":"#00B894","Cartão Crédito":G.blue,"Cartã
 
 const dr=dents.map(d=>{
 // Atendimentos do mês (recibos)
-const rs=recs.filter(r=>r.date.startsWith(mo)&&r.dentistId===d.id&&r.paid>0);
+// V219: payMonth adia o pagamento do dentista para outro mês (recibos clínicos)
+const effMo=r=>(r.payMonth||(r.date||"").slice(0,7));
+const isORec=r=>{if(!r.fromTreat)return false;const tt=treats.find(x=>x.id===r.fromTreat);return !!(tt&&tt.orto);};
+const rsBase=recs.filter(r=>r.dentistId===d.id&&r.paid>0);
+const rs=rsBase.filter(r=>isORec(r)?r.date.startsWith(mo):effMo(r)===mo);
+const clinDeferred=rsBase.filter(r=>!isORec(r)&&r.date.startsWith(mo)&&effMo(r)!==mo);
 const raw=rs.reduce((s,r)=>s+r.paid,0);
 const liq=rs.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
 // Comissão sobre valor líquido (já com desconto de cartão)
@@ -5858,7 +5884,7 @@ cf[m]+=liqPerInst*(d.commission||40)/100;
 const donedItems=[];
 treats.forEach(t=>{
 t.items.forEach(it=>{
-if((it.done||it.paid)&&it.doneDate&&it.doneDate.startsWith(mo)){
+if((it.done||it.paid)&&it.doneDate&&((it.payMonth||it.doneDate.slice(0,7))===mo)){
 const itDentId=it.doneByDentistId!=null?Number(it.doneByDentistId):(it.doneBy?(dents.find(dd=>dd.name===it.doneBy)?.id):t.dentistId);
 if(itDentId===d.id){
 const pat=pats.find(p=>p.id===t.patientId);
@@ -5893,7 +5919,7 @@ const ortoCom=ortoLiq*(d.commission||40)/100;
 const clinRaw=clinRs.reduce((s,r)=>s+r.paid,0);
 const clinLiq=clinRs.reduce((s,r)=>s+calcNet(r.paid,r.payment),0);
 const clinCom=clinLiq*(d.commission||40)/100;
-return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom,ortoRs,clinRs,ortoRaw,ortoCom,clinRaw,clinCom};
+return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom,ortoRs,clinRs,ortoRaw,ortoCom,clinRaw,clinCom,clinDeferred,isORec};
 
 });
 const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&(p.returned||"").startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0)*(p.qty||1),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
@@ -5916,7 +5942,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 15px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2,flexShrink:0,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
 {tab==="dent"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
-{dr.map(({d,rs,raw,liq,com,cf,donedItems,doneLiq,doneCom,ortoRs,clinRs,ortoRaw,ortoCom,clinRaw,clinCom})=>{const aberto=!!openDent[d.id];return <div key={d.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${d.color}`}}>
+{dr.map(({d,rs,raw,liq,com,cf,donedItems,doneLiq,doneCom,ortoRs,clinRs,ortoRaw,ortoCom,clinRaw,clinCom,clinDeferred,isORec})=>{const aberto=!!openDent[d.id];return <div key={d.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${d.color}`}}>
 <div onClick={()=>setOpenDent(p=>Object.assign({},p,{[d.id]:!p[d.id]}))} style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:aberto?11:0,cursor:"pointer",alignItems:"center"}}>
 <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{fontSize:13,color:d.color,transition:"transform .2s",transform:aberto?"rotate(90deg)":"none"}}>▶</span><div><div style={{fontWeight:700,fontSize:15,color:d.color}}>{d.name}</div><div style={{fontSize:11,color:G.muted}}>{d.specialty} · {rs.length} atend.{aberto?"":" · toque para abrir"}</div></div></div>
 <div style={{textAlign:"right"}}><div style={{fontWeight:700,fontSize:17,color:G.primary}}>{cur(com+doneCom)}</div><div style={{fontSize:11,color:G.muted}}>Comissão total ({d.commission}%)</div></div>
@@ -5927,7 +5953,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {[["Receita Bruta",raw,G.text],["Receita Líquida",liq,G.success],["Comissão Recibos",com,G.primary]].map(([l,v,c])=><div key={l} style={{background:G.bg,borderRadius:8,padding:"6px 10px",textAlign:"center"}}><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{l}</div><div style={{fontWeight:700,color:c,fontSize:13}}>{cur(v)}</div></div>)}
 </div>
 {/* V218: Plano Orto x Tratamento Clínico */}
-{ortoRs.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:11}}>
+{(ortoRs.length>0||clinDeferred.length>0)&&<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:9,marginBottom:11}}>
 <div style={{background:"rgba(139,95,168,.10)",border:"1.5px solid rgba(139,95,168,.35)",borderRadius:10,padding:"9px 11px"}}>
 <div style={{fontSize:11,fontWeight:800,color:"#8b5fa8",marginBottom:5}}>🦷 PLANO ORTO</div>
 <div style={{fontWeight:800,fontSize:16,color:"#8b5fa8"}}>{cur(ortoRaw)}</div>
@@ -5937,7 +5963,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <div style={{background:G.blue+"10",border:"1.5px solid "+G.blue+"55",borderRadius:10,padding:"9px 11px"}}>
 <div style={{fontSize:11,fontWeight:800,color:G.blue,marginBottom:5}}>🩺 TRAT. CLÍNICO</div>
 <div style={{fontWeight:800,fontSize:16,color:G.blue}}>{cur(clinRaw)}</div>
-<div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{clinRs.length} atendimento{clinRs.length!==1?"s":""}</div>
+<div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{clinRs.length} a pagar este mês{clinDeferred.length>0?" · "+clinDeferred.length+" adiado"+(clinDeferred.length>1?"s":""):""}</div>
 <div style={{fontSize:11,fontWeight:700,color:G.primary,background:G.bg,borderRadius:6,padding:"3px 8px",display:"inline-block"}}>Comissão: {cur(clinCom)}</div>
 </div>
 </div>}
@@ -5988,7 +6014,27 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 <span style={{flex:1}}>{p?.name} -- {r.procedure}</span>
 <Bdg l={r.payment} col={PC[r.payment]||G.muted} sm/>
 {r.inst>1&&<Bdg l={`${r.inst}x`} col={G.blue} sm/>}
+{r.payMonth&&!r.date.startsWith(mo)&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"💵 recebido "+pagMesLabel(r.date.slice(0,7))}</span>}
+{user.level>=3&&!isORec(r)&&<select value={r.payMonth||""} onChange={e=>{var v=e.target.value;setRecs(prev=>prev.map(x=>x.id!==r.id?x:{...x,payMonth:v||null,_ts:Date.now()}));}} style={{border:"1.5px solid "+(r.payMonth?G.blue:G.border),borderRadius:7,padding:"1px 5px",fontSize:10,fontWeight:700,color:r.payMonth?G.blue:G.muted,background:"var(--card)",outline:"none",maxWidth:118}}>
+<option value="">💰 mês recebido</option>
+{pagMesOpts(r.date.slice(0,7)).map(([v,l])=><option key={v} value={v}>{"💰 "+l}</option>)}
+</select>}
 <span style={{fontWeight:700}}>{cur(r.paid)}</span>
+</div>;})}
+</>}
+{/* V219: recibos clínicos deste mês adiados para outro mês */}
+{clinDeferred.length>0&&<>
+<Div lb="⏳ Adiados para outro mês"/>
+{clinDeferred.map(r=>{const p=pats.find(x=>x.id===r.patientId);return <div key={r.id} style={{display:"flex",gap:8,fontSize:11,padding:"4px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",opacity:.6}}>
+<span style={{color:G.muted,minWidth:70}}>{fmt(r.date)}</span>
+<span style={{flex:1,color:G.muted}}>{p?.name} -- {r.procedure}</span>
+<Bdg l={r.payment} col={PC[r.payment]||G.muted} sm/>
+<span style={{background:"var(--amber-soft)",color:G.orange,borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"→ "+pagMesLabel(r.payMonth)}</span>
+{user.level>=3&&<select value={r.payMonth||""} onChange={e=>{var v=e.target.value;setRecs(prev=>prev.map(x=>x.id!==r.id?x:{...x,payMonth:v||null,_ts:Date.now()}));}} style={{border:"1.5px solid "+G.orange,borderRadius:7,padding:"1px 5px",fontSize:10,fontWeight:700,color:G.orange,background:"var(--card)",outline:"none",maxWidth:118}}>
+<option value="">💰 mês recebido</option>
+{pagMesOpts(r.date.slice(0,7)).map(([v,l])=><option key={v} value={v}>{"💰 "+l}</option>)}
+</select>}
+<span style={{fontWeight:700,color:G.muted,textDecoration:"line-through"}}>{cur(r.paid)}</span>
 </div>;})}
 </>}
 </>}
@@ -10773,7 +10819,7 @@ return <>
       {view==="conversas"&&<Conversas pats={pats} user={user} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
       {view==="satisf"&&<Satisfacao pats={pats} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} treats={treats} user={user}/>}
-      {view==="rel"&&<Relatorios recs={recs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
+      {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user}/>}
