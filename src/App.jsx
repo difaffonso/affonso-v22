@@ -9865,12 +9865,47 @@ const patsRef=useRef([]);
 const lastPatPollTs=useRef(null);
 const anamSeenRef=useRef({});
 const anamPullRef=useRef(0);
+// V225: Realtime - assina mudancas de clinic_data e patients e dispara o sync existente na hora.
+// Carrega supabase-js via CDN em tempo de execucao (sem mudar build). Falhou? Polls seguem como hoje.
 useEffect(function(){
+  if(!user)return;
+  var canal=null,cliente=null,vivo=true;
+  (async function(){
+    try{
+      var mod=await import(/* @vite-ignore */ "https://esm.sh/@supabase/supabase-js@2");
+      if(!vivo||!mod||!mod.createClient)return;
+      cliente=mod.createClient(SUPA_URL,SUPA_KEY,{realtime:{params:{eventsPerSecond:5}}});
+      try{if(__ACCESS)cliente.realtime.setAuth(__ACCESS);}catch(e){}
+      canal=cliente.channel("relevo-sync")
+        .on("postgres_changes",{event:"*",schema:"public",table:"clinic_data"},function(){
+          rtLastEvtRef.current=Date.now();
+          try{if(doPollNowRef.current)doPollNowRef.current();}catch(e){}
+        })
+        .on("postgres_changes",{event:"*",schema:"public",table:"patients"},function(){
+          rtLastEvtRef.current=Date.now();
+          patPollNowRef.current="force"; // proximo tick do poll de pacientes roda sem espera adaptativa
+        })
+        .subscribe(function(status){
+          if(status==="SUBSCRIBED"){rtOkRef.current=true;rtLastEvtRef.current=Date.now();}
+          else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED"){rtOkRef.current=false;}
+        });
+      var hb=setInterval(function(){if(rtOkRef.current)rtLastEvtRef.current=Math.max(rtLastEvtRef.current,Date.now()-60000);},30000);
+      canal.__hb=hb;
+    }catch(e){rtOkRef.current=false;}
+  })();
+  return function(){vivo=false;rtOkRef.current=false;try{if(canal&&canal.__hb)clearInterval(canal.__hb);}catch(e){}try{if(cliente&&canal)cliente.removeChannel(canal);}catch(e){}};
+},[user]);
+useEffect(function(){
+  var _patTick=0;
   var pp=setInterval(async function(){
     if(!initialized.current||document.hidden)return;
     if(!patTableOk.current)return;
+    _patTick++; // V225: adaptativo - RT saudavel: ~60s; RT fora: 20s (igual hoje)
+    var _rtVivo=rtOkRef.current&&(Date.now()-(rtLastEvtRef.current||0)<120000);
+    if(_rtVivo&&(_patTick%3)!==0&&patPollNowRef.current!=="force")return;
     if(Date.now()-lastLocalChangeTs.current<12000)return;
     if(patSaving.current||patPending.current)return;
+    if(patPollNowRef.current==="force")patPollNowRef.current=null; // V225: consome o gatilho
     try{
       if(!lastPatPollTs.current){lastPatPollTs.current=new Date().toISOString();return;}
       var chg=await supabase.loadPatientsSince(lastPatPollTs.current);
@@ -10108,6 +10143,11 @@ const lastSaveFailed=useRef(false);
 const delAptsRef=useRef([]);
 const delPatsRef=useRef([]); // V197: tombstone de pacientes excluidos
 const blobVersRef=useRef({}); // V199: carimbo de versao por chave do blob
+const rtOkRef=useRef(false); // V225: Realtime conectado?
+const rtLastEvtRef=useRef(0); // V225: ultimo evento/heartbeat recebido
+const doPollNowRef=useRef(null); // V225: gatilho imediato do sync do blob
+const patPollNowRef=useRef(null); // V225: gatilho imediato do sync de pacientes
+const rtTickRef=useRef(0); // V225: contador p/ poll adaptativo
 const lastSavedKeyJsonRef=useRef(null); // V199: JSON por chave da ultima gravacao/leitura
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
@@ -10558,7 +10598,13 @@ useEffect(function(){
       if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
     }catch(e){}
   };
-  var poll=setInterval(doPoll,8000); // V189: 15s -> 8s
+  doPollNowRef.current=doPoll; // V225: Realtime dispara o mesmo sync
+  var poll=setInterval(function(){ // V225: adaptativo - RT saudavel: ~64s; RT fora: 8s (igual hoje)
+    rtTickRef.current=(rtTickRef.current||0)+1;
+    var rtVivo=rtOkRef.current&&(Date.now()-(rtLastEvtRef.current||0)<120000);
+    if(rtVivo&&(rtTickRef.current%8)!==0)return;
+    doPoll();
+  },8000); // V189: 15s -> 8s
   var _onVis=function(){if(document.hidden)return;if(dirtyRef.current&&!isSaving.current&&!saveTimer.current&&runSaveRef.current){saveTimer.current=setTimeout(runSaveRef.current,300);} doPoll();}; // V189+V210: re-arma save pendente e sincroniza ao voltar
   document.addEventListener("visibilitychange",_onVis);
   return function(){clearInterval(poll);document.removeEventListener("visibilitychange",_onVis);};
