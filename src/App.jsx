@@ -1258,11 +1258,11 @@ const genM=(d,n)=>{const ms=[];const x=new Date(d+"T12:00");for(let i=1;i<=n;i++
 const saveRec=()=>{
 if(Number(rf.paid)>0&&!rf.closed)return alert("Marque 'Confirmar baixa financeira'.");
 const ms=rf.payment==="Cartão Crédito"&&Number(rf.inst)>1?genM(rf.date,Number(rf.inst)):[];
-const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:pmoney(rf.paid),inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs),ts:rf.ts||new Date().toISOString()};
+const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:pmoney(rf.paid),inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs),ts:rf.ts||new Date().toISOString(),_by:(recEdit&&recEdit._by)||(user&&user.name)||""};
 setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
 setRecModal(false);
 };
-const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:Number(tf.dentistId)||user.dentistId||dents[0]?.id||1,orcStatus:tf.orcStatus||"espera",id:nid(treats),_ts:Date.now()}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
+const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:Number(tf.dentistId)||user.dentistId||dents[0]?.id||1,orcStatus:tf.orcStatus||"espera",id:nid(treats),_ts:Date.now(),_by:(user&&user.name)||""}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
 const addTItem=()=>{
 if(!tni.d&&!tni.procId)return alert("Selecione um procedimento");
 if(!tni.v)return alert("Informe o valor");
@@ -1319,7 +1319,7 @@ if(!pv)return alert("Informe o valor");
 const t=treats.find(x=>x.id===tid);
 // Save payment in treatment plan
 const instSave=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
-setTreats(prev=>prev.map(function(tr){if(tr.id!==tid)return tr;var newPays=[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave}];var totIt=(tr.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);var totPg=newPays.reduce(function(s,p){return s+Number(p.value||0);},0);var ns=tr.orcStatus||"espera";if((ns==="parcial"||ns==="espera")&&totIt>0&&totPg>=totIt-0.005)ns="aprovado";else if(ns==="espera"&&totPg>0)ns="parcial";return {...tr,_ts:Date.now(),payments:newPays,orcStatus:ns};}));
+setTreats(prev=>prev.map(function(tr){if(tr.id!==tid)return tr;var newPays=[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave,_by:(user&&user.name)||""}];var totIt=(tr.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);var totPg=newPays.reduce(function(s,p){return s+Number(p.value||0);},0);var ns=tr.orcStatus||"espera";if((ns==="parcial"||ns==="espera")&&totIt>0&&totPg>=totIt-0.005)ns="aprovado";else if(ns==="espera"&&totPg>0)ns="parcial";return {...tr,_ts:Date.now(),payments:newPays,orcStatus:ns};}));
 // Also create a rec entry so Financeiro sees it
 const inst=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
 const recObj={
@@ -1335,11 +1335,12 @@ note:payForm.note||"",
 apptId:null,
 fromTreat:tid,
 ts:new Date().toISOString(),
+_by:(user&&user.name)||"",
 };
 setRecs(prev=>[...prev,recObj]);
 setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",note:""});
 };
-const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets)};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
+const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets),_by:(budgEdit&&budgEdit._by)||(user&&user.name)||""};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
 const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["odonto3d","🦷 3D"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],["docs","📑 Documentos"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
 // NF (Nota Fiscal) state
@@ -2734,10 +2735,10 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           var finalVal=pmoney(ortoPayVal)||item2.value;
           var _recId=nid();var _pmtId=nid();
           setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,_ts:Date.now(),items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal,recId:_recId,pmtId:_pmtId,_dts:Date.now()})}));
-          var recObj={id:_recId,patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2,ts:new Date().toISOString()};
+          var recObj={id:_recId,patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2,ts:new Date().toISOString(),_by:(user&&user.name)||""};
           setRecs(prev=>[...prev,recObj]);
           // Also register in treat.payments so it shows in pagamentos registrados
-          var newPmt={id:_pmtId,date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc,_b:1};
+          var newPmt={id:_pmtId,date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc,_b:1,_by:(user&&user.name)||""};
           setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,_ts:Date.now(),payments:[...(t.payments||[]),newPmt]}));
           setOrtoPayModal(null);setOrtoPayVal("");
         }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"✓ Confirmar"}</button>
@@ -2808,7 +2809,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs}){
 
 const [selDate,setSelDate]=useState(today());
 const [agView,setAgView]=useState("dia");
@@ -2821,6 +2822,7 @@ const [calM,setCalM]=useState(new Date().getMonth());
 const [denF,setDenF]=useState("all");
 const [modal,setModal]=useState(false);
 const [viewA,setViewA]=useState(null);const [showCancel,setShowCancel]=useState(null);const [histTab,setHistTab]=useState("info");
+const [detetive,setDetetive]=useState(null); // V222: popup quem cancelou
 const [edit,setEdit]=useState(null);
 const blank={patientId:"",patientName:"",useManual:false,dentistId:user.dentistId||dents[0]?.id||1,date:selDate,time:"",timeCustom:"",procedure:"",procedureCustom:"",treatment:"",status:"pending",notes:"",value:"",payment:"Dinheiro",duration:30,blocked:false,blockReason:""};
 const [f,setF]=useState(blank);
@@ -2874,8 +2876,9 @@ extraSlots.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
 }
 }
 const obj={...f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,patientName:f.patientId?"":(f.patientName||"A confirmar"),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
-if(edit&&edit.status!==f.status)obj.statusTs=new Date().toISOString();
+if(edit&&edit.status!==f.status){obj.statusTs=new Date().toISOString();obj.stBy=(user&&user.name)||"";} // V222
 obj._ts=Date.now(); // V189: carimbo de edicao para o merge respeitar mudancas de paciente/dados
+if(!edit)obj._by=(user&&user.name)||""; // V222: quem criou a consulta
 setAppts(prev=>edit?prev.map(a=>a.id===edit.id?obj:a):[...prev,obj]);
 const p=pats.find(x=>x.id===Number(f.patientId));
 const nome=p?.name||f.patientName||"";
@@ -2889,7 +2892,7 @@ setAppts(prev=>[...prev,{id:nid(prev),date,time,dentistId:Number(dentistId),bloc
 setBlockModal(null);setBlockReason("");
 };
 const chSt=(id,st)=>{
-setAppts(prev=>prev.map(a=>a.id===id?{...a,status:st,statusTs:new Date().toISOString()}:a));
+setAppts(prev=>prev.map(a=>a.id===id?{...a,status:st,statusTs:new Date().toISOString(),stBy:(user&&user.name)||""}:a));
 const a=appts.find(x=>x.id===id);const p=pats.find(x=>x.id===(a&&a.patientId));
 const ST={confirmed:"Confirmou",pending:"Pendente",done:"Realizou",cancelled:"Cancelou",missed:"Faltou",rescheduled:"Desmarcou"};
 if(addLog&&a)addLog("agenda",(ST[st]||st)+" consulta de "+(p&&p.name||"paciente")+" - "+fmt(a.date)+" "+a.time,p&&p.name);
@@ -2900,6 +2903,50 @@ return (
 
 <div style={{display:"flex",flexDirection:"column",gap:10}} className="fi">
 
+{detetive&&(function(){ // V222: popup Quem cancelou? (admin)
+var a=detetive;
+var p=pats.find(function(x){return x.id===a.patientId;})||{};
+var pname=p.name||a.patientName||"Paciente";
+var ACAO={cancelled:"Cancelou",missed:"Faltou",rescheduled:"Desmarcou"};
+var acao=ACAO[a.status]||"Alterou";
+var zz=function(n){return String(n).padStart(2,"0");};
+var fmtTs=function(iso){if(!iso)return "";var d=new Date(iso);if(isNaN(d))return "";return zz(d.getDate())+"/"+zz(d.getMonth()+1)+"/"+d.getFullYear()+" \u00e0s "+zz(d.getHours())+":"+zz(d.getMinutes());};
+var chave=fmt(a.date)+" "+a.time;
+var hist=(logs||[]).filter(function(l){return l.tipo==="agenda"&&(l.desc||"").indexOf(chave)>=0&&((l.patName&&l.patName===pname)||(l.desc||"").indexOf(pname)>=0);});
+var quemLog=hist.find(function(l){return (l.desc||"").indexOf(acao)===0;});
+var quem=a.stBy||(quemLog&&quemLog.user)||null;
+if(quem==="Sistema")quem=null;
+var quando=(quemLog&&quemLog.ts)?fmtTs(quemLog.ts):(a.statusTs?fmtTs(a.statusTs):"");
+var isWA=!quem||quem==="WhatsApp";
+var titulo=a.status==="missed"?"Quem marcou a falta?":a.status==="rescheduled"?"Quem desmarcou?":"Quem cancelou?";
+return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={function(){setDetetive(null);}}>
+<div style={{background:"var(--surface)",borderRadius:16,padding:18,width:"100%",maxWidth:420,maxHeight:"85vh",overflowY:"auto"}} onClick={function(e){e.stopPropagation();}}>
+<div style={{fontSize:15,fontWeight:800,color:G.primary,display:"flex",alignItems:"center",gap:7}}>{"\ud83d\udd75\ufe0f "+titulo}</div>
+<div style={{fontSize:12,color:G.muted,margin:"2px 0 14px"}}>{pname+" \u00b7 "+fmt(a.date)+" \u00e0s "+a.time+(a.procedure?" \u00b7 "+a.procedure:"")}</div>
+{!isWA
+?<div style={{borderRadius:12,padding:"13px 14px",display:"flex",gap:11,alignItems:"flex-start",marginBottom:12,background:G.accent,border:"1.5px solid "+G.primary}}>
+<span style={{fontSize:26,lineHeight:1}}>{"\ud83d\udc64"}</span>
+<div><div style={{fontSize:14,fontWeight:800,color:G.primary}}>{quem}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{"Alterou o status para "+acao.toLowerCase()+" pelo sistema"+(quando?" em "+quando:"")+"."}</div></div>
+</div>
+:<div style={{borderRadius:12,padding:"13px 14px",display:"flex",gap:11,alignItems:"flex-start",marginBottom:12,background:"#e6f4ea",border:"1.5px solid "+G.success}}>
+<span style={{fontSize:26,lineHeight:1}}>{"\ud83d\udcac"}</span>
+<div><div style={{fontSize:14,fontWeight:800,color:G.success}}>{"Paciente, pelo WhatsApp"}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{"Nenhum funcion\u00e1rio registrou essa altera\u00e7\u00e3o"+(quando?" \u2014 o status mudou em "+quando:"")+". Provavelmente o(a) paciente respondeu \u00e0 mensagem de v\u00e9spera pelo WhatsApp, ou \u00e9 um registro antigo."}</div></div>
+</div>}
+{hist.length>0&&<div>
+<div style={{fontSize:10.5,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:G.muted,marginBottom:6}}>{"Hist\u00f3rico desta consulta"}</div>
+<div style={{background:"var(--card)",borderRadius:10,border:"1px solid "+G.border,padding:"4px 0",maxHeight:170,overflowY:"auto"}}>
+{hist.map(function(l){return <div key={l.id} style={{display:"flex",flexDirection:"column",gap:1,padding:"7px 12px",fontSize:11.5,borderBottom:"1px solid "+G.border}}>
+<span style={{color:G.muted,fontWeight:600,fontSize:10.5}}>{fmtTs(l.ts)}</span>
+<span style={{lineHeight:1.4}}><b style={{color:G.primary}}>{l.user}</b>{" \u00b7 "+l.desc}</span>
+</div>;})}
+</div>
+</div>}
+<button onClick={function(){setDetetive(null);}} style={{width:"100%",marginTop:14,border:"none",borderRadius:12,padding:12,fontSize:14,fontWeight:700,cursor:"pointer",background:G.primary,color:"#fff"}}>{"Fechar"}</button>
+</div>
+</div>;
+})()}
 {showCal&&(
 
 <div style={{position:"fixed",inset:0,zIndex:500}} onClick={()=>setShowCal(false)}>
@@ -3155,6 +3202,7 @@ return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:
 <span style={{flex:1,fontSize:12,fontWeight:600}}>{p&&p.name||"--"}</span>
 <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
 <span style={{background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
+{user.level>=3&&<button onClick={function(e){e.stopPropagation();setDetetive(a);}} title="Quem cancelou?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:26,height:26,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}
 {!isDent&&<button onClick={function(){setEdit(a);var _std=SLOTS.indexOf(a.time)>=0;setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId),time:_std?a.time:"",timeCustom:_std?"":a.time}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
 </div>;
 })}
@@ -10810,7 +10858,7 @@ return <>
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent}/>}
-      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
+      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
