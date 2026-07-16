@@ -2932,37 +2932,57 @@ return (
 
 <div style={{display:"flex",flexDirection:"column",gap:10}} className="fi">
 
-{detetive&&(function(){ // V222: popup Quem cancelou? (admin)
+{detetive&&(function(){ // V224: popup detetive da consulta (admin)
 var a=detetive;
 var p=pats.find(function(x){return x.id===a.patientId;})||{};
 var pname=p.name||a.patientName||"Paciente";
 var ACAO={cancelled:"Cancelou",missed:"Faltou",rescheduled:"Desmarcou"};
+var SL3={pending:"pendente",confirmed:"confirmada",done:"realizada",cancelled:"cancelada",missed:"falta",rescheduled:"desmarcada"};
+var isCanc=!!ACAO[a.status];
 var acao=ACAO[a.status]||"Alterou";
 var zz=function(n){return String(n).padStart(2,"0");};
-var fmtTs=function(iso){if(!iso)return "";var d=new Date(iso);if(isNaN(d))return "";return zz(d.getDate())+"/"+zz(d.getMonth()+1)+"/"+d.getFullYear()+" \u00e0s "+zz(d.getHours())+":"+zz(d.getMinutes());};
+var fmtTs=function(iso){if(!iso)return "";var x=new Date(iso);if(isNaN(x))return "";return zz(x.getDate())+"/"+zz(x.getMonth()+1)+"/"+x.getFullYear()+" \u00e0s "+zz(x.getHours())+":"+zz(x.getMinutes());};
 var chave=fmt(a.date)+" "+a.time;
 var hist=(logs||[]).filter(function(l){return l.tipo==="agenda"&&(l.desc||"").indexOf(chave)>=0&&((l.patName&&l.patName===pname)||(l.desc||"").indexOf(pname)>=0);});
+var criouLog=hist.find(function(l){return (l.desc||"").indexOf("Criou")===0;});
+var criador=a._by||(criouLog&&criouLog.user)||null;
+var criadoEm=(criouLog&&criouLog.ts)?fmtTs(criouLog.ts):"";
 var quemLog=hist.find(function(l){return (l.desc||"").indexOf(acao)===0;});
-var quem=a.stBy||(quemLog&&quemLog.user)||null;
+var confLog=hist.find(function(l){return (l.desc||"").indexOf("Confirmou")===0;});
+var quem=a.stBy||(isCanc?(quemLog&&quemLog.user):(confLog&&confLog.user))||null;
 if(quem==="Sistema")quem=null;
-var quando=(quemLog&&quemLog.ts)?fmtTs(quemLog.ts):(a.statusTs?fmtTs(a.statusTs):"");
-var isWA=!quem||quem==="WhatsApp";
-var titulo=a.status==="missed"?"Quem marcou a falta?":a.status==="rescheduled"?"Quem desmarcou?":"Quem cancelou?";
+var quando=isCanc?((quemLog&&quemLog.ts)?fmtTs(quemLog.ts):(a.statusTs?fmtTs(a.statusTs):"")):(a.statusTs?fmtTs(a.statusTs):((confLog&&confLog.ts)?fmtTs(confLog.ts):""));
+var titulo=a.status==="missed"?"Quem marcou a falta?":a.status==="rescheduled"?"Quem desmarcou?":a.status==="cancelled"?"Quem cancelou?":"Quem agendou?";
+var cardStaff=function(nome,texto){return <div style={{borderRadius:12,padding:"12px 14px",display:"flex",gap:11,alignItems:"flex-start",marginBottom:10,background:G.accent,border:"1.5px solid "+G.primary}}>
+<span style={{fontSize:24,lineHeight:1}}>{"\ud83d\udc64"}</span>
+<div><div style={{fontSize:14,fontWeight:800,color:G.primary}}>{nome}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{texto}</div></div></div>;};
+var cardWA=function(texto){return <div style={{borderRadius:12,padding:"12px 14px",display:"flex",gap:11,alignItems:"flex-start",marginBottom:10,background:"#e6f4ea",border:"1.5px solid "+G.success}}>
+<span style={{fontSize:24,lineHeight:1}}>{"\ud83d\udcac"}</span>
+<div><div style={{fontSize:14,fontWeight:800,color:G.success}}>{"Paciente, pelo WhatsApp"}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{texto}</div></div></div>;};
+var cardOld=function(texto){return <div style={{borderRadius:12,padding:"12px 14px",display:"flex",gap:11,alignItems:"flex-start",marginBottom:10,background:"var(--amber-soft)",border:"1.5px solid #FFD54F"}}>
+<span style={{fontSize:24,lineHeight:1}}>{"\ud83d\udcdc"}</span>
+<div><div style={{fontSize:14,fontWeight:800,color:"#8a6d00"}}>{"Sem registro"}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{texto}</div></div></div>;};
 return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={function(){setDetetive(null);}}>
 <div style={{background:"var(--surface)",borderRadius:16,padding:18,width:"100%",maxWidth:420,maxHeight:"85vh",overflowY:"auto"}} onClick={function(e){e.stopPropagation();}}>
 <div style={{fontSize:15,fontWeight:800,color:G.primary,display:"flex",alignItems:"center",gap:7}}>{"\ud83d\udd75\ufe0f "+titulo}</div>
 <div style={{fontSize:12,color:G.muted,margin:"2px 0 14px"}}>{pname+" \u00b7 "+fmt(a.date)+" \u00e0s "+a.time+(a.procedure?" \u00b7 "+a.procedure:"")}</div>
-{!isWA
-?<div style={{borderRadius:12,padding:"13px 14px",display:"flex",gap:11,alignItems:"flex-start",marginBottom:12,background:G.accent,border:"1.5px solid "+G.primary}}>
-<span style={{fontSize:26,lineHeight:1}}>{"\ud83d\udc64"}</span>
-<div><div style={{fontSize:14,fontWeight:800,color:G.primary}}>{quem}</div>
-<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{"Alterou o status para "+acao.toLowerCase()+" pelo sistema"+(quando?" em "+quando:"")+"."}</div></div>
-</div>
-:<div style={{borderRadius:12,padding:"13px 14px",display:"flex",gap:11,alignItems:"flex-start",marginBottom:12,background:"#e6f4ea",border:"1.5px solid "+G.success}}>
-<span style={{fontSize:26,lineHeight:1}}>{"\ud83d\udcac"}</span>
-<div><div style={{fontSize:14,fontWeight:800,color:G.success}}>{"Paciente, pelo WhatsApp"}</div>
-<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{"Nenhum funcion\u00e1rio registrou essa altera\u00e7\u00e3o"+(quando?" \u2014 o status mudou em "+quando:"")+". Provavelmente o(a) paciente respondeu \u00e0 mensagem de v\u00e9spera pelo WhatsApp, ou \u00e9 um registro antigo."}</div></div>
-</div>}
+{isCanc&&(quem
+?cardStaff(quem,"Alterou o status para "+acao.toLowerCase()+" pelo sistema"+(quando?" em "+quando:"")+".")
+:cardWA("Nenhum funcion\u00e1rio registrou essa altera\u00e7\u00e3o"+(quando?" \u2014 o status mudou em "+quando:"")+". Provavelmente o(a) paciente respondeu \u00e0 mensagem de v\u00e9spera pelo WhatsApp, ou \u00e9 um registro antigo."))}
+{!isCanc&&<div style={{fontSize:10.5,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:G.muted,marginBottom:6}}>{"Agendamento"}</div>}
+{!isCanc&&(criador
+?cardStaff(criador,"Agendou a consulta pelo sistema"+(criadoEm?" em "+criadoEm:"")+".")
+:cardOld("Consulta criada antes do V222, quando o sistema ainda n\u00e3o gravava quem agendou."))}
+{!isCanc&&a.status!=="pending"&&<div style={{fontSize:10.5,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:G.muted,marginBottom:6}}>{"Status atual: "+(SL3[a.status]||a.status)}</div>}
+{!isCanc&&a.status!=="pending"&&(quem
+?cardStaff(quem,"Marcou como "+(SL3[a.status]||a.status)+" pelo sistema"+(quando?" em "+quando:"")+".")
+:a.status==="confirmed"
+?cardWA("Confirmada sem registro de funcion\u00e1rio"+(quando?" \u2014 em "+quando:"")+". Provavelmente o(a) paciente confirmou respondendo \u00e0 mensagem de v\u00e9spera, ou \u00e9 um registro antigo.")
+:cardOld("Altera\u00e7\u00e3o de status anterior ao V222, sem registro de quem fez."))}
+{isCanc&&(criador||criouLog)&&<div style={{fontSize:12,color:G.muted,marginBottom:10}}>{"\ud83d\udcc5 Agendada por "+(criador||"?")+(criadoEm?" em "+criadoEm:"")}</div>}
 {hist.length>0&&<div>
 <div style={{fontSize:10.5,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:G.muted,marginBottom:6}}>{"Hist\u00f3rico desta consulta"}</div>
 <div style={{background:"var(--card)",borderRadius:10,border:"1px solid "+G.border,padding:"4px 0",maxHeight:170,overflowY:"auto"}}>
@@ -3441,6 +3461,7 @@ return(
 {!isDent&&p&&p.phone&&<Btn ch="📱 Confirmação" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! ✅ Consulta confirmada: "+fmt(a.date)+" às "+a.time+" - "+a.procedure+". Affonso Odontologia 🦷")}/>}
 {!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
 {!isDent&&p&&p.phone&&<Btn ch="🔄 Paciente Cancelou" v="r" sm onClick={function(){chSt(a.id,"cancelled");wa(p.phone,"Olá, "+p.name+"! Entendemos que nao podera comparecer. Gostaria de remarcar? Responda SIM. Affonso Odontologia");setViewA(null);}}/>}
+{user.level>=3&&<button onClick={()=>{setViewA(null);setHistTab("info");setDetetive(a);}} title="Quem agendou/alterou?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:30,height:30,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}
 {!isDent&&<Btn ch="Editar" sm onClick={()=>{setEdit(a);var isStdSlot=SLOTS.indexOf(a.time)>=0;
 var fdata=Object.assign({},a,{
   patientId:String(a.patientId||""),
