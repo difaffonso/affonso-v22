@@ -9877,6 +9877,10 @@ useEffect(function(){
       cliente=mod.createClient(SUPA_URL,SUPA_KEY,{realtime:{params:{eventsPerSecond:5}}});
       try{if(__ACCESS)cliente.realtime.setAuth(__ACCESS);}catch(e){}
       canal=cliente.channel("relevo-sync")
+        .on("broadcast",{event:"mudou"},function(msg){ // V226: aviso leve enviado por quem salvou (contorna limite de 1MB do postgres_changes)
+          rtLastEvtRef.current=Date.now();
+          try{var k=msg&&msg.payload&&msg.payload.k;if(k==="pats"){patPollNowRef.current="force";}else{if(doPollNowRef.current)doPollNowRef.current();}}catch(e){}
+        })
         .on("postgres_changes",{event:"*",schema:"public",table:"clinic_data"},function(){
           rtLastEvtRef.current=Date.now();
           try{if(doPollNowRef.current)doPollNowRef.current();}catch(e){}
@@ -9889,11 +9893,14 @@ useEffect(function(){
           if(status==="SUBSCRIBED"){rtOkRef.current=true;rtLastEvtRef.current=Date.now();}
           else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED"){rtOkRef.current=false;}
         });
-      var hb=setInterval(function(){if(rtOkRef.current)rtLastEvtRef.current=Math.max(rtLastEvtRef.current,Date.now()-60000);},30000);
+      rtCanalRef.current=canal; // V226
+      var hb=setInterval(function(){ // V226: renova a "vida" do RT apenas se o canal segue conectado de verdade
+        try{if(rtOkRef.current&&canal&&canal.state==="joined"){rtLastEvtRef.current=Math.max(rtLastEvtRef.current,Date.now()-60000);}else{rtOkRef.current=false;}}catch(e){rtOkRef.current=false;}
+      },30000);
       canal.__hb=hb;
     }catch(e){rtOkRef.current=false;}
   })();
-  return function(){vivo=false;rtOkRef.current=false;try{if(canal&&canal.__hb)clearInterval(canal.__hb);}catch(e){}try{if(cliente&&canal)cliente.removeChannel(canal);}catch(e){}};
+  return function(){vivo=false;rtOkRef.current=false;rtCanalRef.current=null;try{if(canal&&canal.__hb)clearInterval(canal.__hb);}catch(e){}try{if(cliente&&canal)cliente.removeChannel(canal);}catch(e){}};
 },[user]);
 useEffect(function(){
   var _patTick=0;
@@ -10148,6 +10155,7 @@ const rtLastEvtRef=useRef(0); // V225: ultimo evento/heartbeat recebido
 const doPollNowRef=useRef(null); // V225: gatilho imediato do sync do blob
 const patPollNowRef=useRef(null); // V225: gatilho imediato do sync de pacientes
 const rtTickRef=useRef(0); // V225: contador p/ poll adaptativo
+const rtCanalRef=useRef(null); // V226: canal p/ broadcast 'mudou'
 const lastSavedKeyJsonRef=useRef(null); // V199: JSON por chave da ultima gravacao/leitura
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
@@ -10429,6 +10437,7 @@ useEffect(function(){
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
           if(newTs){try{idb.set("blob_v1",{data:payload,updated_at:newTs});}catch(e){}} // V198
+          try{if(rtCanalRef.current&&rtCanalRef.current.state==="joined")rtCanalRef.current.send({type:"broadcast",event:"mudou",payload:{k:"blob"}});}catch(e){} // V226: aviso instantaneo aos outros aparelhos
           if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
           if(lastLocalChangeTs.current===_editAtStart)orientDirtyRef.current=false;
           ok=true;
