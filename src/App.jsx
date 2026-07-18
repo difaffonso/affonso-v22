@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 
 const SUPA_URL="https://ncfsepyzrqaljswjiuiv.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jZnNlcHl6cnFhbGpzd2ppdWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTg1NzYsImV4cCI6MjA5NDA5NDU3Nn0.j_7sctB2bP0zljxPbh3Q4I_MzEksgL8PO5QNdzbaJDM";
@@ -9637,14 +9637,25 @@ return (
 {selPac&&<Btn ch={"📋 Ficha"} v="g" sm onClick={function(){abrirFicha(selPac);}}/>}
 </div>
 <div ref={bottomRef} style={{background:"var(--amber-soft)",borderRadius:12,padding:"12px 10px",display:"flex",flexDirection:"column",gap:7,maxHeight:"68vh",overflowY:"auto"}}>
-{selMsgs.map(function(m){var out=m.direction==="out";return (
-<div key={m.id} style={{alignSelf:out?"flex-end":"flex-start",maxWidth:"86%",background:out?"var(--green-soft)":"var(--card)",borderRadius:out?"12px 12px 2px 12px":"12px 12px 12px 2px",padding:"7px 11px",boxShadow:"0 1px 1px rgba(0,0,0,.13)"}}>
+{selMsgs.map(function(m,mi){var out=m.direction==="out";
+/* V227: separador de data entre dias (Hoje / Ontem / dd/mm/aaaa) */
+var dtM=new Date(m.ts||m.created_at);
+var diaM=isNaN(dtM.getTime())?"":dtM.toLocaleDateString("pt-BR");
+var mPrev=mi>0?selMsgs[mi-1]:null;
+var dtP=mPrev?new Date(mPrev.ts||mPrev.created_at):null;
+var diaP=(dtP&&!isNaN(dtP.getTime()))?dtP.toLocaleDateString("pt-BR"):"";
+var rotDia=diaM===new Date().toLocaleDateString("pt-BR")?"Hoje":(diaM===new Date(Date.now()-86400000).toLocaleDateString("pt-BR")?"Ontem":diaM);
+return (
+<Fragment key={m.id}>
+{diaM&&diaM!==diaP&&<div style={{alignSelf:"center",background:"var(--card)",borderRadius:12,padding:"3px 12px",fontSize:10,fontWeight:700,color:"var(--muted)",boxShadow:"0 1px 2px rgba(0,0,0,.10)",margin:"5px 0 2px"}}>{rotDia}</div>}
+<div style={{alignSelf:out?"flex-end":"flex-start",maxWidth:"86%",background:out?"var(--green-soft)":"var(--card)",borderRadius:out?"12px 12px 2px 12px":"12px 12px 12px 2px",padding:"7px 11px",boxShadow:"0 1px 1px rgba(0,0,0,.13)"}}>
 <div style={{fontSize:13,lineHeight:1.5,whiteSpace:"pre-wrap",wordBreak:"break-word",color:"var(--text)"}}>{m.body||""}</div>
 <div style={{display:"flex",gap:4,justifyContent:"flex-end",alignItems:"center",marginTop:3}}>
 <span style={{fontSize:9,color:"var(--muted)"}}>{fmtHora(m.ts||m.created_at)}</span>
 {out&&<span style={{fontSize:11,color:m.status==="read"?"#34B7F1":"var(--muted)"}}>{tick(m.status)}</span>}
 </div>
 </div>
+</Fragment>
 );})}
 </div>
 {janelaAberta?(
