@@ -18,7 +18,7 @@
   .brand b{font-size:15px;letter-spacing:.2px}
   .brand small{display:block;color:var(--mut);font-size:11px;font-weight:400}
   .tag{pointer-events:auto;background:var(--panel);border:1px solid var(--line);color:var(--acc);font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px}
-  .views{position:fixed;top:112px;left:12px;z-index:10;display:flex;flex-direction:column;gap:8px}
+  .views{position:fixed;top:112px;left:12px;z-index:10;display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 124px);overflow-y:auto;padding-right:2px;scrollbar-width:thin}
   .views button{background:var(--panel);border:1px solid var(--line);color:var(--txt);font-size:12px;padding:8px 12px;border-radius:10px;cursor:pointer}
   .views button.on{border-color:var(--acc);color:var(--acc)}
   #legend{position:fixed;top:64px;right:12px;z-index:10;background:rgba(19,29,46,.88);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:11px;max-width:150px}
