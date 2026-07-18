@@ -9267,6 +9267,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 function Auditoria({pats,appts,recs,treats,setTreats,pros,espera,stock,implCat,implMov,rems,users,dents,pacsTicks,waSent,remarcar,setView,user,auditDismiss,setAuditDismiss}){
 var [audOpen,setAudOpen]=useState({});
 var audToggle=function(id){setAudOpen(function(p){var n=Object.assign({},p);n[id]=!n[id];return n;});};
+// V228: mensagens WhatsApp p/ secao "Conversas sem resposta" (reusa cache economico V196, 1 carga por abertura)
+var [waMsgsAud,setWaMsgsAud]=useState([]);
+useEffect(function(){var ativo=true;try{supabase.loadWaMessagesLite().then(function(rows){if(ativo)setWaMsgsAud(Array.isArray(rows)?rows:[]);}).catch(function(){});}catch(e){}return function(){ativo=false;};},[]);
 if(user.level<3)return <div style={{background:G.card,borderRadius:13,padding:30,textAlign:"center",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}><p style={{color:G.red,fontSize:15}}>🔒 Acesso restrito ao Administrador</p></div>;
 var t=today();var ont=yest();
 function daysAgo(n){var d=new Date(t+"T12:00");d.setDate(d.getDate()-n);return d.toISOString().split("T")[0];}
@@ -9333,7 +9336,37 @@ var orcPend=treats.filter(function(tt){var st=tt.orcStatus||"espera";return st==
 function nomeFunc(uid){var u=users.find(function(x){return x.id===uid;});return u?u.name.split(" ")[0]:"Geral";}
 var recados=(rems||[]).filter(function(r){return !r.done&&r.date&&r.date<t;}).sort(function(a,b){return a.date.localeCompare(b.date);}).map(function(r){return {nome:r.title,det:"Para "+nomeFunc(r.assignedUserId)+" · "+fmt(r.date)+" · "+diasDe(r.date)+" dia(s) parado"+(r.patientId?" · "+nomeP(r.patientId):""),key:"recado_"+r.id};});
 
+// V228 - 13. Consultas passadas sem status definido
+function nomeD(id){var d=dents.find(function(x){return x.id===id;});return d?d.name:"";}
+var semStatus=appts.filter(function(a){return !a.blocked&&a.date<=ont&&a.date>=d30&&(a.status==="pending"||a.status==="confirmed"||a.status==="waiting");}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:fmt(a.date)+" "+(a.time||"")+" \u00b7 "+(a.procedure||"Consulta")+(nomeD(a.dentistId)?" \u00b7 "+nomeD(a.dentistId):"")+" \u00b7 sem status"+(a._by?" \u00b7 \ud83d\udd75\ufe0f agendou: "+String(a._by).split(" ")[0]:""),key:"semst_"+a.id};});
+
+// V228 - 14. Fichas novas sem "como nos conheceu"
+var origemPend=pats.filter(function(p){return !p.origem&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 campo em branco",key:"origem_"+p.id};});
+
+// V228 - 15. Conversas com paciente aguardando resposta ha 2h+ (mesmo criterio do V214: ultima msg e do paciente, nao e botao 1/2)
+var chatPend=[];
+(function(){
+var soDigA=function(s){return (s||"").replace(/\D/g,"");};
+var seenWA={};var gr={};
+(waMsgsAud||[]).forEach(function(m){var w=m.wamid;if(w&&seenWA[w])return;if(w)seenWA[w]=1;var ph=soDigA(m.phone);if(!ph)return;if(!gr[ph])gr[ph]=[];gr[ph].push(m);});
+Object.keys(gr).forEach(function(ph){
+var ms=gr[ph];ms.sort(function(a,b){return (a.id||0)-(b.id||0);});
+var lastM=ms[ms.length-1];if(!lastM||lastM.direction!=="in")return;
+var tx=(lastM.body||"").trim();if(tx==="1"||tx==="2")return;
+var ts=lastM.ts||lastM.created_at;if(!ts)return;
+var hrs=Math.floor((Date.now()-new Date(ts).getTime())/3600000);if(hrs<2)return;
+var l8=soDigA(ph).slice(-8);var pac=l8.length>=8?pats.find(function(p){return soDigA(p.phone).slice(-8)===l8;}):null;
+var nome=pac?pac.name:(ms.map(function(m){return m.patient_name;}).filter(Boolean)[0]||("+"+ph));
+var snip=tx.length>42?tx.slice(0,42)+"\u2026":tx;
+chatPend.push({nome:nome,det:"\""+snip+"\" \u00b7 sem resposta h\u00e1 "+(hrs>=48?Math.floor(hrs/24)+" dia(s)":hrs+"h"),key:"chat_"+ph+"_"+(lastM.id||0),_h:hrs});
+});
+chatPend.sort(function(a,b){return b._h-a._h;});
+})();
+
 var SEC=[
+{id:"semst",ic:"\ud83d\udcdd",t:"Consultas sem status",col:G.red,view:"agenda",items:semStatus},
+{id:"origem",ic:"\ud83c\udd95",t:"Fichas sem \"como nos conheceu\"",col:G.gold,view:"pacs",items:origemPend},
+{id:"chat",ic:"\ud83d\udcac",t:"Conversas sem resposta",col:"#128C7E",view:"conversas",items:chatPend},
 {id:"conf",ic:"📲",t:"Confirmações pendentes",col:G.blue,view:"agenda",items:confPend},
 {id:"remarcar",ic:"🔄",t:"Faltas/cancelamentos sem remarcar",col:G.red,view:"remarcar",items:remarcarPend},
 {id:"baixa",ic:"💰",t:"Baixas financeiras em aberto",col:G.red,view:"fin",items:baixaPend},
