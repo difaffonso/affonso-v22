@@ -4456,6 +4456,7 @@ function setDesdentado(arch, on){
   } else {
     lista.forEach(function(f){
       if(protSnap[arch] && protSnap[arch][f] != null) teeth[f].estado = protSnap[arch][f];
+      else if(teeth[f].estado==='ausente') teeth[f].estado='saudavel';
       applyVisual(f);
     });
     protSnap[arch] = null;
