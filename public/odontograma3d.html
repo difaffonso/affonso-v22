@@ -34,7 +34,7 @@
   .views.closed{transform:translateX(-120%);opacity:0;pointer-events:none}
   #nivelPicker{width:190px}
   #nivelPicker button{border:none;border-radius:9px;padding:9px 0;font-size:13px;font-weight:800;color:#0d1420;cursor:pointer;width:100%}
-  #protPanel{position:fixed;display:none;left:12px;bottom:70px;z-index:12;flex-direction:column;gap:6px;
+  #protPanel{position:fixed;display:none;left:50%;transform:translateX(-50%);bottom:70px;z-index:12;flex-direction:column;gap:6px;
     background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;width:230px}
   #protPanel .pp-row{display:flex;gap:6px}
   #protPanel button{flex:1;background:#12203a;border:1px solid var(--line);color:var(--txt);
@@ -114,6 +114,10 @@
   <button class="volta" id="reviewBack">Voltar para hoje</button>
 </div>
 <div id="protPanel">
+  <div class="pp-row" style="justify-content:space-between;align-items:center">
+    <span style="font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut)">Implantes / Próteses</span>
+    <button id="ppClose" style="flex:none;width:28px;height:28px;padding:0;border-radius:50%">✕</button>
+  </div>
   <div class="pp-row" id="ppArc">
     <button data-a="up" class="on">Superior</button><button data-a="low">Inferior</button>
   </div>
@@ -4986,6 +4990,9 @@ document.querySelectorAll('#ppTipo button').forEach(function(b){
     notificarAlteracao();
   };
 });
+document.getElementById('ppClose').onclick=function(){
+  if(implMode) document.getElementById('implset').click();
+};
 document.getElementById('implset').onclick=function(){
   implMode = !implMode;
   this.classList.toggle('on', implMode);
