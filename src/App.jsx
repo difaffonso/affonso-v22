@@ -8462,13 +8462,28 @@ function RemarcarView({appts,setAppts,pats,dents,remarcar,setRemarcar,abrirFicha
 var t=today();
 var [selMot,setSelMot]=useState(null);
 var [outroTxt,setOutroTxt]=useState("");
+var [selRet,setSelRet]=useState(null); // V229: contatar depois
+var [retData,setRetData]=useState("");
+var [retMotivo,setRetMotivo]=useState("");
 var pendentes=appts.filter(function(a){
 if(a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled")return false;
 if(a.noRebook)return false;
+if(a.retorno&&a.retorno.date&&a.retorno.date>t)return false; // V229: retorno futuro sai dos pendentes
 return !appts.some(function(b){return b.patientId===a.patientId&&b.id!==a.id&&b.date>a.date&&b.status!=="cancelled"&&b.status!=="missed"&&b.status!=="rescheduled";});
-}).sort(function(a,b){return b.date.localeCompare(a.date);});
+}).sort(function(a,b){var ra=(a.retorno&&a.retorno.date&&a.retorno.date<=t)?1:0;var rb=(b.retorno&&b.retorno.date&&b.retorno.date<=t)?1:0;if(ra!==rb)return rb-ra;return b.date.localeCompare(a.date);}); // V229: retorno vencido vai pro topo
+// V229: lista de retornos agendados (contatar depois)
+var retornos=appts.filter(function(a){
+if(a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled")return false;
+if(a.noRebook)return false;
+if(!(a.retorno&&a.retorno.date))return false;
+return !appts.some(function(b){return b.patientId===a.patientId&&b.id!==a.id&&b.date>a.date&&b.status!=="cancelled"&&b.status!=="missed"&&b.status!=="rescheduled";});
+}).sort(function(a,b){return a.retorno.date.localeCompare(b.retorno.date);});
 var historico=remarcar.sort(function(a,b){return b.date.localeCompare(a.date);});
 var [aba,setAba]=useState("pendentes");
+function setRet(apptId,dataRet,motivo){setAppts(function(prev){return prev.map(function(x){return x.id===apptId?{...x,_ts:Date.now(),retorno:{date:dataRet,motivo:(motivo||"").trim(),set:t}}:x;});});setSelRet(null);setRetData("");setRetMotivo("");} // V229
+function clearRet(apptId){setAppts(function(prev){return prev.map(function(x){if(x.id!==apptId)return x;var y={...x,_ts:Date.now()};delete y.retorno;return y;});});setSelRet(null);} // V229
+function addDias(n){var d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);} // V229
+function diasAte(ds){return Math.round((new Date(ds+"T12:00:00")-new Date(t+"T12:00:00"))/86400000);} // V229
 function marcarRem(apptId){setAppts(function(prev){return prev.map(function(x){return x.id===apptId?{...x,noRebook:true}:x;});});}
 function registrar(appt,motivo){
 var p=pats.find(function(x){return x.id===appt.patientId;});
@@ -8484,6 +8499,10 @@ return(
 {"⏳ Pendentes"}
 {pendentes.length>0&&<span style={{position:"absolute",top:-3,right:4,background:G.red,color:"#fff",borderRadius:20,fontSize:9,fontWeight:700,padding:"1px 5px"}}>{pendentes.length}</span>}
 </button>
+<button onClick={function(){setAba("retornos");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:aba==="retornos"?"var(--card)":G.bg,color:aba==="retornos"?"#1f5d8a":G.muted,boxShadow:aba==="retornos"?"0 1px 4px rgba(0,0,0,.1)":"none",position:"relative"}}>
+{"⏰ Retornos"}
+{retornos.length>0&&<span style={{position:"absolute",top:-3,right:4,background:"#1f5d8a",color:"#fff",borderRadius:20,fontSize:9,fontWeight:700,padding:"1px 5px"}}>{retornos.length}</span>}
+</button>
 <button onClick={function(){setAba("historico");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:aba==="historico"?"var(--card)":G.bg,color:aba==="historico"?G.primary:G.muted,boxShadow:aba==="historico"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>
 {"📊 Histórico"}
 </button>
@@ -8496,15 +8515,27 @@ var d=dents&&dents.find(function(x){return x.id===a.dentistId;})||{name:"--"};
 if(!p)return null;
 var isMot=selMot===a.id;
 return(
-<div key={a.id} style={{background:G.card,borderRadius:14,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.06)",borderLeft:"4px solid "+(a.status==="missed"?G.red:"#FF9800")}}>
+<div key={a.id} style={{background:G.card,borderRadius:14,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.06)",borderLeft:"4px solid "+(a.retorno&&a.retorno.date&&a.retorno.date<=t?"#1f5d8a":a.status==="missed"?G.red:"#FF9800")}}>
 <div onClick={function(){abrirFicha&&abrirFicha(p);}} title="Abrir ficha clínica" style={{fontWeight:700,fontSize:14,color:G.primary,cursor:"pointer",textDecoration:"underline",display:"inline-block"}}>{p.name}</div>
 <div style={{fontSize:12,color:G.muted,marginTop:2}}>{a.procedure+" · "+d.name}</div>
 <div style={{fontSize:11,fontWeight:600,color:a.status==="missed"?G.red:"#FF9800",marginBottom:10}}>{(a.status==="missed"?"🚫 Faltou":a.status==="rescheduled"?"🔄 Desmarcou":"❌ Cancelou")+" em "+fmt(a.date)}</div>
-{!isMot&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+{a.retorno&&a.retorno.date&&a.retorno.date<=t&&<div style={{background:"#1f5d8a15",border:"1px solid #1f5d8a40",borderRadius:9,padding:"6px 10px",fontSize:11.5,fontWeight:700,color:"#1f5d8a",marginBottom:10}}>{"🔔 Retorno agendado pra "+(a.retorno.date===t?"HOJE":fmt(a.retorno.date))+(a.retorno.motivo?" · \""+a.retorno.motivo+"\"":"")}</div>}
+{!isMot&&selRet!==a.id&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
 {p.phone&&<button onClick={function(){doWA(p.phone,"Olá, "+p.name+"! Notamos que sua consulta de "+fmt(a.date)+" não foi realizada. Gostaria de remarcar? Responda SIM! Affonso Odontologia.");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 WA"}</button>}
 <button onClick={function(){marcarRem(a.id);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✅ Remarcado"}</button>
 <button onClick={function(){registrar(a,"Tratamento finalizado");}} style={{background:"#00897B",color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"🎓 Finalizou tratamento"}</button>
 <button onClick={function(){setSelMot(a.id);setOutroTxt("");}} style={{background:"#FF9800",color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📝 Registrar Motivo"}</button>
+<button onClick={function(){setSelMot(null);setSelRet(a.id);setRetData(addDias(14));setRetMotivo(a.retorno&&a.retorno.motivo||"");}} style={{background:"#4a7fa5",color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{a.retorno?"⏰ Adiar de novo":"⏰ Contatar depois"}</button>
+</div>}
+{selRet===a.id&&<div style={{display:"flex",flexDirection:"column",gap:6,marginTop:4}}>
+<div style={{fontSize:12,fontWeight:700,color:G.muted}}>{"⏰ Contatar novamente em:"}</div>
+<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+{[["+1 sem",7],["+2 sem",14],["+3 sem",21],["+1 mês",30]].map(function(ch){var dv=addDias(ch[1]);var on=retData===dv;return <button key={ch[1]} onClick={function(){setRetData(dv);}} style={{border:"1.5px solid "+(on?"#4a7fa5":G.border),background:on?"#4a7fa518":"var(--card)",color:on?"#1f5d8a":G.text,borderRadius:10,padding:"7px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{ch[0]}</button>;})}
+</div>
+<input type="date" value={retData} min={t} onChange={function(e){setRetData(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"9px 10px",fontSize:13,outline:"none",fontFamily:"sans-serif",background:"var(--card)",color:G.text}}/>
+<input type="text" value={retMotivo} onChange={function(e){setRetMotivo(e.target.value);}} placeholder="Motivo (opcional): viajando, cirurgia, pediu p/ mês que vem..." style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"9px 10px",fontSize:13,outline:"none",fontFamily:"sans-serif",background:"var(--card)",color:G.text}}/>
+<button onClick={function(){if(retData&&retData>t)setRet(a.id,retData,retMotivo);}} style={{background:"#4a7fa5",color:"#fff",border:"none",borderRadius:10,padding:"9px",fontSize:13,fontWeight:700,cursor:"pointer",opacity:retData&&retData>t?1:.5}}>{"Salvar → aba ⏰ Retornos"}</button>
+<button onClick={function(){setSelRet(null);}} style={{background:"none",border:"none",color:G.muted,fontSize:12,cursor:"pointer",marginTop:2}}>Cancelar</button>
 </div>}
 {isMot&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
 <div style={{fontSize:12,fontWeight:700,color:G.muted}}>Por que não será remarcado?</div>
@@ -8519,6 +8550,43 @@ style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"10px",fontSize:1
 <button onClick={function(){if(outroTxt.trim())registrar(a,outroTxt.trim());}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:10,padding:"9px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Salvar</button>
 </div>}
 <button onClick={function(){setSelMot(null);}} style={{background:"none",border:"none",color:G.muted,fontSize:12,cursor:"pointer",marginTop:2}}>Cancelar</button>
+</div>}
+</div>
+);
+})}
+</div>}
+{aba==="retornos"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+<div style={{fontSize:11,color:G.muted,textAlign:"center",padding:"0 6px"}}>{"Ordenado pela data mais próxima · quando chega o dia, o paciente volta pros Pendentes destacado no topo"}</div>
+{retornos.length===0&&<div style={{textAlign:"center",padding:30,color:G.muted,fontSize:13,background:G.card,borderRadius:14}}>{"Nenhum retorno agendado. Use ⏰ Contatar depois nos Pendentes."}</div>}
+{retornos.map(function(a){
+var p=pats.find(function(x){return x.id===a.patientId;});
+var d=dents&&dents.find(function(x){return x.id===a.dentistId;})||{name:"--"};
+if(!p)return null;
+var dd=diasAte(a.retorno.date);
+return(
+<div key={"ret"+a.id} style={{background:G.card,borderRadius:14,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.06)",borderLeft:"4px solid #1f5d8a"}}>
+<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+<div onClick={function(){abrirFicha&&abrirFicha(p);}} title="Abrir ficha clínica" style={{fontWeight:700,fontSize:14,color:G.primary,cursor:"pointer",textDecoration:"underline",display:"inline-block"}}>{p.name}</div>
+<span style={{fontSize:10.5,fontWeight:800,color:dd<=0?"#fff":"#1f5d8a",background:dd<=0?"#1f5d8a":"#1f5d8a20",borderRadius:20,padding:"2px 9px"}}>{dd<0?("atrasado "+(-dd)+"d 🔔"):dd===0?"HOJE 🔔":("faltam "+dd+(dd===1?" dia":" dias"))}</span>
+</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2}}>{a.procedure+" · "+d.name}</div>
+<div style={{fontSize:11,fontWeight:600,color:"#1f5d8a",marginBottom:a.retorno.motivo?4:10}}>{"⏰ Contatar em "+fmt(a.retorno.date)+" · "+(a.status==="missed"?"faltou":a.status==="rescheduled"?"desmarcou":"cancelou")+" em "+fmt(a.date)}</div>
+{a.retorno.motivo&&<div style={{fontSize:12,color:G.muted,background:G.bg,borderRadius:9,padding:"6px 10px",marginBottom:10}}>{"💬 "+a.retorno.motivo}</div>}
+{selRet!==a.id&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+{p.phone&&<button onClick={function(){doWA(p.phone,"Olá, "+p.name+"! Conforme combinado, estamos entrando em contato para agendarmos sua consulta. Podemos marcar? 😊 Affonso Odontologia");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 WA"}</button>}
+<button onClick={function(){marcarRem(a.id);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✅ Remarcado"}</button>
+<button onClick={function(){setSelRet(a.id);setRetData(addDias(14));setRetMotivo(a.retorno.motivo||"");}} style={{background:"#4a7fa5",color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"⏰ Adiar de novo"}</button>
+<button onClick={function(){clearRet(a.id);}} style={{background:"var(--surface-2)",color:G.text,border:"1.5px solid "+G.border,borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"↩️ Voltar p/ Pendentes"}</button>
+</div>}
+{selRet===a.id&&<div style={{display:"flex",flexDirection:"column",gap:6,marginTop:4}}>
+<div style={{fontSize:12,fontWeight:700,color:G.muted}}>{"⏰ Nova data de contato:"}</div>
+<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+{[["+1 sem",7],["+2 sem",14],["+3 sem",21],["+1 mês",30]].map(function(ch){var dv=addDias(ch[1]);var on=retData===dv;return <button key={ch[1]} onClick={function(){setRetData(dv);}} style={{border:"1.5px solid "+(on?"#4a7fa5":G.border),background:on?"#4a7fa518":"var(--card)",color:on?"#1f5d8a":G.text,borderRadius:10,padding:"7px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{ch[0]}</button>;})}
+</div>
+<input type="date" value={retData} min={t} onChange={function(e){setRetData(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"9px 10px",fontSize:13,outline:"none",fontFamily:"sans-serif",background:"var(--card)",color:G.text}}/>
+<input type="text" value={retMotivo} onChange={function(e){setRetMotivo(e.target.value);}} placeholder="Motivo (opcional)" style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"9px 10px",fontSize:13,outline:"none",fontFamily:"sans-serif",background:"var(--card)",color:G.text}}/>
+<button onClick={function(){if(retData&&retData>t)setRet(a.id,retData,retMotivo);}} style={{background:"#4a7fa5",color:"#fff",border:"none",borderRadius:10,padding:"9px",fontSize:13,fontWeight:700,cursor:"pointer",opacity:retData&&retData>t?1:.5}}>Salvar</button>
+<button onClick={function(){setSelRet(null);}} style={{background:"none",border:"none",color:G.muted,fontSize:12,cursor:"pointer",marginTop:2}}>Cancelar</button>
 </div>}
 </div>
 );
@@ -9296,7 +9364,7 @@ var protAtras=pros.filter(function(pr){return pr.status==="waiting"&&pr.due&&pr.
 // 4. Faltas/cancelamentos sem remarcar nem motivo
 var remApptIds={};(remarcar||[]).forEach(function(r){if(r.apptId)remApptIds[r.apptId]=1;});
 var seenRm={};var remarcarPend=[];
-appts.filter(function(a){if(a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled")return false;if(a.noRebook)return false;if(a.date<d30)return false;if(remApptIds[a.id])return false;var fut=appts.some(function(b){return b.patientId===a.patientId&&b.id!==a.id&&b.date>=t&&b.status!=="cancelled"&&b.status!=="missed"&&b.status!=="rescheduled";});return !fut;}).sort(function(a,b){return b.date.localeCompare(a.date);}).forEach(function(a){if(seenRm[a.patientId])return;seenRm[a.patientId]=1;remarcarPend.push({nome:nomeP(a.patientId),det:(a.status==="missed"?"Faltou":a.status==="rescheduled"?"Desmarcou":"Cancelou")+" em "+fmt(a.date)+" · sem remarcar",key:"remarcar_"+a.id});});
+appts.filter(function(a){if(a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled")return false;if(a.noRebook)return false;if(a.retorno&&a.retorno.date&&a.retorno.date>t)return false;if(a.date<d30)return false;if(remApptIds[a.id])return false;var fut=appts.some(function(b){return b.patientId===a.patientId&&b.id!==a.id&&b.date>=t&&b.status!=="cancelled"&&b.status!=="missed"&&b.status!=="rescheduled";});return !fut;}).sort(function(a,b){return b.date.localeCompare(a.date);}).forEach(function(a){if(seenRm[a.patientId])return;seenRm[a.patientId]=1;remarcarPend.push({nome:nomeP(a.patientId),det:(a.status==="missed"?"Faltou":a.status==="rescheduled"?"Desmarcou":"Cancelou")+" em "+fmt(a.date)+" · sem remarcar",key:"remarcar_"+a.id});});
 
 // 5. Confirmações pendentes (hoje/amanhã ainda "Pendente")
 var confPend=appts.filter(function(a){return (a.date===t||a.date===amanha)&&a.status==="pending";}).sort(function(a,b){return (a.date+a.time).localeCompare(b.date+b.time);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.date===t?"Hoje":"Amanhã")+" "+a.time+" · "+(a.procedure||"")+" · não confirmada",key:"conf_"+a.id};});
