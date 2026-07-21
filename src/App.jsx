@@ -115,6 +115,8 @@ async function pushPontoSupabase(reg){
         var srvP=Array.isArray(base.pontos)?base.pontos:[];
         if(srvP.some(function(p){return p&&String(p.id)===String(reg.id);}))return true;
         base.pontos=srvP.concat([reg]);
+        // V230: carimbar a versao da chave "pontos" p/ o delta-sync dos outros aparelhos enxergar a batida (senao a proxima gravacao deles apaga o registro)
+        try{if(!base._vers||typeof base._vers!=="object"||Array.isArray(base._vers))base._vers={};base._vers.pontos=new Date().toISOString();}catch(e){}
         var ts0=full.updated_at||null;
         var url=SUPA_URL+"/rest/v1/clinic_data?id=eq.main"+(ts0?("&updated_at=eq."+encodeURIComponent(ts0)):"");
         var r=await fetch(url,{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({data:base,updated_at:new Date().toISOString()})});
