@@ -8606,7 +8606,7 @@ function setRet(apptId,dataRet,motivo){setAppts(function(prev){return prev.map(f
 function clearRet(apptId){setAppts(function(prev){return prev.map(function(x){if(x.id!==apptId)return x;var y={...x,_ts:Date.now()};delete y.retorno;return y;});});setSelRet(null);} // V229
 function addDias(n){var d=new Date();d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);} // V229
 function diasAte(ds){return Math.round((new Date(ds+"T12:00:00")-new Date(t+"T12:00:00"))/86400000);} // V229
-function marcarRem(apptId){setAppts(function(prev){return prev.map(function(x){return x.id===apptId?{...x,noRebook:true}:x;});});}
+function marcarRem(apptId){setAppts(function(prev){return prev.map(function(x){return x.id===apptId?{...x,_ts:Date.now(),noRebook:true}:x;});});} // V234: carimbo _ts p/ a baixa vencer no mergeAppts
 function registrar(appt,motivo){
 var p=pats.find(function(x){return x.id===appt.patientId;});
 setRemarcar(function(prev){return [...prev,{id:nid(),apptId:appt.id,patId:appt.patientId,patName:p&&p.name,proc:appt.procedure,apptDate:appt.date,status:appt.status,motivo:motivo,date:t}];});
@@ -9689,12 +9689,12 @@ setTimeout(function(){w.focus();w.print();},400);
 }
 function salvarEdit(){
 if(!ef.titulo.trim()||!ef.texto.trim()){alert("Preencha título e texto.");return;}
-setOrientacoes(lista.map(function(o){return o.id===editId?{...o,titulo:ef.titulo,texto:ef.texto}:o;}));
+setOrientacoes(lista.map(function(o){return o.id===editId?{...o,_ts:Date.now(),titulo:ef.titulo,texto:ef.texto}:o;}));
 setEditId(null);
 }
 function salvarNova(){
 if(!af.titulo.trim()||!af.texto.trim()){alert("Preencha título e texto.");return;}
-setOrientacoes([...lista,{id:"o_"+Date.now(),ic:"📄",titulo:af.titulo,texto:af.texto}]);
+setOrientacoes([...lista,{id:"o_"+Date.now(),_ts:Date.now(),ic:"📄",titulo:af.titulo,texto:af.texto}]);
 setAddMod(false);setAf({titulo:"",texto:""});
 }
 function excluir(o){
@@ -10268,7 +10268,7 @@ try{ // V199: base para comparacao de carimbos por chave
 }catch(e){lastSavedKeyJsonRef.current={};}
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
-lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl});
+lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl,orientacoes:data.orientacoes});
 delItemsRef.current=data.delItems||[];
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
@@ -10316,6 +10316,15 @@ if(data.prosProcs?.length)setProsProcs(data.prosProcs);
 if(data.implCat?.length)setImplCat(data.implCat);
 if(data.implMov?.length)setImplMov(data.implMov);
 lastSaved.current=JSON.stringify(data);
+// V234: rascunho anti-perda - reaplica edicoes que ficaram sem salvar (ex.: iPhone fechou no meio do "Salvando...")
+try{idb.get("draft_v1").then(function(_dft){
+  if(!_dft||!_dft.ts||(Date.now()-_dft.ts)>7*86400000)return;
+  var _dfDel={};(delItemsRef.current||[]).forEach(function(k){_dfDel[k]=true;});
+  var _dfSkip={};(delAptsRef.current||[]).forEach(function(id){_dfSkip[id]=true;});
+  if(_dft.appts&&_dft.appts.length)setAppts(function(prev){var m=mergeAppts(prev,_dft.appts,_dfSkip);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
+  if(_dft.orientacoes&&_dft.orientacoes.length)setOrientacoes(function(prev){var m=mergeOrient(prev,_dft.orientacoes,_dfDel);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
+  if(_dft.remarcar&&_dft.remarcar.length)setRemarcar(function(prev){prev=prev||[];var ids={};prev.forEach(function(r){if(r&&r.id!=null)ids[r.id]=1;});var add=_dft.remarcar.filter(function(r){return r&&r.id!=null&&!ids[r.id];});return add.length?prev.concat(add):prev;});
+});}catch(e){}
 }catch(err){}
 }
 // === PACIENTES: tabela propria (migracao automatica + fallback seguro) ===
@@ -10369,7 +10378,9 @@ else{patTableOk.current=true;lastSavedPats.current={};}
 setTimeout(()=>{initialized.current=true;},1000);
 // Salvar imediatamente ao sair/esconder a pagina
 var flushSave=function(){
-  if(!initialized.current||isSaving.current)return;
+  if(!initialized.current)return;
+  if(dirtyRef.current&&draftStateRef.current){try{idb.set("draft_v1",Object.assign({ts:Date.now()},draftStateRef.current));}catch(e){}} // V234: rascunho anti-perda (iOS pode matar o save ao sair do app)
+  if(isSaving.current)return;
   if(!dirtyRef.current)return; // V210: nada pendente, nada a fazer
   if(saveTimer.current){clearTimeout(saveTimer.current);saveTimer.current=null;}
   try{if(runSaveRef.current)runSaveRef.current();}catch(e){} // V210: dispara o save real (com anti-sobrescrita e merge)
@@ -10401,6 +10412,7 @@ const lastSavedItemKeys=useRef(null);
 const lastSavedApptIds=useRef(null);
 const dirtyRef=useRef(false);
 const runSaveRef=useRef(null); // V210: ponte p/ disparar o save de fora do efeito
+const draftStateRef=useRef(null); // V234: espelho do estado pendente p/ rascunho anti-perda
 // V197: exclusao real de paciente no servidor. So remove localmente apos confirmacao (padrao V190/Ponto).
 const delPatServer=async function(id){
   if(id==null)return {ok:false,msg:"ID invalido"};
@@ -10514,6 +10526,19 @@ function mergeAppts(localArr,serverArr,delSet){
   var out=[];Object.keys(byId).forEach(function(k){if(!delSet[k])out.push(byId[k]);});
   return out;
 }
+// V234: MERGE de ORIENTACOES item-a-item - _ts mais novo vence; exclusoes via tombstone delItems ("orientacoes:id")
+function mergeOrient(localArr,serverArr,delSet){
+  localArr=localArr||[];serverArr=serverArr||[];delSet=delSet||{};
+  var byId={},order=[];
+  localArr.forEach(function(o){if(o&&o.id!=null&&!delSet["orientacoes:"+o.id]){byId[o.id]=o;order.push(o.id);}});
+  serverArr.forEach(function(s){
+    if(!s||s.id==null||delSet["orientacoes:"+s.id])return;
+    var l=byId[s.id];
+    if(!l){byId[s.id]=s;order.push(s.id);return;}
+    if((s._ts||0)>(l._ts||0))byId[s.id]=s;
+  });
+  return order.map(function(id){return byId[id];});
+}
 // ── MERGE de PLANOS item-a-item: baixa (done) nunca se perde; pagamentos unidos por id ──
 function _treatItemDone(it){return !!(it&&(it.done||it.paid));}
 function _mergeOneTreat(local,server){
@@ -10564,6 +10589,7 @@ useEffect(function(){
   if(!initialized.current)return;
   lastLocalChangeTs.current=Date.now();
   dirtyRef.current=true;
+  draftStateRef.current={appts:appts,remarcar:remarcar,orientacoes:orientacoes}; // V234
   if(saveTimer.current)clearTimeout(saveTimer.current);
   setSaveStatus("saving");
   var doSave=async function(force){
@@ -10586,7 +10612,7 @@ useEffect(function(){
     }
     // detectar exclusoes de planos/registros desde a ultima sincronizacao
     if(lastSavedItemKeys.current){
-      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl});
+      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes});
       var _di=delItemsRef.current||[];
       Object.keys(lastSavedItemKeys.current).forEach(function(k){if(!_ik[k]&&_di.indexOf(k)<0)_di.push(k);});
       _di=_di.filter(function(k){return !_ik[k];});
@@ -10640,7 +10666,7 @@ useEffect(function(){
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
           if(sd.orcResp)setOrcResp(function(prev){return mergeTicks(prev,sd.orcResp);}); // V232
-          if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
+          if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSet);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, nao perde edicao local nem remota
           if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
           lastServerTs.current=fresh.updated_at;
           if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
@@ -10669,7 +10695,7 @@ useEffect(function(){
           lastSaved.current=JSON.stringify(payload);
           {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
           lastSavedGastosKeys.current=_gKeys(gastos);
-          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl});
+          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes});
           // Atualizar timestamp do servidor para o nosso
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
@@ -10677,6 +10703,7 @@ useEffect(function(){
           try{if(rtCanalRef.current&&rtCanalRef.current.state==="joined")rtCanalRef.current.send({type:"broadcast",event:"mudou",payload:{k:"blob"}});}catch(e){} // V226: aviso instantaneo aos outros aparelhos
           if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
           if(lastLocalChangeTs.current===_editAtStart)orientDirtyRef.current=false;
+          if(lastLocalChangeTs.current===_editAtStart){try{idb.set("draft_v1",null);}catch(e){}} // V234: salvo com sucesso, limpa o rascunho
           ok=true;
         }
       }catch(e){}
@@ -10840,7 +10867,7 @@ useEffect(function(){
       if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
       if(sd.implCat)setImplCat(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implCat)?prev:sd.implCat;});
       if(sd.implMov)setImplMov(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implMov)?prev:sd.implMov;});
-      if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
+      if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSetP);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, _ts mais novo vence
       lastServerTs.current=fresh.updated_at;
       if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
     }catch(e){}
