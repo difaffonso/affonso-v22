@@ -6023,7 +6023,7 @@ var threadMsgs=thread?(function(){var out=[];var seen2={};(msgsR||[]).forEach(fu
 return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{background:"var(--purple-soft)",border:"1.5px solid #7B1FA2",borderRadius:10,padding:"8px 12px",fontSize:11.5,color:"#5a3570",fontWeight:600}}>🔒 Aba exclusiva do Administrador. Mostra o que cada paciente respondeu ao follow-up automático de orçamento.</div>
 {carregando&&<div style={{textAlign:"center",color:G.muted,fontSize:13,padding:20}}>Carregando envios e respostas…</div>}
-{!carregando&&<React.Fragment>
+{!carregando&&<Fragment>
 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
 {[["Follow-ups",totR,G.primary],["Responderam",nResp,G.success],["Sem resposta",totR-nResp,G.red],["Marcaram depois",nMarc,G.blue]].map(function(c){return <div key={c[0]} style={{flex:1,minWidth:110,background:G.bg,borderRadius:12,padding:"10px 12px",textAlign:"center"}}><div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:c[2]}}>{c[1]}</div></div>;})}
 </div>
@@ -6052,7 +6052,7 @@ return <div key={l.k} style={{background:G.bg,borderRadius:12,padding:"11px 13px
 <button onClick={function(){setThread(l);}} style={{border:"none",borderRadius:7,padding:"5px 11px",fontSize:10.5,fontWeight:700,cursor:"pointer",background:"#25D366",color:"#fff"}}>💬 Ver conversa</button>
 </div>
 </div>;})}
-</React.Fragment>}
+</Fragment>}
 {thread&&<div onClick={function(){setThread(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:900,display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
 <div onClick={function(e){e.stopPropagation();}} style={{background:"var(--card)",borderRadius:16,padding:16,maxWidth:480,width:"100%",maxHeight:"78vh",overflowY:"auto"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
