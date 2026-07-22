@@ -43,6 +43,8 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
 ,async loadVers(){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at,vers:data->_vers",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
 ,async loadKeys(keys){if(!SUPA_URL||!keys||!keys.length)return null;try{var sel="updated_at,"+keys.map(function(k){return k+":data->"+k;}).join(",");const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select="+encodeURIComponent(sel),{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
 ,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
+// V232: le o registro de envios do SERVIDOR (wa_sent_srv) - fonte da verdade dos follow-ups de orcamento
+,async loadWaSentSrv(){if(!SUPA_URL)return {};try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.wa_sent_srv&select=data",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();if(Array.isArray(rows)&&rows[0]&&rows[0].data&&typeof rows[0].data==="object")return rows[0].data;return {};}catch(e){return {};}}
 // V196: versao economica do carregamento de conversas. Na 1a chamada baixa tudo (como antes);
 // nas seguintes baixa apenas mensagens novas + a "cauda" (ultimos 60 ids) para capturar
 // mudancas de status (enviado -> entregue -> lido). Corta ~95% do egress do polling.
@@ -5958,7 +5960,114 @@ return out;
 }
 function pagMesLabel(mo){if(!mo)return "";var MM=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];var mi=Number(String(mo).slice(5,7))-1;return (MM[mi]||"?")+"/"+String(mo).slice(0,4);}
 
-function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha,setRecs=function(){}}){
+// ===== V232: RESPOSTAS DE ORCAMENTO (somente Administrador - nivel 3) =====
+// Cruza os follow-ups de orcamento enviados (chaves ot_/o_/op_ do waSent local
+// + registro wa_sent_srv do SERVIDOR, fonte da verdade) com as mensagens
+// recebidas em wa_messages. Classificacao manual salva em orcResp (blob,
+// merge por ts via mergeTicks). A aba nao renderiza para niveis 1 e 2.
+function RespOrcTab({treats,budgets,pats,dents,appts,waSent,orcResp,setOrcResp,user,abrirFicha}){
+const [srvSent,setSrvSent]=useState(null);
+const [msgsR,setMsgsR]=useState([]);
+const [carregando,setCarregando]=useState(true);
+const [filtroR,setFiltroR]=useState("all");
+const [mesR,setMesR]=useState("all");
+const [thread,setThread]=useState(null);
+useEffect(function(){var ativo=true;
+Promise.all([supabase.loadWaSentSrv(),supabase.loadWaMessagesLite()]).then(function(res){
+if(!ativo)return;setSrvSent(res[0]||{});setMsgsR(Array.isArray(res[1])?res[1]:[]);setCarregando(false);
+}).catch(function(){if(ativo){setSrvSent({});setCarregando(false);}});
+return function(){ativo=false;};},[]);
+var sdig=function(s){return String(s||"").replace(/\D/g,"");};
+var mergedSent=Object.assign({},waSent||{},srvSent||{});
+var CLS=[["interessado","💚 Interessado",G.success],["caro","💰 Achou caro",G.orange],["pensar","🤔 Vai pensar",G.blue],["desistiu","❌ Desistiu",G.red]];
+var seenWR={},inMsgs=[];
+(msgsR||[]).forEach(function(m){var w=m.wamid;if(w&&seenWR[w])return;if(w)seenWR[w]=1;if(m.direction==="in")inMsgs.push(m);});
+var linhas=[];
+Object.keys(mergedSent).forEach(function(k){
+var tipo=null,idS=null;
+if(k.slice(0,3)==="ot_"){tipo="treat";idS=k.slice(3);}
+else if(k.slice(0,3)==="op_"){tipo="budget";idS=k.slice(3);}
+else if(k.slice(0,2)==="o_"){tipo="budget";idS=k.slice(2);}
+else return;
+var envio=String(mergedSent[k]||"").slice(0,10);
+if(!/^\d{4}-\d{2}-\d{2}$/.test(envio))return;
+var pid=null,valor=0,denId=null;
+if(tipo==="treat"){var trX=(treats||[]).find(function(t){return String(t.id)===idS;});if(!trX)return;pid=trX.patientId;denId=trX.dentistId;valor=(trX.items||[]).reduce(function(s,i){return s+(Number(i.value)||0);},0);}
+else{var bX=(budgets||[]).find(function(x){return String(x.id)===idS;});if(!bX)return;pid=bX.patientId;denId=bX.dentistId;valor=(bX.items||[]).reduce(function(s,i){return s+(Number(i.v)||0);},0)-(Number(bX.disc)||0);}
+var pX=(pats||[]).find(function(x){return x.id===pid;});if(!pX)return;
+var pl8=sdig(pX.phone).slice(-8);
+var resp=null;
+if(pl8.length>=8){
+for(var i2=0;i2<inMsgs.length;i2++){var m2=inMsgs[i2];
+if(sdig(m2.phone).slice(-8)!==pl8)continue;
+var ts2=m2.ts||m2.created_at||"";if(String(ts2).slice(0,10)<envio)continue;
+var tx2=(m2.body||"").trim();if(tx2==="1"||tx2==="2")continue;
+if(!resp||String(ts2)<String(resp.ts||""))resp={body:tx2,ts:ts2};
+}}
+var marcou=(appts||[]).some(function(a){return a&&!a.blocked&&a.patientId===pid&&a.date>=envio;});
+var denX=(dents||[]).find(function(x){return x.id===Number(denId);});
+linhas.push({k:k,pat:pX,valor:valor,den:denX?denX.name:"",envio:envio,resp:resp,marcou:marcou,fone:sdig(pX.phone)});
+});
+linhas.sort(function(a,b){return b.envio.localeCompare(a.envio);});
+var mesesO={};linhas.forEach(function(l){mesesO[l.envio.slice(0,7)]=1;});
+var mesesArr=Object.keys(mesesO).sort().reverse();
+var lf=linhas.filter(function(l){
+if(mesR!=="all"&&l.envio.slice(0,7)!==mesR)return false;
+if(filtroR==="resp")return !!l.resp;
+if(filtroR==="nao")return !l.resp;
+return true;});
+var totR=linhas.length,nResp=linhas.filter(function(l){return !!l.resp;}).length,nMarc=linhas.filter(function(l){return l.marcou;}).length;
+var fmtTs=function(ts){try{var d=new Date(ts);return fmt(String(ts).slice(0,10))+" às "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}catch(e){return "";}};
+var classificar=function(key,cl){setOrcResp(function(prev){var n=Object.assign({},prev||{});var atual=n[key];if(atual&&atual.cl===cl){delete n[key];}else{n[key]={cl:cl,ts:Date.now(),by:(user&&user.name)||""};}return n;});};
+var threadMsgs=thread?(function(){var out=[];var seen2={};(msgsR||[]).forEach(function(m){var w=m.wamid;if(w&&seen2[w])return;if(w)seen2[w]=1;if(sdig(m.phone).slice(-8)===thread.fone.slice(-8))out.push(m);});out.sort(function(a,b){return (a.id||0)-(b.id||0);});return out;})():[];
+return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{background:"var(--purple-soft)",border:"1.5px solid #7B1FA2",borderRadius:10,padding:"8px 12px",fontSize:11.5,color:"#5a3570",fontWeight:600}}>🔒 Aba exclusiva do Administrador. Mostra o que cada paciente respondeu ao follow-up automático de orçamento.</div>
+{carregando&&<div style={{textAlign:"center",color:G.muted,fontSize:13,padding:20}}>Carregando envios e respostas…</div>}
+{!carregando&&<React.Fragment>
+<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+{[["Follow-ups",totR,G.primary],["Responderam",nResp,G.success],["Sem resposta",totR-nResp,G.red],["Marcaram depois",nMarc,G.blue]].map(function(c){return <div key={c[0]} style={{flex:1,minWidth:110,background:G.bg,borderRadius:12,padding:"10px 12px",textAlign:"center"}}><div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:c[2]}}>{c[1]}</div></div>;})}
+</div>
+<div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
+{[["all","Todos"],["resp","✅ Responderam"],["nao","🔕 Sem resposta"]].map(function(f){return <button key={f[0]} onClick={function(){setFiltroR(f[0]);}} style={{border:"2px solid "+(filtroR===f[0]?G.primary:G.border),background:filtroR===f[0]?G.primary:"var(--card)",color:filtroR===f[0]?"#fff":G.muted,borderRadius:8,padding:"6px 12px",fontSize:11.5,fontWeight:700,cursor:"pointer"}}>{f[1]}</button>;})}
+<select value={mesR} onChange={function(e){setMesR(e.target.value);}} style={{marginLeft:"auto",border:"2px solid "+G.border,borderRadius:8,padding:"6px 10px",fontSize:12,fontWeight:700,background:"var(--card)",color:G.text}}><option value="all">Todos os meses</option>{mesesArr.map(function(m){return <option key={m} value={m}>{m.slice(5,7)+"/"+m.slice(0,4)}</option>;})}</select>
+</div>
+{lf.length===0&&<div style={{textAlign:"center",color:G.muted,fontSize:13,padding:16}}>Nenhum follow-up de orçamento encontrado neste filtro.</div>}
+{lf.map(function(l){var cls=(orcResp||{})[l.k];
+return <div key={l.k} style={{background:G.bg,borderRadius:12,padding:"11px 13px",opacity:l.resp?1:.82}}>
+<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+<span onClick={function(){abrirFicha&&abrirFicha(l.pat.id);}} style={{fontWeight:800,fontSize:13.5,color:G.primary,cursor:"pointer",textDecoration:"underline"}}>{l.pat.name}</span>
+{l.resp?<span style={{fontSize:10,fontWeight:800,borderRadius:20,padding:"3px 10px",background:"#dcebe0",color:G.success}}>✅ Respondeu</span>:<span style={{fontSize:10,fontWeight:800,borderRadius:20,padding:"3px 10px",background:"#f2dcd9",color:G.red}}>🔕 Sem resposta</span>}
+{l.marcou&&<span style={{fontSize:10,fontWeight:800,borderRadius:20,padding:"3px 10px",background:"#dbe6ee",color:G.blue}}>📅 Marcou depois</span>}
+</div>
+<div style={{fontSize:11,color:G.muted,marginTop:3}}>{(l.valor?cur(l.valor)+" · ":"")+(l.den?l.den+" · ":"")+"follow-up enviado em "+fmt(l.envio)}</div>
+{l.resp&&<div style={{marginTop:7,background:"var(--card)",borderLeft:"3px solid "+G.success,borderRadius:"0 8px 8px 0",padding:"7px 11px",fontSize:12.5}}>
+"{l.resp.body.length>220?l.resp.body.slice(0,220)+"…":l.resp.body}"
+<div style={{fontSize:10,color:G.muted,marginTop:3}}>Respondeu em {fmtTs(l.resp.ts)}</div>
+</div>}
+<div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
+<span style={{fontSize:10,fontWeight:700,color:G.muted}}>Classificar:</span>
+{CLS.map(function(c){var on=cls&&cls.cl===c[0];return <button key={c[0]} onClick={function(){classificar(l.k,c[0]);}} style={{border:"1.5px solid "+(on?c[2]:G.border),background:on?c[2]:"var(--card)",color:on?"#fff":G.muted,borderRadius:20,padding:"4px 11px",fontSize:10.5,fontWeight:700,cursor:"pointer"}}>{c[1]}</button>;})}
+</div>
+<div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+<button onClick={function(){setThread(l);}} style={{border:"none",borderRadius:7,padding:"5px 11px",fontSize:10.5,fontWeight:700,cursor:"pointer",background:"#25D366",color:"#fff"}}>💬 Ver conversa</button>
+</div>
+</div>;})}
+</React.Fragment>}
+{thread&&<div onClick={function(){setThread(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:900,display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
+<div onClick={function(e){e.stopPropagation();}} style={{background:"var(--card)",borderRadius:16,padding:16,maxWidth:480,width:"100%",maxHeight:"78vh",overflowY:"auto"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+<div style={{fontWeight:800,fontSize:14}}>{thread.pat.name}</div>
+<button onClick={function(){setThread(null);}} style={{border:"none",background:G.bg,borderRadius:8,padding:"4px 10px",fontWeight:800,cursor:"pointer",color:G.muted}}>✕</button>
+</div>
+{threadMsgs.length===0&&<div style={{color:G.muted,fontSize:12}}>Nenhuma mensagem encontrada (histórico limitado às últimas 1000).</div>}
+{threadMsgs.map(function(m,mi){var outM=m.direction==="out";return <div key={m.id||mi} style={{display:"flex",justifyContent:outM?"flex-end":"flex-start",marginBottom:6}}>
+<div style={{maxWidth:"82%",background:outM?G.primary:G.bg,color:outM?"#fff":G.text,borderRadius:outM?"12px 12px 3px 12px":"12px 12px 12px 3px",padding:"7px 11px",fontSize:12.2,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{m.body||""}<div style={{fontSize:9,opacity:.7,marginTop:2,textAlign:"right"}}>{fmtTs(m.ts||m.created_at)}</div></div>
+</div>;})}
+</div>
+</div>}
+</div>;
+}
+function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha,setRecs=function(){},waSent={},orcResp={},setOrcResp=function(){}}){
 const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [orcFilter,setOrcFilter]=useState(null);const [openOrto,setOpenOrto]=useState({});const [openDent,setOpenDent]=useState({});const [openProt,setOpenProt]=useState({});
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
@@ -6038,6 +6147,7 @@ const clinicaG=gastoMes(gastos&&gastos.clinica);
 const pessoalG=gastoMes(gastos&&gastos.pessoal);
 
 const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["buscar","🔎 Buscar"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
+const TABS_R=(user&&user.level>=3)?TABS.concat([["respOrc","💬 Respostas Orç."]]):TABS; // V232: aba exclusiva do admin
 if(user.level>=3)TABS.push(["gastos","💸 Gastos"]);
 if(user.level>=3)TABS.push(["nf","🧾 Notas"]);
 
@@ -6048,7 +6158,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <Inp val={mo} set={setMo} type="month" style={{width:165}}/>
 </div>
 <div style={{display:"flex",gap:0,borderBottom:`2px solid ${G.border}`,overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
-{TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 15px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2,flexShrink:0,whiteSpace:"nowrap"}}>{l}</button>)}
+{TABS_R.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 15px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:`3px solid ${tab===k?G.primary:"transparent"}`,marginBottom:-2,flexShrink:0,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
 {tab==="dent"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
 {dr.map(({d,rs,raw,liq,com,cf,donedItems,doneLiq,doneCom,ortoRs,clinRs,ortoRaw,ortoCom,clinRaw,clinCom,clinDeferred,isORec})=>{const aberto=!!openDent[d.id];return <div key={d.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${d.color}`}}>
@@ -6331,6 +6441,7 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
 {/* ── WHATSAPP ── */}
 {tab==="buscar"&&<BuscaOrcTab treats={treats} pats={pats} dents={dents} abrirFicha={abrirFicha}/>}
 {tab==="msg"&&<MsgTab pats={pats} selMsg={selMsg} setSelMsg={setSelMsg} selPatsMsg={selPatsMsg} setSelPatsMsg={setSelPatsMsg} allSelMsg={allSelMsg} setAllSelMsg={setAllSelMsg} waTemplates={waTemplates} setWaTemplates={setWaTemplates} user={user}/>}
+{tab==="respOrc"&&user.level>=3&&<RespOrcTab treats={treats} budgets={budgets} pats={pats} dents={dents} appts={appts} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp} user={user} abrirFicha={abrirFicha}/>}
 {tab==="nf"&&user.level>=3&&<NFTab pats={pats} dents={dents} mo={mo} abrirFicha={abrirFicha}/>}
 
   </div>;
@@ -9945,6 +10056,7 @@ const [semTicks,setSemTicks]=useState({});
 const [anivTicks,setAnivTicks]=useState({});
 const [pacsTicks,setPacsTicks]=useState({});const [auditDismiss,setAuditDismiss]=useState({});
 const [waAuto,setWaAuto]=useState({});const [waSent,setWaSent]=useState({});const [waAutoLog,setWaAutoLog]=useState([]);
+const [orcResp,setOrcResp]=useState({}); // V232: classificacao manual das respostas de orcamento (admin)
 const [recs,setRecs]=useState(RECS0);const [treats,setTreats]=useState(TREATS0);
 const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
 const [budgets,setBudgets]=useState(BUDGETS0);
@@ -10189,6 +10301,7 @@ if(data.orientacoes){setOrientacoes(data.orientacoes);orientDirtyRef.current=fal
 if(data.pacsTicks)setPacsTicks(data.pacsTicks);if(data.auditDismiss)setAuditDismiss(data.auditDismiss);
 if(data.waAuto)setWaAuto(data.waAuto);
 if(data.waSent)setWaSent(data.waSent);
+if(data.orcResp)setOrcResp(data.orcResp); // V232
 if(data.waAutoLog)setWaAutoLog(data.waAutoLog);
 if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
@@ -10526,6 +10639,7 @@ useEffect(function(){
           if(sd.pontoCfg)setPontoCfg(function(prev){var n=_newerCfg(prev,sd.pontoCfg);return n===prev?prev:n;}); // V190
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
+          if(sd.orcResp)setOrcResp(function(prev){return mergeTicks(prev,sd.orcResp);}); // V232
           if(sd.orientacoes&&!orientDirtyRef.current)setOrientacoes(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.orientacoes)?prev:sd.orientacoes;});
           if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
           lastServerTs.current=fresh.updated_at;
@@ -10535,7 +10649,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp};
     if(!patTableOk.current)payload.pats=pats;
     try{ // V199: carimbo de versao so nas chaves cujo conteudo mudou
       if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
@@ -10609,7 +10723,7 @@ useEffect(function(){
   };
   runSaveRef.current=runSave; // V210
   saveTimer.current=setTimeout(runSave,800);
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp]);
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -10709,6 +10823,7 @@ useEffect(function(){
       if(sd.gastos){var _dgp={};(delGastosRef.current||[]).forEach(function(k){_dgp[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgp);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
       if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
       if(sd.waSent)setWaSent(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waSent)?prev:sd.waSent;});
+      if(sd.orcResp)setOrcResp(function(prev){var m=mergeTicks(prev,sd.orcResp);return JSON.stringify(prev)===JSON.stringify(m)?prev:m;}); // V232
       if(sd.waAutoLog)setWaAutoLog(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAutoLog)?prev:sd.waAutoLog;});
       if(sd.users&&sd.users.length)setUsers(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.users)?prev:sd.users;});
       if(sd.dents&&sd.dents.length)setDents(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.dents)?prev:sd.dents;});
@@ -11095,7 +11210,7 @@ return <>
       {view==="conversas"&&<Conversas pats={pats} user={user} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
       {view==="satisf"&&<Satisfacao pats={pats} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} treats={treats} user={user}/>}
-      {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
+      {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
       {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user}/>}
