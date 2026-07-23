@@ -6517,7 +6517,7 @@ function ImportNFe({stock,setStock,addLog,onClose}){
     setStock(function(prev){
       var next=prev.map(function(s){return Object.assign({},s);});
       nf.itens.forEach(function(it,i){
-        var mov={t:"in",q:it.q,date:nf.date,note:"NF-e nº "+nf.num+" - "+nf.forn};
+        var mov={t:"in",q:it.q,date:nf.date,note:"NF-e nº "+nf.num+" - "+nf.forn,p:Number(it.vu)||0};// V236 grava preco
         var alvo=sel[i];
         if(alvo==="novo"){
           next.push({id:nid(),name:it.desc,qty:it.q,unit:it.un||"un",min:1,price:it.vu,codigo:it.cod||"",movs:[mov]});
@@ -6577,12 +6577,13 @@ function ImportNFe({stock,setStock,addLog,onClose}){
 }
 function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
+const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
 const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
 const [impNfe,setImpNfe]=useState(false); // Importação NF-e (V195)
 const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
-const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note},...(s.movs||[])]}:s));setMv(null);};
+const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note,p:Number(s.price)||0},...(s.movs||[])]}:s));setMv(null);};
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
@@ -6591,6 +6592,11 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>
 {stkTab==="implantes"&&<ImplantesConsig implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={addLog} user={user}/>}
 {stkTab==="material"&&<>
+<div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
+<button onClick={function(){setMatTab("itens");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="itens"?"var(--card)":G.bg,color:matTab==="itens"?G.primary:G.muted,boxShadow:matTab==="itens"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"Itens"}</button>
+<button onClick={function(){setMatTab("rel");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="rel"?"var(--card)":G.bg,color:matTab==="rel"?G.primary:G.muted,boxShadow:matTab==="rel"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"📊 Relatório"}</button>
+</div>
+{matTab==="itens"&&<>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Estoque</h2>
 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -6632,6 +6638,64 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <Inp lb="Motivo" val={m.note} set={v=>setM(p=>({...p,note:v}))}/>
 <SC2 save={addMov} cancel={()=>setMv(null)} lbl="Registrar"/>
 </div>}/>
+</>}
+{matTab==="rel"&&(function(){
+var movsAll=[];
+stock.forEach(function(s){(s.movs||[]).forEach(function(mm){var pu=(mm.p!=null&&mm.p!=="")?Number(mm.p):(Number(s.price)||0);movsAll.push({t:mm.t,q:Number(mm.q||0),date:mm.date||"",note:mm.note||"",itemName:s.name,unit:s.unit,pu:pu,val:pu*Number(mm.q||0),estimado:(mm.p==null||mm.p==="")});});});
+var doMes=movsAll.filter(function(mm){return String(mm.date).startsWith(relMes);});
+doMes.sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
+var gastoMes=doMes.filter(function(mm){return mm.t==="out";}).reduce(function(s2,mm){return s2+mm.val;},0);
+var entradaMes=doMes.filter(function(mm){return mm.t==="in";}).reduce(function(s2,mm){return s2+mm.val;},0);
+var temEstimado=doMes.some(function(mm){return mm.estimado;});
+var porItem={};
+doMes.forEach(function(mm){if(mm.t!=="out")return;if(!porItem[mm.itemName])porItem[mm.itemName]={q:0,v:0,unit:mm.unit};porItem[mm.itemName].q+=mm.q;porItem[mm.itemName].v+=mm.val;});
+var itensArr=Object.keys(porItem).map(function(k){return Object.assign({name:k},porItem[k]);}).sort(function(a,b){return b.v-a.v;});
+return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"Relatório de Materiais"}</h2>
+<input type="month" value={relMes} onChange={function(e){setRelMes(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"7px 10px",fontSize:13,background:G.card,color:G.text}}/>
+</div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+<div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{"Gasto no mês (saídas)"}</div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:G.red}}>{cur(gastoMes)}</div>
+</div>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+<div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{"Entradas (compras)"}</div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:G.success}}>{cur(entradaMes)}</div>
+</div>
+</div>
+{itensArr.length>0&&<div>
+<div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>{"Consumo por material"}</div>
+<div style={{display:"flex",flexDirection:"column",gap:8}}>
+{itensArr.map(function(it,i){return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<div><div style={{fontWeight:700,fontSize:13}}>{it.name}</div><div style={{fontSize:11,color:G.muted}}>{it.q+" "+(it.unit||"un")+" usadas"}</div></div>
+<div style={{fontWeight:800,color:G.red}}>{cur(it.v)}</div>
+</div>;})}
+</div>
+</div>}
+<div>
+<div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>{"Movimentações do mês"}</div>
+{doMes.length===0&&<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{"Nenhuma movimentação neste mês."}</div>}
+<div style={{display:"flex",flexDirection:"column",gap:8}}>
+{doMes.map(function(mm,i){var isIn=mm.t==="in";return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",borderLeft:"4px solid "+(isIn?G.success:G.red),boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+<div>
+<span style={{fontSize:9,fontWeight:800,borderRadius:5,padding:"1px 6px",textTransform:"uppercase",background:(isIn?G.success:G.red)+"20",color:isIn?G.success:G.red}}>{isIn?"Entrada":"Saída"}</span>
+<div style={{fontWeight:700,fontSize:13,marginTop:2}}>{mm.itemName}</div>
+<div style={{fontSize:11,color:G.muted}}>{fmt(mm.date)+(mm.note?" · "+mm.note:"")}</div>
+</div>
+<div style={{textAlign:"right"}}>
+<div style={{fontWeight:800,fontSize:14,color:isIn?G.success:G.red,whiteSpace:"nowrap"}}>{cur(mm.val)+(mm.estimado?"*":"")}</div>
+<div style={{fontSize:11,color:G.muted}}>{mm.q+" "+(mm.unit||"un")}</div>
+</div>
+</div>
+</div>;})}
+</div>
+</div>
+{temEstimado&&<div style={{background:G.gold+"18",border:"1.5px solid "+G.gold+"55",borderRadius:10,padding:"10px 12px",fontSize:11,color:G.muted,lineHeight:1.5}}>{"* Movimentações antigas não gravaram o preço na hora — o valor foi calculado com o preço atual do item. Baixas novas já gravam o preço do momento."}</div>}
+</div>;
+})()}
 </>}
 
   </div>;
@@ -8829,21 +8893,21 @@ if(!catF.desc.trim())return;
 var obj={...catF,preco:pmoney(catF.preco)};
 delete obj.qtdIni;
 var qtdAtualEdit=obj.qtdAtual;delete obj.qtdAtual;// V213 ajuste de quantidade (admin)
-if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...obj,id:x.id,_ts:Date.now()}:x;});});
+if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...obj,id:x.id}:x;});});
 if(user&&user.level>=3&&qtdAtualEdit!==undefined&&qtdAtualEdit!==null&&String(qtdAtualEdit).trim()!==""){
 var atualQ=stockMap[editCat.id]||0;var novaQ=Number(qtdAtualEdit);
 if(!isNaN(novaQ)&&novaQ>=0&&novaQ!==atualQ){
 var diffQ=novaQ-atualQ;
-setImplMov(function(prev){return[...prev,{id:nid(),_ts:Date.now(),tipo:diffQ>0?"entrada":"saida",itemId:editCat.id,qty:Math.abs(diffQ),patId:null,dentId:null,obs:"Ajuste manual (admin)",date:t,itemName:obj.desc,patName:"Ajuste manual",dente:"-",ajuste:true}];});
+setImplMov(function(prev){return[...prev,{id:nid(),tipo:diffQ>0?"entrada":"saida",itemId:editCat.id,qty:Math.abs(diffQ),patId:null,dentId:null,obs:"Ajuste manual (admin)",date:t,itemName:obj.desc,patName:"Ajuste manual",dente:"-",ajuste:true}];});
 if(addLog)addLog("estoque","Ajuste manual: "+obj.desc+" de "+atualQ+" para "+novaQ+" un","");
 }
 }
 }
 else{
 var newId=nid();
-setImplCat(function(prev){return[...prev,{...obj,id:newId,_ts:Date.now()}];});
+setImplCat(function(prev){return[...prev,{...obj,id:newId}];});
 var qIni=Number(catF.qtdIni||0);
-if(qIni>0){setImplMov(function(prev){return[...prev,{id:nid(),_ts:Date.now(),tipo:"entrada",itemId:newId,qty:qIni,patId:null,dentId:null,obs:"Estoque inicial",date:t,itemName:obj.desc}];});}
+if(qIni>0){setImplMov(function(prev){return[...prev,{id:nid(),tipo:"entrada",itemId:newId,qty:qIni,patId:null,dentId:null,obs:"Estoque inicial",date:t,itemName:obj.desc}];});}
 }
 setShowCat(false);setEditCat(null);setCatF({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2,preco:"",qtdIni:""});
 };
@@ -8853,7 +8917,7 @@ if(movF.tipo==="saida"&&(!movF.patId||!movF.dente)){alert("Informe paciente e de
 var item=implCat.find(function(x){return x.id===Number(movF.itemId);});
 var pat=pats.find(function(x){return x.id===Number(movF.patId);});
 var dent=dents.find(function(x){return x.id===Number(movF.dentId);});
-var entry={...movF,id:nid(),_ts:Date.now(),itemId:Number(movF.itemId),qty:Number(movF.qty),patId:Number(movF.patId)||null,dentId:Number(movF.dentId)||null,itemName:item&&item.desc,patName:pat&&pat.name,dentName:dent&&dent.name};
+var entry={...movF,id:nid(),itemId:Number(movF.itemId),qty:Number(movF.qty),patId:Number(movF.patId)||null,dentId:Number(movF.dentId)||null,itemName:item&&item.desc,patName:pat&&pat.name,dentName:dent&&dent.name};
 setImplMov(function(prev){return[...prev,entry];});
 if(addLog){if(movF.tipo==="saida")addLog("estoque","Saida: "+entry.itemName+" paciente "+entry.patName+" dente "+movF.dente,entry.patName);else addLog("estoque","Entrada: "+entry.qty+"x "+(item&&item.desc)+" Titaniofix","");}
 setShowMov(false);setMovF({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
@@ -10865,8 +10929,8 @@ useEffect(function(){
       if(sd.pacsTicks)setPacsTicks(function(prev){var m=mergeTicks(prev,sd.pacsTicks);return JSON.stringify(prev)===JSON.stringify(m)?prev:m;});if(sd.auditDismiss)setAuditDismiss(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.auditDismiss)?prev:sd.auditDismiss;});
       if(sd.semTicks)setSemTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.semTicks)?prev:sd.semTicks;});
       if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
-      if(sd.implCat)addArr(sd.implCat,setImplCat,"implCat"); // FIX estoque: merge item-a-item, _ts mais novo vence (nao sobrescreve edicao local)
-      if(sd.implMov)addArr(sd.implMov,setImplMov,"implMov"); // FIX estoque: idem
+      if(sd.implCat)setImplCat(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implCat)?prev:sd.implCat;});
+      if(sd.implMov)setImplMov(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implMov)?prev:sd.implMov;});
       if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSetP);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, _ts mais novo vence
       lastServerTs.current=fresh.updated_at;
       if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
