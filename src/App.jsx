@@ -8829,21 +8829,21 @@ if(!catF.desc.trim())return;
 var obj={...catF,preco:pmoney(catF.preco)};
 delete obj.qtdIni;
 var qtdAtualEdit=obj.qtdAtual;delete obj.qtdAtual;// V213 ajuste de quantidade (admin)
-if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...obj,id:x.id}:x;});});
+if(editCat){setImplCat(function(prev){return prev.map(function(x){return x.id===editCat.id?{...obj,id:x.id,_ts:Date.now()}:x;});});
 if(user&&user.level>=3&&qtdAtualEdit!==undefined&&qtdAtualEdit!==null&&String(qtdAtualEdit).trim()!==""){
 var atualQ=stockMap[editCat.id]||0;var novaQ=Number(qtdAtualEdit);
 if(!isNaN(novaQ)&&novaQ>=0&&novaQ!==atualQ){
 var diffQ=novaQ-atualQ;
-setImplMov(function(prev){return[...prev,{id:nid(),tipo:diffQ>0?"entrada":"saida",itemId:editCat.id,qty:Math.abs(diffQ),patId:null,dentId:null,obs:"Ajuste manual (admin)",date:t,itemName:obj.desc,patName:"Ajuste manual",dente:"-",ajuste:true}];});
+setImplMov(function(prev){return[...prev,{id:nid(),_ts:Date.now(),tipo:diffQ>0?"entrada":"saida",itemId:editCat.id,qty:Math.abs(diffQ),patId:null,dentId:null,obs:"Ajuste manual (admin)",date:t,itemName:obj.desc,patName:"Ajuste manual",dente:"-",ajuste:true}];});
 if(addLog)addLog("estoque","Ajuste manual: "+obj.desc+" de "+atualQ+" para "+novaQ+" un","");
 }
 }
 }
 else{
 var newId=nid();
-setImplCat(function(prev){return[...prev,{...obj,id:newId}];});
+setImplCat(function(prev){return[...prev,{...obj,id:newId,_ts:Date.now()}];});
 var qIni=Number(catF.qtdIni||0);
-if(qIni>0){setImplMov(function(prev){return[...prev,{id:nid(),tipo:"entrada",itemId:newId,qty:qIni,patId:null,dentId:null,obs:"Estoque inicial",date:t,itemName:obj.desc}];});}
+if(qIni>0){setImplMov(function(prev){return[...prev,{id:nid(),_ts:Date.now(),tipo:"entrada",itemId:newId,qty:qIni,patId:null,dentId:null,obs:"Estoque inicial",date:t,itemName:obj.desc}];});}
 }
 setShowCat(false);setEditCat(null);setCatF({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2,preco:"",qtdIni:""});
 };
@@ -8853,7 +8853,7 @@ if(movF.tipo==="saida"&&(!movF.patId||!movF.dente)){alert("Informe paciente e de
 var item=implCat.find(function(x){return x.id===Number(movF.itemId);});
 var pat=pats.find(function(x){return x.id===Number(movF.patId);});
 var dent=dents.find(function(x){return x.id===Number(movF.dentId);});
-var entry={...movF,id:nid(),itemId:Number(movF.itemId),qty:Number(movF.qty),patId:Number(movF.patId)||null,dentId:Number(movF.dentId)||null,itemName:item&&item.desc,patName:pat&&pat.name,dentName:dent&&dent.name};
+var entry={...movF,id:nid(),_ts:Date.now(),itemId:Number(movF.itemId),qty:Number(movF.qty),patId:Number(movF.patId)||null,dentId:Number(movF.dentId)||null,itemName:item&&item.desc,patName:pat&&pat.name,dentName:dent&&dent.name};
 setImplMov(function(prev){return[...prev,entry];});
 if(addLog){if(movF.tipo==="saida")addLog("estoque","Saida: "+entry.itemName+" paciente "+entry.patName+" dente "+movF.dente,entry.patName);else addLog("estoque","Entrada: "+entry.qty+"x "+(item&&item.desc)+" Titaniofix","");}
 setShowMov(false);setMovF({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
@@ -10865,8 +10865,8 @@ useEffect(function(){
       if(sd.pacsTicks)setPacsTicks(function(prev){var m=mergeTicks(prev,sd.pacsTicks);return JSON.stringify(prev)===JSON.stringify(m)?prev:m;});if(sd.auditDismiss)setAuditDismiss(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.auditDismiss)?prev:sd.auditDismiss;});
       if(sd.semTicks)setSemTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.semTicks)?prev:sd.semTicks;});
       if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
-      if(sd.implCat)setImplCat(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implCat)?prev:sd.implCat;});
-      if(sd.implMov)setImplMov(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.implMov)?prev:sd.implMov;});
+      if(sd.implCat)addArr(sd.implCat,setImplCat,"implCat"); // FIX estoque: merge item-a-item, _ts mais novo vence (nao sobrescreve edicao local)
+      if(sd.implMov)addArr(sd.implMov,setImplMov,"implMov"); // FIX estoque: idem
       if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSetP);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, _ts mais novo vence
       lastServerTs.current=fresh.updated_at;
       if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
