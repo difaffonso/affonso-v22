@@ -6582,7 +6582,9 @@ const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
 const [impNfe,setImpNfe]=useState(false); // Importação NF-e (V195)
-const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
+const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};
+if(edit&&Number(f.qty)!==Number(edit.qty)){obj.movs=[{t:"aj",q:Number(f.qty)-Number(edit.qty),date:today(),note:"Correção de contagem ("+Number(edit.qty)+" → "+Number(f.qty)+")"},...(obj.movs||[])];try{if(addLog)addLog("estoque","Ajuste de contagem: "+obj.name+" ("+Number(edit.qty)+" → "+Number(f.qty)+")","");}catch(e){}}// V237 ajuste automatico
+setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
 const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note,p:Number(s.price)||0},...(s.movs||[])]}:s));setMv(null);};
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
@@ -6641,7 +6643,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </>}
 {matTab==="rel"&&(function(){
 var movsAll=[];
-stock.forEach(function(s){(s.movs||[]).forEach(function(mm){var pu=(mm.p!=null&&mm.p!=="")?Number(mm.p):(Number(s.price)||0);movsAll.push({t:mm.t,q:Number(mm.q||0),date:mm.date||"",note:mm.note||"",itemName:s.name,unit:s.unit,pu:pu,val:pu*Number(mm.q||0),estimado:(mm.p==null||mm.p==="")});});});
+stock.forEach(function(s){(s.movs||[]).forEach(function(mm,ix){var pu=(mm.p!=null&&mm.p!=="")?Number(mm.p):(Number(s.price)||0);movsAll.push({t:mm.t,q:Number(mm.q||0),date:mm.date||"",note:mm.note||"",itemName:s.name,unit:s.unit,pu:pu,val:pu*Number(mm.q||0),estimado:(mm.t!=="aj")&&(mm.p==null||mm.p===""),itemId:s.id,movIdx:ix});});});// V237 id p/ exclusao
 var doMes=movsAll.filter(function(mm){return String(mm.date).startsWith(relMes);});
 doMes.sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
 var gastoMes=doMes.filter(function(mm){return mm.t==="out";}).reduce(function(s2,mm){return s2+mm.val;},0);
@@ -6678,18 +6680,19 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>{"Movimentações do mês"}</div>
 {doMes.length===0&&<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{"Nenhuma movimentação neste mês."}</div>}
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-{doMes.map(function(mm,i){var isIn=mm.t==="in";return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",borderLeft:"4px solid "+(isIn?G.success:G.red),boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+{doMes.map(function(mm,i){var isIn=mm.t==="in";var isAj=mm.t==="aj";var cor=isAj?"#9aa39c":(isIn?G.success:G.red);return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",borderLeft:"4px solid "+cor,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff",position:"relative"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
 <div>
-<span style={{fontSize:9,fontWeight:800,borderRadius:5,padding:"1px 6px",textTransform:"uppercase",background:(isIn?G.success:G.red)+"20",color:isIn?G.success:G.red}}>{isIn?"Entrada":"Saída"}</span>
+<span style={{fontSize:9,fontWeight:800,borderRadius:5,padding:"1px 6px",textTransform:"uppercase",background:cor+"25",color:isAj?"#6a736c":cor}}>{isAj?"Ajuste":(isIn?"Entrada":"Saída")}</span>
 <div style={{fontWeight:700,fontSize:13,marginTop:2}}>{mm.itemName}</div>
 <div style={{fontSize:11,color:G.muted}}>{fmt(mm.date)+(mm.note?" · "+mm.note:"")}</div>
 </div>
-<div style={{textAlign:"right"}}>
-<div style={{fontWeight:800,fontSize:14,color:isIn?G.success:G.red,whiteSpace:"nowrap"}}>{cur(mm.val)+(mm.estimado?"*":"")}</div>
-<div style={{fontSize:11,color:G.muted}}>{mm.q+" "+(mm.unit||"un")}</div>
+<div style={{textAlign:"right",paddingRight:user&&user.level>=3?34:0}}>
+<div style={{fontWeight:800,fontSize:14,color:isAj?"#6a736c":cor,whiteSpace:"nowrap"}}>{isAj?((mm.q>0?"+":"")+mm.q+" "+(mm.unit||"un")):(cur(mm.val)+(mm.estimado?"*":""))}</div>
+<div style={{fontSize:11,color:G.muted}}>{isAj?"fora dos totais":(mm.q+" "+(mm.unit||"un"))}</div>
 </div>
 </div>
+{user&&user.level>=3&&<button onClick={function(){if(!window.confirm("Apagar esta movimentação do histórico? A quantidade atual do estoque não muda."))return;setStock(function(prev){return prev.map(function(s2){return s2.id===mm.itemId?Object.assign({},s2,{movs:(s2.movs||[]).filter(function(_,ix2){return ix2!==mm.movIdx;})}):s2;});});try{if(addLog)addLog("estoque","Apagou movimentação do relatório: "+mm.itemName+" ("+(isAj?"ajuste":(isIn?"entrada":"saída"))+" "+mm.q+")","");}catch(e){}}} style={{position:"absolute",bottom:8,right:10,border:"none",background:G.bg,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:13,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px #ffffff"}}>{"🗑"}</button>}
 </div>;})}
 </div>
 </div>
