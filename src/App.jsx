@@ -6147,9 +6147,9 @@ const clinicaG=gastoMes(gastos&&gastos.clinica);
 const pessoalG=gastoMes(gastos&&gastos.pessoal);
 
 const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["buscar","🔎 Buscar"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
-const TABS_R=(user&&user.level>=3)?TABS.concat([["respOrc","💬 Respostas Orç."]]):TABS; // V232: aba exclusiva do admin
 if(user.level>=3)TABS.push(["gastos","💸 Gastos"]);
 if(user.level>=3)TABS.push(["nf","🧾 Notas"]);
+const TABS_R=(user&&user.level>=3)?TABS.concat([["respOrc","💬 Respostas Orç."]]):TABS; // V232: aba exclusiva do admin (V235: movido para depois dos push de Gastos/Notas)
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
