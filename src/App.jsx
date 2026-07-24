@@ -6973,7 +6973,7 @@ function ImportWizard({pats,setPats}){
 
 function ConfigAcesso({acessoCfg,setAcessoCfg}){
   var C=acessoCfg||{};
-  function up(patch){setAcessoCfg(function(prev){return Object.assign({},prev,patch);});}
+  function up(patch){setAcessoCfg(function(prev){return Object.assign({},prev,patch,{_ts:Date.now()});});} // V239: carimbo p/ vencer a edicao mais recente
   var restr=C.restringir!==false;
   var domOn=!!C.domOn;
   var card={background:G.card,borderRadius:14,padding:"16px 18px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",border:"1px solid "+G.border,marginBottom:16};
@@ -7050,7 +7050,7 @@ const newDent={id:nid(dents),name:uf.name,color:uf.color,specialty:"Clinico Gera
 setDents(prev=>[...prev,newDent]);
 dentId=newDent.id;
 }
-const obj={...uf,dentistId:dentId,id:eu?eu.id:nid(users),criaDentista:undefined};
+const obj={...uf,dentistId:dentId,id:eu?eu.id:nid(users),criaDentista:undefined,_ts:Date.now()}; // V239: carimbo p/ merge item-a-item
 const passMudou=!!uf.pass&&(!eu||String(uf.pass)!==String(eu.pass||"")); // V209
 if(passMudou){__syncCred(uf.login,uf.pass).then(function(r){if(r.ok)alert("✅ Senha de login de \""+String(uf.login).trim().toLowerCase()+"\" atualizada com sucesso."+(r.created?" (credencial criada)":""));else alert("⚠️ Usuário salvo, mas a senha de LOGIN não foi sincronizada: "+(r.msg||"erro desconhecido")+"\n\nAbra o usuário e salve novamente.");});} // V209
 setUsers(prev=>eu?prev.map(u=>u.id===eu.id?obj:u):[...prev,obj]);
@@ -7452,7 +7452,7 @@ return(
         <button onClick={()=>setDm(false)} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={()=>{
           if(!df.name)return alert("Informe o nome");
-          var obj=Object.assign({},df,{commission:Number(df.commission)||40,id:ed?ed.id:nid(dents)});
+          var obj=Object.assign({},df,{commission:Number(df.commission)||40,id:ed?ed.id:nid(dents),_ts:Date.now()}); // V239: carimbo p/ merge item-a-item
           setDents(prev=>ed?prev.map(d=>d.id===ed.id?obj:d):[...prev,obj]);
           setDm(false);setEd(null);setDf(bd);
         }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Salvar"}</button>
@@ -10572,6 +10572,26 @@ function _waTs(a){if(!a)return "";var c=a.confirmadoWAts||"";var x=a.canceladoWA
 // e adota o status do servidor SO quando ha confirmacao/cancelamento do WhatsApp mais recente (webhook) -> nao perde confirmacao nem reverte.
 // V190: entre duas versoes de config (pontoCfg), vence a de carimbo _ts mais novo
 function _newerCfg(a,b){if(!a)return b;if(!b)return a;return (b._ts||0)>(a._ts||0)?b:a;}
+// V239: merge item-a-item de cadastros (usuarios/dentistas). Vence o registro de carimbo _ts
+// mais novo; quem so existe de um lado e mantido. Antes o save regravava a copia velha da
+// memoria por cima e desfazia a edicao feita em outro aparelho.
+function mergeCad(localArr,serverArr,delSet,prefix){
+  localArr=localArr||[];serverArr=serverArr||[];delSet=delSet||{};
+  var morto=function(id){return prefix?!!delSet[prefix+":"+id]:false;};
+  var srvById={};serverArr.forEach(function(s){if(s&&s.id!=null)srvById[s.id]=s;});
+  var out=[],visto={};
+  localArr.forEach(function(l){
+    if(!l||l.id==null||visto[l.id]||morto(l.id))return;
+    var s=srvById[l.id];
+    out.push(s&&(s._ts||0)>(l._ts||0)?s:l);
+    visto[l.id]=true;
+  });
+  serverArr.forEach(function(s){
+    if(!s||s.id==null||visto[s.id]||morto(s.id))return;
+    out.push(s);visto[s.id]=true;
+  });
+  return out;
+}
 function mergeAppts(localArr,serverArr,delSet){
   localArr=localArr||[];serverArr=serverArr||[];delSet=delSet||{};
   var byId={};
@@ -10729,6 +10749,10 @@ useEffect(function(){
           mergeArr(impl,sd.impl,setImpl,"impl");
           mergeArr(pontos,sd.pontos,setPontos);
           mergeArr(caixa,sd.caixa,setCaixa);
+          // V239: cadastros passam a entrar no merge antes de gravar (antes o save levava a copia velha da memoria e desfazia edicao de outro aparelho)
+          if(sd.users)setUsers(function(prev){var m=mergeCad(prev,sd.users,_diSet,"users");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
+          if(sd.dents)setDents(function(prev){var m=mergeCad(prev,sd.dents,_diSet,"dents");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
+          if(sd.acessoCfg)setAcessoCfg(function(prev){var n=_newerCfg(prev,sd.acessoCfg);return n===prev?prev:n;});
           if(sd.pontoCfg)setPontoCfg(function(prev){var n=_newerCfg(prev,sd.pontoCfg);return n===prev?prev:n;}); // V190
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
@@ -10919,8 +10943,9 @@ useEffect(function(){
       if(sd.waSent)setWaSent(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waSent)?prev:sd.waSent;});
       if(sd.orcResp)setOrcResp(function(prev){var m=mergeTicks(prev,sd.orcResp);return JSON.stringify(prev)===JSON.stringify(m)?prev:m;}); // V232
       if(sd.waAutoLog)setWaAutoLog(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAutoLog)?prev:sd.waAutoLog;});
-      if(sd.users&&sd.users.length)setUsers(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.users)?prev:sd.users;});
-      if(sd.dents&&sd.dents.length)setDents(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.dents)?prev:sd.dents;});
+      if(sd.users)setUsers(function(prev){var m=mergeCad(prev,sd.users,_diSetP,"users");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V239: item-a-item, nao sobrescreve edicao local recente
+      if(sd.dents)setDents(function(prev){var m=mergeCad(prev,sd.dents,_diSetP,"dents");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V239
+      if(sd.acessoCfg)setAcessoCfg(function(prev){var n=_newerCfg(prev,sd.acessoCfg);return n===prev?prev:n;}); // V239: antes nem sincronizava
       if(sd.perms)setPerms(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.perms)?prev:sd.perms;});
       if(sd.labs)setLabs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.labs)?prev:sd.labs;});
       if(sd.procs&&sd.procs.length)setProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.procs)?prev:sd.procs;});
