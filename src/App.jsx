@@ -711,10 +711,10 @@ style={{display:"inline-flex",alignItems:"center",gap:3,background:c.cor,color:"
 </Fragment>
 );
 }
-function FaltaTarja({pid,appts,treats}){
-var idx=useMemo(function(){return faltaIdx(appts);},[appts]);
+function FaltaTarja({pid,appts,treats,idx}){
+var _own=useMemo(function(){return idx?null:faltaIdx(appts);},[appts,idx]);
 var [det,setDet]=useState(false);
-var s=faltaStats(pid,idx,treats);
+var s=faltaStats(pid,idx||_own,treats);
 if(!s)return null;
 var c=FALTA_C[s.nivel];
 var tit=s.nivel===0
@@ -8891,9 +8891,9 @@ var isMot=selMot===a.id;
 return(
 <div key={a.id} style={{background:G.card,borderRadius:14,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.06)",borderLeft:"4px solid "+(a.retorno&&a.retorno.date&&a.retorno.date<=t?"#1f5d8a":a.status==="missed"?G.red:"#FF9800")}}>
 <div onClick={function(){abrirFicha&&abrirFicha(p);}} title="Abrir ficha clínica" style={{fontWeight:700,fontSize:14,color:G.primary,cursor:"pointer",textDecoration:"underline",display:"inline-block"}}>{p.name}</div>
-<FaltaSelo pid={p.id} idx={_fidx} treats={treats} clicavel/>
 <div style={{fontSize:12,color:G.muted,marginTop:2}}>{a.procedure+" · "+d.name}</div>
 <div style={{fontSize:11,fontWeight:600,color:a.status==="missed"?G.red:"#FF9800",marginBottom:10}}>{(a.status==="missed"?"🚫 Faltou":a.status==="rescheduled"?"🔄 Desmarcou":"❌ Cancelou")+" em "+fmt(a.date)}</div>
+<div style={{marginTop:-4,marginBottom:10}}><FaltaTarja pid={p.id} idx={_fidx} treats={treats}/></div>
 {a.retorno&&a.retorno.date&&a.retorno.date<=t&&<div style={{background:"#1f5d8a15",border:"1px solid #1f5d8a40",borderRadius:9,padding:"6px 10px",fontSize:11.5,fontWeight:700,color:"#1f5d8a",marginBottom:10}}>{"🔔 Retorno agendado pra "+(a.retorno.date===t?"HOJE":fmt(a.retorno.date))+(a.retorno.motivo?" · \""+a.retorno.motivo+"\"":"")}</div>}
 {!isMot&&selRet!==a.id&&<div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
 {p.phone&&<button onClick={function(){doWA(p.phone,"Olá, "+p.name+"! Notamos que sua consulta de "+fmt(a.date)+" não foi realizada. Gostaria de remarcar? Responda SIM! Affonso Odontologia.");}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"📱 WA"}</button>}
