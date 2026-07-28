@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 
 const SUPA_URL="https://ncfsepyzrqaljswjiuiv.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jZnNlcHl6cnFhbGpzd2ppdWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTg1NzYsImV4cCI6MjA5NDA5NDU3Nn0.j_7sctB2bP0zljxPbh3Q4I_MzEksgL8PO5QNdzbaJDM";
@@ -558,7 +558,190 @@ return out;
 // ══════════════════════════════════════════════════════════
 // PATIENT FOLDER - full modal with tabs like the photo
 // ══════════════════════════════════════════════════════════
-function PatSearch({lb,val,set,pats,optional}){
+// ── V240: Selo de faltador ────────────────────────────────
+// Calculado 100% em tempo real a partir de appts + treats.
+// NADA e persistido -> fica fora do mergeArr e do poll de 15s (zero risco de sync).
+const FALTA_C={
+2:{cor:"var(--red)",soft:"var(--red-soft)",ic:"\ud83d\udeab"},
+1:{cor:"var(--orange)",soft:"var(--amber-soft)",ic:"\u26a0\ufe0f"},
+0:{cor:"var(--green)",soft:"var(--accent)",ic:"\ud83d\udfe2"}
+};
+function faltaIdx(appts){
+var m={};
+(appts||[]).forEach(function(a){
+if(!a||!a.patientId||a.blocked)return;
+(m[a.patientId]=m[a.patientId]||[]).push(a);
+});
+return m;
+}
+function faltaStats(pid,idx,treats){
+pid=Number(pid);
+if(!pid||!idx)return null;
+var lst=idx[pid];
+if(!lst||!lst.length)return null;
+var t=today();
+var hist=lst.filter(function(a){
+if(a.date>t)return false;
+return a.status==="done"||a.status==="missed"||a.status==="cancelled"||a.status==="rescheduled"||(a.status==="confirmed"&&a.date<t);
+}).sort(function(a,b){return (a.date+(a.time||"")).localeCompare(b.date+(b.time||""));});
+if(!hist.length)return null;
+// C=compareceu  F=faltou  D=desmarcou no dia  A=desmarcou avisando antes
+var ev=hist.map(function(a){
+var k="C";
+if(a.status==="missed")k="F";
+else if(a.status==="cancelled"||a.status==="rescheduled"){
+var ds="";
+if(a.statusTs){var x=new Date(a.statusTs);if(!isNaN(x))ds=_ld(x);}
+k=(ds&&ds===a.date)?"D":"A"; // sem statusTs (pre-V222) => trata como avisado
+}
+return {a:a,k:k,w:0};
+});
+// peso: F=1,0 ; D=0,5 na 1a de cada sequencia e 1,0 nas seguintes
+var runD=0;
+ev.forEach(function(e){
+if(e.k==="D"){runD++;e.w=(runD===1)?0.5:1;}
+else{if(e.k!=="A")runD=0;e.w=(e.k==="F")?1:0;}
+});
+// escopo da TAXA: plano de tratamento ativo (mesma regra da ficha)
+var act=(treats||[]).filter(function(tt){
+return Number(tt.patientId)===pid&&(tt.items||[]).some(function(it){return !(it.done||it.paid);});
+}).sort(function(a,b){return (b.start||"").localeCompare(a.start||"");})[0];
+var since=act?act.start:null;
+var sc=since?ev.filter(function(e){return e.a.date>=since;}):ev;
+var compareceu=0,faltas=0,noDia=0,perda=0;
+sc.forEach(function(e){
+if(e.k==="C")compareceu++;
+else if(e.k==="F")faltas++;
+else if(e.k==="D")noDia++;
+perda+=e.w||0;
+});
+var base=compareceu+faltas+noDia;
+var taxa=base>0?(perda/base):0;
+// SEQUENCIAS: sempre sobre o historico completo (nao zeram a cada plano novo)
+var seqF=0,recup=0,i;
+// recuperacao: comparecimentos seguidos no fim (F ou D quebram, A e transparente)
+for(i=ev.length-1;i>=0;i--){
+if(ev[i].k==="C")recup++;
+else if(ev[i].k==="F"||ev[i].k==="D")break;
+}
+// seqF = ultimo EPISODIO de faltas seguidas: pula os comparecimentos do fim.
+// Sem isso, voltar a comparecer ja derrubaria o nivel bruto e a escada de
+// recuperacao descontaria o mesmo comportamento duas vezes.
+var p=ev.length-1;
+while(p>=0&&(ev[p].k==="C"||ev[p].k==="A"))p--;
+for(i=p;i>=0;i--){
+if(ev[i].k==="F")seqF++;
+else if(ev[i].k==="C")break;
+}
+var everC=ev.some(function(e){return e.k==="C";});
+var lvTaxa=0;
+if(taxa>=0.40&&perda>=2)lvTaxa=2;
+else if((taxa>=0.20&&perda>=1.5)||perda>=3||(!everC&&faltas>=1))lvTaxa=1;
+var bruto=Math.max(lvTaxa,(seqF>=2)?2:0);
+if(!bruto)return null;
+var deg=Math.min(2,Math.floor(recup/3));
+var nivel=Math.max(0,bruto-deg);
+// o selo verde e um estado de transicao: some quando o paciente ja se
+// reestabeleceu de vez (numeros limpos + 6 comparecimentos seguidos)
+if(nivel===0&&lvTaxa===0&&recup>=6)return null;
+var ult=null;
+for(i=ev.length-1;i>=0;i--){if(ev[i].k==="F"||ev[i].k==="D"){ult=ev[i];break;}}
+return {nivel:nivel,bruto:bruto,recuperando:deg>0,
+faltas:faltas,noDia:noDia,compareceu:compareceu,base:base,perda:perda,
+taxa:Math.round(taxa*100),seqF:seqF,recup:recup,
+ultima:ult?ult.a.date:"",ultimaTipo:ult?ult.k:"",escopo:since,
+lista:ev.filter(function(e){return e.k==="F"||e.k==="D";}).slice(-14).reverse()};
+}
+function faltaTxt(s){
+var p=[];
+if(s.faltas)p.push(s.faltas+(s.faltas>1?" faltas":" falta"));
+if(s.noDia)p.push(s.noDia+(s.noDia>1?" desmarcadas":" desmarcada")+" no dia");
+return p.join(" + ")||"sem aus\u00eancias";
+}
+function FaltaDetalhe({s,close}){
+return (
+<div onClick={close} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div onClick={function(e){e.stopPropagation();}} style={{background:"var(--surface)",borderRadius:18,width:"100%",maxWidth:400,boxShadow:"0 8px 32px rgba(0,0,0,.25)",overflow:"hidden"}}>
+<div style={{background:FALTA_C[s.nivel].cor,padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
+<span style={{fontSize:20}}>{"\ud83d\udd75\ufe0f"}</span>
+<div style={{flex:1,color:"#fff"}}>
+<div style={{fontWeight:700,fontSize:14}}>{"Hist\u00f3rico de aus\u00eancias"}</div>
+<div style={{fontSize:11,opacity:.85}}>{faltaTxt(s)+" \u00b7 "+s.taxa+"% de perda"}</div>
+</div>
+<button onClick={close} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontWeight:700}}>{"X"}</button>
+</div>
+<div style={{padding:16,display:"flex",flexDirection:"column",gap:7,maxHeight:340,overflowY:"auto"}}>
+{s.lista.map(function(e,i){
+var isF=e.k==="F";
+return (
+<div key={i} style={{display:"flex",alignItems:"center",gap:9,background:"var(--card)",borderRadius:10,padding:"9px 12px",borderLeft:"3px solid "+(isF?"var(--red)":"var(--orange)")}}>
+<span style={{fontSize:15}}>{isF?"\ud83d\udeab":"\ud83d\udd04"}</span>
+<div style={{flex:1}}>
+<div style={{fontSize:13,fontWeight:700}}>{fmt(e.a.date)+(e.a.time?" \u00e0s "+e.a.time:"")}</div>
+<div style={{fontSize:11,color:G.muted}}>{(e.a.procedureCustom||e.a.procedure||"Consulta")+" \u00b7 "+(isF?"n\u00e3o compareceu":"desmarcou no dia")}</div>
+</div>
+</div>
+);
+})}
+<div style={{fontSize:11,color:G.muted,marginTop:4,lineHeight:1.5}}>
+{s.escopo
+?("Taxa calculada a partir do plano de tratamento iniciado em "+fmt(s.escopo)+". Sequ\u00eancias consideram todo o hist\u00f3rico.")
+:"Sem plano de tratamento ativo \u2014 taxa calculada sobre todo o hist\u00f3rico."}
+</div>
+</div>
+</div>
+</div>
+);
+}
+function FaltaSelo({pid,idx,treats,clicavel}){
+var [det,setDet]=useState(false);
+var s=faltaStats(pid,idx,treats);
+if(!s)return null;
+var c=FALTA_C[s.nivel];
+var lbl=s.nivel===0?"recuperado":(String(s.faltas)+(s.noDia?"+"+s.noDia:""));
+return (
+<Fragment>
+<span
+onMouseDown={clicavel?function(e){e.stopPropagation();e.preventDefault();setDet(true);}:null}
+title={faltaTxt(s)+" \u00b7 "+s.taxa+"% de perda"}
+style={{display:"inline-flex",alignItems:"center",gap:3,background:c.cor,color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:10,fontWeight:800,marginLeft:6,verticalAlign:"middle",cursor:clicavel?"pointer":"default"}}>
+{c.ic+" "+lbl}
+</span>
+{det&&<FaltaDetalhe s={s} close={function(){setDet(false);}}/>}
+</Fragment>
+);
+}
+function FaltaTarja({pid,appts,treats}){
+var idx=useMemo(function(){return faltaIdx(appts);},[appts]);
+var [det,setDet]=useState(false);
+var s=faltaStats(pid,idx,treats);
+if(!s)return null;
+var c=FALTA_C[s.nivel];
+var tit=s.nivel===0
+?("Recuperado \u2014 "+s.recup+" consultas seguidas sem falta")
+:(s.seqF>=2
+?(s.seqF+" faltas seguidas")
+:(s.recuperando?("Em recupera\u00e7\u00e3o \u2014 "+s.recup+" consultas seguidas sem falta"):faltaTxt(s)));
+return (
+<div>
+<div style={{borderRadius:11,padding:"10px 12px",marginTop:8,display:"flex",gap:10,alignItems:"flex-start",background:c.soft,border:"1.5px solid "+c.cor}}>
+<span style={{fontSize:17,lineHeight:1.1}}>{c.ic}</span>
+<div style={{flex:1}}>
+<div style={{fontSize:13,fontWeight:800,lineHeight:1.25,color:c.cor}}>{tit}</div>
+<div style={{fontSize:11.5,color:G.muted,marginTop:3,lineHeight:1.45}}>
+{faltaTxt(s)+" de "+s.base+" consultas \u00b7 "+s.taxa+"% de perda"}
+{s.ultima?<br/>:null}
+{s.ultima?("\u00faltima "+(s.ultimaTipo==="F"?"falta":"desmarca\u00e7\u00e3o no dia")+" em "+fmt(s.ultima)):""}
+</div>
+</div>
+<button onClick={function(){setDet(true);}} title="Ver datas" style={{border:"none",background:"rgba(255,255,255,.6)",borderRadius:"50%",width:27,height:27,fontSize:13,cursor:"pointer",flexShrink:0,padding:0,lineHeight:1}}>{"\ud83d\udd75\ufe0f"}</button>
+</div>
+{det&&<FaltaDetalhe s={s} close={function(){setDet(false);}}/>}
+</div>
+);
+}
+function PatSearch({lb,val,set,pats,optional,appts,treats}){
+var _fidx=useMemo(function(){return appts?faltaIdx(appts):null;},[appts]);
 var sel=pats.find(function(p){return p.id===Number(val);});
 var [q,setQ]=useState("");
 var [open,setOpen]=useState(false);
@@ -575,7 +758,7 @@ return (
 {lb&&<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{lb}</label>}
 {sel&&!open
 ?<div style={{display:"flex",alignItems:"center",gap:8,background:G.accent,borderRadius:8,padding:"8px 11px",border:"1.5px solid "+G.primary}}>
-<span style={{flex:1,fontSize:13,fontWeight:700}}>{sel.name}<span style={{fontWeight:400,color:G.muted}}>{" · "+sel.folder}</span></span>
+<span style={{flex:1,fontSize:13,fontWeight:700}}>{sel.name}<span style={{fontWeight:400,color:G.muted}}>{" · "+sel.folder}</span>{_fidx&&<FaltaSelo pid={sel.id} idx={_fidx} treats={treats} clicavel/>}</span>
 <button onClick={function(){set("");setQ("");}} style={{border:"none",background:"none",color:G.muted,cursor:"pointer",fontSize:12,fontWeight:700,lineHeight:1,padding:"2px 4px",display:"flex",alignItems:"center",gap:3}}>trocar <span style={{fontSize:16}}>{"×"}</span></button>
 </div>
 :<div>
@@ -591,7 +774,7 @@ onMouseEnter={function(e){e.currentTarget.style.background=G.accent;}}
 onMouseLeave={function(e){e.currentTarget.style.background="#fff";}}>
 <div style={{width:32,height:32,borderRadius:"50%",background:G.primary,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,flexShrink:0}}>{(p.name||"?")[0]}</div>
 <div>
-<div style={{fontWeight:700,fontSize:13}}>{p.name}</div>
+<div style={{fontWeight:700,fontSize:13}}>{p.name}{_fidx&&<FaltaSelo pid={p.id} idx={_fidx} treats={treats}/>}</div>
 <div style={{fontSize:11,color:G.muted}}>{p.folder+(p.phone?" · "+p.phone:"")}</div>
 </div>
 </div>
@@ -3508,7 +3691,8 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 <div style={{background:"var(--amber-soft)",borderRadius:8,padding:"5px 9px",fontSize:11,color:"#E65100",marginTop:4}}>⚠️ Aparecerá em vermelho na agenda - cadastro parcial</div>
 </div>
 :<div>
-<PatSearch val={f.patientId} set={upd("patientId")} pats={pats}/>
+<PatSearch val={f.patientId} set={upd("patientId")} pats={pats} appts={appts} treats={treats}/>
+{f.patientId&&!f.useManual&&<FaltaTarja pid={f.patientId} appts={appts} treats={treats}/>}
 {!f.patientId&&<div style={{fontSize:11,color:G.muted,marginTop:4}}>Não encontrou? Use <strong>"✏️ Digitar nome"</strong> acima</div>}
 </div>
 }
@@ -8647,7 +8831,8 @@ style={{background:motivo?G.primary:"var(--muted)",color:"#fff",border:"none",bo
 );
 }
 
-function RemarcarView({appts,setAppts,pats,dents,remarcar,setRemarcar,abrirFicha}){
+function RemarcarView({appts,setAppts,pats,dents,remarcar,setRemarcar,abrirFicha,treats}){
+var _fidx=useMemo(function(){return faltaIdx(appts);},[appts]);
 var t=today();
 var [selMot,setSelMot]=useState(null);
 var [outroTxt,setOutroTxt]=useState("");
@@ -8706,6 +8891,7 @@ var isMot=selMot===a.id;
 return(
 <div key={a.id} style={{background:G.card,borderRadius:14,padding:"12px 14px",boxShadow:"0 2px 8px rgba(0,0,0,.06)",borderLeft:"4px solid "+(a.retorno&&a.retorno.date&&a.retorno.date<=t?"#1f5d8a":a.status==="missed"?G.red:"#FF9800")}}>
 <div onClick={function(){abrirFicha&&abrirFicha(p);}} title="Abrir ficha clínica" style={{fontWeight:700,fontSize:14,color:G.primary,cursor:"pointer",textDecoration:"underline",display:"inline-block"}}>{p.name}</div>
+<FaltaSelo pid={p.id} idx={_fidx} treats={treats} clicavel/>
 <div style={{fontSize:12,color:G.muted,marginTop:2}}>{a.procedure+" · "+d.name}</div>
 <div style={{fontSize:11,fontWeight:600,color:a.status==="missed"?G.red:"#FF9800",marginBottom:10}}>{(a.status==="missed"?"🚫 Faltou":a.status==="rescheduled"?"🔄 Desmarcou":"❌ Cancelou")+" em "+fmt(a.date)}</div>
 {a.retorno&&a.retorno.date&&a.retorno.date<=t&&<div style={{background:"#1f5d8a15",border:"1px solid #1f5d8a40",borderRadius:9,padding:"6px 10px",fontSize:11.5,fontWeight:700,color:"#1f5d8a",marginBottom:10}}>{"🔔 Retorno agendado pra "+(a.retorno.date===t?"HOJE":fmt(a.retorno.date))+(a.retorno.motivo?" · \""+a.retorno.motivo+"\"":"")}</div>}
@@ -11325,7 +11511,7 @@ return <>
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
-      {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha}/>}
+      {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha} treats={treats}/>}
       {view==="conversas"&&<Conversas pats={pats} user={user} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
       {view==="satisf"&&<Satisfacao pats={pats} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} treats={treats} user={user}/>}
