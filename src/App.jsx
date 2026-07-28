@@ -693,12 +693,13 @@ return (
 </div>
 );
 }
-function FaltaSelo({pid,idx,treats,clicavel}){
+function FaltaSelo({pid,idx,treats,clicavel,extenso}){
 var [det,setDet]=useState(false);
 var s=faltaStats(pid,idx,treats);
 if(!s)return null;
 var c=FALTA_C[s.nivel];
-var lbl=s.nivel===0?"recuperado":(String(s.faltas)+(s.noDia?"+"+s.noDia:""));
+var _n=String(s.faltas)+(s.noDia?"+"+s.noDia:"");
+var lbl=s.nivel===0?"recuperado":(extenso?(_n+" "+(s.faltas>1?"faltas":"falta")):_n);
 return (
 <Fragment>
 <span
@@ -1604,6 +1605,7 @@ return <>
 </div>
 <button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",fontSize:18,cursor:"pointer",padding:"6px 12px",fontWeight:700}}>✕ Fechar</button>
 </div>
+<div style={{padding:"0 22px",background:"var(--surface)"}}><FaltaTarja pid={pat.id} appts={appts} treats={treats}/></div>
 {/* Tabs */}
 <div style={{display:"flex",gap:6,padding:"14px 22px 0",borderBottom:`2px solid ${G.border}`,background:"var(--surface)",flexWrap:"wrap"}}>
 {TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:tab===k?G.primary:"var(--green-soft)",color:tab===k?"#fff":G.muted,borderRadius:"8px 8px 0 0",padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",transition:"all .15s",marginBottom:-2,borderBottom:tab===k?`2px solid ${G.primary}`:"none"}}>{l}</button>)}
@@ -3780,6 +3782,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 // PACIENTES - list with folder button
 // ══════════════════════════════════════════════════════════
 function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat}){
+var _fidx=useMemo(function(){return faltaIdx(appts);},[appts]);
 const [srch,setSrch]=useState("");
 const [pPage,setPPage]=useState(0);
 const PER_PAGE=50;
@@ -3848,7 +3851,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <div style={{fontWeight:700,fontSize:13,cursor:"pointer"}} onClick={()=>setOpenFolder(p)}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {age(p.dob)} · Ficha: {p.folder||"--"}</span></div>
 <div style={{color:G.muted,fontSize:12}}>{user.level>=2?p.phone:"••••••••••"}</div>
 {p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
-{p.anamPend&&<div style={{background:G.success+"22",border:"1px solid "+G.success,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.success,marginTop:2,display:"inline-block"}}>\u2705 Anamnese nova - revisar</div>}
+<div style={{marginTop:3,marginLeft:-6}}><FaltaSelo pid={p.id} idx={_fidx} treats={treats} clicavel extenso/></div>
+{p.anamPend&&<div style={{background:G.success+"22",border:"1px solid "+G.success,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.success,marginTop:2,display:"inline-block"}}>✅ Anamnese nova - revisar</div>}
 {p.obs&&<div style={{background:G.red+"20",border:`1px solid ${G.red}`,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.red,marginTop:2,display:"inline-block"}}>⚠ {p.obs.slice(0,45)}</div>}
 {(p.allergy&&p.allergy!=="Nenhuma"&&!p.obs)&&<div style={{background:G.yellow+"20",border:`1px solid ${G.yellow}`,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.yellow,marginTop:2,display:"inline-block"}}>⚠ {p.allergy}</div>}
 </div>
