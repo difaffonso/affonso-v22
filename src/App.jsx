@@ -238,6 +238,7 @@ const WA_TEMPLATES_DEFAULT={
   reveillon:"🥂 Feliz Ano Novo! 🎉\n\nOlá, {nome}!\n\nQue este novo ano seja repleto de saúde, alegria e sorrisos bonitos! 😁\n\nCom carinho,\nDr. Diego Affonso e equipe 🦷",
   pascoa:"🐣 Feliz Páscoa! 🍫\n\nOlá, {nome}!\n\nDesejamos a você uma Páscoa cheia de paz, amor e razões para sorrir! 😊\n\nCom carinho,\nDr. Diego Affonso e equipe",
   poscirurgia:"Olá, {nome}! 😊 Como está se sentindo após o procedimento de ontem? Se tiver dúvidas entre em contato. Affonso Odontologia 🦷",
+  indicacao:"Olá, {nome}! 😊\n\nAqui é da Affonso Odontologia. Passando para agradecer a indicação do(a) {paciente} — já estamos cuidando do sorriso dele(a) por aqui.\n\nConfiar na gente a ponto de indicar alguém próximo é o maior elogio que podemos receber. Muito obrigado! 🦷\n\nDr. Diego Affonso e equipe 🤍",
 };
 const getWA=(templates,key,vars)=>{
   var tpl=(templates&&templates[key])||WA_TEMPLATES_DEFAULT[key]||"";
@@ -1286,7 +1287,7 @@ return (<div style={{display:"flex",flexDirection:"column",gap:10}}>
 </div>);
 }
 
-function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose}){
+function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose,waTemplates}){
 // Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
 const isDentUser=user&&user.level===1;
@@ -1624,7 +1625,7 @@ return <>
     {pat.obs&&<div style={{background:G.yellow+"18",border:`2px solid ${G.yellow}`,borderRadius:10,padding:"9px 14px"}}><span style={{fontWeight:700,color:G.yellow}}>⚠ ALERGIA / OBS. IMPORTANTE</span><div style={{color:G.text,marginTop:4,fontSize:14}}>{pat.obs||pat.allergy}</div></div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
       {!editMode?<>
-        {[["NOME",pat.name],["IDADE",age(pat.dob)+" ("+fmt(pat.dob)+")"],["CPF",pat.cpf||"--"],["RG",pat.rg||"--"],["TELEFONE",user.level>=2?pat.phone:"••••••••••"],["TELEFONE 2 (FIXO)",user.level>=2?(pat.phone2||"--"):"••••••••••"],["E-MAIL",user.level>=2?(pat.email||"--"):"••••••••••"],["TIPO SANGUÍNEO",pat.blood||"--"],["PLANO",pat.insurance||"--"],["Nº DA FICHA",pat.folder],["Nº DO RX",pat.rx],["REF. NF",pat.nf||"--"],["ALERGIA",pat.allergy||"Nenhuma"],["COMO NOS CONHECEU",pat.origem||"Não informado"]].map(([k,v])=><div key={k} style={{background:G.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{k}</div><div style={{fontWeight:600,fontSize:13,color:k==="ALERGIA"&&v!=="Nenhuma"?G.red:G.text}}>{v}</div></div>)}
+        {[["NOME",pat.name],["IDADE",age(pat.dob)+" ("+fmt(pat.dob)+")"],["CPF",pat.cpf||"--"],["RG",pat.rg||"--"],["TELEFONE",user.level>=2?pat.phone:"••••••••••"],["TELEFONE 2 (FIXO)",user.level>=2?(pat.phone2||"--"):"••••••••••"],["E-MAIL",user.level>=2?(pat.email||"--"):"••••••••••"],["TIPO SANGUÍNEO",pat.blood||"--"],["PLANO",pat.insurance||"--"],["Nº DA FICHA",pat.folder],["Nº DO RX",pat.rx],["REF. NF",pat.nf||"--"],["ALERGIA",pat.allergy||"Nenhuma"],["COMO NOS CONHECEU",pat.origem||"Não informado"],["INDICADO POR",pat.origem==="Indicação"?((((pats||[]).find(function(x){return x.id===pat.indicPorId;})||{}).name||pat.indicPorNome||"Não informado")):"--"]].map(([k,v])=><div key={k} style={{background:G.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{k}</div><div style={{fontWeight:600,fontSize:13,color:k==="ALERGIA"&&v!=="Nenhuma"?G.red:G.text}}>{v}</div></div>)}
       </>:<>
         <Inp lb="Nome" val={pf.name} set={v=>setPf(p=>({...p,name:v}))}/>
         <DatePick lb="Nascimento" val={pf.dob} set={v=>setPf(p=>({...p,dob:v}))}/>
@@ -1646,12 +1647,31 @@ return <>
             {["Indicação","Instagram","Já era paciente","Urgência","Passando na rua","Google","Outro"].map(o=><option key={o} value={o}>{o}</option>)}
           </select>
         </div>
+        {pf.origem==="Indicação"&&<IndicPicker pats={pats} selfId={pat.id} valId={pf.indicPorId} valNome={pf.indicPorNome} onPick={function(id,nm){setPf(function(p){return Object.assign({},p,{indicPorId:id,indicPorNome:nm});});}}/>}
       </>}
     </div>
     {editMode&&<Txt lb="⚠ Obs. Importante (destaque em toda a clínica)" val={pf.obs} set={v=>setPf(p=>({...p,obs:v}))} rows={2}/>}
     {editMode&&<Txt lb="Observações Gerais" val={pf.notes} set={v=>setPf(p=>({...p,notes:v}))} rows={2}/>}
     {!editMode&&pat.notes&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.muted,fontStyle:"italic"}}>Obs: {pat.notes}</div>}
     {pat.phone&&user.level>=2&&<Btn ch="📱 WhatsApp" v="w" sm onClick={()=>wa(pat.phone,`Olá ${pat.name}! 😊`)} style={{alignSelf:"flex-start"}}/>}
+    {!editMode&&pat.origem==="Indicação"&&pat.indicPorId&&user.level>=2&&(function(){
+      var ind=(pats||[]).find(function(x){return x.id===pat.indicPorId;});
+      if(!ind)return <div style={{fontSize:11.5,color:G.muted}}>Indicado por {pat.indicPorNome||"?"} (ficha nao encontrada)</div>;
+      if(!ind.phone)return <div style={{fontSize:11.5,color:G.muted}}>Indicado por {ind.name} \u00b7 sem telefone cadastrado para agradecer</div>;
+      var ja=pat.indicAgrad;
+      return <div style={{display:"flex",gap:9,alignItems:"center",flexWrap:"wrap"}}>
+        <Btn ch={ja?"✓ Indicação agradecida":"🤝 Agradecer indicação"} v={ja?"g":"w"} sm onClick={function(){
+          if(ja&&!window.confirm("Ja foi agradecido em "+fmt(String(ja).slice(0,10))+". Enviar de novo?"))return;
+          var txt=getWA(waTemplates,"indicacao",{nome:String(ind.name||"").split(" ")[0],paciente:pat.name});
+          wa(ind.phone,txt);
+          var st=new Date().toISOString();
+          var by=(user&&user.name)||"";
+          setPats(function(prev){return prev.map(function(p){return p.id===pat.id?Object.assign({},p,{indicAgrad:st,indicAgradBy:by}):p;});});
+          setPf(function(p){return Object.assign({},p,{indicAgrad:st,indicAgradBy:by});});
+        }}/>
+        <span style={{fontSize:11.5,color:G.muted}}>{ja?("Agradecido em "+fmt(String(ja).slice(0,10))+(pat.indicAgradBy?" \u00b7 "+String(pat.indicAgradBy).split(" ")[0]:"")):("Indicado por "+ind.name)}</span>
+      </div>;
+    })()}
   </div>}
 
   {/* ── ANAMNESE ── */}
@@ -3035,7 +3055,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates}){
 
 const [selDate,setSelDate]=useState(today());
 const [agView,setAgView]=useState("dia");
@@ -3773,7 +3793,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 </div>
 
   </div>}
-{openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs||[]} setRecs={setRecs||(()=>{})} treats={treats||[]} setTreats={setTreats||(()=>{})} budgets={budgets||[]} setBudgets={setBudgets||(()=>{})} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
+{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs||[]} setRecs={setRecs||(()=>{})} treats={treats||[]} setTreats={setTreats||(()=>{})} budgets={budgets||[]} setBudgets={setBudgets||(()=>{})} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 </div>
 );
 }
@@ -3781,14 +3801,72 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 // ══════════════════════════════════════════════════════════
 // PACIENTES - list with folder button
 // ══════════════════════════════════════════════════════════
-function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat}){
+// ══════════════════════════════════════════════════════════
+// V243 - INDICACAO: seletor de quem indicou
+// ══════════════════════════════════════════════════════════
+function IndicPicker({pats,selfId,valId,valNome,onPick}){
+const [q,setQ]=useState("");
+const LB=<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Quem indicou?</label>;
+if(valId){
+  return <div style={{display:"flex",flexDirection:"column",gap:4}}>{LB}
+    <div style={{display:"flex",alignItems:"center",gap:9,background:G.accent,borderRadius:8,padding:"9px 12px"}}>
+      <span style={{flex:1,fontSize:13.5,fontWeight:600}}>{valNome||"(sem nome)"}</span>
+      <span onClick={function(){setQ("");onPick(null,"");}} style={{cursor:"pointer",color:G.muted,fontWeight:800,fontSize:15,lineHeight:1}}>✕</span>
+    </div>
+  </div>;
+}
+const qq=q.trim().toLowerCase();
+const hits=qq.length<2?[]:(pats||[]).filter(function(p){return p.id!==selfId&&(p.name||"").toLowerCase().indexOf(qq)>=0;}).slice(0,6);
+return <div style={{display:"flex",flexDirection:"column",gap:4}}>{LB}
+  <input value={q} onChange={function(e){setQ(e.target.value);}} placeholder="Buscar paciente pelo nome..." style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none"}}/>
+  {hits.length>0&&<div style={{border:"1.5px solid "+G.border,borderRadius:8,overflow:"hidden",marginTop:2}}>
+    {hits.map(function(p,i){return <div key={p.id} onClick={function(){setQ("");onPick(p.id,p.name);}} style={{padding:"8px 12px",cursor:"pointer",borderBottom:i<hits.length-1?"1px solid "+G.border:"none"}}>
+      <div style={{fontSize:13,fontWeight:600}}>{p.name}</div>
+      <div style={{fontSize:11,color:G.muted}}>{p.phone||"sem telefone"}{p.folder?" \u00b7 Ficha "+p.folder:""}</div>
+    </div>;})}
+  </div>}
+  {qq.length>=2&&hits.length===0&&<div style={{fontSize:11.5,color:G.muted,marginTop:2}}>Nenhum paciente com esse nome. Se quem indicou nao e paciente, deixe em branco.</div>}
+</div>;
+}
+
+// V243 - ranking de quem mais indica (Relatorios)
+function RankIndic({pats}){
+const [ab,setAb]=useState(null);
+var mp={};
+(pats||[]).forEach(function(p){
+  if(p.origem!=="Indicação"||!p.indicPorId)return;
+  var k=String(p.indicPorId);
+  if(!mp[k])mp[k]={id:p.indicPorId,n:0,pacs:[]};
+  mp[k].n++;mp[k].pacs.push(p.name);
+});
+var arr=Object.keys(mp).map(function(k){return mp[k];}).sort(function(a,b){return b.n-a.n;}).slice(0,15);
+if(!arr.length)return null;
+var tot=arr.reduce(function(s,r){return s+r.n;},0);
+return <div style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+  <div style={{fontWeight:700,fontSize:14,marginBottom:10,color:G.primary}}>🤝 Quem mais indica</div>
+  {arr.map(function(r,i){
+    var ind=(pats||[]).find(function(x){return x.id===r.id;});
+    var op=ab===r.id;
+    return <div key={r.id} style={{borderBottom:i<arr.length-1?"1px solid "+G.border:"none",padding:"7px 0"}}>
+      <div onClick={function(){setAb(op?null:r.id);}} style={{display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}>
+        <span style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,width:24,textAlign:"center"}}>{i+1}</span>
+        <span style={{flex:1,fontSize:13,fontWeight:600}}>{ind?ind.name:"(paciente removido)"}</span>
+        <span style={{background:G.accent,borderRadius:8,padding:"3px 10px",fontSize:11.5,fontWeight:800,color:G.primary}}>{r.n}</span>
+      </div>
+      {op&&<div style={{paddingLeft:35,marginTop:5}}>{r.pacs.map(function(nm,j){return <div key={j} style={{fontSize:12,color:G.muted,padding:"2px 0"}}>• {nm}</div>;})}</div>}
+    </div>;})}
+  <div style={{fontSize:11,color:G.muted,marginTop:9}}>{tot} indicacao(oes) registrada(s) \u00b7 toque no nome para ver quem cada um trouxe</div>
+</div>;
+}
+
+function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat,waTemplates}){
 var _fidx=useMemo(function(){return faltaIdx(appts);},[appts]);
 const [srch,setSrch]=useState("");
 const [pPage,setPPage]=useState(0);
 const PER_PAGE=50;
 const [openFolder,setOpenFolder]=useState(null);
 const [pm,setPm]=useState(false);const [ep,setEp]=useState(null);
-const b0={name:"",dob:"",phone:"",phone2:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insurance:"",notes:"",folder:"",since:today(),rx:"",nf:"",obs:"",origem:"",genero:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}};
+const b0={name:"",dob:"",phone:"",phone2:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insurance:"",notes:"",folder:"",since:today(),rx:"",nf:"",obs:"",origem:"",indicPorId:null,indicPorNome:"",genero:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}};
 const [pf,setPf]=useState(b0);const fp=k=>v=>setPf(p=>({...p,[k]:v}));
 const bd={name:"",specialty:"Clinico Geral",commission:40,cro:"",color:UCOLS[0],dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}};
 const [dm,setDm]=useState(false);
@@ -3897,7 +3975,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <button onClick={()=>setDelModal(null)} style={{border:"1.5px solid var(--primary)",background:"transparent",color:"var(--primary)",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
 <button onClick={async ()=>{if(delModal._busy)return;setDelModal(Object.assign({},delModal,{_busy:true}));var _r=null;try{_r=delPat?await delPat(delModal.pat.id):{ok:true};}catch(e){_r={ok:false,msg:String((e&&e.message)||e)};}if(_r&&_r.ok){setPats(prev=>prev.filter(x=>x.id!==delModal.pat.id));if(addLog)addLog("paciente","Excluiu paciente: "+delModal.pat.name,delModal.pat.name);setDelModal(null);}else{alert("Não foi possível excluir no servidor"+((_r&&_r.msg)?(": "+_r.msg):".")+" Verifique a conexão e tente novamente.");setDelModal(prev=>prev?Object.assign({},prev,{_busy:false}):prev);}}} style={{background:"var(--red)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:delModal._busy?0.6:1}}>{delModal._busy?"Excluindo...":"Excluir Permanentemente"}</button>
 </div></div></div></div>}
-{openFolder&&<PatientFolder pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
+{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
 
 <Modal open={pm} close={()=>setPm(false)} title={ep?"Editar Paciente":"Novo Paciente"} wide ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
   <Inp lb="Nome completo *" val={pf.name} set={fp("name")}/>
@@ -3923,6 +4001,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
       {["Indicação","Instagram","Já era paciente","Urgência","Passando na rua","Google","Outro"].map(o=><option key={o} value={o}>{o}</option>)}
     </select>
   </div>
+  {pf.origem==="Indicação"&&<IndicPicker pats={pats} selfId={ep?ep.id:0} valId={pf.indicPorId} valNome={pf.indicPorNome} onPick={function(id,nm){setPf(function(p){return Object.assign({},p,{indicPorId:id,indicPorNome:nm});});}}/>}
   <SC2 save={savePat} cancel={()=>setPm(false)}/>
 </div>}/>
 
@@ -5592,6 +5671,7 @@ const ALL_TPLS=[
   {key:"natal",label:"🎄 Natal",desc:"Mensagem de Natal"},
   {key:"reveillon",label:"🥂 Réveillon",desc:"Feliz Ano Novo"},
   {key:"pascoa",label:"🐣 Páscoa",desc:"Mensagem de Páscoa"},
+  {key:"indicacao",label:"🤝 Agradecer Indicação",desc:"Enviado a quem indicou um novo paciente · use {nome} e {paciente}"},
 ];
 
 const DATAS=[
@@ -6470,6 +6550,7 @@ return <div key={o} style={{background:G.accent,borderRadius:9,padding:"8px 14px
 })}
 </div>
 </div>
+<RankIndic pats={pats}/>
 {/* Filtro dentista */}
 <div style={{display:"flex",flexDirection:"column",gap:4}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Filtrar dentista</label>
@@ -9790,6 +9871,9 @@ var semStatus=appts.filter(function(a){return !a.blocked&&a.date<=ont&&a.date>=d
 // V228 - 14. Fichas novas sem "como nos conheceu"
 var origemPend=pats.filter(function(p){return !p.origem&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 campo em branco",key:"origem_"+p.id};});
 
+// V243 - 16. Indicacao sem quem indicou informado
+var indicPend=pats.filter(function(p){return p.origem==="Indicação"&&!p.indicPorId&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 quem indicou em branco",key:"indic_"+p.id};});
+
 // V228 - 15. Conversas com paciente aguardando resposta ha 2h+ (mesmo criterio do V214: ultima msg e do paciente, nao e botao 1/2)
 var chatPend=[];
 (function(){
@@ -9813,6 +9897,7 @@ chatPend.sort(function(a,b){return b._h-a._h;});
 var SEC=[
 {id:"semst",ic:"\ud83d\udcdd",t:"Consultas sem status",col:G.red,view:"agenda",items:semStatus},
 {id:"origem",ic:"\ud83c\udd95",t:"Fichas sem \"como nos conheceu\"",col:G.gold,view:"pacs",items:origemPend},
+{id:"indic",ic:"\ud83e\udd1d",t:"Indicação sem quem indicou",col:G.gold,view:"pacs",items:indicPend},
 {id:"chat",ic:"\ud83d\udcac",t:"Conversas sem resposta",col:"#128C7E",view:"conversas",items:chatPend},
 {id:"conf",ic:"📲",t:"Confirmações pendentes",col:G.blue,view:"agenda",items:confPend},
 {id:"remarcar",ic:"🔄",t:"Faltas/cancelamentos sem remarcar",col:G.red,view:"remarcar",items:remarcarPend},
@@ -11510,8 +11595,8 @@ return <>
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent}/>}
-      {view==="agenda"&&<Agenda appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
-      {view==="pacs"&&<Pacientes pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
+      {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
+      {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
@@ -11561,7 +11646,7 @@ return <>
   })}
 </div>
 
-{fichaPat&&<PatientFolder pat={fichaPat} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={function(){setFichaPat(null);}}/>}
+{fichaPat&&<PatientFolder waTemplates={waTemplates} pat={fichaPat} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={function(){setFichaPat(null);}}/>}
 
 </>;
 }
