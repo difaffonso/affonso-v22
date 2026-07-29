@@ -9157,6 +9157,24 @@ var [catF,setCatF]=useState({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"
 var [movF,setMovF]=useState({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
 var [filtMes,setFiltMes]=useState(t.slice(0,7));
 var TIPOS_ITEM=["Implante","Componente","UCLA","Cicatrizador","Pilar","Coping","Outro"];
+// V244: ordenacao unica por codigo (106 implantes -> 206 componentes -> 406 pilares); sem codigo no fim
+var implKeyOrd=function(it){
+var c=String((it&&it.codigo)||"").trim();
+if(!c)return[2,0,""];
+if(/^[0-9]/.test(c))return[0,Number(c.replace(/[^0-9]/g,""))||0,c.toUpperCase()];
+return[1,0,c.toUpperCase()];
+};
+var implSortOrd=function(a,b){
+var ka=implKeyOrd(a),kb=implKeyOrd(b);
+if(ka[0]!==kb[0])return ka[0]-kb[0];
+if(ka[1]!==kb[1])return ka[1]-kb[1];
+if(ka[2]!==kb[2])return ka[2]<kb[2]?-1:1;
+return String((a&&a.desc)||"").localeCompare(String((b&&b.desc)||""));
+};
+var implCatOrd=(implCat||[]).slice().sort(implSortOrd);
+var implCatAtivos=implCatOrd.filter(function(x){return !(x&&x.inativo);});
+var implCatInat=implCatOrd.filter(function(x){return !!(x&&x.inativo);});
+var implTemMov=function(id){return (implMov||[]).some(function(m){return m&&m.itemId===id;});};
 var stockMap={};
 implMov.forEach(function(m){if(!stockMap[m.itemId])stockMap[m.itemId]=0;if(m.tipo==="entrada")stockMap[m.itemId]+=Number(m.qty);else stockMap[m.itemId]-=Number(m.qty);});
 var movsDoMes=implMov.filter(function(m){return m.date.startsWith(filtMes);});
@@ -9216,13 +9234,14 @@ return(
 </div>
 </div>
 {implCat.length===0&&<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>Nenhum item. Clique em + Item para cadastrar.</div>}
-{implCat.map(function(item){var qty=stockMap[item.id]||0;var baixo=qty<=item.estoque_min;return(
+{implCatAtivos.concat(implCatInat).map(function(item){var qty=stockMap[item.id]||0;var baixo=(qty<=item.estoque_min)&&!item.inativo;return(
 <div key={item.id} style={{background:G.card,borderRadius:12,padding:"12px 14px",borderLeft:"4px solid "+(baixo?G.red:G.primary)}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
 <div>
 <div style={{display:"flex",gap:5,marginBottom:3}}>
 <span style={{fontSize:10,background:G.primary+"20",color:G.primary,borderRadius:5,padding:"1px 6px",fontWeight:700}}>{item.tipo}</span>
 {baixo&&<span style={{fontSize:10,background:"var(--red-soft)",color:G.red,borderRadius:5,padding:"1px 6px",fontWeight:700}}>Estoque baixo!</span>}
+{item.inativo&&<span style={{fontSize:10,background:G.border,color:G.muted,borderRadius:5,padding:"1px 6px",fontWeight:700}}>{"Inativo"}</span>}
 </div>
 <div style={{fontWeight:700,fontSize:13}}>{item.desc}</div>
 <div style={{fontSize:11,color:G.muted}}>{item.marca+(item.codigo?" · Cód: "+item.codigo:"")}</div>
@@ -9235,9 +9254,12 @@ return(
 </div>
 <div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>
 <button onClick={function(){setEditCat(item);setCatF({tipo:item.tipo,marca:item.marca,desc:item.desc,codigo:item.codigo||"",estoque_min:item.estoque_min,preco:item.preco!=null?String(item.preco):"",qtdAtual:String(stockMap[item.id]||0)});setShowCat(true);}} style={{background:G.bg,border:"1px solid "+G.border,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.muted}}>{"Editar"}</button>
-<button onClick={function(){setShowMov(true);setMovF({tipo:"entrada",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"var(--green-soft)",border:"1px solid #27AE60",borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:"#1E7D45",fontWeight:700}}>{"+ Entrada"}</button>
-<button onClick={function(){setShowMov(true);setMovF({tipo:"saida",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"var(--red-soft)",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700}}>{"- Saida"}</button>
-<button onClick={function(){if(window.confirm("Excluir "+item.desc+"? Esta acao nao pode ser desfeita."))setImplCat(function(prev){return prev.filter(function(x){return x.id!==item.id;});});}} style={{background:"var(--surface)",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700,marginLeft:"auto"}}>{"🗑 Excluir"}</button>
+{!item.inativo&&<button onClick={function(){setShowMov(true);setMovF({tipo:"entrada",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"var(--green-soft)",border:"1px solid #27AE60",borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:"#1E7D45",fontWeight:700}}>{"+ Entrada"}</button>}
+{!item.inativo&&<button onClick={function(){setShowMov(true);setMovF({tipo:"saida",itemId:String(item.id),qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});}} style={{background:"var(--red-soft)",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700}}>{"- Saida"}</button>}
+{item.inativo?<button onClick={function(){setImplCat(function(prev){return prev.map(function(x){return x.id===item.id?{...x,inativo:false,_ts:Date.now()}:x;});});if(addLog)addLog("estoque","Item reativado: "+item.desc,"");}} style={{background:"var(--green-soft)",border:"1px solid #27AE60",borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:"#1E7D45",fontWeight:700,marginLeft:"auto"}}>{"♻ Reativar"}</button>
+:implTemMov(item.id)?<button onClick={function(){if(window.confirm("Desativar "+item.desc+"?\n\nO item sai da lista de baixa, mas o historico e o fechamento continuam intactos. Itens que ja tem movimentacao nao podem ser excluidos."))
+{setImplCat(function(prev){return prev.map(function(x){return x.id===item.id?{...x,inativo:true,_ts:Date.now()}:x;});});if(addLog)addLog("estoque","Item desativado: "+item.desc,"");}}} style={{background:"var(--surface)",border:"1px solid "+G.muted,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.muted,fontWeight:700,marginLeft:"auto"}}>{"🚫 Desativar"}</button>
+:<button onClick={function(){if(window.confirm("Excluir "+item.desc+"? Esta acao nao pode ser desfeita."))setImplCat(function(prev){return prev.filter(function(x){return x.id!==item.id;});});}} style={{background:"var(--surface)",border:"1px solid "+G.red,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",color:G.red,fontWeight:700,marginLeft:"auto"}}>{"🗑 Excluir"}</button>}
 </div>
 </div>
 );})}
@@ -9271,7 +9293,7 @@ return(
 <div style={{fontSize:11,color:G.muted}}>peca(s) a pagar</div>
 {totalPagarMes>0&&<div style={{fontSize:18,fontWeight:800,color:"#2E7D32",marginTop:6,borderTop:"1px solid #A5D6A7",paddingTop:6}}>{"Total: "+cur(totalPagarMes)}</div>}
 </div>
-{implCat.map(function(item){
+{implCatOrd.map(function(item){
 var saidas=movsDoMes.filter(function(m){return m.tipo==="saida"&&m.itemId===item.id&&!m.ajuste;});
 if(saidas.length===0)return null;
 var qtdTotal=saidas.reduce(function(s,m){return s+Number(m.qty||0);},0);
@@ -9336,7 +9358,7 @@ return(
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>Item</label>
 <select value={movF.itemId} onChange={function(e){setMovF(function(p){return{...p,itemId:e.target.value};});}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none"}}>
 <option value="">Selecione...</option>
-{implCat.map(function(item){return <option key={item.id} value={String(item.id)}>{item.tipo+" - "+item.desc+(item.codigo?" ("+item.codigo+")":"")}</option>;})}
+{implCatAtivos.concat(implCatInat.filter(function(x){return String(x.id)===String(movF.itemId);})).map(function(item){return <option key={item.id} value={String(item.id)}>{(item.codigo?item.codigo+" · ":"")+item.desc}</option>;})}
 </select>
 </div>
 <Inp lb="Quantidade" val={String(movF.qty)} set={function(v){setMovF(function(p){return{...p,qty:v};});}} type="number"/>
