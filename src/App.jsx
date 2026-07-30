@@ -8348,7 +8348,7 @@ function EspelhoMensal({pontos,pontoCfg,users}){
   </div>;
 }
 
-function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent}){
+function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent,setRecs}){
 const t=today();
 const yd=yest();
 const mo=t.slice(0,7);
@@ -8359,6 +8359,9 @@ const [oPros,setOPros]=useState(false);
 const [oStk,setOStk]=useState(false);
 const [oCir,setOCir]=useState(false);
 const [oEsp,setOEsp]=useState(false);
+// V250: alerta de recebimentos lancados com data retroativa
+const [oRetro,setORetro]=useState(true);
+const [vRetroRev,setVRetroRev]=useState(false);
 const [vBdayDone,setVBdayDone]=useState(false);
 const rev=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0).reduce((s,r)=>s+r.paid,0);
 const todayCount=appts.filter(a=>a.date===t&&!a.blocked&&a.status!=="cancelled").length;
@@ -8397,6 +8400,37 @@ m.times.forEach(function(tm){if(by[k].ops.length<8)by[k].ops.push({date:ds,time:
 }
 return Object.keys(by).map(function(k){return by[k];});
 })();
+// === V250: RECEBIMENTOS LANCADOS FORA DO DIA (auditoria de meta/comissao) ===
+// Compara a data do recebimento (r.date) com a data real da digitacao (r.ts, gravada
+// desde 16/06/2026). Janela: ultimos 60 dias de DIGITACAO. Flag de revisao vai dentro
+// do proprio objeto do recebimento (_revRetro) -> nenhum array novo, zero risco de sync.
+const _isD=function(s){return typeof s==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(s);};
+const retroList=(function(){
+  var lim=new Date(t+"T12:00");lim.setDate(lim.getDate()-60);
+  var limS=lim.toISOString().split("T")[0];
+  var out=[];
+  (recs||[]).forEach(function(r){
+    if(!r||!r.ts||!_isD(r.date))return;
+    var dig=String(r.ts).split("T")[0];
+    if(!_isD(dig))return;
+    if(dig<=r.date)return;
+    if(dig<limS)return;
+    var dias=Math.round((new Date(dig+"T12:00")-new Date(r.date+"T12:00"))/86400000);
+    var mesDif=dig.slice(0,7)!==r.date.slice(0,7);
+    out.push({r:r,dias:dias,dig:dig,mesDif:mesDif,grave:mesDif||dias>3});
+  });
+  out.sort(function(a,b){return b.dig.localeCompare(a.dig)||b.dias-a.dias;});
+  return out;
+})();
+const retroPend=retroList.filter(function(x){return !x.r._revRetro;});
+const retroRev=retroList.filter(function(x){return !!x.r._revRetro;});
+const retroTot=retroPend.reduce(function(s,x){return s+Number(x.r.paid||0);},0);
+const marcarRetro=function(id){
+  if(!setRecs)return;
+  setRecs(function(prev){return (prev||[]).map(function(x){
+    return x.id!==id?x:{...x,_revRetro:{by:(user&&user.name)||"",at:new Date().toISOString()},_ts:Date.now()};
+  });});
+};
 const DSEM=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 const head=function(open,setOpen,icon,label,count,color){
   return <button onClick={function(){setOpen(function(v){return !v;});}} style={{width:"100%",border:"none",background:color+"15",borderLeft:"4px solid "+color,borderRadius:open?"12px 12px 0 0":12,padding:"11px 14px",display:"flex",alignItems:"center",gap:9,cursor:"pointer"}}>
@@ -8417,6 +8451,48 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
     {[["👥",pats.length,"Pacientes",G.primary],["📅",todayCount,"Hoje",G.blue],["💰",cur(rev),"Receita mês",G.success]].map(function(c){return <div key={c[2]} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c[3]}}><div style={{fontSize:17}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c[3]}}>{c[1]}</div><div style={{fontSize:10,color:G.muted,fontWeight:600}}>{c[2]}</div></div>;})}
   </div>
+
+  {retroList.length>0&&<div>
+    {head(oRetro,setORetro,"\u26a0\ufe0f","Recebimentos lan\u00e7ados fora do dia",retroPend.length,G.red)}
+    {oRetro&&bodyWrap(<>
+      {retroPend.length===0&&<div style={{fontSize:12,color:G.success,fontWeight:600}}>\u2705 Tudo revisado!</div>}
+      {retroPend.map(function(x){
+        var p=(pats||[]).find(function(q){return String(q.id)===String(x.r.patientId);});
+        return <div key={"rt"+x.r.id} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"9px 10px",borderRadius:10,background:"var(--surface-2)",borderLeft:"3px solid "+(x.grave?G.red:G.yellow)}}>
+          <span style={{fontSize:13,lineHeight:1.4}}>{x.grave?"\ud83d\udd34":"\ud83d\udfe1"}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:700,fontSize:13,lineHeight:1.3}}>{(p&&p.name)||("Paciente #"+x.r.patientId)}</div>
+            <div style={{fontSize:11,color:G.muted,marginTop:2,lineHeight:1.45}}>
+              {(x.r.procedure||"\u2014")+(x.r.payment?" \u00b7 "+x.r.payment:"")}<br/>
+              {"Recebimento de "}<b style={{color:G.text}}>{fmt(x.r.date)}</b>{" \u2014 digitado em "}<b style={{color:G.text}}>{fmt(x.dig)}</b>{" \u00b7 "}
+              <b style={{color:x.grave?G.red:G.yellow}}>{x.dias+(x.dias===1?" dia depois":" dias depois")+(x.mesDif?", m\u00eas diferente":"")}</b><br/>
+              {x.r._by?<span>{"por "}<b style={{color:G.text}}>{x.r._by}</b></span>:<span style={{fontStyle:"italic"}}>autor n\u00e3o registrado</span>}
+            </div>
+            <button onClick={function(){marcarRetro(x.r.id);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer",marginTop:5}}>\u2713 Marcar revisado</button>
+          </div>
+          <div style={{fontWeight:800,fontSize:13,whiteSpace:"nowrap"}}>{cur(x.r.paid)}</div>
+        </div>;
+      })}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:6,borderTop:"1px solid "+G.border,marginTop:2,gap:8,flexWrap:"wrap"}}>
+        <span style={{fontSize:11,color:G.muted}}>{"Total pendente de revis\u00e3o: "}<b style={{color:G.text}}>{cur(retroTot)}</b></span>
+        {retroRev.length>0&&<button onClick={function(){setVRetroRev(function(v){return !v;});}} style={{background:"none",border:"none",color:G.primary,fontSize:11,fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>{(vRetroRev?"\u25be ":"\u25b8 ")+"\u2713 "+retroRev.length+" j\u00e1 revisado(s)"}</button>}
+      </div>
+      {vRetroRev&&retroRev.map(function(x){
+        var p=(pats||[]).find(function(q){return String(q.id)===String(x.r.patientId);});
+        return <div key={"rtv"+x.r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",opacity:.65}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,color:G.muted}}>{((p&&p.name)||("Paciente #"+x.r.patientId))+" \u00b7 "+cur(x.r.paid)}</div>
+            <div style={{fontSize:10,color:G.success}}>{"\u2713 "+((x.r._revRetro&&x.r._revRetro.by)||"")+((x.r._revRetro&&x.r._revRetro.at)?" em "+fmt(String(x.r._revRetro.at).split("T")[0]):"")}</div>
+          </div>
+        </div>;
+      })}
+      <div style={{display:"flex",gap:12,fontSize:10,color:G.muted,flexWrap:"wrap",paddingTop:2}}>
+        <span>{"\ud83d\udd34 m\u00eas diferente ou +3 dias"}</span>
+        <span>{"\ud83d\udfe1 1 a 3 dias"}</span>
+        <span>{"\u00faltimos 60 dias"}</span>
+      </div>
+    </>,G.red)}
+  </div>}
 
   {bdayAll.length>0&&<div>
     {head(oBday,setOBday,"🎂","Aniversariantes hoje",bdayPend.length,G.gold)}
@@ -11899,7 +11975,7 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs}/>}
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
