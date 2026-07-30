@@ -8411,7 +8411,8 @@ const retroList=(function(){
   var out=[];
   (recs||[]).forEach(function(r){
     if(!r||!r.ts||!_isD(r.date))return;
-    var dig=String(r.ts).split("T")[0];
+    var _dt=new Date(r.ts);
+    var dig=isNaN(_dt)?String(r.ts).split("T")[0]:(_dt.getFullYear()+"-"+String(_dt.getMonth()+1).padStart(2,"0")+"-"+String(_dt.getDate()).padStart(2,"0"));
     if(!_isD(dig))return;
     if(dig<=r.date)return;
     if(dig<limS)return;
@@ -8425,6 +8426,15 @@ const retroList=(function(){
 const retroPend=retroList.filter(function(x){return !x.r._revRetro;});
 const retroRev=retroList.filter(function(x){return !!x.r._revRetro;});
 const retroTot=retroPend.reduce(function(s,x){return s+Number(x.r.paid||0);},0);
+const marcarTodosRetro=function(){
+  if(!setRecs||!retroPend.length)return;
+  if(!window.confirm("Marcar os "+retroPend.length+" lan\u00e7amentos como revisados?"))return;
+  var _ids={};retroPend.forEach(function(x){_ids[x.r.id]=true;});
+  var _at=new Date().toISOString(),_who=(user&&user.name)||"";
+  setRecs(function(prev){return (prev||[]).map(function(x){
+    return !_ids[x.id]?x:{...x,_revRetro:{by:_who,at:_at},_ts:Date.now()};
+  });});
+};
 const marcarRetro=function(id){
   if(!setRecs)return;
   setRecs(function(prev){return (prev||[]).map(function(x){
@@ -8452,7 +8462,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     {[["👥",pats.length,"Pacientes",G.primary],["📅",todayCount,"Hoje",G.blue],["💰",cur(rev),"Receita mês",G.success]].map(function(c){return <div key={c[2]} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c[3]}}><div style={{fontSize:17}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c[3]}}>{c[1]}</div><div style={{fontSize:10,color:G.muted,fontWeight:600}}>{c[2]}</div></div>;})}
   </div>
 
-  {retroList.length>0&&<div>
+  {retroPend.length>0&&<div>
     {head(oRetro,setORetro,"\u26a0\ufe0f","Recebimentos lan\u00e7ados fora do dia",retroPend.length,G.red)}
     {oRetro&&bodyWrap(<>
       {retroPend.length===0&&<div style={{fontSize:12,color:G.success,fontWeight:600}}>\u2705 Tudo revisado!</div>}
@@ -8475,6 +8485,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
       })}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:6,borderTop:"1px solid "+G.border,marginTop:2,gap:8,flexWrap:"wrap"}}>
         <span style={{fontSize:11,color:G.muted}}>{"Total pendente de revis\u00e3o: "}<b style={{color:G.text}}>{cur(retroTot)}</b></span>
+        <button onClick={marcarTodosRetro} style={{border:"none",background:G.primary,color:"#fff",borderRadius:8,padding:"5px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{"\u2713 Marcar todos ("+retroPend.length+")"}</button>
         {retroRev.length>0&&<button onClick={function(){setVRetroRev(function(v){return !v;});}} style={{background:"none",border:"none",color:G.primary,fontSize:11,fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>{(vRetroRev?"\u25be ":"\u25b8 ")+"\u2713 "+retroRev.length+" j\u00e1 revisado(s)"}</button>}
       </div>
       {vRetroRev&&retroRev.map(function(x){
