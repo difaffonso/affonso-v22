@@ -3986,19 +3986,12 @@ return <div style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 
 </div>;
 }
 
-function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat,waTemplates,goPat,setGoPat}){
+function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat,waTemplates}){
 var _fidx=useMemo(function(){return faltaIdx(appts);},[appts]);
 const [srch,setSrch]=useState("");
 const [pPage,setPPage]=useState(0);
 const PER_PAGE=50;
 const [openFolder,setOpenFolder]=useState(null);
-// V251: se chegou aqui por clique num alerta, ja abre o prontuario do paciente
-useEffect(function(){
-  if(goPat==null)return;
-  var _gp=(pats||[]).find(function(q){return String(q.id)===String(goPat);});
-  if(_gp)setOpenFolder(_gp);
-  if(setGoPat)setGoPat(null);
-},[goPat]);
 const [pm,setPm]=useState(false);const [ep,setEp]=useState(null);
 const b0={name:"",dob:"",phone:"",phone2:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insurance:"",notes:"",folder:"",since:today(),rx:"",nf:"",obs:"",origem:"",indicPorId:null,indicPorNome:"",genero:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}};
 const [pf,setPf]=useState(b0);const fp=k=>v=>setPf(p=>({...p,[k]:v}));
@@ -8355,7 +8348,7 @@ function EspelhoMensal({pontos,pontoCfg,users}){
   </div>;
 }
 
-function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent,setRecs,abrirPac}){
+function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent,setRecs,abrirFicha}){
 const t=today();
 const yd=yest();
 const mo=t.slice(0,7);
@@ -8468,7 +8461,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
         return <div key={"rt"+x.r.id} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"9px 10px",borderRadius:10,background:"var(--surface-2)",borderLeft:"3px solid "+(x.grave?G.red:G.yellow)}}>
           <span style={{fontSize:13,lineHeight:1.4}}>{x.grave?"\ud83d\udd34":"\ud83d\udfe1"}</span>
           <div style={{flex:1,minWidth:0}}>
-            <div onClick={function(){if(p&&abrirPac)abrirPac(p.id);}} title={p?"Abrir prontu\u00e1rio":""} style={{fontWeight:700,fontSize:13,lineHeight:1.3,color:p?G.primary:G.text,cursor:p?"pointer":"default",textDecoration:p?"underline":"none",textUnderlineOffset:2}}>{((p&&p.name)||("Paciente #"+x.r.patientId))+(p?" \u2197":"")}</div>
+            <div onClick={function(){if(p)abrirFicha&&abrirFicha(p);}} title={p?"Abrir ficha cl\u00ednica":""} style={{fontWeight:700,fontSize:13,lineHeight:1.3,color:p?G.primary:G.text,cursor:p?"pointer":"default",textDecoration:p?"underline":"none",textUnderlineOffset:2}}>{((p&&p.name)||("Paciente #"+x.r.patientId))+(p?" \u2197":"")}</div>
             <div style={{fontSize:11,color:G.muted,marginTop:2,lineHeight:1.45}}>
               {(x.r.procedure||"\u2014")+(x.r.payment?" \u00b7 "+x.r.payment:"")}<br/>
               {"Recebimento de "}<b style={{color:G.text}}>{fmt(x.r.date)}</b>{" \u2014 digitado em "}<b style={{color:G.text}}>{fmt(x.dig)}</b>{" \u00b7 "}
@@ -8488,7 +8481,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
         var p=(pats||[]).find(function(q){return String(q.id)===String(x.r.patientId);});
         return <div key={"rtv"+x.r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 0",opacity:.65}}>
           <div style={{flex:1,minWidth:0}}>
-            <div onClick={function(){if(p&&abrirPac)abrirPac(p.id);}} style={{fontSize:12,color:p?G.primary:G.muted,cursor:p?"pointer":"default",textDecoration:p?"underline":"none",textUnderlineOffset:2}}>{((p&&p.name)||("Paciente #"+x.r.patientId))+" \u00b7 "+cur(x.r.paid)+(p?" \u2197":"")}</div>
+            <div onClick={function(){if(p)abrirFicha&&abrirFicha(p);}} title={p?"Abrir ficha cl\u00ednica":""} style={{fontSize:12,color:p?G.primary:G.muted,cursor:p?"pointer":"default",textDecoration:p?"underline":"none",textUnderlineOffset:2}}>{((p&&p.name)||("Paciente #"+x.r.patientId))+" \u00b7 "+cur(x.r.paid)+(p?" \u2197":"")}</div>
             <div style={{fontSize:10,color:G.success}}>{"\u2713 "+((x.r._revRetro&&x.r._revRetro.by)||"")+((x.r._revRetro&&x.r._revRetro.at)?" em "+fmt(String(x.r._revRetro.at).split("T")[0]):"")}</div>
           </div>
         </div>;
@@ -11917,15 +11910,12 @@ const ALL_NAV=[
 {id:"rel",l:"Relatórios",ic:"ph-chart-bar",lv:2,grp:"Gestão"},{id:"audit",l:"Auditoria",ic:"ph-magnifying-glass",lv:3,grp:"Gestão"},{id:"adm",l:"Administrativo",ic:"ph-gear",lv:3,grp:"Gestão"},
 ];
 const NAV=ALL_NAV.filter(n=>n.lv<=user.level);
-const [goPat,setGoPat]=useState(null); // V251: paciente a abrir vindo de um alerta
 const go=v=>{
 const n=ALL_NAV.find(x=>x.id===v)||{lv:1};
 if(n.lv>user.level){alert("Acesso não autorizado.");return;}
 setView(v);
 setSideOpen(false); // close menu on mobile after navigation
 };
-// V251: abre o prontuario do paciente direto a partir de um alerta da Visao Geral
-const abrirPaciente=function(pid){if(pid==null)return;setGoPat(pid);go("pacs");};
 const cp={pats,dents,procs,user,espera:espera,waEvent:waEvent,addLog:function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}};
 
 // Bottom nav shortcuts (most used)
@@ -11985,9 +11975,9 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirPac={abrirPaciente}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha}/>}
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
-      {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer} goPat={goPat} setGoPat={setGoPat}/>}
+      {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
