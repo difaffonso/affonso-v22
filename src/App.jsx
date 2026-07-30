@@ -10581,6 +10581,7 @@ function Satisfacao({pats,user,pacsTicks,setPacsTicks,abrirFicha}){
 const [msgs,setMsgs]=useState([]);
 const [loading,setLoading]=useState(true);
 const [per,setPer]=useState(30);
+const [soPendG,setSoPendG]=useState(false); // V249: filtro pedidos de avaliacao Google
 const load=function(){supabase.loadWaMessagesLite().then(function(rows){setMsgs(Array.isArray(rows)?rows:[]);setLoading(false);});}; // V196: poll economico
 useEffect(function(){load();var t=setInterval(load,30000);return function(){clearInterval(t);};},[]);
 var soDig=function(s){return (s||"").replace(/\D/g,"");};
@@ -10604,6 +10605,13 @@ var nomeDe=function(a){var p=acharPac(a.phone);return p?p.name:(a.pname||("+"+a.
 var corNota=function(n){return n==="otimo"?G.success:(n==="boa"?G.yellow:G.red);};
 var lblNota=function(n){return n==="otimo"?"Ótimo":(n==="boa"?"Boa":"Insatisfatório");};
 var resolver=function(id){setPacsTicks(function(prev){var n=Object.assign({},prev||{});n["aval_"+id]={done:true,by:(user&&user.name)||"",date:today(),ts:Date.now()};return n;});};
+// V249: pedido de avaliacao no Google - marcacao manual por paciente (chave por telefone)
+var grK=function(ph){return "gr_"+ph;};
+var grOk=function(ph){return !!((ticks[grK(ph)]||{}).done);};
+var grInfo=function(ph){var t=ticks[grK(ph)]||{};return (t.by||"")+(t.date?(" \u00b7 "+t.date):"");};
+var grToggle=function(ph){var ja=grOk(ph);if(ja&&!window.confirm("Desmarcar o pedido de avalia\u00e7\u00e3o no Google deste paciente?"))return;setPacsTicks(function(prev){var n=Object.assign({},prev||{});n[grK(ph)]={done:!ja,by:(user&&user.name)||"",date:today(),ts:Date.now()};return n;});};
+var grSeen={};var grPend=[];
+avalsF.forEach(function(a){if(a.nota!=="otimo")return;if(grSeen[a.phone])return;grSeen[a.phone]=1;if(!grOk(a.phone))grPend.push(a);});
 var SH="6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff";
 var SHsm="4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff";
 var perBtn=function(v,lb){return <button onClick={function(){setPer(v);}} style={{border:"none",borderRadius:20,padding:"8px 16px",fontSize:12.5,fontWeight:700,cursor:"pointer",background:per===v?G.primary:G.card,color:per===v?"#fff":G.muted,boxShadow:per===v?"inset 2px 2px 5px #234738,inset -2px -2px 5px #3b7259":SHsm}}>{lb}</button>;};
@@ -10658,15 +10666,21 @@ return (
 );})}
 </div>
 <div style={{background:G.card,borderRadius:18,boxShadow:SH,padding:18,marginTop:14}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,margin:"0 0 8px"}}>{"🕒 Avaliações recentes"}</h2>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",marginBottom:8}}>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,margin:0}}>{"🕒 Avaliações recentes"}</h2>
+<button onClick={function(){setSoPendG(!soPendG);}} style={{border:"none",borderRadius:20,padding:"7px 14px",fontSize:11.5,fontWeight:700,cursor:"pointer",background:soPendG?G.primary:G.card,color:soPendG?"#fff":G.muted,boxShadow:soPendG?"inset 2px 2px 5px #234738,inset -2px -2px 5px #3b7259":SHsm}}>{"⭐ Só pendentes ("+grPend.length+")"}</button>
+</div>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.5,marginBottom:6}}>{"⭐ Clique na estrela para marcar que você já pediu a avaliação no Google desse paciente."}</div>
+{soPendG&&grPend.length===0&&avalsF.length>0&&<div style={{textAlign:"center",padding:"18px 10px",color:G.muted,fontSize:13,lineHeight:1.55}}>{"Nenhum pedido pendente no período. 🎉"}</div>}
 {avalsF.length===0&&<div style={{textAlign:"center",padding:"18px 10px",color:G.muted,fontSize:13,lineHeight:1.55}}>{"Ainda não há respostas no período selecionado."}<br/>{"Assim que os pacientes responderem a pesquisa, as avaliações aparecem aqui."}</div>}
-{avalsF.map(function(a){return (
+{avalsF.filter(function(a){return !soPendG||(a.nota==="otimo"&&!grOk(a.phone));}).map(function(a){return (
 <div key={a.id} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 2px",borderBottom:"1px solid "+G.border}}>
 <div style={{width:40,height:40,borderRadius:"50%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:15,color:G.primary,background:G.accent}}>{(nomeDe(a)[0]||"?").toUpperCase()}</div>
 <div style={{flex:1,minWidth:0}}>
 <div style={{fontWeight:700,fontSize:13.5,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{nomeDe(a)}</div>
 <div style={{fontSize:11,color:G.muted,marginTop:1}}>{fmtData(a.ts)}</div>
 </div>
+{a.nota==="otimo"&&<button onClick={function(){grToggle(a.phone);}} title={grOk(a.phone)?("Avalia\u00e7\u00e3o no Google j\u00e1 pedida \u2014 "+grInfo(a.phone)):"Marcar que j\u00e1 pedi a avalia\u00e7\u00e3o no Google"} style={{width:34,height:34,borderRadius:"50%",border:"none",flexShrink:0,cursor:"pointer",fontSize:14,padding:0,display:"flex",alignItems:"center",justifyContent:"center",background:grOk(a.phone)?G.success:G.card,color:grOk(a.phone)?"#fff":G.muted,boxShadow:grOk(a.phone)?"inset 2px 2px 5px #24704a,inset -2px -2px 5px #3aae70":SHsm,opacity:grOk(a.phone)?1:.6}}>{grOk(a.phone)?"\u2713":"\u2b50"}</button>}
 <span style={{fontSize:11.5,fontWeight:800,borderRadius:20,padding:"5px 12px",whiteSpace:"nowrap",flexShrink:0,background:corNota(a.nota)+"29",color:corNota(a.nota)}}>{lblNota(a.nota)}</span>
 </div>
 );})}
