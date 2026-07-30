@@ -1657,7 +1657,7 @@ return <>
     {!editMode&&pat.origem==="Indicação"&&pat.indicPorId&&user.level>=2&&(function(){
       var ind=(pats||[]).find(function(x){return x.id===pat.indicPorId;});
       if(!ind)return <div style={{fontSize:11.5,color:G.muted}}>Indicado por {pat.indicPorNome||"?"} (ficha nao encontrada)</div>;
-      if(!ind.phone)return <div style={{fontSize:11.5,color:G.muted}}>Indicado por {ind.name} \u00b7 sem telefone cadastrado para agradecer</div>;
+      if(!ind.phone)return <div style={{fontSize:11.5,color:G.muted}}>{"Indicado por "+ind.name+" \u00b7 sem telefone cadastrado para agradecer"}</div>;
       var ja=pat.indicAgrad;
       return <div style={{display:"flex",gap:9,alignItems:"center",flexWrap:"wrap"}}>
         <Btn ch={ja?"✓ Indicação agradecida":"🤝 Agradecer indicação"} v={ja?"g":"w"} sm onClick={function(){
@@ -3830,6 +3830,125 @@ return <div style={{display:"flex",flexDirection:"column",gap:4}}>{LB}
 }
 
 // V243 - ranking de quem mais indica (Relatorios)
+// ══════════════════════════════════════════════════════════
+// V246: EVOLUCAO DOS ORCAMENTOS - ultimos 12 meses (empilhado)
+// Cada orcamento entra no mes em que foi FEITO (t.start), com o
+// status que tem HOJE. Nao existe data de aprovacao gravada.
+// Fechado = aprovado + parcial. Respeita o filtro de dentista.
+// ══════════════════════════════════════════════════════════
+function EvolucaoOrc({treats,mo,orcDent}){
+const MESAB=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const MESFULL=["janeiro","fevereiro","mar\u00e7o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const [porValor,setPorValor]=useState(false);
+const ORD=["aprovado","parcial","espera","naofechado"];
+const COR={aprovado:G.success,parcial:G.blue,espera:G.yellow,naofechado:G.red};
+const LBL={aprovado:"Aprovado",parcial:"Parcial",espera:"Em espera",naofechado:"N\u00e3o fechado"};
+const totOf=function(t){return (t.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);};
+const paidOf=function(t){return (t.payments||[]).reduce(function(s,x){return s+Number(x.value||0);},0);};
+const stOf=function(t){var s=t.orcStatus||"espera";if((s==="parcial"||s==="espera")&&totOf(t)>0&&paidOf(t)>=totOf(t)-0.005)return "aprovado";if(s==="espera"&&paidOf(t)>0)return "parcial";return s;};
+const dispVal=function(t){var e=stOf(t);return e==="parcial"?paidOf(t):totOf(t);};
+const kfmt=function(v){v=Math.round(v);return v>=1000?(v/1000).toFixed(1).replace(".",",")+"k":""+v;};
+// janela: 12 meses terminando no mes selecionado nos Relatorios
+const meses=[];
+const baseK=Number((mo||"").slice(0,4))*12+Number((mo||"").slice(5,7));
+for(var iw=11;iw>=0;iw--){
+  var kk=baseK-iw;
+  var yy=Math.floor((kk-1)/12);
+  var mm=kk-yy*12;
+  meses.push(yy+"-"+String(mm).padStart(2,"0"));
+}
+const dados=meses.map(function(ym){
+  var lista=(treats||[]).filter(function(t){return t&&(t.start||"").slice(0,7)===ym&&(orcDent==="all"||String(t.dentistId)===String(orcDent));});
+  var q={aprovado:0,parcial:0,espera:0,naofechado:0};
+  var v={aprovado:0,parcial:0,espera:0,naofechado:0};
+  lista.forEach(function(t){var e=stOf(t);if(q[e]===undefined)e="espera";q[e]+=1;v[e]+=dispVal(t);});
+  var tq=ORD.reduce(function(s,k){return s+q[k];},0);
+  var tv=ORD.reduce(function(s,k){return s+v[k];},0);
+  return {ym:ym,q:q,v:v,tq:tq,tv:tv};
+});
+const val=function(d,k){return porValor?d.v[k]:d.q[k];};
+const tot1=function(d){return porValor?d.tv:d.tq;};
+const maxT=Math.max.apply(null,dados.map(tot1).concat([1]));
+const gTot=dados.reduce(function(s,d){return s+tot1(d);},0);
+const gFech=dados.reduce(function(s,d){return s+val(d,"aprovado")+val(d,"parcial");},0);
+const gNao=dados.reduce(function(s,d){return s+val(d,"naofechado");},0);
+const pc1=function(v){return (Math.round(v*10)/10).toFixed(1).replace(".",",")+"%";};
+const mLabel=function(ym){var i=Number(ym.slice(5,7))-1;return MESFULL[i]+"/"+ym.slice(2,4);};
+const fmtT=function(v){return porValor?cur(v):String(v);};
+
+return <>
+<div style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+  <div style={{fontWeight:700,fontSize:14,color:G.primary,marginBottom:4}}>{"\ud83d\udcc8 Evolu\u00e7\u00e3o dos or\u00e7amentos"}</div>
+  <div style={{fontSize:11,color:G.muted,lineHeight:1.4,marginBottom:12}}>{"\u00daltimos 12 meses at\u00e9 "+mLabel(meses[11])+" \u00b7 cada or\u00e7amento aparece no m\u00eas em que foi feito, com o status que tem hoje."}</div>
+
+  <div style={{display:"flex",gap:0,background:G.accent,borderRadius:9,padding:3,marginBottom:14}}>
+    {[["Quantidade",false],["Valor (R$)",true]].map(function([l,vv]){return(
+      <button key={l} onClick={function(){setPorValor(vv);}} style={{flex:1,border:"none",borderRadius:7,padding:"7px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:porValor===vv?G.primary:"transparent",color:porValor===vv?"#fff":G.muted}}>{l}</button>
+    );})}
+  </div>
+
+  <div style={{display:"flex",gap:11,justifyContent:"center",flexWrap:"wrap",marginBottom:12,fontSize:10.5,fontWeight:700,color:G.muted}}>
+    {ORD.map(function(k){return <span key={k}><span style={{display:"inline-block",width:9,height:9,borderRadius:3,background:COR[k],marginRight:4,verticalAlign:-1}}/>{LBL[k]}</span>;})}
+  </div>
+
+  <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:3,height:160}}>
+    {dados.map(function(d,i){
+      var tt=tot1(d);
+      var h=tt>0?Math.max(tt/maxT*100,3):0;
+      return <div key={d.ym} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,height:"100%",justifyContent:"flex-end"}}>
+        <div style={{fontSize:8.5,color:G.muted,fontWeight:700}}>{tt>0?(porValor?kfmt(tt):tt):""}</div>
+        <div style={{width:"100%",maxWidth:20,display:"flex",flexDirection:"column",justifyContent:"flex-end",borderRadius:"4px 4px 0 0",overflow:"hidden",height:h+"%"}}>
+          {ORD.slice().reverse().map(function(k){
+            var vk=val(d,k);
+            return <div key={k} style={{width:"100%",background:COR[k],height:(tt>0?(vk/tt*100):0)+"%",transition:"height .4s"}}/>;
+          })}
+        </div>
+        <div style={{fontSize:9,color:i===11?G.primary:G.muted,fontWeight:i===11?800:700}}>{MESAB[Number(d.ym.slice(5,7))-1]}</div>
+      </div>;
+    })}
+  </div>
+</div>
+
+<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:9}}>
+  {[["Total 12 meses",fmtT(gTot),G.primary],["Taxa de aprova\u00e7\u00e3o",pc1(gTot>0?gFech/gTot*100:0),G.success],["N\u00e3o fechados",pc1(gTot>0?gNao/gTot*100:0),G.red]].map(function([l,v,c]){return(
+    <div key={l} style={{background:G.card,borderRadius:10,padding:"10px 8px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+      <div style={{fontSize:9.5,color:G.muted,fontWeight:700,marginBottom:3}}>{l}</div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700,color:c}}>{v}</div>
+    </div>
+  );})}
+</div>
+
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.45,background:"var(--amber-soft)",borderRadius:10,padding:"10px 12px"}}>
+  <i className="ph-fill ph-info"></i>{" Aprovado + Parcial contam como fechado. Or\u00e7amentos recentes ainda em espera derrubam a taxa dos \u00faltimos meses \u2014 isso \u00e9 normal."}
+</div>
+
+<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+  <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>{"M\u00eas a m\u00eas"}</div>
+  {gTot===0&&<p style={{color:G.muted,fontSize:12}}>{"Nenhum or\u00e7amento nos \u00faltimos 12 meses"+(orcDent!=="all"?" para este dentista":"")}</p>}
+  {dados.map(function(d){
+    var tt=tot1(d);
+    if(tt<=0)return null;
+    var fech=(val(d,"aprovado")+val(d,"parcial"))/tt*100;
+    return <div key={d.ym} style={{padding:"10px 0",borderBottom:"1px solid "+G.border}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,gap:8,flexWrap:"wrap"}}>
+        <span style={{fontWeight:700,fontSize:13,textTransform:"capitalize"}}>{mLabel(d.ym)}</span>
+        <span style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:11,color:G.muted,fontWeight:700}}>{porValor?cur(tt):(tt+" or\u00e7.")}</span>
+          <span style={{fontWeight:700,fontSize:13,color:G.success}}>{pc1(fech)+" fechado"}</span>
+        </span>
+      </div>
+      <div style={{display:"flex",height:9,borderRadius:5,overflow:"hidden",background:G.border}}>
+        {ORD.map(function(k){return <div key={k} style={{background:COR[k],width:(val(d,k)/tt*100)+"%",transition:"width .5s"}}/>;})}
+      </div>
+      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:6}}>
+        {ORD.map(function(k){return <span key={k} style={{background:COR[k]+"1f",color:COR[k],borderRadius:20,padding:"2px 9px",fontSize:10.5,fontWeight:700}}>{LBL[k]+" "+(porValor?cur(val(d,k)):val(d,k))}</span>;})}
+      </div>
+    </div>;
+  })}
+</div>
+</>;
+}
+
 function RankIndic({pats}){
 const [ab,setAb]=useState(null);
 var mp={};
@@ -3855,7 +3974,7 @@ return <div style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 
       </div>
       {op&&<div style={{paddingLeft:35,marginTop:5}}>{r.pacs.map(function(nm,j){return <div key={j} style={{fontSize:12,color:G.muted,padding:"2px 0"}}>• {nm}</div>;})}</div>}
     </div>;})}
-  <div style={{fontSize:11,color:G.muted,marginTop:9}}>{tot} indicacao(oes) registrada(s) \u00b7 toque no nome para ver quem cada um trouxe</div>
+  <div style={{fontSize:11,color:G.muted,marginTop:9}}>{tot+" indica\u00e7\u00e3o(\u00f5es) registrada(s) \u00b7 toque no nome para ver quem cada um trouxe"}</div>
 </div>;
 }
 
@@ -6729,6 +6848,7 @@ return <>
 <div style={{fontSize:10,color:active?STCOLOR[sv]:G.muted,fontWeight:700,marginTop:3}}>{active?"✓ filtrando":"toque p/ ver"}</div>
 </div>;})}
 </div>
+<EvolucaoOrc treats={treats} mo={mo} orcDent={orcDent}/>
 {Object.keys(byDent).length>0&&<div style={{background:G.card,borderRadius:12,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
 <div style={{fontWeight:700,fontSize:14,marginBottom:10,color:G.primary}}>🦷 Orçamentos por dentista</div>
 <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
