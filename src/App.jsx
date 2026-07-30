@@ -4627,6 +4627,142 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 }
 
 
+// ══════════════════════════════════════════════════════════
+// V245: COMPARATIVO DE GASTOS (Clinica x Pessoal) - 12 meses
+// Regra: recorrentes/parcelas contam de janeiro ate o mes atual.
+// Meses a frente nao sao projetados (valores mudam mes a mes).
+// ══════════════════════════════════════════════════════════
+function ComparativoGastos({gastos}){
+const MESES=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const MESESF=["janeiro","fevereiro","mar\u00e7o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const mesAtual=today().slice(0,7);
+const anoAtual=Number(today().slice(0,4));
+const lClin=(gastos&&gastos.clinica)||[];
+const lPess=(gastos&&gastos.pessoal)||[];
+const anosData=lClin.concat(lPess).map(function(e){return e&&e.date?Number(e.date.slice(0,4)):0;}).filter(function(n){return n>1990;});
+const minAno=anosData.length?Math.min.apply(null,anosData):anoAtual;
+const [ano,setAno]=useState(anoAtual);
+const [soPago,setSoPago]=useState(false);
+const parcAtivaG=function(e,ym){if(!e.parcelado)return false;var k=(Number(ym.slice(0,4))*12+Number(ym.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));return k>=0&&k<Number(e.parcelas||1);};
+const pagoNoMes=function(e,ym){return (e.recorrente||e.parcelado)?!!(e.pagoMeses&&e.pagoMeses[ym]):!!e.paid;};
+const somaMes=function(lista,ym){
+  var t=0;
+  (lista||[]).forEach(function(e){
+    if(!e)return;
+    var conta=(e.recorrente&&e.diaVenc)?true:e.parcelado?parcAtivaG(e,ym):(!!e.date&&e.date.slice(0,7)===ym);
+    if(!conta)return;
+    if(soPago&&!pagoNoMes(e,ym))return;
+    t+=Number(e.value||0);
+  });
+  return t;
+};
+const clin=[],pess=[],futs=[];
+for(var iM=0;iM<12;iM++){
+  var ymM=ano+"-"+String(iM+1).padStart(2,"0");
+  var isFut=ymM>mesAtual;
+  futs.push(isFut);
+  clin.push(isFut?0:somaMes(lClin,ymM));
+  pess.push(isFut?0:somaMes(lPess,ymM));
+}
+const totC=clin.reduce(function(s,v){return s+v;},0);
+const totP=pess.reduce(function(s,v){return s+v;},0);
+const totG=totC+totP;
+const mesesAtivos=clin.filter(function(v,i){return v>0||pess[i]>0;}).length;
+const mediaMes=mesesAtivos?totG/mesesAtivos:0;
+const pctPess=totG>0?(totP/totG*100):0;
+const maxV=Math.max.apply(null,clin.concat(pess).concat([1]));
+const pc1=function(v){return (Math.round(v*10)/10).toFixed(1).replace(".",",")+"%";};
+const shiftAno=function(d){var n=ano+d;if(n<minAno||n>anoAtual)return;setAno(n);};
+
+return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+
+{/* Seletor de ano */}
+<div style={{display:"flex",alignItems:"center",gap:8}}>
+  <button onClick={function(){shiftAno(-1);}} disabled={ano<=minAno} style={{border:"1.5px solid "+G.border,background:"var(--surface)",borderRadius:8,padding:"7px 15px",fontWeight:700,cursor:ano<=minAno?"default":"pointer",color:ano<=minAno?G.muted:G.primary,fontSize:18,opacity:ano<=minAno?0.4:1}}>{"<"}</button>
+  <div style={{flex:1,textAlign:"center",fontWeight:700,fontSize:20,color:G.primary,fontFamily:"'Cormorant Garamond'"}}>{ano}</div>
+  <button onClick={function(){shiftAno(1);}} disabled={ano>=anoAtual} style={{border:"1.5px solid "+G.border,background:"var(--surface)",borderRadius:8,padding:"7px 15px",fontWeight:700,cursor:ano>=anoAtual?"default":"pointer",color:ano>=anoAtual?G.muted:G.primary,fontSize:18,opacity:ano>=anoAtual?0.4:1}}>{">"}</button>
+</div>
+
+{/* Toggle previsto / pago */}
+<div style={{display:"flex",gap:0,background:G.bg,borderRadius:9,padding:3}}>
+  {[["Previsto",false],["Pago",true]].map(function([l,val]){return(
+    <button key={l} onClick={function(){setSoPago(val);}} style={{flex:1,border:"none",borderRadius:7,padding:"7px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:soPago===val?G.primary:"transparent",color:soPago===val?"#fff":G.muted}}>{l}</button>
+  );})}
+</div>
+
+{/* Cards resumo */}
+<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:11}}>
+  {[["Cl\u00ednica (ano)",cur(totC),G.red],["Pessoal (ano)",cur(totP),G.purple],["M\u00e9dia/m\u00eas",cur(mediaMes),G.primary],["Pessoal sobre o total",pc1(pctPess),G.purple]].map(function([l,v,c]){return(
+    <div key={l} style={{background:G.card,borderRadius:10,padding:"12px 14px",textAlign:"center",borderTop:"4px solid "+c,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+      <div style={{fontSize:10,color:G.muted,fontWeight:700,marginBottom:4}}>{l}</div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c}}>{v}</div>
+    </div>
+  );})}
+</div>
+
+{/* Grafico 12 meses */}
+<div style={{background:G.card,borderRadius:12,padding:"16px 12px 10px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+  <div style={{display:"flex",gap:16,justifyContent:"center",marginBottom:14,fontSize:11,fontWeight:600,color:G.muted}}>
+    <span><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:G.red,marginRight:5,verticalAlign:-1}}/>{"Cl\u00ednica"}</span>
+    <span><span style={{display:"inline-block",width:10,height:10,borderRadius:3,background:G.purple,marginRight:5,verticalAlign:-1}}/>Pessoal</span>
+  </div>
+  <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",gap:2,height:140,padding:"0 2px"}}>
+    {MESES.map(function(mn,i){return(
+      <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4,height:"100%",justifyContent:"flex-end"}}>
+        <div style={{display:"flex",alignItems:"flex-end",gap:2,height:"100%",width:"100%",justifyContent:"center",borderBottom:futs[i]?"1px dashed "+G.border:"none"}}>
+          <div style={{width:8,borderRadius:"3px 3px 0 0",background:G.red,height:(clin[i]?Math.max(clin[i]/maxV*100,3):0)+"%",transition:"height .4s"}}/>
+          <div style={{width:8,borderRadius:"3px 3px 0 0",background:G.purple,height:(pess[i]?Math.max(pess[i]/maxV*100,3):0)+"%",transition:"height .4s"}}/>
+        </div>
+        <div style={{fontSize:9,color:G.muted,fontWeight:700,opacity:futs[i]?0.35:1}}>{mn}</div>
+      </div>
+    );})}
+  </div>
+</div>
+
+{futs.some(function(x){return x;})&&<div style={{fontSize:12,color:G.muted,lineHeight:1.45,background:"var(--amber-soft)",borderRadius:10,padding:"11px 13px"}}>
+  <i className="ph-fill ph-info"></i>{" Meses \u00e0 frente n\u00e3o s\u00e3o projetados \u2014 recorrentes contam s\u00f3 at\u00e9 o m\u00eas atual, porque os valores mudam."}
+</div>}
+
+{/* Detalhe mes a mes */}
+<div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+  <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>{"Detalhe m\u00eas a m\u00eas \u2014 "+ano}</div>
+  {mesesAtivos===0&&<p style={{color:G.muted,fontSize:12}}>{soPago?"Nenhum gasto marcado como pago neste ano":"Nenhum gasto lan\u00e7ado neste ano"}</p>}
+  {MESESF.map(function(mn,i){
+    if(futs[i])return null;
+    if(clin[i]<=0&&pess[i]<=0)return null;
+    var tm=clin[i]+pess[i];
+    var pp=tm>0?(pess[i]/tm*100):0;
+    return <div key={i} style={{padding:"11px 0",borderBottom:"1px solid "+G.border}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:7,gap:7,flexWrap:"wrap"}}>
+        <span style={{fontWeight:700,fontSize:13.5,textTransform:"capitalize"}}>{mn}</span>
+        <span style={{display:"flex",alignItems:"center",gap:7}}>
+          <span style={{background:"var(--purple-soft)",color:G.purple,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700}}>{pc1(pp)+" pessoal"}</span>
+          <span style={{fontWeight:700,fontSize:13}}>{cur(tm)}</span>
+        </span>
+      </div>
+      <div style={{marginBottom:5}}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:G.red,fontWeight:700}}>{"Cl\u00ednica"}</span><span style={{fontWeight:700}}>{cur(clin[i])}</span></div>
+        <div style={{background:G.border,borderRadius:6,height:7,overflow:"hidden"}}><div style={{height:7,borderRadius:6,background:G.red,width:Math.max(clin[i]/maxV*100,2)+"%",transition:"width .5s"}}/></div>
+      </div>
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:3}}><span style={{color:G.purple,fontWeight:700}}>Pessoal</span><span style={{fontWeight:700}}>{cur(pess[i])}</span></div>
+        <div style={{background:G.border,borderRadius:6,height:7,overflow:"hidden"}}><div style={{height:7,borderRadius:6,background:G.purple,width:Math.max(pess[i]/maxV*100,2)+"%",transition:"width .5s"}}/></div>
+      </div>
+    </div>;
+  })}
+  {mesesAtivos>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12,paddingTop:12,borderTop:"2px solid "+G.border}}>
+    <span style={{fontWeight:700,fontSize:13}}>Total do ano</span>
+    <div style={{textAlign:"right"}}>
+      <div style={{fontWeight:700,fontSize:12,color:G.red}}>{"Cl\u00ednica "+cur(totC)}</div>
+      <div style={{fontWeight:700,fontSize:12,color:G.purple}}>{"Pessoal "+cur(totP)}</div>
+      <div style={{fontWeight:800,fontSize:15,marginTop:2,color:G.text}}>{cur(totG)}</div>
+    </div>
+  </div>}
+</div>
+
+</div>;
+}
+
 function Gastos({gastos,setGastos,user}){
 const [tab,setTab]=useState("clinica");
 const [modal,setModal]=useState(false);
@@ -4668,15 +4804,19 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
   <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Gastos</h2>
   <div style={{display:"flex",gap:8}}>
+    {tab!=="comp"&&<>
     <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 11px",fontSize:14,outline:"none"}}/>
     <Btn ch="+ Novo" onClick={function(){setEdit(null);setF({...blank,cat:CATS[0]});setModal(true);}}/>
+    </>}
   </div>
 </div>
 <div style={{display:"flex",borderBottom:"2px solid "+G.border}}>
-  {[["clinica","Clinica"],["pessoal","Pessoal"]].map(function([k,l]){return(
+  {[["clinica","Clinica"],["pessoal","Pessoal"],["comp","\ud83d\udcca Comparativo"]].map(function([k,l]){return(
     <button key={k} onClick={function(){setTab(k);}} style={{border:"none",background:"none",padding:"9px 20px",fontWeight:700,fontSize:13,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,fontFamily:"'Manrope'"}}>{l}</button>
   );})}
 </div>
+{tab==="comp"&&<ComparativoGastos gastos={gastos}/>}
+{tab!=="comp"&&<>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
   {[["Total",total,G.primary],["Pago",pago,G.success],["Pendente",total-pago,G.red]].map(function([l,v,c]){return(
     <div key={l} style={{background:G.card,borderRadius:10,padding:"12px",textAlign:"center",borderTop:"3px solid "+c,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
@@ -4705,6 +4845,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
     </div>
   );})}
 </div>
+</>}
 {modal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
   <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:460,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 16px 48px rgba(0,0,0,.2)"}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
