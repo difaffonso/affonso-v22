@@ -429,6 +429,14 @@ const getDaysInMonth=(y,m)=>new Date(y,m+1,0).getDate();
 const getFirstDayOfMonth=(y,m)=>new Date(y,m,1).getDay();
 
 // ── UI Atoms ───────────────────────────────────────────────
+// V248: campos numericos ignoram a rodinha do mouse (scroll alterava o valor silenciosamente, ex: 350 -> 348)
+if(typeof document!=="undefined"&&!window.__wheelFixV248){
+  window.__wheelFixV248=true;
+  document.addEventListener("wheel",function(e){
+    var t=e.target;
+    if(t&&t.tagName==="INPUT"&&t.type==="number"&&document.activeElement===t){t.blur();}
+  },{passive:true,capture:true});
+}
 const Bdg=({l,col,sm})=><span style={{background:col+"22",color:col,borderRadius:20,padding:sm?"2px 7px":"3px 10px",fontSize:sm?10:11,fontWeight:700,whiteSpace:"nowrap"}}>{l}</span>;
 const Btn=({ch,onClick,v="p",sm,style,dis})=>{
 const b={cursor:dis?"not-allowed":"pointer",opacity:dis?.5:1,border:"none",borderRadius:10,fontFamily:"'Manrope'",fontWeight:700,transition:"all .15s",display:"inline-flex",alignItems:"center",gap:5,whiteSpace:"nowrap"};
