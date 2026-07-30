@@ -3925,7 +3925,7 @@ return <>
 <div style={{background:G.card,borderRadius:12,padding:14,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
   <div style={{fontWeight:700,marginBottom:12,fontSize:13}}>{"M\u00eas a m\u00eas"}</div>
   {gTot===0&&<p style={{color:G.muted,fontSize:12}}>{"Nenhum or\u00e7amento nos \u00faltimos 12 meses"+(orcDent!=="all"?" para este dentista":"")}</p>}
-  {dados.map(function(d){
+  {dados.slice().reverse().map(function(d){
     var tt=tot1(d);
     if(tt<=0)return null;
     var fech=(val(d,"aprovado")+val(d,"parcial"))/tt*100;
