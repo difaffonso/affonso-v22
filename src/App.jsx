@@ -3586,13 +3586,28 @@ var pC=pats.find(function(x){return x.id===aC.patientId;});
 var isPartC=!aC.patientId&&aC.patientName;
 var anC=(pC&&pC.anamnese)||{};
 var hasAlertC=ANAM_CONDS.some(function(c){return anC[c[0]];});
+// V256: alertas de saude em texto corrido no modo compacto (graves primeiro)
+var _flC=[];
+if(pC&&pC.obs)_flC.push({t:"\u26a0\ufe0f "+pC.obs,hot:true});
+if(pC&&pC.allergy&&pC.allergy!=="Nenhuma")_flC.push({t:"\ud83d\udc8a "+pC.allergy,hot:true});
+if(anC.allergicMeds)_flC.push({t:"\ud83d\udc8a "+anC.allergicMeds,hot:true});
+ANAM_CONDS.forEach(function(c){if(anC[c[0]]&&ANAM_ALERT.indexOf(c[0])>=0)_flC.push({t:c[1],hot:true});});
+ANAM_CONDS.forEach(function(c){if(anC[c[0]]&&ANAM_ALERT.indexOf(c[0])<0)_flC.push({t:c[1],hot:false});});
+var _noAnC=pC?anamFalta(pC):false;
+var _temAlertaC=(_flC.length>0||_noAnC);
 var nmC=isPartC?aC.patientName:((pC&&pC.name)||"A confirmar");
 var stColC=isPartC?G.red:(SCN[aC.status]||G.primary);
 _slotsCompact.push(
 <div key={"c"+slot} onClick={function(){setViewA(aC);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:10,background:"var(--surface)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",marginBottom:5,cursor:"pointer",borderLeft:hasAlertC?"3px solid var(--yellow)":"none"}}>
 <span style={{fontFamily:"'Cormorant Garamond'",fontSize:multi?15:16,fontWeight:700,color:stColC,minWidth:multi?96:46,lineHeight:1,whiteSpace:"nowrap"}}>{lbl}</span>
 <div style={{width:3.5,height:22,borderRadius:3,flexShrink:0,background:GRAD[aC.status]||GRAD.confirmed}}></div>
-<span style={{fontSize:12.5,fontWeight:800,color:isPartC?G.red:G.text,flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:".2px"}}>{nmC}</span>
+<span style={{fontSize:12.5,fontWeight:800,color:isPartC?G.red:G.text,flex:"1 1 auto",minWidth:0,maxWidth:_temAlertaC?"46%":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:".2px"}}>{nmC}</span>
+{_temAlertaC&&<span style={{flex:"1 1 auto",minWidth:0,display:"flex",alignItems:"center",gap:5,overflow:"hidden"}}>
+{_noAnC&&<span style={{fontSize:9,background:"#cf5a78",color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26a0 SEM ANAMNESE"}</span>}
+{_flC.length>0&&<span style={{fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}} title={_flC.map(function(fx){return fx.t;}).join(" \u00b7 ")}>
+{_flC.map(function(fx,ix){return <span key={ix} style={{color:fx.hot?"#a8342c":"#9a7636"}}>{(ix?" \u00b7 ":"")+fx.t}</span>;})}
+</span>}
+</span>}
 <span style={{fontSize:10,color:G.muted,fontWeight:700,whiteSpace:"nowrap",maxWidth:92,overflow:"hidden",textOverflow:"ellipsis"}}>{aC.procedureCustom||aC.procedure}</span>
 {hasAlertC&&<span style={{width:19,height:19,borderRadius:6,background:"#D32F2F",color:"#fff",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:900,boxShadow:"0 1px 4px rgba(180,30,30,.45)"}}>!</span>}
 <span style={{width:16,height:16,borderRadius:5,background:SCN[aC.status]||G.primary,color:"#fff",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:900}}><i className={"ph-fill "+(SCN_IC[aC.status]||"ph-circle")} style={{fontSize:11}}></i></span>
