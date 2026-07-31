@@ -3217,6 +3217,53 @@ const vd=isDent
 // Use 20-min slots when viewing a single orto dentist
 const viewingOrto=vd.length===1&&isOrto(vd[0]);
 const activeSlots=viewingOrto?SLOTS_ORTO:SLOTS;
+// ── V255: COPIAR / COLAR CONSULTA ────────────────────────────
+// Copia paciente/dentista/procedimento/duracao de uma consulta e cola em outro
+// horario livre, abrindo a janela normal de Nova Consulta ja preenchida (tudo editavel).
+const [clipA,setClipA]=useState(function(){try{var s=localStorage.getItem("ag_clip_v255");return s?JSON.parse(s):null;}catch(e){return null;}});
+const setClip=function(v){
+  setClipA(v);
+  try{if(v)localStorage.setItem("ag_clip_v255",JSON.stringify(v));else localStorage.removeItem("ag_clip_v255");}catch(e){}
+};
+const copiarConsulta=function(a){
+  if(!a)return;
+  var pc=pats.find(function(x){return x.id===a.patientId;});
+  setClip({
+    patientId:a.patientId||"",
+    patientName:a.patientName||"",
+    useManual:(!a.patientId&&!!a.patientName),
+    nome:(pc&&pc.name)||a.patientName||"A confirmar",
+    dentistId:a.dentistId,
+    procedure:a.procedure||"",
+    procedureCustom:a.procedureCustom||"",
+    treatment:a.treatment||"",
+    duration:Number(a.duration||30),
+    from:a.date
+  });
+};
+const colarEm=function(dateStr,slot,dentId){
+  if(!clipA||isDent)return false;
+  var _std=activeSlots.indexOf(slot)>=0;
+  setEdit(null);
+  setF(Object.assign({},blank,{
+    patientId:clipA.useManual?"":String(clipA.patientId||""),
+    patientName:clipA.useManual?(clipA.patientName||""):"",
+    useManual:!!clipA.useManual,
+    dentistId:(dentId===undefined||dentId===null)?clipA.dentistId:dentId,
+    date:dateStr,
+    time:_std?slot:"",
+    timeCustom:_std?"":slot,
+    procedure:clipA.procedure||"",
+    procedureCustom:clipA.procedureCustom||"",
+    treatment:clipA.treatment||"",
+    duration:Number(clipA.duration||30),
+    status:"pending",
+    value:"",
+    _colado:clipA.from||""
+  }));
+  setModal(true);
+  return true;
+};
 const espMatches=(user.level>=2)?esperaMatchDia(espera||[],appts,dents,selDate):[];
 const hiddenToday=denF==="all"?appts.filter(function(a){return a.date===selDate&&!vd.some(function(d){return d.id===a.dentistId;})&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed";}):[];
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
@@ -3238,6 +3285,7 @@ extraSlots.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
 }
 }
 const obj={...f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,patientName:f.patientId?"":(f.patientName||"A confirmar"),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
+delete obj._colado; // V255: marca visual do "colado", nao vai para o banco
 if(edit&&edit.status!==f.status){obj.statusTs=new Date().toISOString();obj.stBy=(user&&user.name)||"";} // V222
 obj._ts=Date.now(); // V189: carimbo de edicao para o merge respeitar mudancas de paciente/dados
 if(!edit)obj._by=(user&&user.name)||""; // V222: quem criou a consulta
@@ -3380,6 +3428,16 @@ return (
     <div style={{display:"flex",alignItems:"center",gap:1,background:G.bg,borderRadius:9,padding:"2px 5px"}} title="Zoom da agenda — diminua para ver o dia inteiro na tela"><span style={{fontSize:12,marginRight:2}}>🔍</span><button onClick={function(){setAgZoom(function(z){return Math.max(.5,Math.round((z-.1)*10)/10);});}} style={{border:"none",background:"transparent",borderRadius:7,width:24,height:24,fontSize:17,fontWeight:700,cursor:"pointer",color:G.muted,lineHeight:1,padding:0}} title="Diminuir">−</button><button onClick={function(){setAgZoom(1);}} style={{border:"none",background:"transparent",borderRadius:7,padding:"0 4px",minWidth:42,fontSize:11,fontWeight:700,cursor:"pointer",color:agZoom!==1?G.primary:G.muted}} title="Restaurar 100%">{Math.round(agZoom*100)+"%"}</button><button onClick={function(){setAgZoom(function(z){return Math.min(1.2,Math.round((z+.1)*10)/10);});}} style={{border:"none",background:"transparent",borderRadius:7,width:24,height:24,fontSize:16,fontWeight:700,cursor:"pointer",color:G.muted,lineHeight:1,padding:0}} title="Aumentar">+</button></div>
     <div style={{flex:1}}/>
   </div>
+
+{/* V255: barra da area de transferencia (copiar/colar consulta) */}
+{clipA&&!isDent&&<div style={{display:"flex",alignItems:"center",gap:9,background:"linear-gradient(135deg,"+G.primary+",#3e7a60)",color:"#fff",borderRadius:12,padding:"9px 12px",boxShadow:"0 4px 14px rgba(47,93,73,.35)"}}>
+<span style={{fontSize:17,flexShrink:0}}>{"\ud83d\udccb"}</span>
+<div style={{flex:1,minWidth:0,lineHeight:1.35}}>
+<div style={{fontSize:12.5,fontWeight:800,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{clipA.nome}</div>
+<div style={{fontSize:10.5,opacity:.88,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(clipA.procedureCustom||clipA.procedure||"Sem procedimento")+" \u00b7 "+Number(clipA.duration||30)+" min \u00b7 de "+fmt(clipA.from)+" \u2014 toque num hor\u00e1rio livre para colar"}</div>
+</div>
+<button onClick={function(){setClip(null);}} style={{background:"rgba(255,255,255,.18)",border:"none",color:"#fff",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:800,cursor:"pointer",flexShrink:0}}>{"\u2715 descartar"}</button>
+</div>}
   
 
   {agView==="dia"&&<div style={{display:"grid",gridTemplateColumns:"48px repeat(7,1fr)",gap:2}}>
@@ -3452,11 +3510,11 @@ if(isExtraSlot&&!a)return(
 </div>
 );
 if(!a)return(
-<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:viewingOrto?"1px 6px":"1px 6px",borderRadius:5,background:"var(--green-soft)",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
+<div key={slot} onClick={function(){if(isDent)return;if(clipA&&colarEm(selDate,slot,d.id))return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:viewingOrto?"1px 6px":"1px 6px",borderRadius:5,background:"var(--green-soft)",border:(clipA&&!isDent?"1.5px dashed "+G.primary:"1px dashed "+G.border),cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
 <span style={{fontSize:10,color:G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
 {isDent
 ?<span style={{fontSize:11,color:G.border}}>──────</span>
-:<span style={{fontSize:11,color:G.border,flex:1}}>{"+ agendar"}</span>}
+:<span style={{fontSize:11,color:(clipA?G.primary:G.border),fontWeight:clipA?800:400,flex:1}}>{clipA?"\ud83d\udccb Colar aqui":"+ agendar"}</span>}
 {!isDent&&<button onClick={e=>{e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{marginLeft:"auto",background:"var(--red-soft)",border:"1px solid #FFCDD2",borderRadius:6,padding:"2px 7px",fontSize:10,color:G.red,cursor:"pointer",fontWeight:700}} title="Bloquear horário">🔒</button>}
 </div>
 );
@@ -3471,9 +3529,9 @@ if(a&&a.blocked)return(
 // Cancelado/desmarcado: libera o horário visualmente
 if(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed"){
 return(
-<div key={slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:viewingOrto?"1px 6px":"1px 6px",borderRadius:5,background:"var(--green-soft)",border:"1px dashed "+G.border,cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
+<div key={slot} onClick={function(){if(isDent)return;if(clipA&&colarEm(selDate,slot,d.id))return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:viewingOrto?"1px 6px":"1px 6px",borderRadius:5,background:"var(--green-soft)",border:(clipA&&!isDent?"1.5px dashed "+G.primary:"1px dashed "+G.border),cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
 <span style={{fontSize:10,color:G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
-<span style={{fontSize:11,color:G.border,flex:1}}>{isDent?"":"+ agendar"}</span>
+<span style={{fontSize:11,color:(clipA&&!isDent?G.primary:G.border),fontWeight:(clipA&&!isDent)?800:400,flex:1}}>{isDent?"":(clipA?"\ud83d\udccb Colar aqui":"+ agendar")}</span>
 </div>
 );
 }
@@ -3566,9 +3624,9 @@ return;
 }
 _consumed[slot]=1;
 _slotsCompact.push(
-<div key={"cf"+slot} onClick={function(){if(isDent)return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF(Object.assign({},blank,{date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id}));setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 10px",borderRadius:9,border:"1.2px dashed "+G.border,background:"var(--surface)",marginBottom:5,cursor:isDent?"default":"pointer"}}>
+<div key={"cf"+slot} onClick={function(){if(isDent)return;if(clipA&&colarEm(selDate,slot,d.id))return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF(Object.assign({},blank,{date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id}));setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 10px",borderRadius:9,border:(clipA&&!isDent?"1.6px dashed "+G.primary:"1.2px dashed "+G.border),background:(clipA&&!isDent?G.accent:"var(--surface)"),marginBottom:5,cursor:isDent?"default":"pointer"}}>
 <span style={{fontSize:11,fontWeight:700,color:G.muted,minWidth:46}}>{slot}</span>
-{isDent?<span style={{fontSize:10.5,color:G.border,flex:1}}>{"──────"}</span>:<span style={{fontSize:10.5,color:G.muted,flex:1}}>{"+ agendar"}</span>}
+{isDent?<span style={{fontSize:10.5,color:G.border,flex:1}}>{"──────"}</span>:<span style={{fontSize:10.5,color:(clipA?G.primary:G.muted),fontWeight:clipA?800:400,flex:1}}>{clipA?"\ud83d\udccb Colar aqui":"+ agendar"}</span>}
 {!isDent&&<button onClick={function(e){e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{background:"transparent",border:"none",fontSize:12,cursor:"pointer",padding:0,lineHeight:1}} title="Bloquear horario">{"🔒"}</button>}
 </div>
 );
@@ -3619,7 +3677,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
               // Cancelado/desmarcado: libera o horário visualmente
               if(a&&(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed")){
                 return <div key={d.id} style={{background:"var(--green-soft)",border:"1px dashed "+G.border,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:isDent?"default":"pointer"}}
-                  onClick={function(){if(isDent)return;setEdit(null);var _isStdM=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdM?slot:"",timeCustom:_isStdM?"":slot,dentistId:d.id});setModal(true);}}>
+                  onClick={function(){if(isDent)return;if(clipA&&colarEm(selDate,slot,d.id))return;setEdit(null);var _isStdM=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdM?slot:"",timeCustom:_isStdM?"":slot,dentistId:d.id});setModal(true);}}>
                   <span style={{fontSize:9,color:G.muted}}>{"+"}</span>
                 </div>;
               }
@@ -3663,7 +3721,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                 var bloqTxtColor=isOffDay?"#C62828":isAlmoco?"#E65100":"#6A1B9A";
                 return <div key={d.id} style={{background:bloqColor,border:"1.5px solid "+bloqBorder,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:bloqTxtColor,fontWeight:700}}>{bloqText}</div>;
               }
-              return <div key={d.id} onClick={function(){if(isDent)return;setEdit(null);var _isStdE=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdE?slot:"",timeCustom:_isStdE?"":slot,dentistId:d.id});setModal(true);}} style={{background:isDent?"transparent":"var(--green-soft)",border:"1.5px dashed "+G.border,borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:10,color:G.border}} onMouseEnter={e=>{e.currentTarget.style.background=G.accent;e.currentTarget.style.color=G.primary;}} onMouseLeave={e=>{e.currentTarget.style.background="var(--green-soft)";e.currentTarget.style.color=G.border;}}>+</div>;
+              return <div key={d.id} onClick={function(){if(isDent)return;if(clipA&&colarEm(selDate,slot,d.id))return;setEdit(null);var _isStdE=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdE?slot:"",timeCustom:_isStdE?"":slot,dentistId:d.id});setModal(true);}} style={{background:isDent?"transparent":"var(--green-soft)",border:(clipA&&!isDent?"1.8px dashed "+G.primary:"1.5px dashed "+G.border),borderRadius:8,minHeight:48,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:10,color:(clipA&&!isDent?G.primary:G.border)}} onMouseEnter={e=>{e.currentTarget.style.background=G.accent;e.currentTarget.style.color=G.primary;}} onMouseLeave={e=>{e.currentTarget.style.background="var(--green-soft)";e.currentTarget.style.color=(clipA&&!isDent?G.primary:G.border);}}>{clipA&&!isDent?"\ud83d\udccb":"+"}</div>;
             })}
           </div>
         );
@@ -3795,6 +3853,7 @@ return(
 {!isDent&&p&&p.phone&&<Btn ch="📲 Véspera" v="w" sm onClick={()=>wa(p.phone,"Olá, "+p.name+"! 🔔 Lembrete: sua consulta é amanhã ("+fmt(a.date)+") às "+a.time+" - "+a.procedure+". Responda 1 para confirmar ou 2 para cancelar. Affonso Odontologia 🦷")}/>}
 {!isDent&&p&&p.phone&&<Btn ch="🔄 Paciente Cancelou" v="r" sm onClick={function(){chSt(a.id,"cancelled");wa(p.phone,"Olá, "+p.name+"! Entendemos que nao podera comparecer. Gostaria de remarcar? Responda SIM. Affonso Odontologia");setViewA(null);}}/>}
 {user.level>=3&&<button onClick={()=>{setViewA(null);setHistTab("info");setDetetive(a);}} title="Quem agendou/alterou?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:30,height:30,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}
+{!isDent&&!a.blocked&&<Btn ch={clipA&&String(clipA.patientId||"")===String(a.patientId||"")&&clipA.from===a.date?"\ud83d\udccb Copiado \u2713":"\ud83d\udccb Copiar"} v="f" sm onClick={function(){copiarConsulta(a);setViewA(null);setHistTab("info");}}/>}
 {!isDent&&<Btn ch="Editar" sm onClick={()=>{setEdit(a);var isStdSlot=SLOTS.indexOf(a.time)>=0;
 var fdata=Object.assign({},a,{
   patientId:String(a.patientId||""),
@@ -3815,6 +3874,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Agendamento":"Novo Agendamento"} wide ch={
 
 <div style={{display:"flex",flexDirection:"column",gap:11}}>
+{f._colado&&!edit&&<div style={{display:"flex",alignItems:"center",gap:7,background:"var(--green-soft)",border:"1.5px solid "+G.primary,color:G.primary,borderRadius:9,padding:"8px 11px",fontSize:11.5,fontWeight:700,lineHeight:1.45}}>{"\ud83d\udccb Colado da consulta de "+fmt(f._colado)+" \u2014 confira o procedimento e a dura\u00e7\u00e3o antes de salvar."}</div>}
 <Sel lb="Dentista" val={String(f.dentistId)} set={upd("dentistId")} opts={dents.map(d=>({v:d.id,l:d.name}))}/>
 {/* Paciente - busca cadastrado OU nome manual */}
 <div>
