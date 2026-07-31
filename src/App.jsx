@@ -750,18 +750,126 @@ return (
 </div>
 );
 }
+// ── V254: BUSCA INTELIGENTE DE PACIENTES ────────────────────────
+// Aceita pedacos/iniciais de qualquer parte do nome, em qualquer ordem, ignora
+// acentos e pontuacao, e tolera 1 erro de digitacao (palavras de 4+ letras).
+// Ex: "ana r" acha "Ana Rodrigues" e "Ana Paula Ribeiro"; "silva jo" acha "Joao Silva".
+// Os resultados saem ordenados do mais provavel para o menos provavel.
+var _nmzC=Object.create(null),_nmzN=0;
+function nmzS(s){
+  var k=(s==null?"":String(s));
+  var c=_nmzC[k];
+  if(c!==undefined)return c;
+  c=k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").replace(/\s+/g," ").trim();
+  if(_nmzN>40000){_nmzC=Object.create(null);_nmzN=0;}
+  _nmzC[k]=c;_nmzN++;
+  return c;
+}
+var _wrdC=Object.create(null),_wrdN=0;
+function nwrdS(s){
+  var k=nmzS(s);
+  var c=_wrdC[k];
+  if(c!==undefined)return c;
+  c=k?k.split(" "):[];
+  if(_wrdN>40000){_wrdC=Object.create(null);_wrdN=0;}
+  _wrdC[k]=c;_wrdN++;
+  return c;
+}
+// t combina com algum prefixo de w aceitando no maximo 1 erro (letra trocada, faltando ou sobrando)
+function _pfx1(t,w){
+  var n=t.length,m=w.length,i,j;
+  if(!n||!m)return false;
+  if(m+1<n)return false;
+  var prev=new Array(m+1),cur=new Array(m+1);
+  for(j=0;j<=m;j++)prev[j]=j;
+  for(i=1;i<=n;i++){
+    cur[0]=i;var best=cur[0];
+    for(j=1;j<=m;j++){
+      var cost=t.charCodeAt(i-1)===w.charCodeAt(j-1)?0:1;
+      var a=prev[j]+1,b=cur[j-1]+1,c2=prev[j-1]+cost;
+      var v=a<b?a:b; if(c2<v)v=c2;
+      cur[j]=v; if(v<best)best=v;
+    }
+    if(best>1)return false;
+    for(j=0;j<=m;j++)prev[j]=cur[j];
+  }
+  var mn=prev[0];
+  for(j=1;j<=m;j++)if(prev[j]<mn)mn=prev[j];
+  return mn<=1;
+}
+// -1 = nao bate. 0 = melhor. Quanto menor, mais provavel.
+function _score(nq,ts,nt,ws){
+  if(!nq)return 9;
+  if(!nt)return -1;
+  var i,j,t,ok,pos=nt.indexOf(nq);
+  for(i=0;i<ts.length;i++){
+    t=ts[i];
+    if(!t)continue;
+    ok=false;
+    for(j=0;j<ws.length&&!ok;j++)if(ws[j].indexOf(t)===0)ok=true;
+    if(!ok&&t.length>=3&&nt.indexOf(t)>=0)ok=true;
+    if(!ok&&t.length>=4)for(j=0;j<ws.length&&!ok;j++)if(_pfx1(t,ws[j]))ok=true;
+    if(!ok)return -1;
+  }
+  if(pos===0)return 0;
+  if(ws[0]&&ts[0]&&ws[0].indexOf(ts[0])===0)return 1;
+  if(pos>=0)return 2;
+  return 3;
+}
+function smartHit(q,txt){
+  var nq=nmzS(q);
+  if(!nq)return true;
+  return _score(nq,nwrdS(q),nmzS(txt),nwrdS(txt))>=0;
+}
+function smartRank(q,txt){
+  var s=_score(nmzS(q),nwrdS(q),nmzS(txt),nwrdS(txt));
+  return s<0?9:s;
+}
+function smartSort(q){
+  return function(a,b){
+    var na=(a&&a.name)||"",nb=(b&&b.name)||"";
+    var ra=smartRank(q,na),rb=smartRank(q,nb);
+    if(ra!==rb)return ra-rb;
+    return String(na).localeCompare(String(nb));
+  };
+}
+// Filtra + ordena uma lista de pacientes (nome inteligente + ficha/telefone/CPF por digitos).
+function smartFilter(q,arr,lim){
+  var list=arr||[];
+  var qs=String(q==null?"":q).trim();
+  if(!qs)return lim?list.slice(0,lim):list;
+  var nq=nmzS(qs),ts=nwrdS(qs),dg=qs.replace(/\D/g,""),out=[],i,p,sc;
+  for(i=0;i<list.length;i++){
+    p=list[i];
+    if(!p)continue;
+    sc=_score(nq,ts,nmzS(p.name),nwrdS(p.name));
+    if(sc<0&&dg.length>=2&&((String(p.folder||"").indexOf(dg)>=0)||(String(p.phone||"").replace(/\D/g,"").indexOf(dg)>=0)||(String(p.cpf||"").replace(/\D/g,"").indexOf(dg)>=0)))sc=4;
+    if(sc>=0)out.push({p:p,s:sc,n:nmzS(p.name)});
+  }
+  out.sort(function(a,b){return a.s!==b.s?a.s-b.s:(a.n<b.n?-1:a.n>b.n?1:0);});
+  var r=[];
+  for(i=0;i<out.length&&(!lim||i<lim);i++)r.push(out[i].p);
+  return r;
+}
+function patHit(q,p){
+  if(!p)return false;
+  var qs=String(q==null?"":q).trim();
+  if(!qs)return true;
+  var dg=qs.replace(/\D/g,"");
+  if(dg.length>=2){
+    if(String(p.folder||"").indexOf(dg)>=0)return true;
+    if(String(p.phone||"").replace(/\D/g,"").indexOf(dg)>=0)return true;
+    if(String(p.cpf||"").replace(/\D/g,"").indexOf(dg)>=0)return true;
+  }
+  return smartHit(qs,p.name);
+}
 function PatSearch({lb,val,set,pats,optional,appts,treats}){
 var _fidx=useMemo(function(){return appts?faltaIdx(appts):null;},[appts]);
 var sel=pats.find(function(p){return p.id===Number(val);});
 var [q,setQ]=useState("");
 var [open,setOpen]=useState(false);
 var norm=function(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");};
-var res=q.length>=1?pats.filter(function(p){
-var nq=norm(q);
-return norm(p.name).indexOf(nq)>=0||
-(p.folder||"").indexOf(q)>=0||
-(p.phone||"").indexOf(q)>=0;
-}).slice(0,12):[];
+var res=String(q||"").trim().length>=1?smartFilter(q,pats,12):[]; // V254: busca inteligente
 return (
 
 <div style={{position:"relative",display:"flex",flexDirection:"column",gap:4}}>
@@ -3824,7 +3932,7 @@ if(valId){
   </div>;
 }
 const qq=q.trim().toLowerCase();
-const hits=qq.length<2?[]:(pats||[]).filter(function(p){return p.id!==selfId&&(p.name||"").toLowerCase().indexOf(qq)>=0;}).slice(0,6);
+const hits=qq.length<2?[]:smartFilter(qq,(pats||[]).filter(function(p){return p.id!==selfId;}),6); // V254
 return <div style={{display:"flex",flexDirection:"column",gap:4}}>{LB}
   <input value={q} onChange={function(e){setQ(e.target.value);}} placeholder="Buscar paciente pelo nome..." style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none"}}/>
   {hits.length>0&&<div style={{border:"1.5px solid "+G.border,borderRadius:8,overflow:"hidden",marginTop:2}}>
@@ -4002,7 +4110,7 @@ const [restoreDone,setRestoreDone]=useState("");
 const [ed,setEd]=useState(null);
 const [df,setDf]=useState(bd);
 const upDf=k=>v=>setDf(p=>({...p,[k]:v}));
-const ft=pats.filter(p=>p.name.toLowerCase().includes(srch.toLowerCase())||p.phone.includes(srch)||(p.folder||"").includes(srch)||(p.cpf||"").includes(srch));
+const ft=smartFilter(srch,pats); // V254: busca inteligente
 const totalFt=ft.length;const maxPage=Math.max(0,Math.ceil(totalFt/PER_PAGE)-1);const curPage=Math.min(pPage,maxPage);const pageItems=ft.slice(curPage*PER_PAGE,curPage*PER_PAGE+PER_PAGE);
 const normNome=function(s){return(s||"").toLowerCase().trim();};
 const [dupModal,setDupModal]=useState(null);
@@ -4155,7 +4263,7 @@ const flt=filt==="today"?todP:filt==="all"?pros:pros.filter(p=>p.status===filt).
 // V212: busca de paciente dentro do relatorio de proteses
 const nrmP=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 const srchAct=srch.trim().length>0;
-const srchList=srchAct?pros.filter(p=>{const pt=pats.find(x=>x.id===p.patientId);return pt&&nrmP(pt.name).indexOf(nrmP(srch))>=0;}).filter(p=>(filt==="all"||filt==="today")?true:p.status===filt).sort((a,b)=>String(b.sent||"").localeCompare(String(a.sent||""))):null;
+const srchList=srchAct?pros.filter(p=>{const pt=pats.find(x=>x.id===p.patientId);return pt&&smartHit(srch,pt.name);}).filter(p=>(filt==="all"||filt==="today")?true:p.status===filt).sort((a,b)=>String(b.sent||"").localeCompare(String(a.sent||""))):null;
 const flt2=srchAct?srchList:flt;
 const srchPatIds=srchAct?[...new Set(srchList.map(p=>p.patientId))]:[];
 const srchTot=srchAct?srchList.reduce((s,p)=>s+(Number(p.price)||0)*(Number(p.qty)||1),0):0;
@@ -4368,7 +4476,7 @@ const [editForm,setEditForm]=useState(null);
 const rows=IMPL_DATA.filter(function(r){
   if(r.mes!==selMes)return false;
   if(filtSt!=='all'&&r.status!==filtSt)return false;
-  if(srch&&r.paciente.toLowerCase().indexOf(srch.toLowerCase())<0&&
+  if(srch&&!smartHit(srch,r.paciente)&&
      (r.cirurgia+r.protese+r.obs).toLowerCase().indexOf(srch.toLowerCase())<0)return false;
   return true;
 });
@@ -5813,7 +5921,7 @@ const res=all.filter(function(x){
   if(stF!=="all"&&(n.status||"pending")!==stF)return false;
   if(busca){
     var q=busca.toLowerCase(),qd=digits(busca);
-    var hit=(p.name||"").toLowerCase().indexOf(q)>=0
+    var hit=smartHit(q,p.name) // V254
       ||(n.payerName||"").toLowerCase().indexOf(q)>=0
       ||(n.procedure||"").toLowerCase().indexOf(q)>=0
       ||String(n.number||"").toLowerCase().indexOf(q)>=0
@@ -6363,7 +6471,7 @@ const q=bProc.toLowerCase().trim();
 const nenhumSt=!bSts.aprovado&&!bSts.espera&&!bSts.parcial&&!bSts.naofechado;
 const res=treats.filter(function(t){
   var tot=totOf(t);
-  if(q){var hitItem=(t.items||[]).some(function(i){return String(i.desc||"").toLowerCase().indexOf(q)>=0;});var hitName=String(t.name||"").toLowerCase().indexOf(q)>=0;if(!hitItem&&!hitName)return false;}
+  if(q){var hitItem=(t.items||[]).some(function(i){return String(i.desc||"").toLowerCase().indexOf(q)>=0;});var hitName=smartHit(q,t.name);if(!hitItem&&!hitName)return false;}
   if(bDe&&(t.start||"")<bDe)return false;
   if(bAte&&(t.start||"")>bAte)return false;
   if(bDent!=="all"&&String(t.dentistId)!==String(bDent))return false;
@@ -7563,7 +7671,7 @@ const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lem
 const TIPO_L_LOG={all:"Todos",agenda:"Agenda",paciente:"Paciente",financeiro:"Financeiro",estoque:"Estoque",protese:"Protese",lembrete:"Lembrete",remarcar:"Remarcar",admin:"Admin"};
 const filtered=(logs||[]).filter(function(l){
 if(lfUser!=="all"&&l.user!==lfUser)return false;
-if(lfPat&&!(l.patName||"").toLowerCase().includes(lfPat.toLowerCase())&&!l.desc.toLowerCase().includes(lfPat.toLowerCase()))return false;
+if(lfPat&&!smartHit(lfPat,l.patName)&&!smartHit(lfPat,l.desc))return false;
 if(lfData&&!l.ts.startsWith(lfData))return false;
 if(lfTipo!=="all"&&l.tipo!==lfTipo)return false;
 return true;
