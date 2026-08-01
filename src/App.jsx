@@ -10035,6 +10035,20 @@ function _newerWa(a,b){if(!b)return a;if(!a)return b;return ((b._ts||0)>((a._ts)
 const RAILWAY_URL="https://whatsapp-webhook-production-d5be.up.railway.app";
 const WA_DISPARO_KEY="affonso2025";
 const PCIR_WA=["extra","exodont","cirurg","implante","enxerto","sinus","frenectomia","apicectomia","biopsia","gengivo"];
+// V263 - deteccao unica de procedimento cirurgico (identica a do servidor Railway)
+// PCIR_NEG tem prioridade sobre PCIR_POS. "implante" so vale no INICIO do nome,
+// para nao pegar "protese sobre implante" / "coroa sobre implante".
+const PCIR_POS=["exo","cirurg","enxert","sinus","seio","frenectomia","apicect","biopsia","gengivo","cisto","sisto","reabertura","siso","urgenc"];
+const PCIR_NEG=["avaliac","avaliar","controle","coroa","protese","finalizac","fixac","mole"];
+function _normCir(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+function ehCirurgia(proc){
+  var n=_normCir(proc).trim();
+  if(!n)return false;
+  for(var i=0;i<PCIR_NEG.length;i++){if(n.indexOf(PCIR_NEG[i])>=0)return false;}
+  if(n.indexOf("implante")===0)return true;
+  for(var j=0;j<PCIR_POS.length;j++){if(n.indexOf(PCIR_POS[j])>=0)return true;}
+  return false;
+}
 const WA_TPL=[
 {k:"confirmacao",tpl:"confirmacao_consulta",label:"Confirmação ao agendar",quando:"Na hora em que a consulta é criada na Agenda",sample:["Maria Silva","Diego Affonso","15/06/2026","14:00"]},
 {k:"vespera",tpl:"lembrete_vespera",label:"Lembrete de véspera",quando:"Um dia antes, para consultas Pendentes ou Confirmadas",sample:["Maria Silva","15/06/2026","14:00","Diego Affonso"]},
@@ -10424,7 +10438,7 @@ function daysAgo(n){var d=new Date(t+"T12:00");d.setDate(d.getDate()-n);return d
 function daysAhead(n){var d=new Date(t+"T12:00");d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];}
 var d30=daysAgo(30);var d14=daysAgo(14);var amanha=daysAhead(1);var per=t.slice(0,7);
 var PCIR=["exodontia","extracao","extração","implante","cirurgia","enxerto","sinus","gengivoplastia","apicectomia","frenectomia","biopsia"];
-function isCir(proc){var s=(proc||"").toLowerCase();return PCIR.some(function(k){return s.indexOf(k)>=0;});}
+function isCir(proc){return ehCirurgia(proc);}
 function hasAnam(p){var a=p.anamnese;if(!a)return false;if(a.signedAt||a.signature)return true;var ks=Object.keys(a);for(var i=0;i<ks.length;i++){var v=a[ks[i]];if(v===true)return true;if(typeof v==="string"&&v.trim()&&ks[i]!=="_imp")return true;}return false;}
 function bdayDone(p){var k1=pacsTicks&&pacsTicks["bday_month_"+p.id+"_"+per];var k2=pacsTicks&&pacsTicks["bday_week_"+p.id+"_"+per];return !!((k1&&k1.done)||(k2&&k2.done));}
 function isBdayOn(p,ds){return p.dob&&ds&&p.dob.slice(5)===ds.slice(5);}
@@ -12159,7 +12173,7 @@ if(a.date!==y||a.blocked)return;
 var okSt=a.status==="done"||a.status==="confirmed";
 if(!okSt)return;
 var p=(D.pats||[]).find(function(x){return x.id===a.patientId;});if(!p||!p.phone)return;
-var isCir=PCIR_WA.some(function(w){return (a.procedure||"").toLowerCase().indexOf(w)>=0;});
+var isCir=ehCirurgia(a.procedure);
 var d=dOf(a.dentistId);
 if(isCir&&cfg.poscirurgia)addJob("Pós-cirurgia","pc_"+a.id,"pos__procedimento_",p.phone,[p.name,d.name,a.procedure||"procedimento"],p.name);
 else if(!isCir&&cfg.posconsulta&&a.status==="done"){var psk="ps_"+p.id;var psLast=sent[psk];var psDias=psLast?Math.floor((new Date(t+"T12:00")-new Date(psLast+"T12:00"))/86400000):99999;if(psDias>=180){if(psLast)delete sent[psk];addJob("Pós-consulta",psk,"pos__consulta",p.phone,[p.name,d.name],p.name);}}
