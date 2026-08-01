@@ -10505,70 +10505,70 @@ var SEC=[
 {id:"semestral",ic:"📅",t:"Controle semestral pendente",col:G.orange,view:"lems",items:semestral},
 {id:"estoque",ic:"📦",t:"Estoque baixo",col:G.red,view:"stk",items:estBaixo},
 ];
-// === V259: divergencias entre Financeiro e ficha do paciente ===
-var divDup=[],divFicha=[],divFin=[],divOrf=[],divLeg=[],divPatX=[];
+// === V261: divergencias Financeiro x ficha, pareadas por PACIENTE ===
+// A etiqueta do plano (fromTreat) e' instavel: planos recriados, importacao antiga e
+// IDs curtos herdados geram vinculos quebrados sem que exista problema de dinheiro.
+// Por isso o pareamento e' feito por paciente + data + valor.
+var divDup=[],divFicha=[],divFin=[];
 (function(){
 try{
-var trById={};(treats||[]).forEach(function(x){trById[x.id]=x;});
 var ptById={};(pats||[]).forEach(function(x){ptById[x.id]=x;});
 var nomeDe=function(pid){var p=ptById[pid];return (p&&p.name)?p.name:"(paciente removido)";};
 var K=function(d,v){return String(d)+"|"+(Math.round(Number(v)*100)/100).toFixed(2);};
-var porTr={},orfaos=[],patX=[];
+var trById={},planosDo={};
+(treats||[]).forEach(function(t){trById[t.id]=t;
+  (planosDo[t.patientId]||(planosDo[t.patientId]=[])).push(t);});
+var mr={},mp={};
 (recs||[]).forEach(function(r){
   if(!(Number(r.paid)>0))return;
   if(r.fromTreat==null)return;
-  if(!trById[r.fromTreat]){orfaos.push(r);return;}
-  if(String(trById[r.fromTreat].patientId)!==String(r.patientId)){patX.push(r);return;}
-  var m=porTr[r.fromTreat]||(porTr[r.fromTreat]={});
-  var k=K(r.date,r.paid);(m[k]||(m[k]=[])).push(r);
-});
+  var k=String(r.patientId)+"#"+K(r.date,r.paid);(mr[k]||(mr[k]=[])).push(r);});
+(treats||[]).forEach(function(t){(t.payments||[]).forEach(function(p){
+  var k=String(t.patientId)+"#"+K(p.date,p.value);(mp[k]||(mp[k]=[])).push({p:p,t:t});});});
 var ordId=function(a,b){return Number(a.id)-Number(b.id);};
-(treats||[]).forEach(function(t){
-  var mr=porTr[t.id]||{},mp={};
-  (t.payments||[]).forEach(function(p){var k=K(p.date,p.value);(mp[k]||(mp[k]=[])).push(p);});
-  var ks={};Object.keys(mr).forEach(function(k){ks[k]=1;});Object.keys(mp).forEach(function(k){ks[k]=1;});
-  Object.keys(ks).forEach(function(k){
-    var rs=(mr[k]||[]).slice().sort(ordId),ps=(mp[k]||[]).slice().sort(ordId);
-    if(rs.length===ps.length)return;
-    var pr=k.split("|"),dia=pr[0],val=Number(pr[1]),nome=nomeDe(t.patientId);
-    var i;
-    if(rs.length>ps.length&&ps.length>0){
-      for(i=ps.length;i<rs.length;i++)divDup.push({nome:nome,
-        det:(function(){var fr=rs.map(function(x){return x.payment||"?";}),fp=ps.map(function(x){return x.method||"?";});var uni={};fr.concat(fp).forEach(function(f){uni[f]=1;});return fmt(dia)+" · "+cur(val)+" · Financeiro: "+fr.join(" + ")+" · Ficha: "+(fp.length?fp.join(" + "):"—")+(Object.keys(uni).length>1?"  ⚠️ formas diferentes — confira antes":"");})(),
-        key:"av9d_"+rs[i].id,
-        act:{tp:"A",lb:"Remover duplicata",recId:rs[i].id,pid:t.patientId,nome:nome,dia:dia,val:val,fp:rs[i].payment||""}});
-    }else if(rs.length>ps.length){
-      for(i=ps.length;i<rs.length;i++)divFicha.push({nome:nome,
-        det:fmt(dia)+" · "+cur(val)+" · "+(rs[i].payment||"")+" · no Financeiro, falta na ficha",
+var ks={};Object.keys(mr).forEach(function(k){ks[k]=1;});Object.keys(mp).forEach(function(k){ks[k]=1;});
+Object.keys(ks).forEach(function(k){
+  var rs=(mr[k]||[]).slice().sort(ordId);
+  var pw=(mp[k]||[]).slice().sort(function(a,b){return Number(a.p.id)-Number(b.p.id);});
+  if(rs.length===pw.length)return;
+  var pr=k.split("#"),pid=Number(pr[0]),dv=pr[1].split("|"),dia=dv[0],val=Number(dv[1]);
+  var nome=nomeDe(pid),i;
+  var fr=rs.map(function(x){return x.payment||"?";});
+  var fp=pw.map(function(x){return x.p.method||"?";});
+  var uni={};fr.concat(fp).forEach(function(f){uni[f]=1;});
+  var alerta=Object.keys(uni).length>1?"  \u26a0\ufe0f formas diferentes \u2014 confira antes":"";
+  if(rs.length>pw.length&&pw.length>0){
+    for(i=pw.length;i<rs.length;i++)divDup.push({nome:nome,
+      det:fmt(dia)+" \u00b7 "+cur(val)+" \u00b7 Financeiro: "+fr.join(" + ")+" \u00b7 Ficha: "+fp.join(" + ")+alerta,
+      key:"av9d_"+rs[i].id,
+      act:{tp:"A",lb:"Remover duplicata",recId:rs[i].id,pid:pid,nome:nome,dia:dia,val:val,fp:rs[i].payment||""}});
+  }else if(rs.length>pw.length){
+    for(i=pw.length;i<rs.length;i++){
+      // escolhe o plano destino: o vinculado (se valido e do mesmo paciente), senao o unico do paciente
+      var alvo=trById[rs[i].fromTreat];
+      if(!alvo||String(alvo.patientId)!==String(pid)){
+        var lst=planosDo[pid]||[];alvo=(lst.length===1)?lst[0]:null;}
+      divFicha.push({nome:nome,
+        det:fmt(dia)+" \u00b7 "+cur(val)+" \u00b7 "+(rs[i].payment||"")+" \u00b7 no Financeiro, falta na ficha"
+            +(alvo?"":"  \u2014 v\u00e1rios planos, escolha na ficha"),
         key:"av9f_"+rs[i].id,
-        act:{tp:"B",lb:"Lançar no plano",recId:rs[i].id,tid:t.id,pid:t.patientId,nome:nome,dia:dia,val:val,
-             fp:rs[i].payment||"",inst:Number(rs[i].inst)||1}});
-    }else{
-      for(i=rs.length;i<ps.length;i++)divFin.push({nome:nome,
-        det:fmt(dia)+" · "+cur(val)+" · "+(ps[i].method||"")+" · na ficha, fora do faturamento",
-        key:"av9n_"+ps[i].id,
-        act:{tp:"C",lb:"Ver como resolver",pid:t.patientId,nome:nome,dia:dia,val:val,fp:ps[i].method||""}});
+        act:alvo?{tp:"B",lb:"Lan\u00e7ar no plano",recId:rs[i].id,tid:alvo.id,pid:pid,nome:nome,dia:dia,val:val,
+                  fp:rs[i].payment||"",inst:Number(rs[i].inst)||1}
+                :{tp:"D",lb:"Abrir ficha",pid:pid,nome:nome,dia:dia,val:val,fp:rs[i].payment||""}});
     }
-  });
+  }else{
+    for(i=rs.length;i<pw.length;i++)divFin.push({nome:nome,
+      det:fmt(dia)+" \u00b7 "+cur(val)+" \u00b7 "+(pw[i].p.method||"")+" \u00b7 na ficha, fora do faturamento",
+      key:"av9n_"+pw[i].p.id,
+      act:{tp:"C",lb:"Ver como resolver",pid:pid,nome:nome,dia:dia,val:val,fp:pw[i].p.method||""}});
+  }
 });
-patX.forEach(function(r){var _tp=trById[r.fromTreat];
-divPatX.push({nome:nomeDe(r.patientId),
-det:fmt(r.date)+" · "+cur(r.paid)+" · "+(r.payment||"")+" · aponta para plano de "+nomeDe(_tp?_tp.patientId:null),
-key:"av9x_"+r.id,
-act:{tp:"D",lb:"Ver como resolver",pid:r.patientId,nome:nomeDe(r.patientId),dia:r.date,val:Number(r.paid),fp:r.payment||""}});});
-orfaos.forEach(function(r){(String(r.fromTreat).length<13?divLeg:divOrf).push({nome:nomeDe(r.patientId),
-  det:fmt(r.date)+" · "+cur(r.paid)+" · "+(r.payment||"")+" · plano de origem excluído",
-  key:"av9o_"+r.id,
-  act:{tp:"D",lb:"Ver como resolver",pid:r.patientId,nome:nomeDe(r.patientId),dia:r.date,val:Number(r.paid),fp:r.payment||""}});});
 }catch(e){}
 })();
 SEC=SEC.concat([
-{id:"fdup",ic:"👥",t:"Lançamento duplicado no Financeiro",col:G.red,view:"fin",items:divDup},
-{id:"ffic",ic:"📄",t:"Pagamento falta na ficha do paciente",col:G.orange,view:"pacs",items:divFicha},
-{id:"ffin",ic:"💸",t:"Pagamento falta no Financeiro",col:G.red,view:"fin",items:divFin},
-{id:"forf",ic:"🗂️",t:"Pagamento com plano excluído",col:G.purple,view:"pacs",items:divOrf},
-{id:"fpatx",ic:"🔀",t:"Pagamento vinculado a paciente errado",col:G.red,view:"pacs",items:divPatX},
-{id:"fleg",ic:"📜",t:"Pagamento antigo sem plano (migração)",col:G.muted,view:"pacs",items:divLeg},
+{id:"fdup",ic:"\ud83d\udc65",t:"Lan\u00e7amento duplicado no Financeiro",col:G.red,view:"fin",items:divDup},
+{id:"ffic",ic:"\ud83d\udcc4",t:"Pagamento falta na ficha do paciente",col:G.orange,view:"pacs",items:divFicha},
+{id:"ffin",ic:"\ud83d\udcb8",t:"Pagamento falta no Financeiro",col:G.red,view:"fin",items:divFin},
 ]);
 SEC=SEC.map(function(s){return Object.assign({},s,{items:s.items.filter(function(it){return !(auditDismiss&&it.key&&auditDismiss[it.key]&&auditDismiss[it.key].done);})});});
 var nExcl=Object.keys(auditDismiss||{}).filter(function(k){return auditDismiss[k]&&auditDismiss[k].done;}).length;
