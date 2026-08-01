@@ -1620,6 +1620,30 @@ setTreats(prev=>prev.map(t=>t.id!==tid?t:{...t,_ts:Date.now(),payments:(t.paymen
 })}));
 setConfirmDesfazer(null);
 };
+// V258: pareia lancamentos antigos (sem vinculo) por posicao, 1-para-1.
+// Regra: so remove o par se os dois lados estiverem equilibrados. Se um lado
+// tem sobra (duplicata), a sobra e removida sozinha e o outro lado nao e tocado.
+const _mesmoGrupo=(arr,dia,val,campoVal)=>(arr||[]).filter(function(x){
+  return x.date===dia&&Math.abs(Number(x[campoVal])-Number(val))<0.01;
+}).sort(function(a,b){return Number(a.id)-Number(b.id);});
+// Dada uma baixa, devolve o id do registro do Financeiro que deve sair junto (ou null)
+const _parDaBaixa=(t,p,recsArr)=>{
+  if(p.recId!=null)return p.recId;
+  const rs=_mesmoGrupo((recsArr||[]).filter(function(r){return r.fromTreat===t.id;}),p.date,p.value,'paid');
+  const ps=_mesmoGrupo(t.payments,p.date,p.value,'value');
+  if(rs.length!==ps.length)return null;
+  const i=ps.findIndex(function(x){return x.id===p.id;});
+  return (i>=0&&rs[i])?rs[i].id:null;
+};
+// Dado um registro do Financeiro, devolve o id da baixa que deve sair junto (ou null)
+const _parDoRec=(tr,r,recsArr)=>{
+  if(r.pmtId!=null)return r.pmtId;
+  const rs=_mesmoGrupo((recsArr||[]).filter(function(x){return x.fromTreat===tr.id;}),r.date,r.paid,'paid');
+  const ps=_mesmoGrupo(tr.payments,r.date,r.paid,'value');
+  if(rs.length!==ps.length)return null;
+  const i=rs.findIndex(function(x){return x.id===r.id;});
+  return (i>=0&&ps[i])?ps[i].id:null;
+};
 const addPayment=(tid)=>{
 const pv=pmoney(payForm.value);
 if(!pv)return alert("Informe o valor");
@@ -1954,7 +1978,8 @@ return <>
           <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
           {user.level>=3&&<button onClick={()=>{
   setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,_ts:Date.now(),payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));
-  setRecs(prev=>prev.filter(r=>p.recId!=null?r.id!==p.recId:!(r.fromTreat===t.id&&Math.abs(r.paid-p.value)<0.01&&r.date===p.date)));
+  var _alvoRec=_parDaBaixa(t,p,recs);
+  if(_alvoRec!=null)setRecs(prev=>prev.filter(r=>r.id!==_alvoRec));
 }} style={{background:G.red,border:"none",color:"#fff",cursor:"pointer",fontSize:12,padding:"3px 8px",borderRadius:6,fontWeight:700}} title="Excluir pagamento">✕ Excluir</button>}
           </div>
           {parcelas.length>0&&<div style={{background:G.blue+"10",borderRadius:7,padding:"6px 10px",marginTop:4,display:"flex",flexWrap:"wrap",gap:6}}>
@@ -3046,7 +3071,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
           if(confirmDel.type==="rec"){
             var _dr=recs.find(function(x){return x.id===confirmDel.id;});
             setRecs(prev=>prev.filter(x=>x.id!==confirmDel.id));
-            if(_dr&&_dr.fromTreat!=null){setTreats(prev=>prev.map(function(tr){return tr.id!==_dr.fromTreat?tr:Object.assign({},tr,{_ts:Date.now(),payments:(tr.payments||[]).filter(function(pp){return _dr.pmtId!=null?pp.id!==_dr.pmtId:!(Math.abs(Number(pp.value)-Number(_dr.paid))<0.01&&pp.date===_dr.date);})});}));}
+            if(_dr&&_dr.fromTreat!=null){setTreats(prev=>prev.map(function(tr){return tr.id!==_dr.fromTreat?tr:Object.assign({},tr,{_ts:Date.now(),payments:(function(){var _ab=_parDoRec(tr,_dr,recs);return _ab==null?(tr.payments||[]):(tr.payments||[]).filter(function(pp){return pp.id!==_ab;});})()});}));}
           }
           setConfirmDel(null);
         }} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Excluir</button>
