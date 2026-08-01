@@ -10385,6 +10385,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 function Auditoria({pats,appts,recs,treats,setTreats,setRecs,pros,espera,stock,implCat,implMov,rems,users,dents,pacsTicks,waSent,remarcar,setView,user,auditDismiss,setAuditDismiss}){
 var [audAct,setAudAct]=useState(null);
+var [audFicha,setAudFicha]=useState(null);
 var [audOpen,setAudOpen]=useState({});
 var audToggle=function(id){setAudOpen(function(p){var n=Object.assign({},p);n[id]=!n[id];return n;});};
 // V228: mensagens WhatsApp p/ secao "Conversas sem resposta" (reusa cache economico V196, 1 carga por abertura)
@@ -10534,25 +10535,25 @@ var ordId=function(a,b){return Number(a.id)-Number(b.id);};
       for(i=ps.length;i<rs.length;i++)divDup.push({nome:nome,
         det:fmt(dia)+" · "+cur(val)+" · "+(rs[i].payment||"")+" · "+rs.length+" no Financeiro / "+ps.length+" na ficha",
         key:"av9d_"+rs[i].id,
-        act:{tp:"A",lb:"Remover duplicata",recId:rs[i].id,nome:nome,dia:dia,val:val,fp:rs[i].payment||""}});
+        act:{tp:"A",lb:"Remover duplicata",recId:rs[i].id,pid:t.patientId,nome:nome,dia:dia,val:val,fp:rs[i].payment||""}});
     }else if(rs.length>ps.length){
       for(i=ps.length;i<rs.length;i++)divFicha.push({nome:nome,
         det:fmt(dia)+" · "+cur(val)+" · "+(rs[i].payment||"")+" · no Financeiro, falta na ficha",
         key:"av9f_"+rs[i].id,
-        act:{tp:"B",lb:"Lançar no plano",recId:rs[i].id,tid:t.id,nome:nome,dia:dia,val:val,
+        act:{tp:"B",lb:"Lançar no plano",recId:rs[i].id,tid:t.id,pid:t.patientId,nome:nome,dia:dia,val:val,
              fp:rs[i].payment||"",inst:Number(rs[i].inst)||1}});
     }else{
       for(i=rs.length;i<ps.length;i++)divFin.push({nome:nome,
         det:fmt(dia)+" · "+cur(val)+" · "+(ps[i].method||"")+" · na ficha, fora do faturamento",
         key:"av9n_"+ps[i].id,
-        act:{tp:"C",lb:"Ver como resolver",nome:nome,dia:dia,val:val,fp:ps[i].method||""}});
+        act:{tp:"C",lb:"Ver como resolver",pid:t.patientId,nome:nome,dia:dia,val:val,fp:ps[i].method||""}});
     }
   });
 });
 orfaos.forEach(function(r){divOrf.push({nome:nomeDe(r.patientId),
   det:fmt(r.date)+" · "+cur(r.paid)+" · "+(r.payment||"")+" · plano de origem excluído",
   key:"av9o_"+r.id,
-  act:{tp:"D",lb:"Ver como resolver",nome:nomeDe(r.patientId),dia:r.date,val:Number(r.paid),fp:r.payment||""}});});
+  act:{tp:"D",lb:"Ver como resolver",pid:r.patientId,nome:nomeDe(r.patientId),dia:r.date,val:Number(r.paid),fp:r.payment||""}});});
 }catch(e){}
 })();
 SEC=SEC.concat([
@@ -10566,6 +10567,7 @@ var nExcl=Object.keys(auditDismiss||{}).filter(function(k){return auditDismiss[k
 var total=SEC.reduce(function(s,x){return s+x.items.length;},0);
 var SecRow=function(props){
 var onAct=props.onAct;
+var onOpen=props.onOpen;
 var sec=props.sec;
 var op=props.open;
 var n=sec.items.length;
@@ -10584,7 +10586,9 @@ return <div style={{background:G.card,borderRadius:12,boxShadow:"6px 6px 15px va
 {capped.map(function(it,i){return <div key={i} style={{display:"flex",gap:9,alignItems:"flex-start",background:G.bg,borderRadius:8,padding:"8px 11px"}}>
 <span style={{color:sec.col,fontSize:13,fontWeight:700,marginTop:1}}>•</span>
 <div style={{flex:1}}>
-<div style={{fontWeight:700,fontSize:12.5}}>{it.nome}</div>
+{(it.act&&it.act.pid&&onOpen)
+?<div onClick={function(){onOpen(it.act.pid);}} style={{fontWeight:700,fontSize:12.5,color:G.primary,cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2}}>{it.nome+" ↗"}</div>
+:<div style={{fontWeight:700,fontSize:12.5}}>{it.nome}</div>}
 <div style={{fontSize:11,color:G.muted,marginTop:1}}>{it.det}</div>
 </div>
 {it.tid&&<button onClick={function(){setTreats&&setTreats(function(prev){return prev.map(function(x){return x.id!==it.tid?x:Object.assign({},x,{_ts:Date.now(),orcEnviado:true,orcEnviadoAt:today()});});});}} title="Marcar orçamento como enviado ao paciente" style={{border:"none",background:G.success,color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,borderRadius:8,padding:"4px 10px",flexShrink:0,alignSelf:"flex-start",whiteSpace:"nowrap"}}>{"📤 Enviado"}</button>}
@@ -10617,8 +10621,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
 <div style={{fontSize:12,color:G.muted,marginTop:2}}>Toque em cada tópico para ver os casos.</div>
 </div>
 </div>}
-{SEC.map(function(sec){return <SecRow key={sec.id} sec={sec} open={!!audOpen[sec.id]} toggle={audToggle} onAct={function(a){setAudAct(a);}}/>;})}
+{SEC.map(function(sec){return <SecRow key={sec.id} sec={sec} open={!!audOpen[sec.id]} toggle={audToggle} onAct={function(a){setAudAct(a);}} onOpen={function(pid){var p=(pats||[]).find(function(x){return x.id===pid;});if(p)setAudFicha(p);else alert("Paciente não encontrado no cadastro.");}}/>;})}
 {nExcl>0&&<div style={{display:"flex",justifyContent:"center"}}><button onClick={function(){setAuditDismiss({});}} style={{background:"none",border:"1px solid "+G.border,borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,color:G.muted,cursor:"pointer"}}>{"↩ Restaurar "+nExcl+" excluido(s)"}</button></div>}
+{!!audFicha&&<PatientFolder pat={audFicha} pats={pats} setPats={function(){}} recs={recs} setRecs={setRecs||function(){}} treats={treats} setTreats={setTreats||function(){}} budgets={[]} setBudgets={function(){}} appts={appts} dents={dents} procs={[]} user={user} waTemplates={[]} onClose={function(){setAudFicha(null);}}/>}
 {!!audAct&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:G.card,borderRadius:14,padding:18,maxWidth:360,width:"100%",boxShadow:"0 10px 30px rgba(0,0,0,.25)"}}>
 <div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,marginBottom:9}}>
@@ -10632,6 +10637,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
 {audAct.tp==="D"&&"O plano de tratamento de origem foi excluído. Abra a ficha do paciente e decida: manter o pagamento assim ou excluí-lo."}
 </div>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+<button onClick={function(){var p=(pats||[]).find(function(x){return x.id===audAct.pid;});setAudAct(null);if(p)setAudFicha(p);else alert("Paciente não encontrado no cadastro.");}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 13px",fontSize:12.5,fontWeight:700,cursor:"pointer",marginRight:"auto"}}>🔎 Conferir ficha</button>
 <button onClick={function(){setAudAct(null);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
 {(audAct.tp==="A"||audAct.tp==="B")
 ?<button onClick={function(){
