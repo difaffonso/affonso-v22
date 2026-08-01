@@ -10383,7 +10383,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // AUDITORIA — central de controle (só Admin, leitura)
 // ══════════════════════════════════════════════════════════
-function Auditoria({pats,appts,recs,treats,setTreats,pros,espera,stock,implCat,implMov,rems,users,dents,pacsTicks,waSent,remarcar,setView,user,auditDismiss,setAuditDismiss}){
+function Auditoria({pats,appts,recs,treats,setTreats,setRecs,pros,espera,stock,implCat,implMov,rems,users,dents,pacsTicks,waSent,remarcar,setView,user,auditDismiss,setAuditDismiss}){
+var [audAct,setAudAct]=useState(null);
 var [audOpen,setAudOpen]=useState({});
 var audToggle=function(id){setAudOpen(function(p){var n=Object.assign({},p);n[id]=!n[id];return n;});};
 // V228: mensagens WhatsApp p/ secao "Conversas sem resposta" (reusa cache economico V196, 1 carga por abertura)
@@ -10503,10 +10504,68 @@ var SEC=[
 {id:"semestral",ic:"📅",t:"Controle semestral pendente",col:G.orange,view:"lems",items:semestral},
 {id:"estoque",ic:"📦",t:"Estoque baixo",col:G.red,view:"stk",items:estBaixo},
 ];
+// === V259: divergencias entre Financeiro e ficha do paciente ===
+var divDup=[],divFicha=[],divFin=[],divOrf=[];
+(function(){
+try{
+var trById={};(treats||[]).forEach(function(x){trById[x.id]=x;});
+var ptById={};(pats||[]).forEach(function(x){ptById[x.id]=x;});
+var nomeDe=function(pid){var p=ptById[pid];return (p&&p.name)?p.name:"(paciente removido)";};
+var K=function(d,v){return String(d)+"|"+(Math.round(Number(v)*100)/100).toFixed(2);};
+var porTr={},orfaos=[];
+(recs||[]).forEach(function(r){
+  if(!(Number(r.paid)>0))return;
+  if(r.fromTreat==null)return;
+  if(!trById[r.fromTreat]){orfaos.push(r);return;}
+  var m=porTr[r.fromTreat]||(porTr[r.fromTreat]={});
+  var k=K(r.date,r.paid);(m[k]||(m[k]=[])).push(r);
+});
+var ordId=function(a,b){return Number(a.id)-Number(b.id);};
+(treats||[]).forEach(function(t){
+  var mr=porTr[t.id]||{},mp={};
+  (t.payments||[]).forEach(function(p){var k=K(p.date,p.value);(mp[k]||(mp[k]=[])).push(p);});
+  var ks={};Object.keys(mr).forEach(function(k){ks[k]=1;});Object.keys(mp).forEach(function(k){ks[k]=1;});
+  Object.keys(ks).forEach(function(k){
+    var rs=(mr[k]||[]).slice().sort(ordId),ps=(mp[k]||[]).slice().sort(ordId);
+    if(rs.length===ps.length)return;
+    var pr=k.split("|"),dia=pr[0],val=Number(pr[1]),nome=nomeDe(t.patientId);
+    var i;
+    if(rs.length>ps.length&&ps.length>0){
+      for(i=ps.length;i<rs.length;i++)divDup.push({nome:nome,
+        det:fmt(dia)+" · "+cur(val)+" · "+(rs[i].payment||"")+" · "+rs.length+" no Financeiro / "+ps.length+" na ficha",
+        key:"av9d_"+rs[i].id,
+        act:{tp:"A",lb:"Remover duplicata",recId:rs[i].id,nome:nome,dia:dia,val:val,fp:rs[i].payment||""}});
+    }else if(rs.length>ps.length){
+      for(i=ps.length;i<rs.length;i++)divFicha.push({nome:nome,
+        det:fmt(dia)+" · "+cur(val)+" · "+(rs[i].payment||"")+" · no Financeiro, falta na ficha",
+        key:"av9f_"+rs[i].id,
+        act:{tp:"B",lb:"Lançar no plano",recId:rs[i].id,tid:t.id,nome:nome,dia:dia,val:val,
+             fp:rs[i].payment||"",inst:Number(rs[i].inst)||1}});
+    }else{
+      for(i=rs.length;i<ps.length;i++)divFin.push({nome:nome,
+        det:fmt(dia)+" · "+cur(val)+" · "+(ps[i].method||"")+" · na ficha, fora do faturamento",
+        key:"av9n_"+ps[i].id,
+        act:{tp:"C",lb:"Ver como resolver",nome:nome,dia:dia,val:val,fp:ps[i].method||""}});
+    }
+  });
+});
+orfaos.forEach(function(r){divOrf.push({nome:nomeDe(r.patientId),
+  det:fmt(r.date)+" · "+cur(r.paid)+" · "+(r.payment||"")+" · plano de origem excluído",
+  key:"av9o_"+r.id,
+  act:{tp:"D",lb:"Ver como resolver",nome:nomeDe(r.patientId),dia:r.date,val:Number(r.paid),fp:r.payment||""}});});
+}catch(e){}
+})();
+SEC=SEC.concat([
+{id:"fdup",ic:"👥",t:"Lançamento duplicado no Financeiro",col:G.red,view:"fin",items:divDup},
+{id:"ffic",ic:"📄",t:"Pagamento falta na ficha do paciente",col:G.orange,view:"pacs",items:divFicha},
+{id:"ffin",ic:"💸",t:"Pagamento falta no Financeiro",col:G.red,view:"fin",items:divFin},
+{id:"forf",ic:"🗂️",t:"Pagamento com plano excluído",col:G.purple,view:"pacs",items:divOrf},
+]);
 SEC=SEC.map(function(s){return Object.assign({},s,{items:s.items.filter(function(it){return !(auditDismiss&&it.key&&auditDismiss[it.key]&&auditDismiss[it.key].done);})});});
 var nExcl=Object.keys(auditDismiss||{}).filter(function(k){return auditDismiss[k]&&auditDismiss[k].done;}).length;
 var total=SEC.reduce(function(s,x){return s+x.items.length;},0);
 var SecRow=function(props){
+var onAct=props.onAct;
 var sec=props.sec;
 var op=props.open;
 var n=sec.items.length;
@@ -10529,6 +10588,7 @@ return <div style={{background:G.card,borderRadius:12,boxShadow:"6px 6px 15px va
 <div style={{fontSize:11,color:G.muted,marginTop:1}}>{it.det}</div>
 </div>
 {it.tid&&<button onClick={function(){setTreats&&setTreats(function(prev){return prev.map(function(x){return x.id!==it.tid?x:Object.assign({},x,{_ts:Date.now(),orcEnviado:true,orcEnviadoAt:today()});});});}} title="Marcar orçamento como enviado ao paciente" style={{border:"none",background:G.success,color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,borderRadius:8,padding:"4px 10px",flexShrink:0,alignSelf:"flex-start",whiteSpace:"nowrap"}}>{"📤 Enviado"}</button>}
+{it.act&&<button onClick={function(){onAct&&onAct(it.act);}} style={{border:"none",background:(it.act.tp==="A"?G.red:(it.act.tp==="B"?G.orange:G.primary)),color:"#fff",cursor:"pointer",fontSize:11,fontWeight:700,borderRadius:8,padding:"4px 10px",flexShrink:0,alignSelf:"flex-start",whiteSpace:"nowrap"}}>{it.act.lb}</button>}
 {it.key&&<button onClick={function(){setAuditDismiss(function(prev){var nn=Object.assign({},prev||{});nn[it.key]={done:true,ts:Date.now(),by:(user&&user.name)||""};return nn;});}} title="Excluir da auditoria" style={{border:"none",background:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"2px 4px",flexShrink:0,alignSelf:"flex-start"}}>✕</button>}
 </div>;})}
 {n>capped.length&&<div style={{fontSize:11,color:G.muted,textAlign:"center",padding:"4px 0"}}>{"+ "+(n-capped.length)+" outro(s)"}</div>}
@@ -10557,8 +10617,35 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
 <div style={{fontSize:12,color:G.muted,marginTop:2}}>Toque em cada tópico para ver os casos.</div>
 </div>
 </div>}
-{SEC.map(function(sec){return <SecRow key={sec.id} sec={sec} open={!!audOpen[sec.id]} toggle={audToggle}/>;})}
+{SEC.map(function(sec){return <SecRow key={sec.id} sec={sec} open={!!audOpen[sec.id]} toggle={audToggle} onAct={function(a){setAudAct(a);}}/>;})}
 {nExcl>0&&<div style={{display:"flex",justifyContent:"center"}}><button onClick={function(){setAuditDismiss({});}} style={{background:"none",border:"1px solid "+G.border,borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,color:G.muted,cursor:"pointer"}}>{"↩ Restaurar "+nExcl+" excluido(s)"}</button></div>}
+{!!audAct&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:G.card,borderRadius:14,padding:18,maxWidth:360,width:"100%",boxShadow:"0 10px 30px rgba(0,0,0,.25)"}}>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,marginBottom:9}}>
+{audAct.tp==="A"?"Remover duplicata":audAct.tp==="B"?"Lançar na ficha":audAct.tp==="C"?"Falta no Financeiro":"Plano excluído"}</div>
+<div style={{fontSize:13,lineHeight:1.5,marginBottom:8}}>
+<b>{audAct.nome}</b><br/>{fmt(audAct.dia)+" · "+cur(audAct.val)+(audAct.fp?" · "+audAct.fp:"")}</div>
+<div style={{background:G.bg,borderRadius:8,padding:"9px 11px",fontSize:11.5,color:G.muted,lineHeight:1.55,marginBottom:12}}>
+{audAct.tp==="A"&&"Remove apenas a cópia extra do Financeiro. A ficha do paciente não é alterada. O faturamento do mês vai DIMINUIR "+cur(audAct.val)+"."}
+{audAct.tp==="B"&&"Lança o pagamento na ficha, na data original ("+fmt(audAct.dia)+"). O Financeiro NÃO muda — o valor já está lá. Isso apenas abate a dívida do paciente."}
+{audAct.tp==="C"&&"Este pagamento está na ficha mas não no faturamento. Para criar é preciso escolher dentista e procedimento (define comissão) — faça pela ficha do paciente, em Registrar Atendimento, com a data "+fmt(audAct.dia)+"."}
+{audAct.tp==="D"&&"O plano de tratamento de origem foi excluído. Abra a ficha do paciente e decida: manter o pagamento assim ou excluí-lo."}
+</div>
+<div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+<button onClick={function(){setAudAct(null);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+{(audAct.tp==="A"||audAct.tp==="B")
+?<button onClick={function(){
+var a=audAct;
+if(a.tp==="A"){setRecs&&setRecs(function(prev){return prev.filter(function(x){return x.id!==a.recId;});});}
+else{var _np=nid();
+setTreats&&setTreats(function(prev){return prev.map(function(x){return x.id!==a.tid?x:Object.assign({},x,{_ts:Date.now(),payments:(x.payments||[]).concat([{id:_np,recId:a.recId,date:a.dia,value:a.val,method:a.fp,inst:a.inst||1,note:"",_by:(user&&user.name)||""}])});});});
+setRecs&&setRecs(function(prev){return prev.map(function(x){return x.id!==a.recId?x:Object.assign({},x,{pmtId:_np});});});}
+setAudAct(null);
+}} style={{background:(audAct.tp==="A"?G.red:G.success),color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Confirmar</button>
+:<button onClick={function(){var v=audAct.tp==="C"?"pacs":"pacs";setAudAct(null);setView(v);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Abrir Pacientes</button>}
+</div>
+</div>
+</div>}
 <div style={{fontSize:11,color:G.muted,textAlign:"center",padding:"6px 0 2px"}}>Auditoria é apenas para acompanhamento. As ações são executadas nas telas de cada setor.</div>
 </div>;
 }
@@ -12218,7 +12305,7 @@ return <>
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
     {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users}/>}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientDirtyRef.current=true;setOrientacoes(v);}} user={user}/>}
-    {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
+    {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} setRecs={setRecs} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog} acessoCfg={acessoCfg} setAcessoCfg={setAcessoCfg}/>}
     </div>
   </div>
