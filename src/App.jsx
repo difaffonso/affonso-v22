@@ -1565,6 +1565,8 @@ if(Number(rf.paid)>0&&!rf.closed)return alert("Marque 'Confirmar baixa financeir
 const ms=rf.payment==="Cartão Crédito"&&Number(rf.inst)>1?genM(rf.date,Number(rf.inst)):[];
 const obj={...rf,patientId:pat.id,dentistId:Number(rf.dentistId),paid:pmoney(rf.paid),inst:Number(rf.inst),instM:ms,id:recEdit?recEdit.id:nid(recs),ts:rf.ts||new Date().toISOString(),_by:(recEdit&&recEdit._by)||(user&&user.name)||""};
 setRecs(prev=>recEdit?prev.map(r=>r.id===recEdit.id?obj:r):[...prev,obj]);
+// V257: editar no Financeiro atualiza a baixa vinculada no plano
+if(recEdit&&obj.pmtId!=null&&obj.fromTreat!=null){setTreats(prev=>prev.map(function(tr){return tr.id!==obj.fromTreat?tr:Object.assign({},tr,{_ts:Date.now(),payments:(tr.payments||[]).map(function(pp){return pp.id!==obj.pmtId?pp:Object.assign({},pp,{date:obj.date,value:obj.paid,method:obj.payment,inst:obj.inst});})});}));}
 setRecModal(false);
 };
 const saveTreat=()=>{if(!tf.name)return;setTreats(prev=>[...prev,{...tf,patientId:pat.id,dentistId:Number(tf.dentistId)||user.dentistId||dents[0]?.id||1,orcStatus:tf.orcStatus||"espera",id:nid(treats),_ts:Date.now(),_by:(user&&user.name)||""}]);setTreatModal(false);setTf({name:"",start:today(),items:[],payments:[]});};
@@ -1623,12 +1625,15 @@ const pv=pmoney(payForm.value);
 if(!pv)return alert("Informe o valor");
 const t=treats.find(x=>x.id===tid);
 // Save payment in treatment plan
+// V257: IDs gerados antes para vincular a baixa ao registro do Financeiro
+const _pmtId=nid();const _recId=nid();
 const instSave=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
-setTreats(prev=>prev.map(function(tr){if(tr.id!==tid)return tr;var newPays=[...(tr.payments||[]),{id:nid(tr.payments||[]),date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave,_by:(user&&user.name)||""}];var totIt=(tr.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);var totPg=newPays.reduce(function(s,p){return s+Number(p.value||0);},0);var ns=tr.orcStatus||"espera";if((ns==="parcial"||ns==="espera")&&totIt>0&&totPg>=totIt-0.005)ns="aprovado";else if(ns==="espera"&&totPg>0)ns="parcial";return {...tr,_ts:Date.now(),payments:newPays,orcStatus:ns};}));
+setTreats(prev=>prev.map(function(tr){if(tr.id!==tid)return tr;var newPays=[...(tr.payments||[]),{id:_pmtId,recId:_recId,date:payForm.date,value:pv,method:payForm.method,note:payForm.note,inst:instSave,_by:(user&&user.name)||""}];var totIt=(tr.items||[]).reduce(function(s,i){return s+Number(i.value||0);},0);var totPg=newPays.reduce(function(s,p){return s+Number(p.value||0);},0);var ns=tr.orcStatus||"espera";if((ns==="parcial"||ns==="espera")&&totIt>0&&totPg>=totIt-0.005)ns="aprovado";else if(ns==="espera"&&totPg>0)ns="parcial";return {...tr,_ts:Date.now(),payments:newPays,orcStatus:ns};}));
 // Also create a rec entry so Financeiro sees it
 const inst=payForm.method.toLowerCase().indexOf("crédito")>=0||payForm.method.toLowerCase().indexOf("credito")>=0?Number(payForm.inst||1):1;
 const recObj={
-id:nid(recs),
+id:_recId,
+pmtId:_pmtId,
 patientId:pat.id,
 dentistId:t&&t.dentistId||dents[0]&&dents[0].id||1,
 procedure:t&&t.name||"Procedimento",
@@ -1949,7 +1954,7 @@ return <>
           <span style={{fontWeight:700,color:G.success}}>{cur(p.value)}</span>
           {user.level>=3&&<button onClick={()=>{
   setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,_ts:Date.now(),payments:(tr.payments||[]).filter(x=>x.id!==p.id)}));
-  setRecs(prev=>prev.filter(r=>!(r.fromTreat===t.id&&Math.abs(r.paid-p.value)<0.01&&r.date===p.date)));
+  setRecs(prev=>prev.filter(r=>p.recId!=null?r.id!==p.recId:!(r.fromTreat===t.id&&Math.abs(r.paid-p.value)<0.01&&r.date===p.date)));
 }} style={{background:G.red,border:"none",color:"#fff",cursor:"pointer",fontSize:12,padding:"3px 8px",borderRadius:6,fontWeight:700}} title="Excluir pagamento">✕ Excluir</button>}
           </div>
           {parcelas.length>0&&<div style={{background:G.blue+"10",borderRadius:7,padding:"6px 10px",marginTop:4,display:"flex",flexWrap:"wrap",gap:6}}>
@@ -3041,7 +3046,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
           if(confirmDel.type==="rec"){
             var _dr=recs.find(function(x){return x.id===confirmDel.id;});
             setRecs(prev=>prev.filter(x=>x.id!==confirmDel.id));
-            if(_dr&&_dr.fromTreat!=null){setTreats(prev=>prev.map(function(tr){return tr.id!==_dr.fromTreat?tr:Object.assign({},tr,{_ts:Date.now(),payments:(tr.payments||[]).filter(function(pp){return !(Math.abs(Number(pp.value)-Number(_dr.paid))<0.01&&pp.date===_dr.date);})});}));}
+            if(_dr&&_dr.fromTreat!=null){setTreats(prev=>prev.map(function(tr){return tr.id!==_dr.fromTreat?tr:Object.assign({},tr,{_ts:Date.now(),payments:(tr.payments||[]).filter(function(pp){return _dr.pmtId!=null?pp.id!==_dr.pmtId:!(Math.abs(Number(pp.value)-Number(_dr.paid))<0.01&&pp.date===_dr.date);})});}));}
           }
           setConfirmDel(null);
         }} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Excluir</button>
@@ -3097,10 +3102,10 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
           var finalVal=pmoney(ortoPayVal)||item2.value;
           var _recId=nid();var _pmtId=nid();
           setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,_ts:Date.now(),items:t.items.map((it,i)=>i!==idx2?it:{...it,done:true,doneDate:today(),doneBy:user.name,doneByDentistId:user.dentistId||null,payMethod:ortoPayMethod,value:finalVal,recId:_recId,pmtId:_pmtId,_dts:Date.now()})}));
-          var recObj={id:_recId,patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2,ts:new Date().toISOString(),_by:(user&&user.name)||""};
+          var recObj={id:_recId,pmtId:_pmtId,patientId:pat.id,dentistId:treat2.dentistId||dents[0]?.id||1,procedure:item2.desc,date:today(),paid:finalVal,payment:ortoPayMethod,inst:1,fromTreat:tid2,ts:new Date().toISOString(),_by:(user&&user.name)||""};
           setRecs(prev=>[...prev,recObj]);
           // Also register in treat.payments so it shows in pagamentos registrados
-          var newPmt={id:_pmtId,date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc,_b:1,_by:(user&&user.name)||""};
+          var newPmt={id:_pmtId,recId:_recId,date:today(),value:finalVal,method:ortoPayMethod,note:item2.desc,_b:1,_by:(user&&user.name)||""};
           setTreats(prev=>prev.map(t=>t.id!==tid2?t:{...t,_ts:Date.now(),payments:[...(t.payments||[]),newPmt]}));
           setOrtoPayModal(null);setOrtoPayVal("");
         }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"✓ Confirmar"}</button>
