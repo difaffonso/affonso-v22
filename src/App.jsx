@@ -1644,6 +1644,34 @@ const _parDoRec=(tr,r,recsArr)=>{
   const i=rs.findIndex(function(x){return x.id===r.id;});
   return (i>=0&&ps[i])?ps[i].id:null;
 };
+// V262: exclusao de plano de tratamento com protecao financeira.
+// Plano sem pagamento: qualquer usuario pode excluir.
+// Plano com pagamento: apenas nivel 3 (administrador); demais recebem orientacao.
+const _delTreat=(t)=>{
+  const pgs=(t&&t.payments)||[];
+  const tot=pgs.reduce(function(s,p){return s+Number(p.value||0);},0);
+  if(pgs.length>0&&(!user||user.level<3)){
+    alert("Este plano tem "+pgs.length+" pagamento(s) registrado(s), somando "+cur(tot)+".\n\n"
+      +"Por seguranca, apenas o administrador pode excluir um plano que ja tenha pagamento.\n\n"
+      +"Fale com o Dr. Diego para liberar a exclusao.");
+    return;
+  }
+  if(pgs.length>0){
+    if(window.confirm&&!window.confirm(
+      "ATENCAO\n\nEste plano tem "+pgs.length+" pagamento(s) somando "+cur(tot)+".\n\n"
+      +"Excluir o plano vai remover tambem esses lancamentos do Financeiro.\n"
+      +"O faturamento vai DIMINUIR "+cur(tot)+".\n\nConfirma a exclusao?"))return;
+    var ids={},dts={};
+    pgs.forEach(function(p){if(p.recId!=null)ids[p.recId]=1;dts[String(p.date)+"|"+(Math.round(Number(p.value)*100)/100).toFixed(2)]=1;});
+    setRecs&&setRecs(function(prev){return prev.filter(function(r){
+      if(ids[r.id])return false;
+      if(String(r.fromTreat)===String(t.id)&&dts[String(r.date)+"|"+(Math.round(Number(r.paid)*100)/100).toFixed(2)])return false;
+      return true;});});
+  }else{
+    if(window.confirm&&!window.confirm("Excluir plano?"))return;
+  }
+  setTreats(prev=>prev.filter(x=>x.id!==t.id));
+};
 const addPayment=(tid)=>{
 const pv=pmoney(payForm.value);
 if(!pv)return alert("Informe o valor");
@@ -1892,9 +1920,8 @@ return <>
                       style={{background:"none",border:"1px solid "+G.border,borderRadius:6,padding:"2px 7px",fontSize:10,color:G.muted,cursor:"pointer"}}>{"↩"}</button>}
                   </div>
                 }
-                {!isDentUser&&<button onClick={()=>{if(window.confirm&&!window.confirm("Excluir plano?"))return;setTreats(prev=>prev.filter(x=>x.id!==t.id));}}
+                {!isDentUser&&<button onClick={()=>{_delTreat(t);}}
                   style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"🗑"}</button>}
-            {!isDentUser&&<button onClick={()=>{setTreats(prev=>prev.filter(x=>x.id!==t.id));}} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑️</button>}
           </div>
         </div>
         {/* ORCAMENTO: status controlado pela secretaria */}
