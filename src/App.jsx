@@ -10506,18 +10506,19 @@ var SEC=[
 {id:"estoque",ic:"📦",t:"Estoque baixo",col:G.red,view:"stk",items:estBaixo},
 ];
 // === V259: divergencias entre Financeiro e ficha do paciente ===
-var divDup=[],divFicha=[],divFin=[],divOrf=[];
+var divDup=[],divFicha=[],divFin=[],divOrf=[],divLeg=[],divPatX=[];
 (function(){
 try{
 var trById={};(treats||[]).forEach(function(x){trById[x.id]=x;});
 var ptById={};(pats||[]).forEach(function(x){ptById[x.id]=x;});
 var nomeDe=function(pid){var p=ptById[pid];return (p&&p.name)?p.name:"(paciente removido)";};
 var K=function(d,v){return String(d)+"|"+(Math.round(Number(v)*100)/100).toFixed(2);};
-var porTr={},orfaos=[];
+var porTr={},orfaos=[],patX=[];
 (recs||[]).forEach(function(r){
   if(!(Number(r.paid)>0))return;
   if(r.fromTreat==null)return;
   if(!trById[r.fromTreat]){orfaos.push(r);return;}
+  if(String(trById[r.fromTreat].patientId)!==String(r.patientId)){patX.push(r);return;}
   var m=porTr[r.fromTreat]||(porTr[r.fromTreat]={});
   var k=K(r.date,r.paid);(m[k]||(m[k]=[])).push(r);
 });
@@ -10533,7 +10534,7 @@ var ordId=function(a,b){return Number(a.id)-Number(b.id);};
     var i;
     if(rs.length>ps.length&&ps.length>0){
       for(i=ps.length;i<rs.length;i++)divDup.push({nome:nome,
-        det:fmt(dia)+" · "+cur(val)+" · "+(rs[i].payment||"")+" · "+rs.length+" no Financeiro / "+ps.length+" na ficha",
+        det:(function(){var fr=rs.map(function(x){return x.payment||"?";}),fp=ps.map(function(x){return x.method||"?";});var uni={};fr.concat(fp).forEach(function(f){uni[f]=1;});return fmt(dia)+" · "+cur(val)+" · Financeiro: "+fr.join(" + ")+" · Ficha: "+(fp.length?fp.join(" + "):"—")+(Object.keys(uni).length>1?"  ⚠️ formas diferentes — confira antes":"");})(),
         key:"av9d_"+rs[i].id,
         act:{tp:"A",lb:"Remover duplicata",recId:rs[i].id,pid:t.patientId,nome:nome,dia:dia,val:val,fp:rs[i].payment||""}});
     }else if(rs.length>ps.length){
@@ -10550,7 +10551,12 @@ var ordId=function(a,b){return Number(a.id)-Number(b.id);};
     }
   });
 });
-orfaos.forEach(function(r){divOrf.push({nome:nomeDe(r.patientId),
+patX.forEach(function(r){var _tp=trById[r.fromTreat];
+divPatX.push({nome:nomeDe(r.patientId),
+det:fmt(r.date)+" · "+cur(r.paid)+" · "+(r.payment||"")+" · aponta para plano de "+nomeDe(_tp?_tp.patientId:null),
+key:"av9x_"+r.id,
+act:{tp:"D",lb:"Ver como resolver",pid:r.patientId,nome:nomeDe(r.patientId),dia:r.date,val:Number(r.paid),fp:r.payment||""}});});
+orfaos.forEach(function(r){(String(r.fromTreat).length<13?divLeg:divOrf).push({nome:nomeDe(r.patientId),
   det:fmt(r.date)+" · "+cur(r.paid)+" · "+(r.payment||"")+" · plano de origem excluído",
   key:"av9o_"+r.id,
   act:{tp:"D",lb:"Ver como resolver",pid:r.patientId,nome:nomeDe(r.patientId),dia:r.date,val:Number(r.paid),fp:r.payment||""}});});
@@ -10561,6 +10567,8 @@ SEC=SEC.concat([
 {id:"ffic",ic:"📄",t:"Pagamento falta na ficha do paciente",col:G.orange,view:"pacs",items:divFicha},
 {id:"ffin",ic:"💸",t:"Pagamento falta no Financeiro",col:G.red,view:"fin",items:divFin},
 {id:"forf",ic:"🗂️",t:"Pagamento com plano excluído",col:G.purple,view:"pacs",items:divOrf},
+{id:"fpatx",ic:"🔀",t:"Pagamento vinculado a paciente errado",col:G.red,view:"pacs",items:divPatX},
+{id:"fleg",ic:"📜",t:"Pagamento antigo sem plano (migração)",col:G.muted,view:"pacs",items:divLeg},
 ]);
 SEC=SEC.map(function(s){return Object.assign({},s,{items:s.items.filter(function(it){return !(auditDismiss&&it.key&&auditDismiss[it.key]&&auditDismiss[it.key].done);})});});
 var nExcl=Object.keys(auditDismiss||{}).filter(function(k){return auditDismiss[k]&&auditDismiss[k].done;}).length;
