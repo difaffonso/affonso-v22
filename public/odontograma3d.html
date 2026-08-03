@@ -34,8 +34,11 @@
   .views.closed{transform:translateX(-120%);opacity:0;pointer-events:none}
   #nivelPicker{width:190px}
   #nivelPicker button{border:none;border-radius:9px;padding:9px 0;font-size:13px;font-weight:800;color:#0d1420;cursor:pointer;width:100%}
-  #protPanel{position:fixed;display:none;left:50%;transform:translateX(-50%);bottom:70px;z-index:12;flex-direction:column;gap:6px;
+  #protPanel{position:fixed;display:none;left:auto;right:8px;transform:none;bottom:70px;z-index:12;flex-direction:column;gap:6px;
     background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;width:230px}
+  /* V266: recolhido = so o cabecalho; o modo implante continua LIGADO */
+  #protPanel.min{width:auto;padding:6px 8px}
+  #protPanel.min #ppArc,#protPanel.min #ppDesd,#protPanel.min #ppTipo{display:none}
   #protPanel .pp-row{display:flex;gap:6px}
   #protPanel button{flex:1;background:#12203a;border:1px solid var(--line);color:var(--txt);
     font-size:11px;padding:7px 6px;border-radius:9px;cursor:pointer}
@@ -4473,13 +4476,19 @@ function pickPoint(cx, cy){
   ptr.y = -(cy/window.innerHeight)*2+1;
   ray.setFromCamera(ptr, camera);
   var hits = ray.intersectObjects(scene.children, true);
+  for(var hi=0; hi<hits.length; hi++){            // V266: pula malha invisivel
+    var ob = hits[hi].object, vis = true;
+    while(ob){ if(ob.visible === false){ vis = false; break; } ob = ob.parent; }
+    if(vis) return hits[hi].point;
+  }
   return hits.length ? hits[0].point : null;
 }
 var _ns = new THREE.Vector3();
-function nearestSlot(worldPoint){
+function nearestSlot(worldPoint, arch){
   var best=null, bd=1e9;
   Object.keys(teeth).forEach(function(f){
     var t = teeth[f];
+    if(arch && (t.isUp ? 'up' : 'low') !== arch) return;   // V266: so a arcada pedida
     _ns.copy(t.mesh.userData.centroid);
     t.grp.localToWorld(_ns);
     var dx=_ns.x-worldPoint.x, dz=_ns.z-worldPoint.z, dy=_ns.y-worldPoint.y;
@@ -4488,20 +4497,55 @@ function nearestSlot(worldPoint){
   });
   return best;
 }
+var _hintTmr = null, _hintBase = null;
+function flashHint(msg, ms){
+  var el = document.getElementById('hint');
+  if(!el) return;
+  if(_hintTmr){ clearTimeout(_hintTmr); } else { _hintBase = el.textContent; }
+  el.textContent = msg;
+  _hintTmr = setTimeout(function(){
+    if(_hintBase != null && el.textContent === msg) el.textContent = _hintBase;
+    _hintTmr = null; _hintBase = null;
+  }, ms || 2600);
+}
 function toggleImplantSlot(cx, cy){
   if(reviewMode) return;
   var p = pickPoint(cx, cy);
   if(!p) return;
-  var f = nearestSlot(p);
+  // V266: procura o site SOMENTE dentro da arcada marcada no painel (Superior/Inferior).
+  // Antes a busca varria as duas arcadas com o eixo Y "pesando" so 1/4 da distancia,
+  // entao com a boca aberta um toque na regiao inferior caia num dente superior e
+  // era descartado em silencio pelo teste de arcada.
+  var f = nearestSlot(p, selArch);
+  if(!f) f = nearestSlot(p, selArch === 'up' ? 'low' : 'up');
   if(!f) return;
   var t = teeth[f];
-  if((t.isUp ? 'up' : 'low') !== selArch) return;   // só a arcada selecionada no painel
+  if((t.isUp ? 'up' : 'low') !== selArch){
+    flashHint('Arcada ' + (selArch === 'up' ? 'superior' : 'inferior') + ' selecionada no painel');
+    return;
+  }
   if(t.estado==='implante') t.estado='ausente';
   else if(t.estado==='ausente') t.estado='implante';
-  else return;                                       // dente presente: não altera
+  else {
+    flashHint('Dente ' + f + ' ainda presente — use "Desdentado" ou marque o dente como Ausente');
+    return;
+  }
   applyVisual(f);
   buildProtese(t.isUp ? 'up' : 'low');
   notificarAlteracao();
+  if(t.estado === 'implante'){
+    var _msg = 'Implante colocado no dente ' + f;
+    if(t.extra){                       // avisa se o parafuso caiu fora da tela
+      var _wp = new THREE.Vector3();
+      t.extra.getWorldPosition(_wp);
+      var _pv = _wp.clone().project(camera);
+      if(Math.abs(_pv.x) > 1 || Math.abs(_pv.y) > 1 || Math.abs(_pv.z) > 1)
+        _msg += ' (fora da area visivel — gire ou afaste a camera)';
+    }
+    flashHint(_msg);
+  } else {
+    flashHint('Implante removido do dente ' + f);
+  }
 }
 
 // ---------- Aplicação visual (estado + tratamentos) ----------
@@ -4991,7 +5035,14 @@ document.querySelectorAll('#ppTipo button').forEach(function(b){
   };
 });
 document.getElementById('ppClose').onclick=function(){
-  if(implMode) document.getElementById('implset').click();
+  // V266: antes isto desligava o modo implante inteiro (chamava implset.click()),
+  // e como o painel ficava em cima da mandibula o usuario fechava pra enxergar
+  // o rebordo e perdia o modo sem perceber. Agora so recolhe.
+  var min = protPanel.classList.toggle('min');
+  this.textContent = min ? '+' : '–';
+  this.title = min ? 'Abrir opcoes' : 'Recolher opcoes';
+  document.getElementById('hint').textContent =
+    'Toque na gengiva para adicionar/remover implante';
 };
 document.getElementById('implset').onclick=function(){
   implMode = !implMode;
@@ -5004,7 +5055,12 @@ document.getElementById('implset').onclick=function(){
     Object.keys(teeth).forEach(applyVisual);
   }
   protPanel.style.display = implMode ? 'flex' : 'none';
-  if(implMode) refreshProtPanel();
+  if(implMode){
+    protPanel.classList.remove('min');
+    var _pc = document.getElementById('ppClose');
+    _pc.textContent = '–'; _pc.title = 'Recolher opcoes';
+    refreshProtPanel();
+  }
   document.getElementById('hint').textContent = implMode
     ? 'Toque na gengiva para adicionar/remover implante'
     : 'Arraste para girar · Toque no dente para editar';
