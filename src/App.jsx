@@ -4561,7 +4561,7 @@ setModal(false);
 // ══════════════════════════════════════════════════════════
 // IMPLANTES - Planilha mês a mês estilo Excel
 // ══════════════════════════════════════════════════════════
-function Implantes({impl,setImpl,pats}){
+function Implantes({impl,setImpl,pats,abrirFicha}){/* V265 */
 // Usar impl global para persistir dados
 var IMPL_DATA=impl&&impl.length>0?impl:IMPL_DATA_SEED;
 var setImplRows=function(updater){
@@ -4599,7 +4599,7 @@ const [selMes,setSelMes]=useState(MONTHS_ORDER.includes(curMes)?curMes:MONTHS_OR
 const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(now.getFullYear());
 const [showAdd,setShowAdd]=useState(false);
-const [addForm,setAddForm]=useState({paciente:"",cirurgia:"",protese:"",controle:"",obs:"",data:"",mes:curMes,status:"pending"});
+const [addForm,setAddForm]=useState({paciente:"",patientId:null,cirurgia:"",protese:"",controle:"",obs:"",data:"",mes:curMes,status:"pending"});
 const [filtSt,setFiltSt]=useState('all');
 const [srch,setSrch]=useState('');
 const [editRow,setEditRow]=useState(null);
@@ -4625,7 +4625,7 @@ const done=rows.filter(function(r){return r.status==='done';}).length;
 return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi">
   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
     <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Controle de Implantes</h2>
-    <button onClick={function(){setShowAdd(true);setAddForm({paciente:"",cirurgia:"",protese:"",controle:"",obs:"",data:"",mes:selMes,status:"pending"});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"+ Paciente"}</button>
+    <button onClick={function(){setShowAdd(true);setAddForm({paciente:"",patientId:null,cirurgia:"",protese:"",controle:"",obs:"",data:"",mes:selMes,status:"pending"});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"+ Paciente"}</button>
   </div>
 
   {/* Legenda */}
@@ -4728,7 +4728,13 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
               <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",fontWeight:700,color:c,fontSize:11,whiteSpace:"nowrap",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis"}}>
                 <div style={{display:"flex",alignItems:"center",gap:5}}>
                   <div style={{width:7,height:7,borderRadius:"50%",background:c,flexShrink:0}}/>
-                  {r.paciente}
+                  {/* V265 */}
+                  {(function(){
+                    var _pv=(r.patientId!=null&&pats)?pats.find(function(x){return x.id===Number(r.patientId);}):null;
+                    if(!_pv)return r.paciente;
+                    return <span onClick={function(e){e.stopPropagation();if(abrirFicha)abrirFicha(_pv);}} title="Abrir ficha clínica"
+                      style={{textDecoration:"underline",textUnderlineOffset:2,cursor:"pointer"}}>{r.paciente+" \u2197"}</span>;
+                  })()}
                 </div>
               </td>
               <td style={{padding:"9px 10px",borderBottom:"1px solid #eee",color:r.cirurgia?G.text:G.muted,fontSize:11,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.cirurgia||"—"}</td>
@@ -4755,6 +4761,19 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
         <button onClick={function(){setEditRow(null);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
       </div>
       <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
+        {/* V265: ficha clinica vinculada ou campo para vincular */}
+        {(function(){
+          var _pe=(editForm.patientId!=null&&pats)?pats.find(function(x){return x.id===Number(editForm.patientId);}):null;
+          if(_pe)return <div>
+            <button onClick={function(){if(abrirFicha)abrirFicha(_pe);}} style={{border:"none",borderRadius:9,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",background:G.accent,color:G.primary}}>{"📋 Abrir ficha clínica"}</button>
+          </div>;
+          return <div style={{background:"var(--blue-soft)",borderRadius:10,padding:"12px 14px",border:"2px solid "+G.blue}}>
+            <div style={{fontWeight:700,fontSize:13,color:G.blue,marginBottom:9}}>{"🔗 Vincular à ficha clínica"}</div>
+            <PatSearch val="" pats={pats}
+              set={function(v){var _pid=v?Number(v):null;var _pp=_pid!=null?(pats||[]).find(function(x){return x.id===_pid;}):null;if(!_pp)return;setEditForm(function(p){return {...p,patientId:_pid,paciente:_pp.name};});}}/>
+            <div style={{fontSize:11,color:G.muted,marginTop:7,lineHeight:1.45}}>{"Registro antigo, ainda sem vínculo. Vincule quando passar por ele — nada muda sozinho."}</div>
+          </div>;
+        })()}
         {/* Status */}
         <div>
           <div style={{fontSize:11,fontWeight:700,color:G.muted,marginBottom:6,textTransform:"uppercase"}}>Status</div>
@@ -4824,6 +4843,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
                   updated=[...updated,{
                     id:newId,
                     paciente:editForm.paciente,
+                    patientId:editForm.patientId==null?null:editForm.patientId,/* V265 */
                     mes:editForm.retornoMes,
                     mesKey:editForm.retornoMes,
                     cirurgia:"",
@@ -4852,10 +4872,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
       <button onClick={function(){setShowAdd(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontSize:16}}>{"x"}</button>
     </div>
     <div style={{padding:18,display:"flex",flexDirection:"column",gap:12}}>
-      <div style={{display:"flex",flexDirection:"column",gap:4}}>
-        <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Paciente *</label>
-        <input value={addForm.paciente} onChange={function(e){setAddForm(function(p){return{...p,paciente:e.target.value};});}} placeholder="Nome completo" style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none"}}/>
-      </div>
+      {/* V265: vinculo obrigatorio com a ficha clinica */}
+      <PatSearch lb="Paciente *" val={addForm.patientId==null?"":String(addForm.patientId)} pats={pats}
+        set={function(v){var _pid=v?Number(v):null;var _pp=_pid!=null?(pats||[]).find(function(x){return x.id===_pid;}):null;setAddForm(function(p){return {...p,patientId:_pid,paciente:_pp?_pp.name:""};});}}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <div style={{display:"flex",flexDirection:"column",gap:4}}>
           <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>Mês</label>
@@ -4882,7 +4901,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:10,borderTop:"1px solid "+G.border}}>
         <button onClick={function(){setShowAdd(false);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={function(){
-          if(!addForm.paciente.trim()){alert("Informe o nome do paciente");return;}
+          if(!addForm.patientId){alert("Escolha o paciente no cadastro para continuar.");return;}/* V265 */
           var newId=IMPL_DATA.length>0?Math.max.apply(null,IMPL_DATA.map(function(r){return r.id;}))+1:1;
           setImplRows(function(prev){return[...prev,{...addForm,id:newId,mes:addForm.mes||selMes,_ts:Date.now()}];});/* V264 */
           setSelMes(addForm.mes||selMes);
@@ -12346,7 +12365,7 @@ return <>
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
-      {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts}/>}
+      {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts} abrirFicha={abrirFicha}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha} treats={treats}/>}
       {view==="conversas"&&<Conversas pats={pats} user={user} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
