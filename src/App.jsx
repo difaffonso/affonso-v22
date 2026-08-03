@@ -1403,6 +1403,37 @@ return (<div style={{display:"flex",flexDirection:"column",gap:10}}>
 </div>);
 }
 
+// V266 - Campos obrigatorios da ficha clinica
+function faltamObrig(p){
+  p=p||{};
+  var f=[];
+  var nm=String(p.name||"").trim();
+  if(!String(p.dob||"").trim())f.push("Data de nascimento");
+  if(!String(p.phone||"").trim()&&!String(p.phone2||"").trim())f.push("Telefone (WhatsApp ou fixo)");
+  if(!String(p.origem||"").trim())f.push("Como nos conheceu");
+  if(String(p.origem||"")==="Indica\u00e7\u00e3o"&&!p.indicPorId&&!String(p.indicPorNome||"").trim())f.push("Quem indicou o paciente");
+  if(nm&&nm.split(/\s+/).length<2)f.push("Sobrenome (s\u00f3 um nome digitado)");
+  return f;
+}
+function AvisoObrig({lista,onVoltar,onSalvar}){
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
+      <div style={{background:"var(--yellow)",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>{"\u26a0\ufe0f Campos obrigat\u00f3rios em branco"}</div></div>
+      <div style={{padding:20,display:"flex",flexDirection:"column",gap:13}}>
+        <div style={{fontSize:12.5,color:"var(--muted)"}}>Ficou faltando preencher:</div>
+        <div style={{background:"var(--amber-soft)",border:"1.5px solid var(--yellow)",borderRadius:11,padding:"12px 14px",display:"flex",flexDirection:"column",gap:7}}>
+          {(lista||[]).map(function(x,i){return <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:13.5,fontWeight:700,color:"var(--yellow)"}}><span>{"\u2022"}</span><span>{x}</span></div>;})}
+        </div>
+        <div style={{fontSize:13.5,fontWeight:700}}>Deseja salvar mesmo assim?</div>
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid var(--border)",flexWrap:"wrap"}}>
+          <button onClick={onVoltar} style={{border:"1.5px solid var(--primary)",background:"transparent",color:"var(--primary)",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Voltar e preencher</button>
+          <button onClick={onSalvar} style={{background:"var(--yellow)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Salvar mesmo assim</button>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
 function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose,waTemplates}){
 // Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
@@ -1556,7 +1587,9 @@ const patBudgets=budgets.filter(b=>b.patientId===pat.id);
 const patAppts=appts.filter(a=>a.patientId===pat.id).sort((a,b)=>b.date.localeCompare(a.date));
 const patPaid=patRecs.reduce((s,r)=>s+r.paid,0);
 
-const savePat=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
+const [missPF,setMissPF]=useState(null);
+const savePatOk=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
+const savePat=()=>{if(!String(pf.name||"").trim()){alert("N\u00e3o \u00e9 poss\u00edvel salvar a ficha sem o nome do paciente.");return;}var _f=faltamObrig(pf);if(_f.length>0){setMissPF(_f);return;}savePatOk();};
 const saveAnam=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
 
 const genM=(d,n)=>{const ms=[];const x=new Date(d+"T12:00");for(let i=1;i<=n;i++){x.setMonth(x.getMonth()+1);ms.push(`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}`);}return ms;};
@@ -1798,7 +1831,7 @@ return <>
     {pat.obs&&<div style={{background:G.yellow+"18",border:`2px solid ${G.yellow}`,borderRadius:10,padding:"9px 14px"}}><span style={{fontWeight:700,color:G.yellow}}>⚠ ALERGIA / OBS. IMPORTANTE</span><div style={{color:G.text,marginTop:4,fontSize:14}}>{pat.obs||pat.allergy}</div></div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
       {!editMode?<>
-        {[["NOME",pat.name],["IDADE",age(pat.dob)+" ("+fmt(pat.dob)+")"],["CPF",pat.cpf||"--"],["RG",pat.rg||"--"],["TELEFONE",user.level>=2?pat.phone:"••••••••••"],["TELEFONE 2 (FIXO)",user.level>=2?(pat.phone2||"--"):"••••••••••"],["E-MAIL",user.level>=2?(pat.email||"--"):"••••••••••"],["TIPO SANGUÍNEO",pat.blood||"--"],["PLANO",pat.insurance||"--"],["Nº DA FICHA",pat.folder],["Nº DO RX",pat.rx],["REF. NF",pat.nf||"--"],["ALERGIA",pat.allergy||"Nenhuma"],["COMO NOS CONHECEU",pat.origem||"Não informado"],["INDICADO POR",pat.origem==="Indicação"?((((pats||[]).find(function(x){return x.id===pat.indicPorId;})||{}).name||pat.indicPorNome||"Não informado")):"--"]].map(([k,v])=><div key={k} style={{background:G.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{k}</div><div style={{fontWeight:600,fontSize:13,color:k==="ALERGIA"&&v!=="Nenhuma"?G.red:G.text}}>{v}</div></div>)}
+        {[["NOME",pat.name],["IDADE",age(pat.dob)+" ("+fmt(pat.dob)+")"],["CPF",pat.cpf||"--"],["RG",pat.rg||"--"],["TELEFONE",user.level>=2?pat.phone:"••••••••••"],["TELEFONE 2 (FIXO)",user.level>=2?(pat.phone2||"--"):"••••••••••"],["E-MAIL",user.level>=2?(pat.email||"--"):"••••••••••"],["TIPO SANGUÍNEO",pat.blood||"--"],["Nº DA FICHA",pat.folder],["Nº DO RX",pat.rx],["REF. NF",pat.nf||"--"],["ALERGIA",pat.allergy||"Nenhuma"],["COMO NOS CONHECEU",pat.origem||"Não informado"],["INDICADO POR",pat.origem==="Indicação"?((((pats||[]).find(function(x){return x.id===pat.indicPorId;})||{}).name||pat.indicPorNome||"Não informado")):"--"]].map(([k,v])=><div key={k} style={{background:G.bg,borderRadius:8,padding:"8px 12px"}}><div style={{fontSize:10,fontWeight:700,color:G.muted}}>{k}</div><div style={{fontWeight:600,fontSize:13,color:k==="ALERGIA"&&v!=="Nenhuma"?G.red:G.text}}>{v}</div></div>)}
       </>:<>
         <Inp lb="Nome" val={pf.name} set={v=>setPf(p=>({...p,name:v}))}/>
         <DatePick lb="Nascimento" val={pf.dob} set={v=>setPf(p=>({...p,dob:v}))}/>
@@ -1808,7 +1841,6 @@ return <>
         <Inp lb="Telefone 2 (fixo)" val={pf.phone2||""} set={v=>setPf(p=>({...p,phone2:v}))}/>
         <Inp lb="E-mail" val={pf.email} set={v=>setPf(p=>({...p,email:v}))}/>
         <Inp lb="Tipo Sanguíneo" val={pf.blood} set={v=>setPf(p=>({...p,blood:v}))}/>
-        <Inp lb="Plano de Saúde" val={pf.insurance} set={v=>setPf(p=>({...p,insurance:v}))}/>
         <Inp lb="Nº da Ficha" val={pf.folder} set={v=>setPf(p=>({...p,folder:v}))}/>
         <Inp lb="Nº do RX" val={pf.rx} set={v=>setPf(p=>({...p,rx:v}))}/>
         <Inp lb="Ref. Nota Fiscal" val={pf.nf} set={v=>setPf(p=>({...p,nf:v}))}/>
@@ -2506,6 +2538,7 @@ return <>
   </div>
 </div>
 
+{missPF&&<AvisoObrig lista={missPF} onVoltar={function(){setMissPF(null);}} onSalvar={function(){setMissPF(null);savePatOk();}}/>}
 {/* Add procedure to existing plan modal */}
 {confirmDesfazer&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
   <div style={{background:"var(--surface)",borderRadius:18,width:"100%",maxWidth:380,boxShadow:"0 8px 32px rgba(0,0,0,.25)"}}>
@@ -4247,8 +4280,14 @@ const totalFt=ft.length;const maxPage=Math.max(0,Math.ceil(totalFt/PER_PAGE)-1);
 const normNome=function(s){return(s||"").toLowerCase().trim();};
 const [dupModal,setDupModal]=useState(null);
 const [delModal,setDelModal]=useState(null);
+const [missNew,setMissNew]=useState(null);
 const savePat=()=>{
 if(!pf.name)return;
+var _f=faltamObrig(pf);
+if(_f.length>0){setMissNew(_f);return;}
+savePatOk();
+};
+const savePatOk=()=>{
 const isNew=!ep;
 if(isNew){
 const nm=normNome(pf.name);
@@ -4331,6 +4370,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <button onClick={()=>setDupModal(null)} style={{border:"1.5px solid var(--primary)",background:"transparent",color:"var(--primary)",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
 <button onClick={dupModal.onConfirm} style={{background:"var(--yellow)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Cadastrar Mesmo Assim</button>
 </div></div></div></div>}
+{missNew&&<AvisoObrig lista={missNew} onVoltar={function(){setMissNew(null);}} onSalvar={function(){setMissNew(null);savePatOk();}}/>}
 {delModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
 <div style={{background:"var(--red)",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>🗑️ Excluir Paciente</div></div>
@@ -4350,17 +4390,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
   <R2 a={<Inp lb="Ref. Nota Fiscal" val={pf.nf} set={fp("nf")}/>} b={<Inp lb="CPF" val={pf.cpf} set={fp("cpf")}/>}/>
   <R2 a={<DatePick lb="Data de Nascimento" val={pf.dob} set={fp("dob")}/>} b={<Inp lb="Telefone (WhatsApp)" val={pf.phone} set={fp("phone")} ph="11999990000"/>}/>
   <Inp lb="Telefone 2 (fixo) -- não recebe WhatsApp" val={pf.phone2||""} set={fp("phone2")} ph="1125249975"/>
-          <R2 a={<DatePick lb="Paciente desde" val={pf.since||today()} set={fp("since")}/>} b={<Inp lb="Plano de Saude" val={pf.insurance||""} set={fp("insurance")} ph="Ex: Unimed"/>}/>
-  <R2 a={<Inp lb="E-mail" val={pf.email} set={fp("email")}/>} b={<Sel lb="Tipo Sanguíneo" val={pf.blood} set={fp("blood")} opts={["","A+","A-","B+","B-","O+","O-","AB+","AB-"]}/>}/>
-  <R2 a={<Inp lb="Alergia" val={pf.allergy} set={fp("allergy")}/>} b={<Inp lb="Plano de Saúde" val={pf.insurance} set={fp("insurance")}/>}/>
-  <div style={{display:"flex",flexDirection:"column",gap:4}}>
-    <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Sexo</label>
-    <div style={{display:"flex",gap:8}}>
-      {[["M","👨 Masculino"],["F","👩 Feminino"],["","Não informado"]].map(([v,l])=><button key={v} onClick={()=>setPf(p=>({...p,genero:v}))} style={{flex:1,border:`2px solid ${pf.genero===v?G.primary:G.border}`,background:pf.genero===v?G.primary:"var(--card)",color:pf.genero===v?"#fff":G.muted,borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
-    </div>
-  </div>
-  <Txt lb="⚠ Obs. Importante (alergia grave, destaque vermelho)" val={pf.obs} set={fp("obs")} rows={2}/>
-  <Txt lb="Observações Gerais" val={pf.notes} set={fp("notes")} rows={2}/>
+  <R2 a={<DatePick lb="Paciente desde" val={pf.since||today()} set={fp("since")}/>} b={<Sel lb="Tipo Sanguíneo" val={pf.blood} set={fp("blood")} opts={["","A+","A-","B+","B-","O+","O-","AB+","AB-"]}/>}/>
+  <Inp lb="E-mail" val={pf.email} set={fp("email")}/>
   <div style={{display:"flex",flexDirection:"column",gap:4}}>
     <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Como nos conheceu?</label>
     <select value={pf.origem||""} onChange={e=>setPf(p=>({...p,origem:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none",background:"var(--surface)"}}>
@@ -4369,6 +4400,15 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
     </select>
   </div>
   {pf.origem==="Indicação"&&<IndicPicker pats={pats} selfId={ep?ep.id:0} valId={pf.indicPorId} valNome={pf.indicPorNome} onPick={function(id,nm){setPf(function(p){return Object.assign({},p,{indicPorId:id,indicPorNome:nm});});}}/>}
+  <div style={{display:"flex",flexDirection:"column",gap:4}}>
+    <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Sexo</label>
+    <div style={{display:"flex",gap:8}}>
+      {[["M","👨 Masculino"],["F","👩 Feminino"],["","Não informado"]].map(([v,l])=><button key={v} onClick={()=>setPf(p=>({...p,genero:v}))} style={{flex:1,border:`2px solid ${pf.genero===v?G.primary:G.border}`,background:pf.genero===v?G.primary:"var(--card)",color:pf.genero===v?"#fff":G.muted,borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
+    </div>
+  </div>
+  <Txt lb="⚠ Obs. Importante (alergia grave, destaque vermelho)" val={pf.obs} set={fp("obs")} rows={2}/>
+  <Txt lb="Observações Gerais" val={pf.notes} set={fp("notes")} rows={2}/>
+  <Inp lb="Alergia" val={pf.allergy} set={fp("allergy")}/>
   <SC2 save={savePat} cancel={()=>setPm(false)}/>
 </div>}/>
 
