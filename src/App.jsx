@@ -4813,7 +4813,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
           <button onClick={function(){setEditRow(null);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
           <button onClick={function(){
             setImplRows(function(prev){
-              var updated=prev.map(function(r){return r.id===editRow.id?{...editForm}:r;});
+              var updated=prev.map(function(r){return r.id===editRow.id?{...editForm,_ts:Date.now()}:r;});/* V264 */
               // Se finalizou E tem retorno configurado, criar novo registro no mes do retorno
               if(editForm.status==="done"&&editForm.retornoMes&&editForm.retornoProc){
                 var jaExiste=updated.some(function(r){
@@ -4832,7 +4832,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
                     obs:"Retorno de "+editForm.mes,
                     data:"",
                     extra:"",
-                    status:"pending"
+                    status:"pending",
+                    _ts:Date.now()/* V264 */
                   }];
                 }
               }
@@ -4883,7 +4884,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
         <button onClick={function(){
           if(!addForm.paciente.trim()){alert("Informe o nome do paciente");return;}
           var newId=IMPL_DATA.length>0?Math.max.apply(null,IMPL_DATA.map(function(r){return r.id;}))+1:1;
-          setImplRows(function(prev){return[...prev,{...addForm,id:newId,mes:addForm.mes||selMes}];});
+          setImplRows(function(prev){return[...prev,{...addForm,id:newId,mes:addForm.mes||selMes,_ts:Date.now()}];});/* V264 */
           setSelMes(addForm.mes||selMes);
           setShowAdd(false);
         }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"+ Adicionar"}</button>
