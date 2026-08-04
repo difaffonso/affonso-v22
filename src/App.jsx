@@ -10903,7 +10903,7 @@ return <div key={o.id} style={{background:G.card,borderRadius:12,boxShadow:"6px 
 }
 
 
-function Conversas({pats,user,waSeenRef,onSeen,abrirFicha}){
+function Conversas({pats,user,waSeenRef,onSeen,abrirFicha,pacsTicks,setPacsTicks}){
 const [msgs,setMsgs]=useState([]);
 const [filtroTipo,setFiltroTipo]=useState(null); // V214: filtro por tipo de mensagem
 
@@ -10966,9 +10966,18 @@ var pac=acharPac(ph);g.pac=pac;
 g.name=pac?pac.name:(g.msgs.map(function(m){return m.patient_name;}).filter(Boolean)[0]||("+"+ph));
 g.unread=g.msgs.filter(function(m){return m.direction==="in"&&(m.id||0)>seen;}).length;
 g.tipo=waTipo(g); // V214
+// V267: conversa marcada como resolvida (respondida pelo WhatsApp normal do balcao)
+var _lid=0;g.msgs.forEach(function(m){var _n=Number(m.id)||0;if(_n>_lid)_lid=_n;});g.lastId=_lid;
+var _tk=(pacsTicks||{})["conv_"+ph];
+g.resTick=(_tk&&_tk.done)?_tk:null;
+g.resolvido=!!(g.resTick&&(Number(g.resTick.lastId)||0)>=g.lastId);
+if(g.resolvido)g.tipo=Object.assign({},g.tipo,{kOrig:g.tipo.k,k:"resolvido",cor:"#2f8f5f",label:"RESOLVIDO",emo:"\u2714\ufe0f"});
 return g;
 }).sort(function(a,b){return (b.lastTs||"").localeCompare(a.lastTs||"");});
 var norm=function(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");};
+// V267: marcar/desmarcar conversa como resolvida (fica gravado quem e quando)
+var marcarResolvido=function(g){if(!setPacsTicks)return;setPacsTicks(function(prev){var n=Object.assign({},prev||{});n["conv_"+g.phone]={done:true,lastId:(g.lastId||0),by:(user&&user.name)||"",date:today(),ts:Date.now()};return n;});};
+var desfazerResolvido=function(g){if(!setPacsTicks)return;setPacsTicks(function(prev){var n=Object.assign({},prev||{});n["conv_"+g.phone]={done:false,lastId:0,by:(user&&user.name)||"",date:today(),ts:Date.now()};return n;});};
 // V214: fix buscador (telefone so conta se a busca tiver digitos) + filtro por tipo
 var listaF=q?lista.filter(function(g){var qd=soDig(q);var okNome=norm(g.name).indexOf(norm(q))>=0;var okFone=qd.length>0&&g.phone.indexOf(qd)>=0;return okNome||okFone;}):lista;
 if(filtroTipo)listaF=listaF.filter(function(g){return g.tipo&&g.tipo.k===filtroTipo;});
@@ -11047,7 +11056,7 @@ return (
 {/* V214: legenda de cores + filtro por tipo */}
 <style>{"@keyframes waResp{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.4)}50%{box-shadow:0 0 0 6px rgba(192,57,43,0)}}@keyframes waOrc{0%,100%{box-shadow:0 0 0 0 rgba(212,147,13,.45)}50%{box-shadow:0 0 0 6px rgba(212,147,13,0)}}"}</style>
 <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
-{[["responder","\ud83d\udcac Responder","#c0392b"],["orcamento","\ud83d\udcb0 Or\u00e7amento","#d4930d"],["agendamento","\ud83d\udcc5 Agendamento","#3b6ea5"],["vespera","\ud83d\udd14 V\u00e9spera","#7c5cbf"],["confirmou","\u2705 Confirmou","#2f8f5f"],["poscir","\ud83c\udfe5 P\u00f3s-cir\u00fargico","#c2703d"],["aniversario","\ud83c\udf82 Anivers\u00e1rio","#c25b8a"],["outros","\ud83d\udce8 Outros","#b7950b"]].map(function(ch){
+{[["responder","\ud83d\udcac Responder","#c0392b"],["orcamento","\ud83d\udcb0 Or\u00e7amento","#d4930d"],["agendamento","\ud83d\udcc5 Agendamento","#3b6ea5"],["vespera","\ud83d\udd14 V\u00e9spera","#7c5cbf"],["confirmou","\u2705 Confirmou","#2f8f5f"],["poscir","\ud83c\udfe5 P\u00f3s-cir\u00fargico","#c2703d"],["aniversario","\ud83c\udf82 Anivers\u00e1rio","#c25b8a"],["outros","\ud83d\udce8 Outros","#b7950b"],["resolvido","\u2714\ufe0f Resolvido","#2f8f5f"]].map(function(ch){
 var atv=filtroTipo===ch[0];
 var qtd=lista.filter(function(g){return g.tipo&&g.tipo.k===ch[0];}).length;
 return (<button key={ch[0]} onClick={function(){setFiltroTipo(atv?null:ch[0]);}} style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:5,fontSize:10.5,fontWeight:700,borderRadius:20,padding:"5px 10px",background:atv?"#dfe7e0":(ch[0]==="responder"?"rgba(192,57,43,.10)":(ch[0]==="orcamento"?"rgba(212,147,13,.12)":G.card)),border:atv?("1.5px solid "+G.primary):(ch[0]==="responder"?"1.5px solid rgba(192,57,43,.45)":(ch[0]==="orcamento"?"1.5px solid rgba(212,147,13,.5)":"1.5px solid transparent")),color:ch[0]==="responder"?"#c0392b":(ch[0]==="orcamento"?"#a9750a":G.text),whiteSpace:"nowrap",cursor:"pointer",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff",fontFamily:"'Manrope'"}}>
@@ -11071,10 +11080,15 @@ return (<button key={ch[0]} onClick={function(){setFiltroTipo(atv?null:ch[0]);}}
 {g.unread>0&&<span style={{background:(g.tipo&&g.tipo.k==="responder")?"#c0392b":G.success,color:"#fff",borderRadius:20,minWidth:19,height:19,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,padding:"0 5px",flexShrink:0}}>{g.unread}</span>}
 </div>
 {g.tipo&&g.tipo.label&&<div style={{marginTop:5}}><span style={g.tipo.k==="responder"?{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:"#c0392b",animation:"waResp 1.6s ease-in-out infinite"}:(g.tipo.k==="orcamento"?{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:"#d4930d",animation:"waOrc 1.6s ease-in-out infinite"}:{display:"inline-flex",alignItems:"center",gap:4,fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 7px",color:"#fff",letterSpacing:".3px",background:g.tipo.cor})}>{g.tipo.emo+" "+g.tipo.label}</span></div>}
+{/* V267: assinatura de quem marcou como resolvido */}
+{g.resolvido&&g.resTick&&<div style={{fontSize:10,color:G.muted,marginTop:3,fontStyle:"italic"}}>{"por "+(g.resTick.by||"\u2014")+(g.resTick.date?(" \u00b7 "+g.resTick.date):"")}</div>}
 </div>
+{/* V267: botao marcar como resolvido / desfazer */}
+{(!g.resolvido&&g.tipo&&(g.tipo.k==="responder"||g.tipo.k==="orcamento"))&&<button title="Marcar como resolvido" onClick={function(e){e.stopPropagation();marcarResolvido(g);}} style={{flexShrink:0,width:36,height:36,borderRadius:"50%",border:"1.5px solid rgba(47,143,95,.45)",background:"rgba(47,143,95,.10)",color:G.success,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}><i className="ph-bold ph-check"></i></button>}
+{g.resolvido&&<button onClick={function(e){e.stopPropagation();desfazerResolvido(g);}} style={{flexShrink:0,border:"none",background:"transparent",color:G.muted,fontSize:11,fontWeight:700,cursor:"pointer",textDecoration:"underline",padding:4,fontFamily:"'Manrope'"}}>{"desfazer"}</button>}
 </div>
 );})}
-<div style={{textAlign:"center",fontSize:11,color:G.muted,marginTop:4,padding:"0 16px"}}>{"💬 Toque em uma conversa para ler e responder pelo sistema."}</div>
+<div style={{textAlign:"center",fontSize:11,color:G.muted,marginTop:4,padding:"0 16px"}}>{"💬 Toque em uma conversa para ler e responder pelo sistema. Use o ✔️ quando já tiver respondido pelo WhatsApp do balcão."}</div>
 </div>
 );
 }
@@ -12408,7 +12422,7 @@ return <>
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts} abrirFicha={abrirFicha}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha} treats={treats}/>}
-      {view==="conversas"&&<Conversas pats={pats} user={user} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
+      {view==="conversas"&&<Conversas pats={pats} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
       {view==="satisf"&&<Satisfacao pats={pats} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} treats={treats} user={user}/>}
       {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp}/>}
