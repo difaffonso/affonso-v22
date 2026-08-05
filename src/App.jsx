@@ -7416,12 +7416,14 @@ function ImportNFe({stock,setStock,addLog,onClose}){
 function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
+const [relSub,setRelSub]=useState("resumo");// V268 sub-abas do relatorio (resumo/in/out/aj)
 const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
 const [impNfe,setImpNfe]=useState(false); // Importação NF-e (V195)
 const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};
-if(edit&&Number(f.qty)!==Number(edit.qty)){obj.movs=[{t:"aj",q:Number(f.qty)-Number(edit.qty),date:today(),note:"Correção de contagem ("+Number(edit.qty)+" → "+Number(f.qty)+")"},...(obj.movs||[])];try{if(addLog)addLog("estoque","Ajuste de contagem: "+obj.name+" ("+Number(edit.qty)+" → "+Number(f.qty)+")","");}catch(e){}}// V237 ajuste automatico
+if(edit&&!(user&&user.level>=3))obj.qty=Number(edit.qty);// V268 trava: so nivel 3 corrige contagem (nivel 2 usa +Entrada / -Saida)
+if(edit&&Number(obj.qty)!==Number(edit.qty)){obj.movs=[{t:"aj",q:Number(obj.qty)-Number(edit.qty),date:today(),note:"Correção de contagem ("+Number(edit.qty)+" → "+Number(f.qty)+")"},...(obj.movs||[])];try{if(addLog)addLog("estoque","Ajuste de contagem: "+obj.name+" ("+Number(edit.qty)+" → "+Number(f.qty)+")","");}catch(e){}}// V237 ajuste automatico
 setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
 const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note,p:Number(s.price)||0},...(s.movs||[])]}:s));setMv(null);};
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -7461,7 +7463,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>
 <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Item":"Novo Item"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
 <Inp lb="Nome do Material" val={f.name} set={upd("name")}/>
-<R2 a={<Inp lb="Qtd. Atual" val={String(f.qty)} set={upd("qty")} type="number"/>} b={<Inp lb="Unidade" val={f.unit} set={upd("unit")} ph="un / cx / ml"/>}/>
+<R2 a={(edit&&!(user&&user.level>=3))?<Inp lb="Qtd. Atual (bloqueado)" val={String(f.qty)} type="number" ro/>:<Inp lb="Qtd. Atual" val={String(f.qty)} set={upd("qty")} type="number"/>} b={<Inp lb="Unidade" val={f.unit} set={upd("unit")} ph="un / cx / ml"/>}/>
+{edit&&!(user&&user.level>=3)&&<div style={{background:G.gold+"14",border:"1.5px solid "+G.gold+"44",borderRadius:8,padding:"9px 11px",fontSize:11.5,color:"#7a5a26",lineHeight:1.5}}>{"🔒 Só o administrador pode corrigir a quantidade direto. Para material que chegou use + Entrada; para material usado use - Saída."}</div>}
 <R2 a={<Inp lb="Qtd. Mínima" val={String(f.min)} set={upd("min")} type="number"/>} b={<Inp lb="Preço Un. (R$)" val={String(f.price)} set={upd("price")} type="number"/>}/>
 <label style={{display:"flex",alignItems:"center",gap:9,fontSize:13,cursor:"pointer",background:f.fixo?G.primary+"12":G.bg,borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(f.fixo?G.primary:G.border)}}>
   <input type="checkbox" checked={!!f.fixo} onChange={e=>upd("fixo")(e.target.checked)} style={{accentColor:G.primary,width:16,height:16}}/>
@@ -7481,59 +7484,111 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </>}
 {matTab==="rel"&&(function(){
 var movsAll=[];
-stock.forEach(function(s){(s.movs||[]).forEach(function(mm,ix){var pu=(mm.p!=null&&mm.p!=="")?Number(mm.p):(Number(s.price)||0);movsAll.push({t:mm.t,q:Number(mm.q||0),date:mm.date||"",note:mm.note||"",itemName:s.name,unit:s.unit,pu:pu,val:pu*Number(mm.q||0),estimado:(mm.t!=="aj")&&(mm.p==null||mm.p===""),itemId:s.id,movIdx:ix});});});// V237 id p/ exclusao
+stock.forEach(function(s){(s.movs||[]).forEach(function(mm,ix){var pu=(mm.p!=null&&mm.p!=="")?Number(mm.p):(Number(s.price)||0);movsAll.push({t:mm.t,q:Number(mm.q||0),date:mm.date||"",note:mm.note||"",itemName:s.name,unit:s.unit,pu:pu,val:pu*Math.abs(Number(mm.q||0)),estimado:(mm.t!=="aj")&&(mm.p==null||mm.p===""),itemId:s.id,movIdx:ix});});});// V237 id p/ exclusao
 var doMes=movsAll.filter(function(mm){return String(mm.date).startsWith(relMes);});
 doMes.sort(function(a,b){return String(b.date).localeCompare(String(a.date));});
-var gastoMes=doMes.filter(function(mm){return mm.t==="out";}).reduce(function(s2,mm){return s2+mm.val;},0);
-var entradaMes=doMes.filter(function(mm){return mm.t==="in";}).reduce(function(s2,mm){return s2+mm.val;},0);
+var ins=doMes.filter(function(mm){return mm.t==="in";});
+var outs=doMes.filter(function(mm){return mm.t==="out";});
+var ajs=doMes.filter(function(mm){return mm.t==="aj";});
+var entradaMes=ins.reduce(function(s2,mm){return s2+mm.val;},0);
+var gastoMes=outs.reduce(function(s2,mm){return s2+mm.val;},0);
 var temEstimado=doMes.some(function(mm){return mm.estimado;});
-var porItem={};
-doMes.forEach(function(mm){if(mm.t!=="out")return;if(!porItem[mm.itemName])porItem[mm.itemName]={q:0,v:0,unit:mm.unit};porItem[mm.itemName].q+=mm.q;porItem[mm.itemName].v+=mm.val;});
-var itensArr=Object.keys(porItem).map(function(k){return Object.assign({name:k},porItem[k]);}).sort(function(a,b){return b.v-a.v;});
-return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"Relatório de Materiais"}</h2>
-<input type="month" value={relMes} onChange={function(e){setRelMes(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"7px 10px",fontSize:13,background:G.card,color:G.text}}/>
-</div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-<div style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
-<div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{"Gasto no mês (saídas)"}</div>
-<div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:G.red}}>{cur(gastoMes)}</div>
-</div>
-<div style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
-<div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{"Entradas (compras)"}</div>
-<div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:G.success}}>{cur(entradaMes)}</div>
-</div>
-</div>
-{itensArr.length>0&&<div>
-<div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>{"Consumo por material"}</div>
-<div style={{display:"flex",flexDirection:"column",gap:8}}>
-{itensArr.map(function(it,i){return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
-<div><div style={{fontWeight:700,fontSize:13}}>{it.name}</div><div style={{fontSize:11,color:G.muted}}>{it.q+" "+(it.unit||"un")+" usadas"}</div></div>
-<div style={{fontWeight:800,color:G.red}}>{cur(it.v)}</div>
-</div>;})}
-</div>
-</div>}
+var nDif=function(list){var o={},n=0;list.forEach(function(mm){if(!o[mm.itemName]){o[mm.itemName]=1;n++;}});return n;};
+var lbAba=function(k){return k==="in"?"Entrada":(k==="out"?"Saída":"Ajuste");};
+var linha=function(mm,i){var isIn=mm.t==="in";var isAj=mm.t==="aj";var cor=isAj?"#9aa39c":(isIn?G.success:G.red);return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",borderLeft:"4px solid "+cor,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff",position:"relative"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
 <div>
-<div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6,marginBottom:8}}>{"Movimentações do mês"}</div>
-{doMes.length===0&&<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{"Nenhuma movimentação neste mês."}</div>}
-<div style={{display:"flex",flexDirection:"column",gap:8}}>
-{doMes.map(function(mm,i){var isIn=mm.t==="in";var isAj=mm.t==="aj";var cor=isAj?"#9aa39c":(isIn?G.success:G.red);return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",borderLeft:"4px solid "+cor,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff",position:"relative"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-<div>
-<span style={{fontSize:9,fontWeight:800,borderRadius:5,padding:"1px 6px",textTransform:"uppercase",background:cor+"25",color:isAj?"#6a736c":cor}}>{isAj?"Ajuste":(isIn?"Entrada":"Saída")}</span>
+<span style={{fontSize:9,fontWeight:800,borderRadius:5,padding:"1px 6px",textTransform:"uppercase",background:cor+"25",color:isAj?"#6a736c":cor}}>{lbAba(mm.t)}</span>
 <div style={{fontWeight:700,fontSize:13,marginTop:2}}>{mm.itemName}</div>
 <div style={{fontSize:11,color:G.muted}}>{fmt(mm.date)+(mm.note?" · "+mm.note:"")}</div>
 </div>
 <div style={{textAlign:"right",paddingRight:user&&user.level>=3?34:0}}>
 <div style={{fontWeight:800,fontSize:14,color:isAj?"#6a736c":cor,whiteSpace:"nowrap"}}>{isAj?((mm.q>0?"+":"")+mm.q+" "+(mm.unit||"un")):(cur(mm.val)+(mm.estimado?"*":""))}</div>
-<div style={{fontSize:11,color:G.muted}}>{isAj?"fora dos totais":(mm.q+" "+(mm.unit||"un"))}</div>
+<div style={{fontSize:11,color:G.muted}}>{isAj?"fora dos totais":(mm.q+" "+(mm.unit||"un")+" × "+cur(mm.pu))}</div>
 </div>
 </div>
-{user&&user.level>=3&&<button onClick={function(){if(!window.confirm("Apagar esta movimentação do histórico? A quantidade atual do estoque não muda."))return;setStock(function(prev){return prev.map(function(s2){return s2.id===mm.itemId?Object.assign({},s2,{movs:(s2.movs||[]).filter(function(_,ix2){return ix2!==mm.movIdx;})}):s2;});});try{if(addLog)addLog("estoque","Apagou movimentação do relatório: "+mm.itemName+" ("+(isAj?"ajuste":(isIn?"entrada":"saída"))+" "+mm.q+")","");}catch(e){}}} style={{position:"absolute",bottom:8,right:10,border:"none",background:G.bg,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:13,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px #ffffff"}}>{"🗑"}</button>}
-</div>;})}
+{user&&user.level>=3&&<button onClick={function(){if(!window.confirm("Apagar esta movimentação do histórico? A quantidade atual do estoque não muda."))return;setStock(function(prev){return prev.map(function(s2){return s2.id===mm.itemId?Object.assign({},s2,{movs:(s2.movs||[]).filter(function(_,ix2){return ix2!==mm.movIdx;})}):s2;});});try{if(addLog)addLog("estoque","Apagou movimentação do relatório: "+mm.itemName+" ("+lbAba(mm.t).toLowerCase()+" "+mm.q+")","");}catch(e){}}} style={{position:"absolute",bottom:8,right:10,border:"none",background:G.bg,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:13,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px #ffffff"}}>{"🗑"}</button>}
+</div>;};
+var porDia=function(list,corTot,vazio){
+if(!list.length)return <div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{vazio||"Nenhum lançamento neste mês."}</div>;
+var grupos={};var ordem=[];
+list.forEach(function(mm){if(!grupos[mm.date]){grupos[mm.date]=[];ordem.push(mm.date);}grupos[mm.date].push(mm);});
+ordem.sort(function(a,b){return String(b).localeCompare(String(a));});
+return <div>{ordem.map(function(d,gi){var itens=grupos[d];var tot=itens.reduce(function(s2,mm){return s2+(mm.t==="aj"?0:mm.val);},0);
+return <div key={"g"+gi} style={{marginBottom:13}}>
+<div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+<span style={{fontFamily:"'Cormorant Garamond'",fontSize:17,fontWeight:700,color:G.primary}}>{fmt(d)}</span>
+<span style={{flex:1,height:1,background:G.border}}></span>
+<span style={{fontSize:11,fontWeight:800,color:corTot}}>{tot>0?cur(tot):(itens.length+" lanç.")}</span>
 </div>
+<div style={{display:"flex",flexDirection:"column",gap:8}}>{itens.map(linha)}</div>
+</div>;})}</div>;};
+var porMaterial=function(list,cor){
+var by={};list.forEach(function(mm){if(!by[mm.itemName])by[mm.itemName]={q:0,v:0,unit:mm.unit};by[mm.itemName].q+=Math.abs(mm.q);by[mm.itemName].v+=mm.val;});
+var arr=Object.keys(by).map(function(k){return Object.assign({name:k},by[k]);}).sort(function(a,b){return b.v-a.v;});
+if(!arr.length)return null;
+var mx=arr[0].v||1;
+return <div style={{display:"flex",flexDirection:"column",gap:8}}>{arr.map(function(it,i){return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:13}}>{it.name}</div>
+<div style={{fontSize:11,color:G.muted}}>{it.q+" "+(it.unit||"un")}</div>
+<div style={{height:5,borderRadius:3,background:G.border,marginTop:6,overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:cor,width:(it.v/mx*100)+"%"}}></div></div>
 </div>
+<div style={{fontWeight:800,color:cor,whiteSpace:"nowrap"}}>{cur(it.v)}</div>
+</div>;})}</div>;};
+var card=function(lb,vl,cor,sub){return <div style={{background:G.card,borderRadius:12,padding:"12px 14px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+<div style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{lb}</div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:cor,lineHeight:1.25}}>{vl}</div>
+{sub&&<div style={{fontSize:10.5,color:G.muted}}>{sub}</div>}
+</div>;};
+var titulo=function(t){return <div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6,margin:"4px 0 8px"}}>{t}</div>;};
+var aviso=function(tipo,txt){var vermelho=tipo==="red";return <div style={{background:(vermelho?G.red:G.gold)+"14",border:"1.5px solid "+(vermelho?G.red:G.gold)+"55",borderRadius:12,padding:"11px 13px",fontSize:12.5,lineHeight:1.55,color:vermelho?G.red:"#7a5a26",display:"flex",gap:9,alignItems:"flex-start"}}><span style={{fontSize:16}}>{vermelho?"⚠":"⚙"}</span><div>{txt}</div></div>;};
+var abas=[["resumo","Resumo",doMes.length],["in","📥 Entradas",ins.length],["out","📤 Saídas",outs.length],["aj","⚙ Ajustes",ajs.length]];
+return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"Relatório de Materiais"}</h2>
+<input type="month" value={relMes} onChange={function(e){setRelMes(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"7px 10px",fontSize:13,background:G.card,color:G.text}}/>
+</div>
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{abas.map(function(tb){var on=relSub===tb[0];return <button key={tb[0]} onClick={function(){setRelSub(tb[0]);}} style={{border:"none",borderRadius:10,padding:"9px 14px",fontSize:12,fontWeight:700,cursor:"pointer",background:on?G.primary:G.card,color:on?"#fff":G.muted,boxShadow:on?"inset 2px 2px 6px rgba(0,0,0,.25)":"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>{tb[1]+" ("+tb[2]+")"}</button>;})}
+</div>
+{relSub==="resumo"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{card("Entradas (compras)",cur(entradaMes),G.success,ins.length+" lançamento(s)")}
+{card("Saídas (consumo)",cur(gastoMes),G.red,outs.length+" lançamento(s)")}
+{card("Saldo do mês",cur(entradaMes-gastoMes),entradaMes-gastoMes>=0?G.success:G.red,"entradas − saídas")}
+</div>
+{ins.length===0&&aviso("red",<span><strong>{"Nenhuma compra lançada neste mês."}</strong>{" Se chegou material na clínica, ele não foi registrado como entrada no estoque."}</span>)}
+{ajs.length>0&&aviso("gold",<span><strong>{ajs.length+" ajuste(s) de contagem neste mês."}</strong>{" Ajustes mudam a quantidade sem registrar compra e ficam fora dos totais em R$. Se foi compra, o certo é usar + Entrada."}</span>)}
+{titulo("Últimos lançamentos")}
+{porDia(doMes,G.muted,"Nenhuma movimentação neste mês.")}
+</div>}
+{relSub==="in"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{card("Total comprado",cur(entradaMes),G.success,ins.length+" entrada(s)")}
+{card("Itens diferentes",String(nDif(ins)),G.primary,"no mês")}
+</div>
+{ins.length===0&&aviso("red",<span><strong>{"Nenhuma entrada registrada neste mês."}</strong>{" Todo material que chega precisa ser lançado no botão + Entrada, com data e quantidade."}</span>)}
+{ins.length>0&&titulo("Compras por material")}
+{ins.length>0&&porMaterial(ins,G.success)}
+{ins.length>0&&titulo("Entradas por data")}
+{ins.length>0&&porDia(ins,G.success,"Nenhuma entrada neste mês.")}
+</div>}
+{relSub==="out"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{card("Total consumido",cur(gastoMes),G.red,outs.length+" saída(s)")}
+{card("Itens diferentes",String(nDif(outs)),G.primary,"no mês")}
+</div>
+{outs.length>0&&titulo("Consumo por material")}
+{outs.length>0&&porMaterial(outs,G.red)}
+{titulo("Saídas por data")}
+{porDia(outs,G.red,"Nenhuma saída neste mês.")}
+</div>}
+{relSub==="aj"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+{aviso("gold",<span>{"Ajustes são correções de contagem feitas direto na quantidade do item. Eles "}<strong>{"não entram"}</strong>{" nos totais em R$ — servem para auditar quando o estoque mudou sem entrada nem saída. Só o administrador pode gerar ajuste."}</span>)}
+{titulo("Ajustes por data")}
+{porDia(ajs,"#6a736c","Nenhum ajuste neste mês. 👍")}
+</div>}
 {temEstimado&&<div style={{background:G.gold+"18",border:"1.5px solid "+G.gold+"55",borderRadius:10,padding:"10px 12px",fontSize:11,color:G.muted,lineHeight:1.5}}>{"* Movimentações antigas não gravaram o preço na hora — o valor foi calculado com o preço atual do item. Baixas novas já gravam o preço do momento."}</div>}
 </div>;
 })()}
