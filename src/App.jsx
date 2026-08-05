@@ -7413,7 +7413,27 @@ function ImportNFe({stock,setStock,addLog,onClose}){
     </div>
   </div>;
 }
-function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user}){
+// V269: compras de material lancadas no financeiro que ainda nao tem entrada no estoque
+function comprasSemEntrada(gastos,stock){
+try{
+var hoje=today();
+var dl=new Date(hoje+"T00:00:00");dl.setDate(dl.getDate()-60);
+var limStr=dl.toISOString().slice(0,10);
+var ent=[];
+(stock||[]).forEach(function(s){((s&&s.movs)||[]).forEach(function(m){if(m&&m.t==="in"&&m.date)ent.push(String(m.date));});});
+var lista=(((gastos||{}).clinica)||[]).filter(function(g){
+if(!g||String(g.cat||"")!=="Material")return false;
+if(g._stkOk)return false;
+var d=String(g.date||"");
+if(!d||d>hoje||d<limStr)return false;
+var perto=ent.some(function(e){return Math.abs((new Date(e+"T00:00:00")-new Date(d+"T00:00:00"))/86400000)<=15;});
+return !perto;
+});
+lista.sort(function(x,y){return String(y.date).localeCompare(String(x.date));});
+return lista;
+}catch(e){return [];}
+}
+function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user,gastos,setGastos}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
 const [relSub,setRelSub]=useState("resumo");// V268 sub-abas do relatorio (resumo/in/out/aj)
@@ -7425,8 +7445,27 @@ const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f
 if(edit&&!(user&&user.level>=3))obj.qty=Number(edit.qty);// V268 trava: so nivel 3 corrige contagem (nivel 2 usa +Entrada / -Saida)
 if(edit&&Number(obj.qty)!==Number(edit.qty)){obj.movs=[{t:"aj",q:Number(obj.qty)-Number(edit.qty),date:today(),note:"Correção de contagem ("+Number(edit.qty)+" → "+Number(f.qty)+")"},...(obj.movs||[])];try{if(addLog)addLog("estoque","Ajuste de contagem: "+obj.name+" ("+Number(edit.qty)+" → "+Number(f.qty)+")","");}catch(e){}}// V237 ajuste automatico
 setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
-const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note,p:Number(s.price)||0},...(s.movs||[])]}:s));setMv(null);};
+const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note,dentId:m.dentId||"",p:Number(s.price)||0},...(s.movs||[])]}:s));setMv(null);};
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+{(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta de compra sem lancamento
+return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borderRadius:14,padding:"13px 15px",display:"flex",flexDirection:"column",gap:10}}>
+<div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+<span style={{fontSize:18,lineHeight:1}}>{"\u26a0"}</span>
+<div style={{fontSize:13,lineHeight:1.55,color:G.red}}><strong>{"Está faltando lançar os materiais comprados."}</strong>{" Tem compra paga no financeiro sem nenhuma entrada correspondente aqui no estoque."}</div>
+</div>
+<div style={{display:"flex",flexDirection:"column",gap:7}}>
+{pend.map(function(g,i){return <div key={g.id||i} style={{background:G.card,borderRadius:10,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
+<div style={{minWidth:0}}>
+<div style={{fontWeight:700,fontSize:12.5}}>{g.desc||"(sem descrição)"}</div>
+<div style={{fontSize:11,color:G.muted}}>{fmt(g.date)+" · Gastos › Clínica › Material"}</div>
+</div>
+<div style={{display:"flex",alignItems:"center",gap:9,flexShrink:0}}>
+<span style={{fontWeight:800,fontSize:13,color:G.red,whiteSpace:"nowrap"}}>{cur(Number(g.value)||0)}</span>
+{user&&user.level>=3&&<button onClick={function(){if(!setGastos)return;setGastos(function(prev){var p=prev||{};return Object.assign({},p,{clinica:((p.clinica)||[]).map(function(x){return x.id===g.id?Object.assign({},x,{_stkOk:true,_ts:Date.now()}):x;})});});try{if(addLog)addLog("estoque","Marcou compra como conferida: "+(g.desc||"")+" ("+cur(Number(g.value)||0)+")","");}catch(e){}}} style={{border:"none",background:G.bg,borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:G.primary,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px #ffffff",whiteSpace:"nowrap"}}>{"✓ Conferido"}</button>}
+</div>
+</div>;})}
+</div>
+</div>;})()}
 
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 <button onClick={function(){setStkTab("material");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="material"?"var(--card)":G.bg,color:stkTab==="material"?G.primary:G.muted,boxShadow:stkTab==="material"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"📦 Material"}</button>
@@ -7455,8 +7494,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>
 {low&&<div style={{background:G.red+"15",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:G.red,marginTop:5}}>⚠ Estoque baixo!</div>}
 <div style={{display:"flex",gap:5,marginTop:9}}>
-<Btn ch="+ Entrada" sm onClick={()=>{setM({t:"in",q:"",note:"",date:today()});setMv(s.id);}}/>
-<Btn ch="- Saída" v="y" sm onClick={()=>{setM({t:"out",q:"",note:"",date:today()});setMv(s.id);}}/>
+<Btn ch="+ Entrada" sm onClick={()=>{setM({t:"in",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
+<Btn ch="- Saída" v="y" sm onClick={()=>{setM({t:"out",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
 <Btn ch="✏️" v="g" sm onClick={()=>{setEdit(s);setF({...s});setModal(true);}}/>
 </div>
 </div>;})}
@@ -7478,7 +7517,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>}/>
 <Modal open={!!mv} close={()=>setMv(null)} title={m.t==="in"?"Entrada":"Saída"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
 <R2 a={<Inp lb="Quantidade" val={m.q} set={v=>setM(p=>({...p,q:v}))} type="number"/>} b={<Inp lb="Data" val={m.date} set={v=>setM(p=>({...p,date:v}))} type="date"/>}/>
-<Inp lb="Motivo" val={m.note} set={v=>setM(p=>({...p,note:v}))}/>
+{m.t==="out"?<div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{"Dentista"}</label><select value={m.dentId||""} onChange={function(e){var v=e.target.value;var d=(dents||[]).filter(function(x){return String(x.id)===String(v);})[0];setM(function(p){return Object.assign({},p,{dentId:v,note:d?String(d.name||"").trim():""});});}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)",fontFamily:"'Manrope'"}}><option value="">{"— selecione —"}</option>{(dents||[]).map(function(d){return <option key={d.id} value={String(d.id)}>{String(d.name||"").trim()}</option>;})}</select></div>:<Inp lb="Fornecedor / Nota" val={m.note} set={v=>setM(p=>({...p,note:v}))}/>}
 <SC2 save={addMov} cancel={()=>setMv(null)} lbl="Registrar"/>
 </div>}/>
 </>}
@@ -8812,6 +8851,16 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     <div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div>
     <div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div>
   </div>
+
+  {(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta na visao geral
+  return <div onClick={function(){if(setView)setView("stk");}} style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borderRadius:14,padding:"13px 15px",display:"flex",gap:11,alignItems:"center",cursor:"pointer"}}>
+  <span style={{fontSize:19,lineHeight:1}}>{"\u26a0"}</span>
+  <div style={{flex:1,minWidth:0}}>
+  <div style={{fontWeight:800,fontSize:13.5,color:G.red}}>{"Está faltando lançar os materiais comprados"}</div>
+  <div style={{fontSize:11.5,color:G.muted,marginTop:2}}>{pend.length+" compra(s) no financeiro sem entrada no estoque · toque para abrir"}</div>
+  </div>
+  <i className="ph-light ph-caret-right" style={{fontSize:17,color:G.red}}></i>
+  </div>;})()}
 
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
     {[["👥",pats.length,"Pacientes",G.primary],["📅",todayCount,"Hoje",G.blue],["💰",cur(rev),"Receita mês",G.success]].map(function(c){return <div key={c[2]} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c[3]}}><div style={{fontSize:17}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c[3]}}>{c[1]}</div><div style={{fontSize:10,color:G.muted,fontWeight:600}}>{c[2]}</div></div>;})}
@@ -12391,6 +12440,7 @@ const remBadge=(user.level===1)
 ?rems.filter(r=>!r.done&&(r.assignedUserId===user.id||!r.assignedUserId)&&r.date<=today()).length
 :rems.filter(r=>!r.done&&r.date<=today()).length+autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user);
 const prosBadge=pros.filter(p=>p.due===today()&&p.status==="waiting").length;
+const stkAlerta=comprasSemEntrada(gastos,stock).length>0;// V269 alerta no menu
 
 const ALL_NAV=[
 // Rotina
@@ -12398,7 +12448,7 @@ const ALL_NAV=[
 {id:"lems",l:"Lembretes",ic:"ph-bell",lv:1,b:remBadge,grp:"Rotina"},{id:"conversas",l:"Conversas",ic:"ph-chat-circle",lv:2,b:waUnread,grp:"Rotina"},{id:"remarcar",l:"Remarcar",ic:"ph-arrows-clockwise",lv:2,grp:"Rotina"},
 {id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2,grp:"Rotina"},{id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1,grp:"Rotina"},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1,grp:"Rotina"},{id:"ponto",l:"Ponto",ic:"ph-clock",lv:1,grp:"Rotina"},
 // Clínico
-{id:"pros",l:"Próteses",ic:"ph-first-aid-kit",lv:2,b:prosBadge,grp:"Clínico"},{id:"impl",l:"Implantes",ic:"ph-syringe",lv:2,grp:"Clínico"},{id:"stk",l:"Estoque",ic:"ph-package",lv:2,grp:"Clínico"},
+{id:"pros",l:"Próteses",ic:"ph-first-aid-kit",lv:2,b:prosBadge,grp:"Clínico"},{id:"impl",l:"Implantes",ic:"ph-syringe",lv:2,grp:"Clínico"},{id:"stk",l:"Estoque",ic:"ph-package",lv:2,alerta:stkAlerta,grp:"Clínico"},
 // Financeiro
 {id:"caixa",l:"Caixa",ic:"ph-cash-register",lv:2,grp:"Financeiro"},{id:"fin",l:"Financeiro",ic:"ph-wallet",lv:3,grp:"Financeiro"},{id:"pixdent",l:"Pix Dentistas",ic:"ph-hand-coins",lv:1,grp:"Financeiro"},{id:"pdent",l:"Recebimentos",ic:"ph-currency-dollar",lv:1,grp:"Financeiro"},{id:"desp",l:"Gastos",ic:"ph-receipt",lv:3,grp:"Financeiro"},
 // Gestão
@@ -12445,7 +12495,7 @@ return <>
     {NAV.map((n,i)=>[
       (i===0||NAV[i-1].grp!==n.grp)&&n.grp?<div key={"grp_"+n.grp} style={{fontSize:10,fontWeight:700,letterSpacing:".6px",textTransform:"uppercase",color:"var(--muted)",padding:i===0?"2px 8px 4px 6px":"12px 8px 4px 6px",display:"flex",alignItems:"center",gap:7}}><span style={{width:4,height:4,borderRadius:"50%",background:"var(--primary)",opacity:.55,flexShrink:0}}></span>{n.grp}<span style={{flex:1,height:1,background:"var(--border)"}}></span></div>:null,
       <button key={n.id} onClick={()=>go(n.id)} style={{background:"var(--surface)",boxShadow:view===n.id?"inset 4px 4px 9px var(--nm-dark),inset -4px -4px 9px var(--nm-light)":"none",border:"none",borderRadius:11,padding:"10px 12px",cursor:"pointer",color:view===n.id?"var(--primary)":"var(--text)",fontFamily:"'Manrope'",fontWeight:view===n.id?700:600,fontSize:12.5,display:"flex",alignItems:"center",gap:10,textAlign:"left",transition:"box-shadow .15s"}}>
-      <i className={(view===n.id?"ph-fill ":"ph-light ")+n.ic} style={{fontSize:17,color:view===n.id?"var(--primary)":"var(--text)"}}></i><span style={{flex:1}}>{n.l}</span>
+      <i className={(view===n.id?"ph-fill ":"ph-light ")+n.ic} style={{fontSize:17,color:n.alerta?G.red:(view===n.id?"var(--primary)":"var(--text)")}}></i><span style={{flex:1,color:n.alerta?G.red:undefined,fontWeight:n.alerta?800:undefined}}>{n.l}</span>{n.alerta&&<span style={{width:8,height:8,borderRadius:"50%",background:G.red,flexShrink:0}}></span>}
       {n.b>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>{n.b}</span>}
     </button>
     ])}
@@ -12483,7 +12533,7 @@ return <>
       {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
-      {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user}/>}
+      {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
