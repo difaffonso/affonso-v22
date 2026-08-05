@@ -5218,7 +5218,7 @@ var save=function(){
   if(!f.desc)return alert("Informe a descricao");
   if(!f.recorrente&&!f.value)return alert("Informe o valor");
   if(f.parcelado&&(!f.parcelas||Number(f.parcelas)<2))return alert("Informe o numero de parcelas (2 ou mais)");
-  var obj={...f,value:pmoney(f.value),parcelas:f.parcelado?Number(f.parcelas):f.parcelas,id:edit?edit.id:nid(),_ts:Date.now()};
+  var obj={...f,value:pmoney(f.value),parcelas:f.parcelado?Number(f.parcelas):f.parcelas,id:edit?edit.id:nid(),_ts:Date.now(),_cr:(edit&&(edit._cr||edit._ts))||Date.now()};// V272 _cr nunca e reescrito
   setGastos(function(prev){var lista=prev[tab]||[];return {...prev,[tab]:edit?lista.map(function(e){return e.id===obj.id?obj:e;}):[...lista,obj]};});
   setModal(false);setEdit(null);setF(blank);
 };
@@ -7413,23 +7413,49 @@ function ImportNFe({stock,setStock,addLog,onClose}){
     </div>
   </div>;
 }
+// V272: data em que a COMPRA foi feita.
+// _cr = carimbo de criacao (novo, nunca reescrito). _ts existe desde antes mas e reescrito
+// a cada edicao/baixa de pagamento, e "date" no parcelado e o vencimento da 1a parcela.
+// Para os registros antigos (sem _cr) o menor entre os dois e o mais proximo da compra real.
+function refCompra(g){
+try{
+if(!g)return "";
+if(g._cr)return _ld(new Date(Number(g._cr)));
+var d=String(g.date||"");
+var t=g._ts?_ld(new Date(Number(g._ts))):"";
+if(d&&t)return d<t?d:t;
+return d||t;
+}catch(e){return String((g||{}).date||"");}
+}
+// V272: compras de material feitas no mes (YYYY-MM), independente do parcelamento
+function comprasDoMes(gastos,ym){
+try{
+return (((gastos||{}).clinica)||[]).filter(function(g){
+return g&&String(g.cat||"")==="Material"&&String(refCompra(g)).slice(0,7)===String(ym);
+}).sort(function(x,y){return valorCompra(y)-valorCompra(x);});
+}catch(e){return [];}
+}
+// V271: valor cheio da compra — no parcelado o campo "value" guarda a PARCELA
+function valorCompra(g){
+try{var v=Number((g||{}).value)||0;var n=(g&&g.parcelado)?Math.max(1,Number(g.parcelas)||1):1;return v*n;}catch(e){return 0;}
+}
 // V269: compras de material lancadas no financeiro que ainda nao tem entrada no estoque
 function comprasSemEntrada(gastos,stock){
 try{
 var hoje=today();
 var dl=new Date(hoje+"T00:00:00");dl.setDate(dl.getDate()-60);
 var limStr=dl.toISOString().slice(0,10);
-var ent=[];
-(stock||[]).forEach(function(s){((s&&s.movs)||[]).forEach(function(m){if(m&&m.t==="in"&&m.date)ent.push(String(m.date));});});
-var lista=(((gastos||{}).clinica)||[]).filter(function(g){
-if(!g||String(g.cat||"")!=="Material")return false;
-if(g._stkOk)return false;
-var d=String(g.date||"");
-if(!d||d>hoje||d<limStr)return false;
-var perto=ent.some(function(e){return Math.abs((new Date(e+"T00:00:00")-new Date(d+"T00:00:00"))/86400000)<=15;});
-return !perto;
+var lista=[];
+(((gastos||{}).clinica)||[]).forEach(function(g){
+if(!g||String(g.cat||"")!=="Material")return;
+if(g._stkOk)return;
+// V270: a data do gasto e o VENCIMENTO da parcela, nao o dia da compra.
+// O que vale para cobrar lancamento no estoque e quando o gasto foi criado (_ts).
+var ref=refCompra(g);
+if(!ref||ref<limStr||ref>hoje)return;
+lista.push(Object.assign({},g,{_ref:ref}));
 });
-lista.sort(function(x,y){return String(y.date).localeCompare(String(x.date));});
+lista.sort(function(x,y){return String(y._ref).localeCompare(String(x._ref));});
 return lista;
 }catch(e){return [];}
 }
@@ -7448,19 +7474,20 @@ setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(fa
 const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note,dentId:m.dentId||"",p:Number(s.price)||0},...(s.movs||[])]}:s));setMv(null);};
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 {(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta de compra sem lancamento
+var totPend=pend.reduce(function(s2,g2){return s2+valorCompra(g2);},0);
 return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borderRadius:14,padding:"13px 15px",display:"flex",flexDirection:"column",gap:10}}>
 <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
 <span style={{fontSize:18,lineHeight:1}}>{"\u26a0"}</span>
-<div style={{fontSize:13,lineHeight:1.55,color:G.red}}><strong>{"Está faltando lançar os materiais comprados."}</strong>{" Tem compra paga no financeiro sem nenhuma entrada correspondente aqui no estoque."}</div>
+<div style={{fontSize:13,lineHeight:1.55,color:G.red}}><strong>{"Está faltando lançar os materiais comprados."}</strong>{" "+pend.length+" compra(s) no financeiro, "+cur(totPend)+", sem nenhuma entrada correspondente aqui no estoque."}</div>
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:7}}>
 {pend.map(function(g,i){return <div key={g.id||i} style={{background:G.card,borderRadius:10,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
 <div style={{minWidth:0}}>
 <div style={{fontWeight:700,fontSize:12.5}}>{g.desc||"(sem descrição)"}</div>
-<div style={{fontSize:11,color:G.muted}}>{fmt(g.date)+" · Gastos › Clínica › Material"}</div>
+<div style={{fontSize:11,color:G.muted}}>{"Lançado em "+fmt(g._ref)+(String(g.date||"")!==String(g._ref)?(" · 1ª parcela "+fmt(g.date)):"")+" · Gastos › Material"}</div>
 </div>
 <div style={{display:"flex",alignItems:"center",gap:9,flexShrink:0}}>
-<span style={{fontWeight:800,fontSize:13,color:G.red,whiteSpace:"nowrap"}}>{cur(Number(g.value)||0)}</span>
+<div style={{textAlign:"right"}}><div style={{fontWeight:800,fontSize:13,color:G.red,whiteSpace:"nowrap"}}>{cur(valorCompra(g))}</div>{g.parcelado&&Number(g.parcelas)>1&&<div style={{fontSize:10.5,color:G.muted,whiteSpace:"nowrap"}}>{Number(g.parcelas)+"× "+cur(Number(g.value)||0)}</div>}</div>
 {user&&user.level>=3&&<button onClick={function(){if(!setGastos)return;setGastos(function(prev){var p=prev||{};return Object.assign({},p,{clinica:((p.clinica)||[]).map(function(x){return x.id===g.id?Object.assign({},x,{_stkOk:true,_ts:Date.now()}):x;})});});try{if(addLog)addLog("estoque","Marcou compra como conferida: "+(g.desc||"")+" ("+cur(Number(g.value)||0)+")","");}catch(e){}}} style={{border:"none",background:G.bg,borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:G.primary,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px #ffffff",whiteSpace:"nowrap"}}>{"✓ Conferido"}</button>}
 </div>
 </div>;})}
@@ -7532,6 +7559,10 @@ var ajs=doMes.filter(function(mm){return mm.t==="aj";});
 var entradaMes=ins.reduce(function(s2,mm){return s2+mm.val;},0);
 var gastoMes=outs.reduce(function(s2,mm){return s2+mm.val;},0);
 var temEstimado=doMes.some(function(mm){return mm.estimado;});
+var compMes=comprasDoMes(gastos,relMes);// V272
+var totCompMes=compMes.reduce(function(s2,g2){return s2+valorCompra(g2);},0);
+var porForn=function(){var by={};compMes.forEach(function(g2){var k=String(g2.desc||"(sem descrição)").trim();if(!by[k])by[k]={v:0,n:0};by[k].v+=valorCompra(g2);by[k].n++;});
+return Object.keys(by).map(function(k){return{name:k,v:by[k].v,n:by[k].n};}).sort(function(x,y){return y.v-x.v;});};
 var nDif=function(list){var o={},n=0;list.forEach(function(mm){if(!o[mm.itemName]){o[mm.itemName]=1;n++;}});return n;};
 var lbAba=function(k){return k==="in"?"Entrada":(k==="out"?"Saída":"Ajuste");};
 var linha=function(mm,i){var isIn=mm.t==="in";var isAj=mm.t==="aj";var cor=isAj?"#9aa39c":(isIn?G.success:G.red);return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",borderLeft:"4px solid "+cor,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff",position:"relative"}}>
@@ -7596,6 +7627,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 {card("Entradas (compras)",cur(entradaMes),G.success,ins.length+" lançamento(s)")}
 {card("Saídas (consumo)",cur(gastoMes),G.red,outs.length+" lançamento(s)")}
 {card("Saldo do mês",cur(entradaMes-gastoMes),entradaMes-gastoMes>=0?G.success:G.red,"entradas − saídas")}
+{card("Comprado no mês",cur(totCompMes),G.primary,compMes.length+" compra(s) no financeiro")}
 </div>
 {ins.length===0&&aviso("red",<span><strong>{"Nenhuma compra lançada neste mês."}</strong>{" Se chegou material na clínica, ele não foi registrado como entrada no estoque."}</span>)}
 {ajs.length>0&&aviso("gold",<span><strong>{ajs.length+" ajuste(s) de contagem neste mês."}</strong>{" Ajustes mudam a quantidade sem registrar compra e ficam fora dos totais em R$. Se foi compra, o certo é usar + Entrada."}</span>)}
@@ -7604,9 +7636,24 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 </div>}
 {relSub==="in"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
-{card("Total comprado",cur(entradaMes),G.success,ins.length+" entrada(s)")}
-{card("Itens diferentes",String(nDif(ins)),G.primary,"no mês")}
+{card("Comprado no mês",cur(totCompMes),G.primary,compMes.length+" compra(s) no financeiro")}
+{card("Lançado no estoque",cur(entradaMes),G.success,ins.length+" entrada(s)")}
+{card("Não lançado",cur(Math.max(0,totCompMes-entradaMes)),totCompMes-entradaMes>0.009?G.red:G.success,"diferença")}
 </div>
+{compMes.length>0&&<div>
+{titulo("Compras do mês por fornecedor")}
+<div style={{display:"flex",flexDirection:"column",gap:8}}>
+{porForn().map(function(it,i){return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:13}}>{it.name}</div>
+<div style={{fontSize:11,color:G.muted}}>{it.n+(it.n>1?" compras":" compra")}</div>
+<div style={{height:5,borderRadius:3,background:G.border,marginTop:6,overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:G.primary,width:(totCompMes>0?(it.v/totCompMes*100):0)+"%"}}></div></div>
+</div>
+<div style={{fontWeight:800,color:G.primary,whiteSpace:"nowrap"}}>{cur(it.v)}</div>
+</div>;})}
+</div>
+<div style={{fontSize:11,color:G.muted,lineHeight:1.5,marginTop:8}}>{"Valor cheio da compra, no mês em que foi feita — parcelamento não divide o total entre os meses."}</div>
+</div>}
 {ins.length===0&&aviso("red",<span><strong>{"Nenhuma entrada registrada neste mês."}</strong>{" Todo material que chega precisa ser lançado no botão + Entrada, com data e quantidade."}</span>)}
 {ins.length>0&&titulo("Compras por material")}
 {ins.length>0&&porMaterial(ins,G.success)}
@@ -8853,11 +8900,12 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
   </div>
 
   {(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta na visao geral
+  var totPend=pend.reduce(function(s2,g2){return s2+valorCompra(g2);},0);
   return <div onClick={function(){if(setView)setView("stk");}} style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borderRadius:14,padding:"13px 15px",display:"flex",gap:11,alignItems:"center",cursor:"pointer"}}>
   <span style={{fontSize:19,lineHeight:1}}>{"\u26a0"}</span>
   <div style={{flex:1,minWidth:0}}>
   <div style={{fontWeight:800,fontSize:13.5,color:G.red}}>{"Está faltando lançar os materiais comprados"}</div>
-  <div style={{fontSize:11.5,color:G.muted,marginTop:2}}>{pend.length+" compra(s) no financeiro sem entrada no estoque · toque para abrir"}</div>
+  <div style={{fontSize:11.5,color:G.muted,marginTop:2}}>{pend.length+" compra(s) · "+cur(totPend)+" sem entrada no estoque · toque para abrir"}</div>
   </div>
   <i className="ph-light ph-caret-right" style={{fontSize:17,color:G.red}}></i>
   </div>;})()}
