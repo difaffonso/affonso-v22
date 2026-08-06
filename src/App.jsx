@@ -3669,6 +3669,7 @@ var isOutC=slot<(d.entrada||"08:00")||slot>=(d.saida||"18:00");
 var aC=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentistId===d.id&&x.status!=="cancelled"&&x.status!=="rescheduled"&&x.status!=="missed";});
 if(aC&&!aC.blocked){
 var occ=[slot].concat((aC.extraSlots||[]).slice()).filter(function(v,i,arr){return arr.indexOf(v)===i;}).sort(function(x,y){return t2m(x)-t2m(y);});
+occ=occ.filter(function(_s){return _s===slot||!appts.some(function(_x){return _x.date===selDate&&_x.dentistId===d.id&&_x.time===_s&&_x.id!==aC.id&&!_x.blocked&&_x.status!=="cancelled"&&_x.status!=="rescheduled"&&_x.status!=="missed";});});// V273: nao engolir horario que ja tem consulta propria (paciente sumia da agenda compacta)
 occ.forEach(function(s){_consumed[s]=1;});
 var lbl=occ.length===1?occ[0]:occ[0]+" – "+occ[occ.length-1];
 var multi=occ.length>1;
