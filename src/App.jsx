@@ -7576,12 +7576,44 @@ function valorCompra(g){
 try{var v=Number((g||{}).value)||0;var n=(g&&g.parcelado)?Math.max(1,Number(g.parcelas)||1):1;return v*n;}catch(e){return 0;}
 }
 // V269: compras de material lancadas no financeiro que ainda nao tem entrada no estoque
+// V276: cruza as compras de Material com as NF-e ja lancadas no estoque.
+// Lote = todas as entradas gravadas com a mesma nota ("NF-e no X - FORNECEDOR").
+function nfeLotes(stock){
+  var by={};
+  (stock||[]).forEach(function(s){
+    ((s&&s.movs)||[]).forEach(function(m){
+      if(!m||m.t!=="in")return;
+      var nt=String(m.note||"");
+      if(nt.indexOf("NF-e")!==0)return;
+      if(!by[nt])by[nt]={note:nt,date:String(m.date||""),itens:0,valor:0};
+      by[nt].itens++;
+      by[nt].valor+=Math.abs(Number(m.q||0))*(Number(m.p)||0);
+      if(m.date&&(!by[nt].date||String(m.date)<by[nt].date))by[nt].date=String(m.date);
+    });
+  });
+  return Object.keys(by).map(function(k){return by[k];});
+}
+function _difDias(a,b){
+  try{
+    var x=new Date(String(a)+"T00:00:00"),y=new Date(String(b)+"T00:00:00");
+    if(isNaN(x.getTime())||isNaN(y.getTime()))return 999;
+    return Math.abs((x-y)/86400000);
+  }catch(e){return 999;}
+}
+function _peteDatas(l,g,dias){var d=dias||15;return _difDias(l.date,g._ref)<=d||_difDias(l.date,String(g.date||g._ref))<=d;}
+function loteProximo(g,lotes){
+  var cand=(lotes||[]).filter(function(l){return l.date&&_peteDatas(l,g);});
+  if(!cand.length)return null;
+  var val=valorCompra(g);
+  cand=cand.slice().sort(function(a,b){return Math.abs(a.valor-val)-Math.abs(b.valor-val);});
+  return cand[0];
+}
 function comprasSemEntrada(gastos,stock){
 try{
 var hoje=today();
 var dl=new Date(hoje+"T00:00:00");dl.setDate(dl.getDate()-60);
 var limStr=dl.toISOString().slice(0,10);
-var lista=[];
+var brutas=[];
 (((gastos||{}).clinica)||[]).forEach(function(g){
 if(!g||String(g.cat||"")!=="Material")return;
 if(g._stkOk)return;
@@ -7589,9 +7621,26 @@ if(g._stkOk)return;
 // O que vale para cobrar lancamento no estoque e quando o gasto foi criado (_ts).
 var ref=refCompra(g);
 if(!ref||ref<limStr||ref>hoje)return;
-lista.push(Object.assign({},g,{_ref:ref}));
+brutas.push(Object.assign({},g,{_ref:ref}));
 });
-lista.sort(function(x,y){return String(y._ref).localeCompare(String(x._ref));});
+brutas.sort(function(x,y){return String(y._ref).localeCompare(String(x._ref));});
+// V276: baixa sozinha quando ja existe NF-e no estoque com o mesmo valor (ate R$ 1)
+// e data proxima (15 dias). Cada nota so pode quitar uma compra.
+var pool=nfeLotes(stock);
+var lista=[];
+brutas.forEach(function(g){
+  var val=valorCompra(g),ix=-1;
+  pool.forEach(function(l,i){
+    if(ix>=0)return;
+    if(Math.abs(l.valor-val)>1)return;
+    if(!_peteDatas(l,g,30))return;// valor exato: janela maior (a nota pode ser importada semanas depois)
+    ix=i;
+  });
+  if(ix>=0){pool.splice(ix,1);return;}
+  // nao bateu o valor: se ha nota na mesma epoca, sugere (sem esconder)
+  var sug=loteProximo(g,pool);
+  lista.push(sug?Object.assign({},g,{_lote:sug}):g);
+});
 return lista;
 }catch(e){return [];}
 }
@@ -7641,15 +7690,19 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
 <span style={{fontSize:18,lineHeight:1}}>{"\u26a0"}</span>
 <div style={{fontSize:13,lineHeight:1.55,color:G.red}}><strong>{"Está faltando lançar os materiais comprados."}</strong>{" "+pend.length+" compra(s) no financeiro, "+cur(totPend)+", sem nenhuma entrada correspondente aqui no estoque."}</div>
+{/* V276 */}
 </div>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.5,marginTop:-4}}>{"Compras com NF-e importada somem sozinhas daqui. Comprou em lugar que não emite nota? Use ✓ Conferido para dar baixa manual."}</div>
 <div style={{display:"flex",flexDirection:"column",gap:7}}>
 {pend.map(function(g,i){return <div key={g.id||i} style={{background:G.card,borderRadius:10,padding:"9px 11px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
 <div style={{minWidth:0}}>
 <div style={{fontWeight:700,fontSize:12.5}}>{g.desc||"(sem descrição)"}</div>
 <div style={{fontSize:11,color:G.muted}}>{"Lançado em "+fmt(g._ref)+(String(g.date||"")!==String(g._ref)?(" · 1ª parcela "+fmt(g.date)):"")+" · Gastos › Material"}</div>
+{g._lote&&<div style={{fontSize:11,color:G.primary,marginTop:3,lineHeight:1.45,fontWeight:600}}>{"Parece ser a "+String(g._lote.note).split(" - ")[0]+" · "+cur(g._lote.valor)+" · "+fmt(g._lote.date)+" ("+g._lote.itens+" itens)"}</div>}
 </div>
-<div style={{display:"flex",alignItems:"center",gap:9,flexShrink:0}}>
+<div style={{display:"flex",alignItems:"center",gap:9,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
 <div style={{textAlign:"right"}}><div style={{fontWeight:800,fontSize:13,color:G.red,whiteSpace:"nowrap"}}>{cur(valorCompra(g))}</div>{g.parcelado&&Number(g.parcelas)>1&&<div style={{fontSize:10.5,color:G.muted,whiteSpace:"nowrap"}}>{Number(g.parcelas)+"× "+cur(Number(g.value)||0)}</div>}</div>
+{user&&user.level>=3&&g._lote&&<button onClick={function(){if(!setGastos)return;setGastos(function(prev){var p=prev||{};return Object.assign({},p,{clinica:((p.clinica)||[]).map(function(x){return x.id===g.id?Object.assign({},x,{_stkOk:true,_stkNf:String(g._lote.note),_ts:Date.now()}):x;})});});try{if(addLog)addLog("estoque","Vinculou compra a "+String(g._lote.note).split(" - ")[0]+": "+(g.desc||"")+" ("+cur(Number(g.value)||0)+")","");}catch(e){}}} style={{border:"none",background:G.primary,color:"#fff",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{"É esta"}</button>}
 {user&&user.level>=3&&<button onClick={function(){if(!setGastos)return;setGastos(function(prev){var p=prev||{};return Object.assign({},p,{clinica:((p.clinica)||[]).map(function(x){return x.id===g.id?Object.assign({},x,{_stkOk:true,_ts:Date.now()}):x;})});});try{if(addLog)addLog("estoque","Marcou compra como conferida: "+(g.desc||"")+" ("+cur(Number(g.value)||0)+")","");}catch(e){}}} style={{border:"none",background:G.bg,borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:G.primary,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px #ffffff",whiteSpace:"nowrap"}}>{"✓ Conferido"}</button>}
 </div>
 </div>;})}
