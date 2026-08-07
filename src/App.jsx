@@ -4420,9 +4420,17 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // PRÓTESES - with editable proc types
 // ══════════════════════════════════════════════════════════
-function Proteses({pros,setPros,pats,dents,labs,prosProcs,setProsProcs,user}){
+function Proteses({pros,setPros,pats,dents,labs,prosProcs,setProsProcs,user,logs,addLog}){
 const [filt,setFilt]=useState("today");const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);const [srch,setSrch]=useState("");// V212 busca paciente
 const [procModal,setProcModal]=useState(false);const [procForm,setProcForm]=useState({name:"",price:""});const [editProc,setEditProc]=useState(null);
+// V278: detetive de proteses -- quem cadastrou / deu baixa / instalou
+const [detPros,setDetPros]=useState(null);
+const uName=(user&&user.name)||"Sistema";
+const zz2=n=>n<10?"0"+n:""+n;
+const fmtTsP=iso=>{if(!iso)return "";const x=new Date(iso);if(isNaN(x))return "";return zz2(x.getDate())+"/"+zz2(x.getMonth()+1)+"/"+x.getFullYear()+" \u00e0s "+zz2(x.getHours())+":"+zz2(x.getMinutes());};
+const logP=(desc,patName)=>{try{if(typeof addLog==="function")addLog("protese",desc,patName||"");}catch(e){}};
+const patNm=id=>{const q=pats.find(x=>x.id===id);return (q&&q.name)||"";};
+const descP=q=>q.type+((q.qty||1)>1?" \u00d7"+q.qty:"")+(q.proc?" -- "+q.proc:"");
 const b0={patientId:"",dentistId:1,labId:"",type:PROS_T[0],proc:"",tooth:"",sent:today(),due:"",returned:"",status:"waiting",notes:"",price:"",qty:"1"};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const t=today();
@@ -4441,7 +4449,12 @@ const flt2=srchAct?srchList:flt;
 const srchPatIds=srchAct?[...new Set(srchList.map(p=>p.patientId))]:[];
 const srchTot=srchAct?srchList.reduce((s,p)=>s+(Number(p.price)||0)*(Number(p.qty)||1),0):0;
 const srchInst=srchAct?srchList.filter(p=>p.status==="placed").length:0;
-const save=()=>{if(!f.patientId||!f.labId)return alert("Informe paciente e laboratório");const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,id:edit?edit.id:nid(pros),_ts:Date.now()};setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[...prev,obj]);setModal(false);};
+const save=()=>{if(!f.patientId||!f.labId)return alert("Informe paciente e laboratório");const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,id:edit?edit.id:nid(pros),_ts:Date.now()};
+// V278: grava autoria do cadastro (_by/_cr) e da ultima edicao (_edBy/_edTs)
+if(edit){obj._by=edit._by||"";obj._cr=edit._cr||edit._ts||Date.now();obj._edBy=uName;obj._edTs=new Date().toISOString();}
+else{obj._by=uName;obj._cr=Date.now();obj._byTs=new Date().toISOString();}
+setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[...prev,obj]);setModal(false);
+logP((edit?"Editou":"Cadastrou")+" pr\u00f3tese ("+descP(obj)+")"+(obj.due?", previs\u00e3o "+fmt(obj.due):""),patNm(obj.patientId));};
 const saveProc=()=>{if(!procForm.name)return;const obj={name:procForm.name,price:Number(procForm.price)||0,id:editProc?editProc.id:nid(prosProcs)};setProsProcs(prev=>editProc?prev.map(p=>p.id===editProc.id?obj:p):[...prev,obj]);setProcForm({name:"",price:""});setEditProc(null);};
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -4476,7 +4489,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 return <div key={p.id} style={late?{background:G.red+"10",borderRadius:12,padding:"13px 15px",border:`2px solid ${G.red}`,boxShadow:`0 2px 12px ${G.red}40`}:{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${isT?G.orange:PROS_SC[p.status]}`}}>
 <div style={{display:"flex",gap:11,flexWrap:"wrap"}}>
 <div style={{flex:1,minWidth:170}}>
-<div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}><span style={{fontWeight:700,fontSize:13,color:late?G.red:G.text}}>{pat?.name}</span><span style={{fontSize:11,color:G.muted}}>P.{pat?.folder}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/>{late&&<Bdg l="⚠ ATRASADO" col={G.red} sm/>}{isT&&!late&&<Bdg l="📅 HOJE" col={G.orange} sm/>}</div>
+<div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}><span style={{fontWeight:700,fontSize:13,color:late?G.red:G.text}}>{pat?.name}</span><span style={{fontSize:11,color:G.muted}}>P.{pat?.folder}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/>{late&&<Bdg l="⚠ ATRASADO" col={G.red} sm/>}{isT&&!late&&<Bdg l="📅 HOJE" col={G.orange} sm/>}{/* V278: detetive -- quem mexeu neste trabalho (nivel 3) */}{user.level>=3&&<button onClick={e=>{e.stopPropagation();setDetPros(p);}} title="Quem deu a baixa?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:26,height:26,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}</div>
 <div style={{fontSize:12}}>🦷 <strong>{p.type}</strong>{(p.qty||1)>1?" ×"+p.qty:""} -- {p.proc}</div>
 <div style={{fontSize:11,color:G.muted,marginTop:2}}>Dente: {p.tooth||"--"} · 🏥 {lab?.name} · Enviado: {fmt(p.sent)} · Previsão: {fmt(p.due)}{p.returned?` · Retornou: ${fmt(p.returned)}`:""}</div>
 <div style={{fontSize:11,color:den.color}}>👨‍⚕️ {den.name}</div>
@@ -4484,15 +4497,57 @@ return <div key={p.id} style={late?{background:G.red+"10",borderRadius:12,paddin
 {p.notes&&<div style={{fontSize:10,color:G.muted,fontStyle:"italic"}}>{p.notes}</div>}
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}>
-{p.status==="waiting"&&<Btn ch="📦 Chegou!" sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"returned",returned:t,_ts:Date.now()}:x))}/>}
-{p.status==="returned"&&<Btn ch="✓ Instalada" v="y" sm onClick={()=>setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"placed",_ts:Date.now()}:x))}/>}
+{p.status==="waiting"&&<Btn ch="📦 Chegou!" sm onClick={()=>{setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"returned",returned:t,_recBy:uName,_recTs:new Date().toISOString(),_ts:Date.now()}:x));logP("Deu baixa na pr\u00f3tese ("+descP(p)+")",pat?.name||"");}}/>}
+{p.status==="returned"&&<Btn ch="✓ Instalada" v="y" sm onClick={()=>{setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"placed",_instBy:uName,_instTs:new Date().toISOString(),_ts:Date.now()}:x));logP("Marcou como instalada a pr\u00f3tese ("+descP(p)+")",pat?.name||"");}}/>}
 {lab?.phone&&<Btn ch="📱 Lab" v="w" sm onClick={()=>wa(lab.phone,`Olá ${lab.name}! Verificando ${p.type} paciente ${pat?.name}, dente ${p.tooth}. Enviada ${fmt(p.sent)}, previsão ${fmt(p.due)}.`)}/>}
 <Btn ch="Editar" v="g" sm onClick={()=>{setEdit(p);setF({...p,patientId:String(p.patientId),dentistId:String(p.dentistId),labId:String(p.labId),price:String(p.price||""),qty:String(p.qty||1)});setModal(true);}}/>
-<Btn ch="✕ Excluir" v="r" sm onClick={()=>setPros(prev=>prev.filter(x=>x.id!==p.id))}/>
+<Btn ch="✕ Excluir" v="r" sm onClick={()=>{setPros(prev=>prev.filter(x=>x.id!==p.id));logP("Excluiu pr\u00f3tese ("+descP(p)+")"+(p.price?", custo lab "+cur((p.price||0)*(p.qty||1)):""),pat?.name||"");}}/>
 </div>
 </div>
 </div>;})}
 </div>
+{/* V278: popup do detetive de proteses */}
+{detPros&&(()=>{const q=detPros;const pt=pats.find(x=>x.id===q.patientId);const lb=labs.find(x=>x.id===q.labId);const pn=(pt&&pt.name)||"";
+const hist=(logs||[]).filter(l=>l.tipo==="protese"&&(l.patName===pn||String(l.desc||"").indexOf(pn)>=0)&&String(l.desc||"").indexOf(q.type)>=0&&(!q.proc||String(l.desc||"").indexOf(q.proc)>=0));
+const logCad=hist.find(l=>String(l.desc||"").indexOf("Cadastrou")===0);
+const logRec=hist.find(l=>String(l.desc||"").indexOf("Deu baixa")===0);
+const logIns=hist.find(l=>String(l.desc||"").indexOf("Marcou como instalada")===0);
+const cadBy=q._by||(logCad&&logCad.user)||null;const cadTs=q._byTs?fmtTsP(q._byTs):((logCad&&logCad.ts)?fmtTsP(logCad.ts):"");
+const recBy=q._recBy||(logRec&&logRec.user)||null;const recTs=q._recTs?fmtTsP(q._recTs):((logRec&&logRec.ts)?fmtTsP(logRec.ts):"");
+const insBy=q._instBy||(logIns&&logIns.user)||null;const insTs=q._instTs?fmtTsP(q._instTs):((logIns&&logIns.ts)?fmtTsP(logIns.ts):"");
+const sect=x=><div style={{fontSize:10.5,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:G.muted,marginBottom:6}}>{x}</div>;
+const cStaff=(nome,txt)=><div style={{borderRadius:12,padding:"12px 14px",display:"flex",gap:11,alignItems:"flex-start",marginBottom:10,background:G.accent,border:"1.5px solid "+G.primary}}>
+<span style={{fontSize:24,lineHeight:1}}>{"\ud83d\udc64"}</span>
+<div><div style={{fontSize:14,fontWeight:800,color:G.primary}}>{nome}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{txt}</div></div></div>;
+const cOld=txt=><div style={{borderRadius:12,padding:"12px 14px",display:"flex",gap:11,alignItems:"flex-start",marginBottom:10,background:"var(--amber-soft)",border:"1.5px solid #FFD54F"}}>
+<span style={{fontSize:24,lineHeight:1}}>{"\ud83d\udcdc"}</span>
+<div><div style={{fontSize:14,fontWeight:800,color:"#8a6d00"}}>{"Sem registro"}</div>
+<div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.5}}>{txt}</div></div></div>;
+return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIndex:2100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setDetPros(null)}>
+<div style={{background:"var(--surface)",borderRadius:16,padding:18,width:"100%",maxWidth:420,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+<div style={{fontSize:15,fontWeight:800,color:G.primary,display:"flex",alignItems:"center",gap:7}}>{"\ud83d\udd75\ufe0f Quem mexeu neste trabalho?"}</div>
+<div style={{fontSize:12,color:G.muted,margin:"2px 0 14px",lineHeight:1.45}}>{pn+" \u00b7 "+descP(q)}<br/>{"Lab "+((lb&&lb.name)||"--")+" \u00b7 enviado "+fmt(q.sent)+(q.returned?" \u00b7 retornou "+fmt(q.returned):"")}</div>
+{sect("Cadastro")}
+{cadBy?cStaff(cadBy,"Cadastrou o trabalho pelo sistema"+(cadTs?" em "+cadTs:"")+"."):cOld("Trabalho cadastrado antes da V278, quando o sistema ainda n\u00e3o gravava quem lan\u00e7ou.")}
+{q._edBy&&<div style={{fontSize:12,color:G.muted,margin:"-4px 0 12px"}}>{"\u270e \u00daltima edi\u00e7\u00e3o por "+q._edBy+(q._edTs?" em "+fmtTsP(q._edTs):"")}</div>}
+{(q.status==="returned"||q.status==="placed")&&sect("Baixa (chegada do laborat\u00f3rio)")}
+{(q.status==="returned"||q.status==="placed")&&(recBy?cStaff(recBy,"Marcou como retornado pelo sistema"+(recTs?" em "+recTs:"")+"."):cOld("Baixa dada"+(q.returned?" em "+fmt(q.returned):"")+", antes da V278. A data ficou registrada, mas o nome de quem clicou nunca chegou a ser gravado."))}
+{q.status==="placed"&&sect("Instala\u00e7\u00e3o")}
+{q.status==="placed"&&(insBy?cStaff(insBy,"Marcou como instalada pelo sistema"+(insTs?" em "+insTs:"")+"."):cOld("Instala\u00e7\u00e3o anterior \u00e0 V278, sem registro de quem marcou."))}
+{q.status==="waiting"&&<div style={{fontSize:12,color:G.muted,marginBottom:10,lineHeight:1.5}}>{"Trabalho ainda aguardando o laborat\u00f3rio \u2014 sem baixa registrada at\u00e9 agora."}</div>}
+{hist.length>0&&<div>
+{sect("Registros no log")}
+<div style={{background:"var(--card)",borderRadius:10,border:"1px solid "+G.border,padding:"4px 0",maxHeight:170,overflowY:"auto"}}>
+{hist.map(l=><div key={l.id} style={{display:"flex",flexDirection:"column",gap:1,padding:"7px 12px",fontSize:11.5,borderBottom:"1px solid "+G.border}}>
+<span style={{color:G.muted,fontWeight:600,fontSize:10.5}}>{fmtTsP(l.ts)}</span>
+<span style={{lineHeight:1.4}}><b style={{color:G.primary}}>{l.user}</b>{" \u00b7 "+l.desc}</span>
+</div>)}
+</div>
+</div>}
+<button onClick={()=>setDetPros(null)} style={{width:"100%",marginTop:14,border:"none",borderRadius:12,padding:12,fontSize:14,fontWeight:700,cursor:"pointer",background:G.primary,color:"#fff"}}>{"Fechar"}</button>
+</div>
+</div>;})()}
 {modal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:620,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
@@ -12816,7 +12871,7 @@ return <>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha}/>}
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
-      {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user}/>}
+      {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts} abrirFicha={abrirFicha}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha} treats={treats}/>}
