@@ -7460,6 +7460,28 @@ lista.sort(function(x,y){return String(y._ref).localeCompare(String(x._ref));});
 return lista;
 }catch(e){return [];}
 }
+// V274: busca inteligente no Estoque — reaproveita smartHit/smartRank (V254).
+// Ignora acentos, aceita pedaco de qualquer parte do nome em qualquer ordem e
+// tolera 1 erro de digitacao. Ex: "guarda" acha GUARDANAPO; "fosf" acha ACIDO FOSFORICO 37%.
+function stkFiltrar(stock,q){
+  var arr=(stock||[]).slice();
+  var s=String(q==null?"":q).trim();
+  if(s){
+    var sl=s.toLowerCase();
+    arr=arr.filter(function(it){
+      if(smartHit(s,(it&&it.name)||""))return true;
+      return it&&it.codigo?String(it.codigo).toLowerCase().indexOf(sl)>=0:false;
+    });
+    arr.sort(function(a,b){
+      var ra=smartRank(s,(a&&a.name)||""),rb=smartRank(s,(b&&b.name)||"");
+      if(ra!==rb)return ra-rb;
+      return String((a&&a.name)||"").localeCompare(String((b&&b.name)||""),"pt-BR",{sensitivity:"base"});
+    });
+  }else{
+    arr.sort(function(a,b){return String((a&&a.name)||"").localeCompare(String((b&&b.name)||""),"pt-BR",{sensitivity:"base"});});
+  }
+  return arr;
+}
 function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user,gastos,setGastos}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
@@ -7468,6 +7490,7 @@ const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
 const [impNfe,setImpNfe]=useState(false); // Importação NF-e (V195)
+const [qStk,setQStk]=useState("");// V274: termo da busca de materiais
 const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};
 if(edit&&!(user&&user.level>=3))obj.qty=Number(edit.qty);// V268 trava: so nivel 3 corrige contagem (nivel 2 usa +Entrada / -Saida)
 if(edit&&Number(obj.qty)!==Number(edit.qty)){obj.movs=[{t:"aj",q:Number(obj.qty)-Number(edit.qty),date:today(),note:"Correção de contagem ("+Number(edit.qty)+" → "+Number(f.qty)+")"},...(obj.movs||[])];try{if(addLog)addLog("estoque","Ajuste de contagem: "+obj.name+" ("+Number(edit.qty)+" → "+Number(f.qty)+")","");}catch(e){}}// V237 ajuste automatico
@@ -7514,8 +7537,16 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 </div>
 </div>
 {impNfe&&<ImportNFe stock={stock} setStock={setStock} addLog={addLog} onClose={()=>setImpNfe(false)}/>}
+{/* V274: campo de busca inteligente */}
+<div style={{display:"flex",alignItems:"center",gap:9,background:G.card,borderRadius:12,padding:"9px 13px",boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px #ffffff"}}>
+<span style={{fontSize:15,opacity:.6,lineHeight:1,flexShrink:0}}>{"\ud83d\udd0d"}</span>
+<input value={qStk} onChange={function(e){setQStk(e.target.value);}} onKeyDown={function(e){if(e.key==="Escape")setQStk("");}} placeholder="Buscar material… (ex: guarda, algi, fosf)" style={{flex:1,minWidth:0,border:"none",background:"transparent",outline:"none",fontSize:13.5,fontFamily:"'Manrope'",color:G.text}}/>
+{qStk?<span style={{fontSize:11,color:G.muted,whiteSpace:"nowrap",flexShrink:0}}>{stkFiltrar(stock,qStk).length+" de "+(stock||[]).length}</span>:null}
+{qStk?<button onClick={function(){setQStk("");}} title="Limpar" style={{border:"none",background:G.bg,borderRadius:"50%",width:22,height:22,color:G.muted,cursor:"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,padding:0}}>{"\u2715"}</button>:null}
+</div>
+{qStk.trim()&&stkFiltrar(stock,qStk).length===0?<div style={{textAlign:"center",padding:22,color:G.muted,fontSize:13,background:G.card,borderRadius:12,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>{"Nenhum material encontrado para \u201c"+qStk.trim()+"\u201d."}</div>:null}
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:11}}>
-{[...stock].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"})).map(s=>{const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${low?G.red:G.success}`}}>
+{stkFiltrar(stock,qStk).map(s=>{/* V274: lista filtrada pela busca */const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${low?G.red:G.success}`}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
 <div><div style={{fontWeight:700,fontSize:13}}>{s.name}</div><div style={{fontSize:11,color:G.muted}}>Custo: {cur(s.price)}/{s.unit}</div></div>
 <div style={{textAlign:"right"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:low?G.red:G.success,lineHeight:1}}>{s.qty}</div><div style={{fontSize:10,color:G.muted}}>{s.unit}</div></div>
