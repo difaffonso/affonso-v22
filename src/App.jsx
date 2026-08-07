@@ -3359,6 +3359,57 @@ const hiddenToday=denF==="all"?appts.filter(function(a){return a.date===selDate&
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
+// V280: regras de conflito de agenda (Juliana x Diego)
+const _cfNorm=function(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");};
+const _cfProcTxt=function(o){return ((o&&o.procedureCustom)||"")+" "+((o&&o.procedure)||"");};
+const _cfIsEndo=function(t){return /(^|[^a-z])(endo|canal)/.test(_cfNorm(t));};
+const _cfIsClarea=function(t){return /(^|[^a-z])clarea/.test(_cfNorm(t));};
+const _cfIsLimpProt=function(t){var n=_cfNorm(t);return n.indexOf("protocolo")>=0&&(n.indexOf("limpeza")>=0||n.indexOf("profilaxia")>=0);};
+const _cfT2m=function(s){var a=String(s||"").split(":");return (Number(a[0])||0)*60+(Number(a[1])||0);};
+const _cfM2t=function(m){return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");};
+const _cfAtivo=function(a){return a&&!a.blocked&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed";};
+const _cfDiego=function(){return (dents||[]).find(function(d){return /diego/i.test(d.name||"");});};
+const _cfJu=function(){return (dents||[]).find(function(d){return /juliana/i.test(d.name||"");});};
+const _cfOverlap=function(t1,d1,t2,d2){var a=_cfT2m(t1),b=_cfT2m(t2);return a<b+(Number(d2)||30)&&b<a+(Number(d1)||30);};
+// Retorna string de aviso, ou "" se nao houver conflito
+const _cfChecar=function(obj){
+  var Ju=_cfJu(),Dg=_cfDiego();
+  if(!Ju||!Dg)return "";
+  var did=Number(obj.dentistId);
+  var proc=_cfProcTxt(obj);
+  var outros=(appts||[]).filter(function(a){return a.date===obj.date&&_cfAtivo(a)&&!(edit&&a.id===edit.id);});
+  // Regra A: limpeza de protocolo na agenda do Diego, em dia de atendimento da Juliana
+  if(did===Dg.id&&_cfIsLimpProt(proc)){
+    var wd=new Date(String(obj.date)+"T12:00:00").getDay();
+    var diasJu=Ju.dias||[];
+    if(diasJu.indexOf(wd)>=0){
+      var nJu=outros.filter(function(a){return Number(a.dentistId)===Ju.id;}).length;
+      if(nJu>0){
+        var DIA=["domingo","segunda","ter\u00e7a","quarta","quinta","sexta","s\u00e1bado"];
+        return "\u26a0\ufe0f "+DIA[wd].charAt(0).toUpperCase()+DIA[wd].slice(1)+" \u00e9 dia da Dra. Juliana.\n\nEla tem "+nJu+(nJu>1?" consultas":" consulta")+" marcada"+(nJu>1?"s":"")+" nesse dia, e voc\u00ea est\u00e1 marcando uma limpeza de protocolo.\n\nConfirma a marca\u00e7\u00e3o?";
+      }
+    }
+  }
+  // Regra B: endo (Diego) x clareamento (Juliana) com sobreposicao de horario
+  var alvo=null,rotulo="",meu="";
+  if(did===Dg.id&&_cfIsEndo(proc)){alvo=Ju.id;rotulo="clarea";meu="endo";}
+  else if(did===Ju.id&&_cfIsClarea(proc)){alvo=Dg.id;rotulo="endo";meu="clarea";}
+  if(alvo!==null){
+    var bate=outros.find(function(a){
+      if(Number(a.dentistId)!==alvo)return false;
+      var t=_cfProcTxt(a);
+      if(rotulo==="clarea"?!_cfIsClarea(t):!_cfIsEndo(t))return false;
+      return _cfOverlap(obj.time,obj.duration,a.time,a.duration);
+    });
+    if(bate){
+      var quem=rotulo==="clarea"?"A Dra. Juliana est\u00e1 fazendo clareamento":"O Dr. Diego est\u00e1 fazendo endo";
+      var fimO=_cfM2t(_cfT2m(bate.time)+(Number(bate.duration)||30));
+      var fimN=_cfM2t(_cfT2m(obj.time)+(Number(obj.duration)||30));
+      return "\u26a0\ufe0f "+quem+" nesse hor\u00e1rio.\n\n"+(rotulo==="clarea"?"Clareamento":"Endo")+": "+bate.time+" \u00e0s "+fimO+"\n"+(meu==="endo"?"Endo":"Clareamento")+" (nova): "+obj.time+" \u00e0s "+fimN+"\n\nConfirma a marca\u00e7\u00e3o?";
+    }
+  }
+  return "";
+};
 const save=()=>{
 const finalTime=pad2((f.timeCustom||"").trim()||(f.time||"").trim());
 const hasPat=String(f.patientId||"").trim()||String(f.patientName||"").trim();
@@ -3375,6 +3426,8 @@ extraSlots.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
 }
 }
 const obj={...f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,patientName:f.patientId?"":(f.patientName||"A confirmar"),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
+// V280: aviso de conflito de agenda (nao bloqueia, apenas confirma)
+if(!obj.blocked){var _aviso=_cfChecar(obj);if(_aviso&&window.confirm&&!window.confirm(_aviso))return;}
 delete obj._colado; // V255: marca visual do "colado", nao vai para o banco
 if(edit&&edit.status!==f.status){obj.statusTs=new Date().toISOString();obj.stBy=(user&&user.name)||"";} // V222
 obj._ts=Date.now(); // V189: carimbo de edicao para o merge respeitar mudancas de paciente/dados
