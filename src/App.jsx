@@ -4602,6 +4602,13 @@ setModal(false);
 // ══════════════════════════════════════════════════════════
 // IMPLANTES - Planilha mês a mês estilo Excel
 // ══════════════════════════════════════════════════════════
+// V277: id unico por dispositivo. O "max+1" antigo repetia o mesmo id quando
+// dois aparelhos criavam linha ao mesmo tempo, e o merge descartava uma delas.
+function implNovoId(arr){
+  var mx=0;(arr||[]).forEach(function(r){var n=Number(r&&r.id);if(!isNaN(n)&&n>mx)mx=n;});
+  var uid=Date.now()*10+Math.floor(Math.random()*10);
+  return uid>mx?uid:mx+1;
+}
 function Implantes({impl,setImpl,pats,abrirFicha}){/* V265 */
 // Usar impl global para persistir dados
 var IMPL_DATA=impl&&impl.length>0?impl:IMPL_DATA_SEED;
@@ -4851,14 +4858,14 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
               </select>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:4}}>
-              <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>O que será feito no retorno</label>
+              <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase"}}>{"O que será feito no retorno (opcional)"}</label>{/* V277 */}
               <input value={editForm.retornoProc||""} onChange={function(e){setEditForm(function(p){return{...p,retornoProc:e.target.value};});}}
                 placeholder="Ex: Prótese sobre implante, Controle, Manutenção..."
                 style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none"}}/>
             </div>
-            {editForm.retornoMes&&editForm.retornoProc&&<div style={{background:G.success+"20",borderRadius:7,padding:"7px 10px",fontSize:12,color:G.success,fontWeight:600}}>
-              {"✓ Aparecerá em "+editForm.retornoMes+" com: "+editForm.retornoProc}
-            </div>}
+            {editForm.retornoMes&&<div style={{background:G.success+"20",borderRadius:7,padding:"7px 10px",fontSize:12,color:G.success,fontWeight:600}}>
+              {"✓ Ao salvar, aparecerá em "+editForm.retornoMes+(editForm.retornoProc?" com: "+editForm.retornoProc:"")}
+            </div>}{/* V277 */}
           </div>
         </div>}
         {/* Info fields */}
@@ -4874,28 +4881,43 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
           <button onClick={function(){
             setImplRows(function(prev){
               var updated=prev.map(function(r){return r.id===editRow.id?{...editForm,_ts:Date.now()}:r;});/* V264 */
-              // Se finalizou E tem retorno configurado, criar novo registro no mes do retorno
-              if(editForm.status==="done"&&editForm.retornoMes&&editForm.retornoProc){
-                var jaExiste=updated.some(function(r){
-                  return r.paciente===editForm.paciente&&r.mes===editForm.retornoMes;
-                });
-                if(!jaExiste){
-                  var newId=Math.max.apply(null,updated.map(function(r){return r.id;}))+1;
-                  updated=[...updated,{
-                    id:newId,
-                    paciente:editForm.paciente,
-                    patientId:editForm.patientId==null?null:editForm.patientId,/* V265 */
-                    mes:editForm.retornoMes,
-                    mesKey:editForm.retornoMes,
-                    cirurgia:"",
-                    protese:editForm.retornoProc,
-                    controle:"",
-                    obs:"Retorno de "+editForm.mes,
-                    data:"",
-                    extra:"",
-                    status:"pending",
-                    _ts:Date.now()/* V264 */
-                  }];
+              // V277: a linha do retorno passa a depender SO do mes escolhido.
+              // Antes exigia tambem "o que sera feito no retorno"; com esse campo em branco
+              // o paciente nunca era criado no mes de destino - falha silenciosa.
+              var _alvo=String(editForm.retornoMes||"");
+              if(editForm.status==="done"&&_alvo){
+                var _proc=String(editForm.retornoProc||"").trim();
+                var _ger=editForm.retId!=null?updated.find(function(r){return r.id===editForm.retId;}):null;
+                var _marcar=function(rid){updated=updated.map(function(r){return r.id===editRow.id?{...r,retId:rid,_ts:Date.now()}:r;});};/* V277 */
+                if(_ger&&_ger.mes!==_alvo&&_ger.status==="pending"&&!String(_ger.cirurgia||"").trim()&&!String(_ger.controle||"").trim()&&!String(_ger.data||"").trim()){
+                  // V277: trocou o mes do retorno antes de mexerem na linha gerada -> move, nao duplica
+                  updated=updated.map(function(r){return r.id===_ger.id?{...r,mes:_alvo,mesKey:_alvo,protese:_proc||r.protese,_ts:Date.now()}:r;});
+                }else if(!_ger||_ger.mes!==_alvo){
+                  var _ja=updated.find(function(r){return r.id!==editRow.id&&r.paciente===editForm.paciente&&r.mes===_alvo;});
+                  if(_ja){_marcar(_ja.id);}/* V277: ja existe linha do paciente nesse mes - so vincula */
+                  else{
+                    var newId=implNovoId(updated);/* V277 */
+                    updated=[...updated,{
+                      id:newId,
+                      paciente:editForm.paciente,
+                      patientId:editForm.patientId==null?null:editForm.patientId,/* V265 */
+                      mes:_alvo,
+                      mesKey:_alvo,
+                      cirurgia:"",
+                      protese:_proc,
+                      controle:"",
+                      obs:"Retorno de "+editForm.mes,
+                      data:"",
+                      extra:"",
+                      status:"pending",
+                      origemId:editRow.id,/* V277 */
+                      _cr:Date.now(),/* V277 */
+                      _ts:Date.now()/* V264 */
+                    }];
+                    _marcar(newId);
+                  }
+                }else if(_proc&&!String(_ger.protese||"").trim()){
+                  updated=updated.map(function(r){return r.id===_ger.id?{...r,protese:_proc,_ts:Date.now()}:r;});/* V277 */
                 }
               }
               return updated;
@@ -4943,7 +4965,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:0}} className="fi"
         <button onClick={function(){setShowAdd(false);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={function(){
           if(!addForm.patientId){alert("Escolha o paciente no cadastro para continuar.");return;}/* V265 */
-          var newId=IMPL_DATA.length>0?Math.max.apply(null,IMPL_DATA.map(function(r){return r.id;}))+1:1;
+          var newId=implNovoId(IMPL_DATA);/* V277 */
           setImplRows(function(prev){return[...prev,{...addForm,id:newId,mes:addForm.mes||selMes,_ts:Date.now()}];});/* V264 */
           setSelMes(addForm.mes||selMes);
           setShowAdd(false);
