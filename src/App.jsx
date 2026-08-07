@@ -7324,12 +7324,46 @@ function nfeParse(txt){
   if(!itens.length)return {err:"Nenhum item válido encontrado no XML."};
   return {forn:forn,num:num,date:dt,itens:itens};
 }
+// V275: casamento de NF-e por faixa de confianca + padronizacao do nome pelo fornecedor.
+//  verde   = codigo do produto ja gravado (ou nome identico) -> reconhecido
+//  amarelo = nome parecido -> "E esse" / "Escolher outro"
+//  vermelho= nao reconheceu -> busca inteligente (stkFiltrar) ou criar item novo
+// Nenhum item entra sem conferencia, inclusive os verdes.
+// Ao vincular, o nome da nota vira o nome oficial e o antigo vira apelido em `alias`
+// (continua achavel na busca e casa as proximas notas). O codigo entra em `cods`.
+function nfeCods(st){
+  var a=[];
+  if(st&&st.codigo){var c0=String(st.codigo).trim();if(c0)a.push(c0);}
+  ((st&&st.cods)||[]).forEach(function(c){c=String(c||"").trim();if(c&&a.indexOf(c)<0)a.push(c);});
+  return a;
+}
+function nfeNomes(st){
+  var a=[String((st&&st.name)||"")];
+  ((st&&st.alias)||[]).forEach(function(n){if(n)a.push(String(n));});
+  return a;
+}
+function nfeScore2(itNF,itStk){
+  if(itNF.cod&&nfeCods(itStk).indexOf(String(itNF.cod).trim())>=0)return 1;
+  var a=nfeNorm(itNF.desc);
+  if(!a)return 0;
+  var melhor=0;
+  nfeNomes(itStk).forEach(function(nm){
+    var b=nfeNorm(nm);
+    if(!b)return;
+    var sc=(a===b)?1:((a.indexOf(b)>=0||b.indexOf(a)>=0)?0.9:nfeDice(a,b));
+    if(sc>melhor)melhor=sc;
+  });
+  return melhor;
+}
+function nfeFaixa(sc){return sc>=1?"g":(sc>=0.62?"y":"r");}
 function ImportNFe({stock,setStock,addLog,onClose}){
   const [nf,setNf]=useState(null);
-  const [sel,setSel]=useState({});
+  const [its,setIts]=useState([]);
   const [erro,setErro]=useState("");
   const [done,setDone]=useState(null);
-  var sorted=[...(stock||[])].sort(function(a,b){return String(a.name).localeCompare(String(b.name),"pt-BR",{sensitivity:"base"});});
+  const [abrirG,setAbrirG]=useState(false);
+  function upIt(i,patch){setIts(function(prev){return prev.map(function(x,ix){return ix===i?Object.assign({},x,patch):x;});});}
+  function nomeDe(id){var s=(stock||[]).find(function(x){return String(x.id)===String(id);});return s?s.name:"";}
   function onFile(e){
     var f=e.target.files&&e.target.files[0];
     if(!f)return;
@@ -7338,38 +7372,126 @@ function ImportNFe({stock,setStock,addLog,onClose}){
     rd.onload=function(){
       var r=nfeParse(String(rd.result||""));
       if(r.err){setErro(r.err);return;}
-      var s={};
-      r.itens.forEach(function(it,i){
-        var best=null,bestScore=0;
-        (stock||[]).forEach(function(st){var sc=nfeScore(it,st);if(sc>bestScore){bestScore=sc;best=st;}});
-        s[i]=(best&&bestScore>=0.45)?String(best.id):"novo";
+      var arr=r.itens.map(function(it){
+        var best=null,bs=0;
+        (stock||[]).forEach(function(st){var sc=nfeScore2(it,st);if(sc>bs){bs=sc;best=st;}});
+        var fx=best?nfeFaixa(bs):"r";
+        if(fx==="r")best=null;
+        return {alvo:best?String(best.id):null,novo:false,faixa:fx,pct:Math.round(bs*100),
+                conf:false,adotar:true,nome:it.desc,busca:"",edit:false};
       });
-      setSel(s);setNf(r);
+      var abre=arr.some(function(x,ix){return x.faixa==="g"&&nfeNorm(nomeDe(x.alvo))!==nfeNorm(x.nome);});
+      setAbrirG(abre);setIts(arr);setNf(r);
     };
     rd.onerror=function(){setErro("Não foi possível ler o arquivo.");};
     rd.readAsText(f);
   }
   function confirmar(){
     if(!nf)return;
-    var casados=0,criados=0;
-    nf.itens.forEach(function(it,i){if(sel[i]==="novo")criados++;else casados++;});
+    var casados=0,criados=0,renom=0;
+    its.forEach(function(e){if(e.novo||!e.alvo)criados++;else{casados++;if(e.adotar&&nfeNorm(e.nome)!==nfeNorm(nomeDe(e.alvo)))renom++;}});
     setStock(function(prev){
-      var next=prev.map(function(s){return Object.assign({},s);});
-      nf.itens.forEach(function(it,i){
-        var mov={t:"in",q:it.q,date:nf.date,note:"NF-e nº "+nf.num+" - "+nf.forn,p:Number(it.vu)||0};// V236 grava preco
-        var alvo=sel[i];
-        if(alvo==="novo"){
-          next.push({id:nid(),name:it.desc,qty:it.q,unit:it.un||"un",min:1,price:it.vu,codigo:it.cod||"",movs:[mov]});
+      var next=(prev||[]).map(function(s){return Object.assign({},s);});
+      nf.itens.forEach(function(itn,i){
+        var e=its[i]||{};
+        var nome=String(e.nome||itn.desc).trim()||itn.desc;
+        var mov={t:"in",q:itn.q,date:nf.date,note:"NF-e nº "+nf.num+" - "+nf.forn,p:Number(itn.vu)||0};
+        if(e.novo||!e.alvo){
+          var novoIt={id:nid(),name:nome,qty:itn.q,unit:itn.un||"un",min:1,price:itn.vu,
+                      codigo:itn.cod||"",cods:itn.cod?[String(itn.cod).trim()]:[],alias:[],movs:[mov],_ts:Date.now()};
+          if(nfeNorm(nome)!==nfeNorm(itn.desc))novoIt.alias.push(itn.desc);
+          next.push(novoIt);
         }else{
-          var s=next.find(function(x){return String(x.id)===String(alvo);});
-          if(s){s.qty=Number(s.qty||0)+it.q;s.price=it.vu;if(!s.codigo&&it.cod)s.codigo=it.cod;s.movs=[mov].concat(s.movs||[]);}
+          var s=next.find(function(x){return String(x.id)===String(e.alvo);});
+          if(s){
+            s.qty=Number(s.qty||0)+itn.q;
+            s.price=itn.vu;
+            s.movs=[mov].concat(s.movs||[]);
+            var cds=nfeCods(s);
+            if(itn.cod&&cds.indexOf(String(itn.cod).trim())<0)cds.push(String(itn.cod).trim());
+            s.cods=cds;
+            if(!s.codigo&&itn.cod)s.codigo=String(itn.cod).trim();
+            var als=(s.alias||[]).slice();
+            var addAl=function(n){n=String(n||"").trim();if(!n)return;if(nfeNorm(n)===nfeNorm(s.name))return;
+              var ex=als.some(function(x){return nfeNorm(x)===nfeNorm(n);});if(!ex)als.push(n);};
+            if(e.adotar&&nfeNorm(nome)!==nfeNorm(s.name)){var antigo=s.name;s.name=nome;addAl(antigo);}
+            addAl(itn.desc);
+            s.alias=als;
+            s._ts=Date.now();
+          }
         }
       });
       return next;
     });
-    try{if(addLog)addLog("estoque","Entrada NF-e nº "+nf.num+" - "+nf.forn+" ("+nf.itens.length+" itens)","");}catch(e){}
-    setDone({tot:nf.itens.length,casados:casados,criados:criados});
+    try{if(addLog)addLog("estoque","Entrada NF-e nº "+nf.num+" - "+nf.forn+" ("+nf.itens.length+" itens"+(renom?", "+renom+" nome(s) padronizado(s)":"")+")","");}catch(e){}
+    setDone({tot:nf.itens.length,casados:casados,criados:criados,renom:renom});
   }
+  // ── blocos visuais ──────────────────────────────────────────
+  function blocoNome(e,i){
+    var alvoNome=e.alvo?nomeDe(e.alvo):"";
+    var muda=e.alvo&&nfeNorm(e.nome)!==nfeNorm(alvoNome);
+    if(e.edit)return <div style={{background:"var(--surface)",borderRadius:9,padding:"9px 11px",display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}>
+      <input value={e.nome} autoFocus onChange={function(ev){upIt(i,{nome:ev.target.value});}} onKeyDown={function(ev){if(ev.key==="Enter")upIt(i,{edit:false});}} style={{flex:1,minWidth:170,border:"1.5px solid "+G.border,borderRadius:7,padding:"6px 9px",fontSize:12.5,outline:"none",fontFamily:"'Manrope'"}}/>
+      <Btn ch="Pronto" sm onClick={function(){upIt(i,{edit:false,nome:String(e.nome||"").trim()||alvoNome});}}/>
+    </div>;
+    if(e.novo)return <div style={{background:"var(--surface)",borderRadius:9,padding:"9px 11px",fontSize:12.5,display:"flex",gap:7,alignItems:"center",flexWrap:"wrap"}}>
+      <span style={{fontWeight:800,color:G.primary}}>{"＋ "+e.nome}</span>
+      <button onClick={function(){upIt(i,{edit:true});}} style={{border:"none",background:G.bg,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11}}>{"✏️"}</button>
+      <span style={{color:G.muted,fontSize:11.5,width:"100%"}}>{"Item novo, cadastrado com o nome da nota."}</span>
+    </div>;
+    if(!e.alvo)return null;
+    if(!muda)return <div style={{fontSize:11.5,color:G.muted}}>{"Nome já está igual ao da nota."}</div>;
+    return <div style={{background:"var(--surface)",borderRadius:9,padding:"9px 11px",display:"flex",flexDirection:"column",gap:6}}>
+      <div style={{fontSize:12.5,lineHeight:1.5,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+        <span style={e.adotar?{color:G.muted,textDecoration:"line-through"}:{fontWeight:800,color:G.primary}}>{alvoNome}</span>
+        {e.adotar?<span style={{color:G.muted}}>{"→"}</span>:null}
+        {e.adotar?<span style={{fontWeight:800,color:G.primary}}>{e.nome}</span>:null}
+        {e.adotar?<button onClick={function(){upIt(i,{edit:true});}} style={{border:"none",background:G.bg,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11}}>{"✏️"}</button>:null}
+      </div>
+      <label style={{display:"flex",alignItems:"center",gap:7,fontSize:12,color:G.muted,cursor:"pointer"}}>
+        <input type="checkbox" checked={!!e.adotar} onChange={function(ev){upIt(i,{adotar:ev.target.checked});}} style={{accentColor:G.primary,width:15,height:15,cursor:"pointer"}}/>
+        {"Adotar o nome da nota (padrão do fornecedor)"}
+      </label>
+    </div>;
+  }
+  function cardItem(itn,i){
+    var e=its[i]||{};
+    var cor=e.conf?G.success:(e.faixa==="g"?G.success:(e.faixa==="y"?G.gold:G.red));
+    var bdgL=e.conf?(e.novo?"✓ item novo":"✓ conferido"):(e.faixa==="g"?"reconhecido":(e.faixa==="y"?("? "+e.pct+"% parecido"):"! não encontrado"));
+    return <div key={i} style={{background:G.bg,borderRadius:11,padding:"11px 13px",display:"flex",flexDirection:"column",gap:8,borderLeft:"4px solid "+cor}}>
+      <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+        <span style={{fontSize:12.5,fontWeight:800,flex:1,minWidth:170,lineHeight:1.35}}>{itn.desc}</span>
+        <span style={{fontSize:12,color:G.muted,whiteSpace:"nowrap"}}>{itn.q+" "+itn.un+" × "+cur(itn.vu)}</span>
+      </div>
+      <span style={{alignSelf:"flex-start",fontSize:9.5,fontWeight:800,borderRadius:6,padding:"2px 8px",textTransform:"uppercase",letterSpacing:.4,background:cor+"20",color:cor}}>{bdgL}</span>
+      {e.alvo&&<div style={{fontSize:12.5,lineHeight:1.5}}>{"Entra em "}<b style={{color:G.primary}}>{nomeDe(e.alvo)}</b></div>}
+      {!e.alvo&&!e.novo&&e.faixa==="y"&&<div style={{fontSize:12.5}}>{"Nenhum vínculo escolhido."}</div>}
+      {!e.conf&&!e.alvo&&!e.novo&&<>
+        <div style={{fontSize:12,color:G.muted}}>{"Procure o material no estoque ou cadastre como novo."}</div>
+        <div style={{display:"flex",alignItems:"center",gap:8,background:G.card,borderRadius:10,padding:"7px 11px",boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px #ffffff"}}>
+          <span style={{opacity:.6,fontSize:14}}>{"🔍"}</span>
+          <input value={e.busca||""} onChange={function(ev){upIt(i,{busca:ev.target.value});}} placeholder="Buscar no estoque…" style={{flex:1,minWidth:0,border:"none",background:"transparent",outline:"none",fontSize:12.5,fontFamily:"'Manrope'",color:G.text}}/>
+        </div>
+        {(e.busca||"").trim()?(function(){
+          var res=stkFiltrar(stock,e.busca).slice(0,5);
+          if(!res.length)return <div style={{fontSize:12,color:G.muted}}>{"Nada com esse nome. Use “Criar item novo”."}</div>;
+          return <div style={{display:"flex",flexDirection:"column",gap:5}}>{res.map(function(s){return <button key={s.id} onClick={function(){upIt(i,{alvo:String(s.id),novo:false,busca:""});}} style={{textAlign:"left",border:"none",background:"var(--surface)",borderRadius:8,padding:"8px 11px",fontSize:12.5,fontWeight:700,color:G.text,cursor:"pointer",boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px #ffffff"}}>{s.name+(s.qty!=null?("  ·  "+s.qty+" "+(s.unit||"un")):"")}</button>;})}</div>;
+        })():null}
+      </>}
+      {blocoNome(e,i)}
+      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+        {!e.conf&&(e.alvo||e.novo)&&<Btn ch={e.faixa==="y"?"É esse":"✓ Conferir"} sm onClick={function(){upIt(i,{conf:true});}}/>}
+        {!e.conf&&!e.alvo&&!e.novo&&<Btn ch="＋ Criar item novo com o nome da nota" v="g" sm onClick={function(){upIt(i,{novo:true,alvo:null});}}/>}
+        {(e.alvo||e.novo)&&<Btn ch={e.conf?"Trocar":"Escolher outro"} v="g" sm onClick={function(){upIt(i,{conf:false,alvo:null,novo:false,busca:"",edit:false,nome:itn.desc});}}/>}
+      </div>
+    </div>;
+  }
+  var idxG=[],idxY=[],idxR=[];
+  (nf?nf.itens:[]).forEach(function(_,i){var e=its[i]||{};(e.faixa==="g"?idxG:(e.faixa==="y"?idxY:idxR)).push(i);});
+  var faltam=its.filter(function(e){return !e.conf;}).length;
+  var gConf=idxG.filter(function(i){return its[i]&&its[i].conf;}).length;
+  var renomPrev=its.filter(function(e){return e.alvo&&e.adotar&&nfeNorm(e.nome)!==nfeNorm(nomeDe(e.alvo));}).length;
+  var sec=function(t){return <div style={{fontSize:10.5,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.7,marginTop:4}}>{t}</div>;};
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
     <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:640,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
@@ -7378,7 +7500,7 @@ function ImportNFe({stock,setStock,addLog,onClose}){
       </div>
       <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
         {done&&<>
-          <div style={{background:"var(--green-soft)",borderRadius:10,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:26}}>✅</div><div style={{fontWeight:700,color:G.success}}>{done.tot+" entrada"+(done.tot>1?"s":"")+" registrada"+(done.tot>1?"s":"")+" no estoque!"}</div><div style={{fontSize:12.5,color:G.muted,marginTop:4}}>{done.casados+" item(ns) atualizado(s) · "+done.criados+" criado(s)"}</div></div>
+          <div style={{background:"var(--green-soft)",borderRadius:10,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:26}}>✅</div><div style={{fontWeight:700,color:G.success}}>{done.tot+" entrada"+(done.tot>1?"s":"")+" registrada"+(done.tot>1?"s":"")+" no estoque!"}</div><div style={{fontSize:12.5,color:G.muted,marginTop:4,lineHeight:1.6}}>{done.casados+" item(ns) atualizado(s) · "+done.criados+" criado(s)"}{done.renom?<br/>:null}{done.renom?(done.renom+" nome(s) padronizado(s) pelo do fornecedor"):""}<br/>{"Códigos aprendidos para as próximas notas."}</div></div>
           <Btn ch="Fechar" onClick={onClose}/>
         </>}
         {!done&&!nf&&<>
@@ -7391,23 +7513,36 @@ function ImportNFe({stock,setStock,addLog,onClose}){
             <div style={{fontWeight:700}}>{nf.forn}</div>
             <div style={{color:G.muted}}>{"NF-e nº "+nf.num+" · "+fmt(nf.date)+" · "+nf.itens.length+" item(ns)"}</div>
           </div>
-          <div style={{fontSize:11.5,color:G.muted}}>Confira o casamento de cada item. Ao confirmar: soma a quantidade, atualiza o preço com o valor da nota e aprende o código do produto para as próximas notas.</div>
-          {nf.itens.map(function(it,i){var isNovo=sel[i]==="novo";return <div key={i} style={{background:G.bg,borderRadius:10,padding:"10px 13px",display:"flex",flexDirection:"column",gap:6}}>
-            <div style={{display:"flex",justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
-              <span style={{fontSize:12.5,fontWeight:700,flex:1,minWidth:180}}>{it.desc}</span>
-              <span style={{fontSize:12,color:G.muted,whiteSpace:"nowrap"}}>{it.q+" "+it.un+" × "+cur(it.vu)}</span>
+          <div style={{fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"Nada entra sem a sua conferência. Ao confirmar: soma a quantidade, atualiza o preço, adota o nome do fornecedor (quando marcado) e aprende o código para as próximas notas."}</div>
+
+          {idxG.length>0&&<>
+            {sec("Reconhecidos pelo código")}
+            <div style={{background:G.bg,borderRadius:11,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",borderLeft:"4px solid "+G.success}}>
+              <div style={{fontSize:12.5,lineHeight:1.5}}>
+                <b>{idxG.length+" item(ns) reconhecido(s)"}</b>
+                <div style={{color:G.muted,fontSize:11.5}}>{gConf+" de "+idxG.length+" conferido(s)"}</div>
+              </div>
+              <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+                <Btn ch={abrirG?"Ocultar":"Ver os "+idxG.length} v="g" sm onClick={function(){setAbrirG(!abrirG);}}/>
+                {gConf<idxG.length&&<Btn ch="✓ Conferir todos" sm onClick={function(){setIts(function(prev){return prev.map(function(x){return x.faixa==="g"?Object.assign({},x,{conf:true}):x;});});}}/>}
+              </div>
             </div>
-            <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              <Bdg l={isNovo?"Criar novo":"Casado"} col={isNovo?G.blue:G.success} sm/>
-              <select value={sel[i]} onChange={function(e){var v=e.target.value;setSel(function(p){var n=Object.assign({},p);n[i]=v;return n;});}} style={{flex:1,minWidth:200,border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 10px",fontSize:13,outline:"none",color:G.text,background:"var(--surface)"}}>
-                <option value="novo">{"➕ Criar novo item: "+it.desc}</option>
-                {sorted.map(function(s){return <option key={s.id} value={String(s.id)}>{s.name+(s.codigo?(" ["+s.codigo+"]"):"")}</option>;})}
-              </select>
+            {abrirG&&<div style={{display:"flex",flexDirection:"column",gap:9}}>{idxG.map(function(i){return cardItem(nf.itens[i],i);})}</div>}
+          </>}
+
+          {idxY.length>0&&<>{sec("Precisam da sua confirmação")}<div style={{display:"flex",flexDirection:"column",gap:9}}>{idxY.map(function(i){return cardItem(nf.itens[i],i);})}</div></>}
+          {idxR.length>0&&<>{sec("Não encontrei no estoque")}<div style={{display:"flex",flexDirection:"column",gap:9}}>{idxR.map(function(i){return cardItem(nf.itens[i],i);})}</div></>}
+
+          <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",borderTop:"1px solid "+G.border,paddingTop:12}}>
+            <div style={{fontSize:12,lineHeight:1.45,color:faltam?G.red:G.muted,fontWeight:faltam?700:400}}>
+              {faltam?("Falta conferir "+faltam+" item(ns)."):(nf.itens.length+" itens prontos"+(renomPrev?(" · "+renomPrev+" nome(s) será(ão) padronizado(s)"):""))}
             </div>
-          </div>;})}
-          <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
-            <button onClick={function(){setNf(null);setSel({});}} style={{border:"1.5px solid "+G.muted,background:"transparent",color:G.muted,borderRadius:8,padding:"9px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Voltar</button>
-            <Btn ch={"✔ Confirmar "+nf.itens.length+" entrada(s)"} onClick={confirmar}/>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button onClick={function(){setNf(null);setIts([]);}} style={{border:"1.5px solid "+G.muted,background:"transparent",color:G.muted,borderRadius:8,padding:"9px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}}>Voltar</button>
+              {faltam
+                ?<button disabled style={{border:"none",background:G.border,color:G.muted,borderRadius:8,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"not-allowed"}}>{"✔ Confirmar "+nf.itens.length+" entrada(s)"}</button>
+                :<Btn ch={"✔ Confirmar "+nf.itens.length+" entrada(s)"} onClick={confirmar}/>}
+            </div>
           </div>
         </>}
       </div>
@@ -7470,7 +7605,10 @@ function stkFiltrar(stock,q){
     var sl=s.toLowerCase();
     arr=arr.filter(function(it){
       if(smartHit(s,(it&&it.name)||""))return true;
-      return it&&it.codigo?String(it.codigo).toLowerCase().indexOf(sl)>=0:false;
+      // V275: apelidos aprendidos das notas fiscais tambem valem na busca
+      if(it&&it.alias&&it.alias.some(function(n){return smartHit(s,n||"");}))return true;
+      if(it&&it.codigo&&String(it.codigo).toLowerCase().indexOf(sl)>=0)return true;
+      return it&&it.cods?it.cods.some(function(c){return String(c||"").toLowerCase().indexOf(sl)>=0;}):false;
     });
     arr.sort(function(a,b){
       var ra=smartRank(s,(a&&a.name)||""),rb=smartRank(s,(b&&b.name)||"");
