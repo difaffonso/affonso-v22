@@ -1589,7 +1589,7 @@ const patPaid=patRecs.reduce((s,r)=>s+r.paid,0);
 
 const [missPF,setMissPF]=useState(null);
 // V281: carimbo de autoria na ficha + registro de "salvar mesmo assim" (auditoria de cadastro)
-const savePatOk=(_ovrL)=>{const _uN=(user&&user.name)||"";const _tsI=new Date().toISOString();setPats(prev=>prev.map(function(p){if(p.id!==pat.id)return p;var o=Object.assign({},pf,{_by:p._by||pf._by||"",_cr:p._cr||pf._cr||null,_byTs:p._byTs||pf._byTs||"",_edBy:_uN,_edTs:_tsI});if(_ovrL&&_ovrL.length)o._ovr=((p._ovr)||[]).concat([{campos:_ovrL,por:_uN,ts:_tsI,onde:"edicao"}]);return o;}));setEditMode(false);};
+const savePatOk=(_ovrL)=>{const _uN=(user&&user.name)||"";const _tsI=new Date().toISOString();setPats(prev=>prev.map(function(p){if(p.id!==pat.id)return p;var o=Object.assign({},pf,{_by:p._by||pf._by||"",_cr:p._cr||pf._cr||null,_byTs:p._byTs||pf._byTs||"",_edBy:_uN,_edTs:_tsI});if(_ovrL&&_ovrL.length)o._ovr=((p._ovr)||[]).concat([{campos:_ovrL,por:_uN,ts:_tsI,onde:"edicao"}]);/* V282: sai do estado pre-cadastro quando os obrigatorios ficam completos */if(p._pre){if(faltamObrig(o).length===0){o._pre=false;o._preDoneBy=_uN;o._preDoneTs=_tsI;}else{o._pre=true;}}return o;}));setEditMode(false);};
 const savePat=()=>{if(!String(pf.name||"").trim()){alert("N\u00e3o \u00e9 poss\u00edvel salvar a ficha sem o nome do paciente.");return;}var _f=faltamObrig(pf);if(_f.length>0){setMissPF(_f);return;}savePatOk();};
 const saveAnam=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
 
@@ -1826,7 +1826,7 @@ return <>
     {showIARX&&<IARX pat={pf} onClose={function(){setShowIARX(false);}}/>}
     <button onClick={function(){setShowIARX(true);}} style={{background:G.blue,color:"#fff",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"🦷 Analisar RX com IA"}</button>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📋 Dados do Paciente</span>
+      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📋 Dados do Paciente</span>{/* V282: selo de pre-cadastro na ficha */}{pat._pre&&<span style={{background:G.blue,color:"#fff",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:800,marginLeft:8}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}
       {!editMode?<div style={{display:"flex",gap:5}}><Btn ch="📋 WA" v="g" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="🔗 Portal" v="g" sm onClick={function(){setShowPortal(true);}}/><Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/></div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={savePat}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
     </div>
     {pat.obs&&<div style={{background:G.yellow+"18",border:`2px solid ${G.yellow}`,borderRadius:10,padding:"9px 14px"}}><span style={{fontWeight:700,color:G.yellow}}>⚠ ALERGIA / OBS. IMPORTANTE</span><div style={{color:G.text,marginTop:4,fontSize:14}}>{pat.obs||pat.allergy}</div></div>}
@@ -3994,7 +3994,7 @@ return(
 {p&&p.obs&&<div style={{background:G.yellow+"18",border:"2px solid "+G.yellow,borderRadius:10,padding:"8px 12px",fontWeight:700,color:G.yellow}}>{"⚠ "+p.obs}</div>}
 <div style={{background:G.accent,borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={()=>{setViewA(null);setOpenFolder(p);}}>
 <div style={{fontSize:15,fontWeight:700,color:G.primary,textDecoration:"underline"}}>{p&&p.name}</div>
-<div style={{fontSize:12,color:G.muted}}>{"📁 "+(p&&p.folder)+" · Toque para abrir prontuário"}</div>
+<div style={{fontSize:12,color:G.muted}}>{"📁 "+(((p&&p.folder))||"sem ficha")+" · Toque para abrir prontuário"}/* V282 */</div>
 {p&&p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600,marginTop:3}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
 </div>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -4336,6 +4336,23 @@ const normNome=function(s){return(s||"").toLowerCase().trim();};
 const [dupModal,setDupModal]=useState(null);
 const [delModal,setDelModal]=useState(null);
 const [missNew,setMissNew]=useState(null);
+// V282: PRE-CADASTRO -- paciente que ligou por telefone. So nome + telefone, sem cobrar obrigatorios.
+const [preM,setPreM]=useState(false);
+const [preF,setPreF]=useState({name:"",phone:""});
+const savePre=function(){
+  var nm=String(preF.name||"").trim();
+  var phRaw=String(preF.phone||"").trim();
+  var ph=phRaw.replace(/\D/g,"");
+  if(nm.split(/\s+/).filter(Boolean).length<2){alert("Digite o nome e o sobrenome do paciente.");return;}
+  if(ph.length<10){alert("O pr\u00e9-cadastro precisa de um telefone com DDD (m\u00ednimo 10 d\u00edgitos).");return;}
+  var dup=(pats||[]).filter(function(x){return String(x.phone||"").replace(/\D/g,"")===ph||normNome(x.name)===normNome(nm);});
+  if(dup.length>0&&!window.confirm("J\u00e1 existe ficha parecida: "+dup[0].name+(dup[0].phone?(" \u00b7 "+dup[0].phone):"")+".\n\nCriar o pr\u00e9-cadastro mesmo assim?"))return;
+  var _uN=(user&&user.name)||"";var _tsI=new Date().toISOString();
+  var obj=Object.assign({},b0,{name:nm,phone:phRaw,id:nid(pats),since:today(),_pre:true,_by:_uN,_cr:Date.now(),_byTs:_tsI});
+  setPats(function(prev){return [].concat(prev,[obj]);});
+  if(addLog)addLog("paciente","Pr\u00e9-cadastro por telefone: "+nm,nm);
+  setPreM(false);setPreF({name:"",phone:""});
+};
 const savePat=()=>{
 if(!pf.name)return;
 var _f=faltamObrig(pf);
@@ -4381,6 +4398,8 @@ const obj=Object.assign({},pf,{id:ep?ep.id:nid(pats)},isNew
   ?{_by:_uN,_cr:Date.now(),_byTs:_tsI}
   :{_by:(_pv&&_pv._by)||pf._by||"",_cr:(_pv&&_pv._cr)||pf._cr||null,_byTs:(_pv&&_pv._byTs)||pf._byTs||"",_edBy:_uN,_edTs:_tsI});
 if(_ovrEntry)obj._ovr=(((_pv&&_pv._ovr)||[])).concat(_ovrEntry);
+// V282: pre-cadastro sai do estado "pre" assim que os obrigatorios ficam completos
+if(!isNew&&_pv&&_pv._pre){if(faltamObrig(obj).length===0){obj._pre=false;obj._preDoneBy=_uN;obj._preDoneTs=_tsI;}else{obj._pre=true;}}
 setPats(function(prev){return ep?prev.map(function(p){return p.id===ep.id?obj:p;}):[...prev,obj];});
 if(addLog)addLog("paciente",(isNew?"Criou paciente: ":"Editou cadastro de ")+pf.name,pf.name);
 setPm(false);
@@ -4391,6 +4410,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Pacientes</h2>
 <Btn ch="+ Novo Paciente" onClick={()=>{setEp(null);setPf(b0);setPm(true);}}/>
+{/* V282: pre-cadastro rapido para atendimento por telefone */}
+{user.level>=2&&<Btn ch="\u26a1 Pr\u00e9-cadastro" v="w" onClick={()=>{setPreF({name:"",phone:""});setPreM(true);}}/>}
 </div>
 <Inp val={srch} set={v=>{setSrch(v);setPPage(0);}} ph="🔍 Nome, CPF, telefone ou nº pasta"/>
 {pageItems.map(p=><div key={p.id} style={{background:G.card,borderRadius:13,boxShadow:"0 1px 5px rgba(0,0,0,.07)",padding:"12px 15px",display:"flex",alignItems:"center",gap:11}}>
@@ -4399,6 +4420,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <div style={{fontWeight:700,fontSize:13,cursor:"pointer"}} onClick={()=>setOpenFolder(p)}>{p.name}<span style={{fontSize:11,color:G.muted,fontWeight:400}}> · {age(p.dob)} · Ficha: {p.folder||"--"}</span></div>
 <div style={{color:G.muted,fontSize:12}}>{user.level>=2?p.phone:"••••••••••"}</div>
 {p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
+{/* V282: selo de pre-cadastro */}
+{p._pre&&<div style={{background:G.blue+"20",border:"1px solid "+G.blue,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800,color:G.blue,marginTop:2,display:"inline-block"}}>{"\u26a1 PR\u00c9-CADASTRO \u00b7 completar quando o paciente chegar"}</div>}
 <div style={{marginTop:3,marginLeft:-6}}><FaltaSelo pid={p.id} idx={_fidx} treats={treats} clicavel extenso/></div>
 {p.anamPend&&<div style={{background:G.success+"22",border:"1px solid "+G.success,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.success,marginTop:2,display:"inline-block"}}>✅ Anamnese nova - revisar</div>}
 {p.obs&&<div style={{background:G.red+"20",border:`1px solid ${G.red}`,borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:700,color:G.red,marginTop:2,display:"inline-block"}}>⚠ {p.obs.slice(0,45)}</div>}
@@ -4434,6 +4457,14 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <button onClick={()=>setDupModal(null)} style={{border:"1.5px solid var(--primary)",background:"transparent",color:"var(--primary)",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
 <button onClick={dupModal.onConfirm} style={{background:"var(--yellow)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Cadastrar Mesmo Assim</button>
 </div></div></div></div>}
+{/* V282: modal do pre-cadastro por telefone */}
+<Modal open={preM} close={function(){setPreM(false);}} title={"\u26a1 Pr\u00e9-cadastro por telefone"} ch={<div style={{display:"flex",flexDirection:"column",gap:12}}>
+  <div style={{background:"var(--blue-soft)",border:"1.5px solid "+G.blue,borderRadius:11,padding:"11px 14px",fontSize:12.5,color:G.blue,fontWeight:600,lineHeight:1.5}}>{"Para quem ligou e quer marcar avalia\u00e7\u00e3o. Pegue s\u00f3 o nome e o telefone \u2014 a ficha fica marcada como PR\u00c9-CADASTRO e \u00e9 completada quando o paciente chegar."}</div>
+  <Inp lb="Nome completo *" val={preF.name} set={function(v){setPreF(function(x){return Object.assign({},x,{name:v});});}} ph="Nome e sobrenome"/>
+  <Inp lb="Telefone (WhatsApp) *" val={preF.phone} set={function(v){setPreF(function(x){return Object.assign({},x,{phone:v});});}} ph="11999990000"/>
+  <div style={{fontSize:11.5,color:G.muted}}>{"Os campos obrigat\u00f3rios n\u00e3o s\u00e3o cobrados agora \u2014 pr\u00e9-cadastro n\u00e3o conta como ficha incompleta."}</div>
+  <SC2 save={savePre} cancel={function(){setPreM(false);}}/>
+</div>}/>
 {missNew&&<AvisoObrig lista={missNew} onVoltar={function(){setMissNew(null);}} onSalvar={function(){var _m=missNew;setMissNew(null);savePatOk(_m);}}/* V281 *//>}
 {delModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
@@ -11078,10 +11109,10 @@ function nomeD(id){var d=dents.find(function(x){return x.id===id;});return d?d.n
 var semStatus=appts.filter(function(a){return !a.blocked&&a.date<=ont&&a.date>=d30&&(a.status==="pending"||a.status==="confirmed"||a.status==="waiting");}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:fmt(a.date)+" "+(a.time||"")+" \u00b7 "+(a.procedure||"Consulta")+(nomeD(a.dentistId)?" \u00b7 "+nomeD(a.dentistId):"")+" \u00b7 sem status"+(a._by?" \u00b7 \ud83d\udd75\ufe0f agendou: "+String(a._by).split(" ")[0]:""),key:"semst_"+a.id};});
 
 // V228 - 14. Fichas novas sem "como nos conheceu"
-var origemPend=pats.filter(function(p){return !p.origem&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 campo em branco",key:"origem_"+p.id};});
+var origemPend=pats.filter(function(p){return !p._pre/* V282 */&&!p.origem&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 campo em branco",key:"origem_"+p.id};});
 
 // V243 - 16. Indicacao sem quem indicou informado
-var indicPend=pats.filter(function(p){return p.origem==="Indicação"&&!p.indicPorId&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 quem indicou em branco",key:"indic_"+p.id};});
+var indicPend=pats.filter(function(p){return !p._pre/* V282 */&&p.origem==="Indicação"&&!p.indicPorId&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 quem indicou em branco",key:"indic_"+p.id};});
 
 // V228 - 15. Conversas com paciente aguardando resposta ha 2h+ (mesmo criterio do V214: ultima msg e do paciente, nao e botao 1/2)
 var chatPend=[];
