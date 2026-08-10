@@ -4322,6 +4322,202 @@ return <div style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 
 </div>;
 }
 
+// ══════════════════════════════════════════════════════════
+// V284: RELATORIO DE AUDITORIA DE CADASTRO
+// Placar por funcionaria + fichas do periodo + pre-cadastros + agradecimentos.
+// Nivel 3 ve todo mundo; nivel 2 ve o proprio desempenho e a media da equipe.
+// So entram fichas com carimbo (_by), ou seja, criadas a partir da V281.
+// ══════════════════════════════════════════════════════════
+function RelCadastro({pats,appts,user,onOpen}){
+const [ab,setAb]=useState(false);
+const [per,setPer]=useState("semana");
+const [soPend,setSoPend]=useState(false);
+const [det,setDet]=useState(null);
+const admin=!!(user&&user.level>=3);
+const uNome=(user&&user.name)||"";
+const zz=function(n){return n<10?"0"+n:""+n;};
+const dtRef=function(p){
+  if(p&&p._cr)return new Date(Number(p._cr));
+  if(p&&p.since)return new Date(p.since+"T12:00");
+  return null;
+};
+const fmtDH=function(p){var d=dtRef(p);if(!d)return "--";return zz(d.getDate())+"/"+zz(d.getMonth()+1)+" \u00b7 "+zz(d.getHours())+":"+zz(d.getMinutes());};
+const diasDesde=function(p){var d=dtRef(p);if(!d)return 0;return Math.floor((Date.now()-d.getTime())/86400000);};
+const ini=(function(){
+  var d=new Date();d.setHours(0,0,0,0);
+  if(per==="hoje")return d;
+  if(per==="semana"){var w=new Date(d);w.setDate(w.getDate()-6);return w;}
+  if(per==="mes"){var m=new Date(d);m.setDate(m.getDate()-29);return m;}
+  return null;
+})();
+const PLBL={hoje:"hoje",semana:"últimos 7 dias",mes:"últimos 30 dias",tudo:"desde o início"};
+// autoria: quem completou o pre-cadastro leva o credito; senao, quem criou a ficha
+const autor=function(p){return (p&&(p._preDoneBy||p._by))||"";};
+const base=(pats||[]).filter(function(p){
+  if(!p||!p._by)return false;
+  var d=dtRef(p);if(!d)return false;
+  if(ini&&d.getTime()<ini.getTime())return false;
+  return true;
+});
+const fichas=base.filter(function(p){return !p._pre;});
+const pres=base.filter(function(p){return !!p._pre;});
+const falt=function(p){return faltamObrig(p);};
+const okF=function(p){return falt(p).length===0;};
+const temOvr=function(p){return !!(p._ovr&&p._ovr.length);};
+// estado do agradecimento de indicacao
+const agrSt=function(p){
+  if(String(p.origem||"")!=="Indica\u00e7\u00e3o")return "na";
+  if(!p.indicPorId)return "na";
+  var ind=(pats||[]).find(function(x){return x.id===p.indicPorId;});
+  if(!ind||!String(ind.phone||"").trim())return "warn";
+  return p.indicAgrad?"ok":"no";
+};
+const atendido=function(pid){return (appts||[]).some(function(a){return a&&a.patientId===pid&&a.status==="done";});};
+const preAguard=pres.filter(function(p){return !atendido(p.id);}).sort(function(a,b){return diasDesde(b)-diasDesde(a);});
+const preVenc=pres.filter(function(p){return atendido(p.id);}).sort(function(a,b){return diasDesde(b)-diasDesde(a);});
+const agrPend=fichas.filter(function(p){return agrSt(p)==="no";});
+// placar
+const grp={};
+fichas.forEach(function(p){
+  var k=autor(p)||"(sem autor)";
+  if(!grp[k])grp[k]={t:0,ok:0,pd:0,ov:0};
+  grp[k].t++;if(okF(p))grp[k].ok++;else grp[k].pd++;
+  if(temOvr(p))grp[k].ov++;
+});
+const chaves=Object.keys(grp).sort(function(a,b){return (grp[b].ok/grp[b].t)-(grp[a].ok/grp[a].t);});
+const totT=fichas.length,totOk=fichas.filter(okF).length;
+const mediaEq=totT?Math.round(totOk/totT*100):0;
+const visiveis=admin?chaves:chaves.filter(function(k){return k===uNome;});
+const lista=(soPend?fichas.filter(function(p){return !okF(p)||agrSt(p)==="no";}):fichas)
+  .filter(function(p){return admin||autor(p)===uNome;})
+  .sort(function(a,b){return (Number(b._cr)||0)-(Number(a._cr)||0);});
+const IC={ok:{t:"\u2713",c:G.green},no:{t:"\u2715",c:G.red},na:{t:"\u2013",c:G.muted},warn:{t:"!",c:G.yellow}};
+const Ico=function(k){var x=IC[k]||IC.na;return <span style={{color:x.c,fontWeight:800,fontSize:14}}>{x.t}</span>;};
+const cel={padding:"9px 7px",textAlign:"center",borderBottom:"1px solid "+G.border,fontSize:12};
+const th={padding:"9px 7px",textAlign:"center",fontSize:9.5,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:G.muted,borderBottom:"1.5px solid "+G.border,whiteSpace:"nowrap"};
+const secT={fontSize:10.5,fontWeight:800,letterSpacing:"1px",textTransform:"uppercase",color:G.muted,margin:"4px 0 8px 2px"};
+const linhaPend=function(p,txt,cor){
+  return <div key={p.id} onClick={function(){if(onOpen)onOpen(p);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:9,background:G.bg,borderRadius:8,padding:"8px 11px",cursor:"pointer",marginBottom:5}}>
+    <span style={{fontWeight:700,fontSize:12.5,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span>
+    <span style={{fontSize:11,color:cor,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>{txt}</span>
+  </div>;
+};
+if(!ab)return <div style={{background:G.card,borderRadius:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px var(--nm-light)",padding:"12px 15px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,cursor:"pointer",flexWrap:"wrap"}} onClick={function(){setAb(true);}}>
+  <span style={{fontWeight:800,fontSize:13.5,color:G.primary}}>{"\ud83d\udcca Auditoria de cadastro"}</span>
+  <span style={{fontSize:11.5,color:G.muted,fontWeight:600}}>{totT>0?(totT+" ficha(s) \u00b7 "+mediaEq+"% completas \u00b7 "+PLBL[per]):"toque para abrir"}</span>
+</div>;
+return <div style={{background:G.card,borderRadius:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px var(--nm-light)",padding:"15px 16px",display:"flex",flexDirection:"column",gap:14}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+    <span style={{fontWeight:800,fontSize:14.5,color:G.primary}}>{"\ud83d\udcca Auditoria de cadastro"}</span>
+    <Btn ch="Fechar" v="g" sm onClick={function(){setAb(false);}}/>
+  </div>
+  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+    {[["hoje","Hoje"],["semana","7 dias"],["mes","30 dias"],["tudo","Tudo"]].map(function(o){
+      return <button key={o[0]} onClick={function(){setPer(o[0]);}} style={{border:"none",borderRadius:9,padding:"7px 13px",fontSize:12,fontWeight:800,cursor:"pointer",background:per===o[0]?G.primary:"var(--surface)",color:per===o[0]?"#fff":G.muted,boxShadow:per===o[0]?"none":"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)"}}>{o[1]}</button>;
+    })}
+    <button onClick={function(){setSoPend(!soPend);}} style={{border:"none",borderRadius:9,padding:"7px 13px",fontSize:12,fontWeight:800,cursor:"pointer",background:soPend?G.yellow:"var(--surface)",color:soPend?"#fff":G.muted,boxShadow:soPend?"none":"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)"}}>{"S\u00f3 com pend\u00eancia"}</button>
+  </div>
+  {totT===0&&pres.length===0&&<div style={{padding:"22px 10px",textAlign:"center",color:G.muted,fontSize:12.5,fontWeight:600}}>{"Nenhuma ficha com carimbo neste per\u00edodo. O registro de autoria come\u00e7ou na V281 \u2014 fichas anteriores n\u00e3o aparecem aqui."}</div>}
+  {totT>0&&<div>
+    <div style={secT}>{"Placar \u00b7 "+PLBL[per]}</div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:10}}>
+      {visiveis.map(function(k){
+        var s=grp[k],pc=Math.round(s.ok/s.t*100);
+        var cor=pc>=90?G.green:pc>=70?G.yellow:G.red;
+        return <div key={k} style={{background:G.bg,borderRadius:12,padding:"12px 13px"}}>
+          <div style={{fontWeight:800,fontSize:13,marginBottom:7,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{k}</div>
+          <div style={{display:"flex",alignItems:"baseline",gap:6,marginBottom:8}}>
+            <span style={{fontFamily:"'Cormorant Garamond'",fontSize:33,fontWeight:700,color:cor,lineHeight:.9}}>{pc+"%"}</span>
+            <span style={{fontSize:10.5,color:G.muted,fontWeight:700}}>{"completas"}</span>
+          </div>
+          <div style={{height:6,borderRadius:4,background:"var(--surface)",boxShadow:"inset 2px 2px 4px var(--nm-dark),inset -2px -2px 4px var(--nm-light)",overflow:"hidden",marginBottom:9}}>
+            <div style={{height:"100%",width:pc+"%",background:cor,borderRadius:4}}></div>
+          </div>
+          <div style={{display:"flex",borderTop:"1px solid "+G.border,paddingTop:8}}>
+            <div style={{flex:1,textAlign:"center"}}><div style={{fontSize:15,fontWeight:800}}>{s.t}</div><div style={{fontSize:9,color:G.muted,fontWeight:700}}>{"FICHAS"}</div></div>
+            <div style={{flex:1,textAlign:"center"}}><div style={{fontSize:15,fontWeight:800,color:s.pd?G.red:G.muted}}>{s.pd}</div><div style={{fontSize:9,color:G.muted,fontWeight:700}}>{"C/ FALHA"}</div></div>
+            <div style={{flex:1,textAlign:"center"}}><div style={{fontSize:15,fontWeight:800,color:s.ov?G.yellow:G.muted}}>{s.ov}</div><div style={{fontSize:9,color:G.muted,fontWeight:700}}>{"IGNOROU"}</div></div>
+          </div>
+        </div>;
+      })}
+    </div>
+    {!admin&&<div style={{marginTop:8,fontSize:11.5,color:G.muted,fontWeight:700}}>{"M\u00e9dia da equipe no per\u00edodo: "+mediaEq+"% ("+totT+" ficha(s))"}</div>}
+  </div>}
+  {lista.length>0&&<div>
+    <div style={secT}>{"Fichas do per\u00edodo"}</div>
+    <div style={{overflowX:"auto"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",minWidth:520}}>
+        <thead><tr>
+          <th style={Object.assign({},th,{textAlign:"left"})}>{"Paciente"}</th>
+          {admin&&<th style={th}>{"Cadastrou"}</th>}
+          <th style={th}>{"Nasc."}</th><th style={th}>{"Fone"}</th>
+          <th style={th}>{"Conheceu"}</th><th style={th}>{"Indicou"}</th><th style={th}>{"Agradec."}</th>
+          <th style={th}></th>
+        </tr></thead>
+        <tbody>
+        {lista.map(function(p){
+          var f=falt(p),ov=temOvr(p);
+          var has=function(x){return f.indexOf(x)<0;};
+          var indSt=String(p.origem||"")==="Indica\u00e7\u00e3o"?((p.indicPorId||String(p.indicPorNome||"").trim())?"ok":"no"):"na";
+          return <tr key={p.id} style={{background:ov?"var(--amber-soft)":"transparent"}}>
+            <td style={Object.assign({},cel,{textAlign:"left"})}>
+              <div style={{fontWeight:800,fontSize:12.5,cursor:"pointer"}} onClick={function(){if(onOpen)onOpen(p);}}>{p.name}</div>
+              <div style={{fontSize:10.5,color:G.muted,fontWeight:600}}>{fmtDH(p)}{ov?"  \u26a0\ufe0f salvou mesmo assim":""}</div>
+            </td>
+            {admin&&<td style={cel}><span style={{fontWeight:800,fontSize:11.5}}>{String(autor(p)).split(" ")[0]}</span></td>}
+            <td style={cel}>{Ico(has("Data de nascimento")?"ok":"no")}</td>
+            <td style={cel}>{Ico(has("Telefone (WhatsApp ou fixo)")?"ok":"no")}</td>
+            <td style={cel}>{Ico(has("Como nos conheceu")?"ok":"no")}<div style={{fontSize:9.5,color:G.muted,fontWeight:600}}>{p.origem||""}</div></td>
+            <td style={cel}>{Ico(indSt)}</td>
+            <td style={cel}>{Ico(agrSt(p))}</td>
+            <td style={cel}>{admin&&<button onClick={function(){setDet(p);}} title="Quem mexeu nesta ficha?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:25,height:25,fontSize:12,cursor:"pointer",boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",lineHeight:1,padding:0}}>{"\ud83d\udd75\ufe0f"}</button>}</td>
+          </tr>;
+        })}
+        </tbody>
+      </table>
+    </div>
+    <div style={{display:"flex",gap:14,flexWrap:"wrap",fontSize:10.5,color:G.muted,fontWeight:700,marginTop:8}}>
+      <span><span style={{color:G.green,fontWeight:800}}>{"\u2713"}</span>{" preenchido"}</span>
+      <span><span style={{color:G.red,fontWeight:800}}>{"\u2715"}</span>{" em branco"}</span>
+      <span><span style={{color:G.muted,fontWeight:800}}>{"\u2013"}</span>{" n\u00e3o se aplica"}</span>
+      <span><span style={{color:G.yellow,fontWeight:800}}>{"!"}</span>{" indicador sem telefone na ficha"}</span>
+    </div>
+  </div>}
+  {preVenc.length>0&&<div>
+    <div style={Object.assign({},secT,{color:G.red})}>{"\u26a1 Pr\u00e9-cadastro vencido \u00b7 paciente j\u00e1 foi atendido"}</div>
+    {preVenc.map(function(p){return linhaPend(p,diasDesde(p)+" dia(s) \u00b7 completar",G.red);})}
+  </div>}
+  {preAguard.length>0&&<div>
+    <div style={Object.assign({},secT,{color:G.blue})}>{"\u26a1 Pr\u00e9-cadastro aguardando \u00b7 sem falta"}</div>
+    {preAguard.map(function(p){return linhaPend(p,diasDesde(p)+" dia(s)",G.blue);})}
+  </div>}
+  {agrPend.length>0&&<div>
+    <div style={Object.assign({},secT,{color:G.gold})}>{"\ud83e\udd1d Agradecimento de indica\u00e7\u00e3o pendente \u00b7 da recep\u00e7\u00e3o"}</div>
+    {agrPend.map(function(p){return linhaPend(p,"agradecer a quem indicou",G.gold);})}
+  </div>}
+  {det&&<div onClick={function(e){if(e.target===e.currentTarget)setDet(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:430,maxHeight:"88vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30)"}}>
+      <div style={{background:G.primary,borderRadius:"16px 16px 0 0",padding:"14px 18px",color:"#fff",fontWeight:700,fontSize:14.5}}>{"\ud83d\udd75\ufe0f "+det.name}</div>
+      <div style={{padding:18,display:"flex",flexDirection:"column",gap:10}}>
+        {[["Cadastrada em",fmtDH(det)],["Cadastrada por",det._by||"--"],["Completou o pr\u00e9-cadastro",det._preDoneBy||"--"],["\u00daltima edi\u00e7\u00e3o",det._edBy||"--"]].map(function(r,i){
+          return <div key={i} style={{display:"flex",justifyContent:"space-between",gap:12,fontSize:12.5,borderBottom:"1px solid "+G.border,paddingBottom:8}}>
+            <span style={{color:G.muted,fontWeight:700}}>{r[0]}</span><span style={{fontWeight:800,textAlign:"right"}}>{r[1]}</span></div>;
+        })}
+        {falt(det).length>0&&<div style={{background:"var(--red-soft)",border:"1.5px solid "+G.red,borderRadius:11,padding:"11px 13px",fontSize:12.5,lineHeight:1.5}}>
+          <b style={{color:G.red}}>{"Em branco agora: "}</b>{falt(det).join(", ")}</div>}
+        {(det._ovr||[]).map(function(o,i){
+          return <div key={i} style={{background:"var(--amber-soft)",border:"1.5px solid "+G.yellow,borderRadius:11,padding:"11px 13px",fontSize:12.5,lineHeight:1.5}}>
+            <b style={{color:G.yellow}}>{"\u26a0\ufe0f Aviso ignorado no "+(o.onde||"cadastro")+"."}</b><br/>
+            {(o.por||"?")+" clicou em \"Salvar mesmo assim\" deixando em branco: "+((o.campos||[]).join(", "))+"."}
+          </div>;
+        })}
+        <Btn ch="Fechar" onClick={function(){setDet(null);}}/>
+      </div>
+    </div>
+  </div>}
+</div>;
+}
+
 function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat,waTemplates}){
 var _fidx=useMemo(function(){return faltaIdx(appts);},[appts]);
 const [srch,setSrch]=useState("");
@@ -4421,6 +4617,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {/* V282: pre-cadastro rapido para atendimento por telefone */}
 {user.level>=2&&<Btn ch={"\u26a1 Pr\u00e9-cadastro"} v="w"/* V283: aspas nao interpretam \u em JSX */ onClick={()=>{setPreF({name:"",phone:""});setPreM(true);}}/>}
 </div>
+{/* V284: painel de auditoria de cadastro */}
+{user.level>=2&&<RelCadastro pats={pats} appts={appts} user={user} onOpen={function(p){setOpenFolder(p);}}/>}
 <Inp val={srch} set={v=>{setSrch(v);setPPage(0);}} ph="🔍 Nome, CPF, telefone ou nº pasta"/>
 {pageItems.map(p=><div key={p.id} style={{background:G.card,borderRadius:13,boxShadow:"0 1px 5px rgba(0,0,0,.07)",padding:"12px 15px",display:"flex",alignItems:"center",gap:11}}>
 <div style={{width:42,height:42,borderRadius:"50%",background:G.accent,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Cormorant Garamond'",fontSize:20,color:G.primary,flexShrink:0,cursor:"pointer"}} onClick={()=>setOpenFolder(p)}>{p.name[0]}</div>
