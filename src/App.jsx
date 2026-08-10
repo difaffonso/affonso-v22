@@ -8029,6 +8029,21 @@ return lista;
 // V274: busca inteligente no Estoque — reaproveita smartHit/smartRank (V254).
 // Ignora acentos, aceita pedaco de qualquer parte do nome em qualquer ordem e
 // tolera 1 erro de digitacao. Ex: "guarda" acha GUARDANAPO; "fosf" acha ACIDO FOSFORICO 37%.
+// V286: deteccao de materiais duplicados. Compara nomes ignorando acento,
+// espaco, pontuacao e caixa; aceita um nome contido no outro e tolera 2 erros.
+function stkNorm(s){return String(s==null?"":s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");}
+function stkLev(a,b){var m=a.length,n=b.length;if(!m||!n)return m||n;var p=[],c=[],i,j;
+for(j=0;j<=n;j++)p[j]=j;
+for(i=1;i<=m;i++){c=[i];for(j=1;j<=n;j++){c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a.charAt(i-1)===b.charAt(j-1)?0:1));}p=c.slice();}
+return p[n];}
+function stkIsDup(a,b){var x=stkNorm(a&&a.name),y=stkNorm(b&&b.name);
+if(!x||!y)return false;
+if(x===y)return true;
+if(x.length>4&&y.length>4&&(x.indexOf(y)>=0||y.indexOf(x)>=0))return true;
+return stkLev(x,y)<=2&&Math.min(x.length,y.length)>=5;}
+function stkDupPairs(stock){var on=(stock||[]).filter(function(s){return s&&!s.inativo;});var out=[],i,j;
+for(i=0;i<on.length;i++)for(j=i+1;j<on.length;j++){if(stkIsDup(on[i],on[j]))out.push([on[i],on[j]]);}
+return out;}
 function stkFiltrar(stock,q){
   var arr=(stock||[]).slice();
   var s=String(q==null?"":q).trim();
@@ -8060,6 +8075,37 @@ const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
 const [impNfe,setImpNfe]=useState(false); // Importação NF-e (V195)
 const [qStk,setQStk]=useState("");// V274: termo da busca de materiais
+// V286: fusao de duplicados + zona de risco do modal de item
+const [mrg,setMrg]=useState(null);// {a,b,keep,qty}
+const [dz,setDz]=useState("");// "" | "mrg" | "off" | "del" | "lock"
+const [qTgt,setQTgt]=useState("");
+const mrgOpen=function(a,b){setDz("");setQTgt("");setMrg({a:a,b:b,keep:(((a.movs||[]).length>=(b.movs||[]).length)?a.id:b.id),qty:Number(a.qty||0)+Number(b.qty||0)});};
+const mrgDo=function(){
+ if(!mrg)return;
+ var keep=(mrg.a.id===mrg.keep)?mrg.a:mrg.b, drop=(mrg.a.id===mrg.keep)?mrg.b:mrg.a;
+ var soma=Number(keep.qty||0)+Number(drop.qty||0), fim=Number(mrg.qty||0), dif=fim-soma;
+ var movs=(keep.movs||[]).concat(drop.movs||[]);
+ if(dif!==0)movs=[{t:"aj",q:dif,date:today(),note:"Fusão de duplicados (\""+String(drop.name||"")+"\") — contagem "+soma+" → "+fim}].concat(movs);
+ movs.sort(function(x,y){return String(y&&y.date||"").localeCompare(String(x&&x.date||""));});
+ var alias=[];
+ (keep.alias||[]).concat(drop.alias||[],[drop.name]).forEach(function(n){var v=String(n||"").trim();
+  if(v&&alias.indexOf(v)<0&&stkNorm(v)!==stkNorm(keep.name))alias.push(v);});
+ var cods=[];
+ (keep.cods||[]).concat(drop.cods||[]).forEach(function(c){if(c&&cods.indexOf(c)<0)cods.push(c);});
+ setStock(function(prev){return (prev||[]).filter(function(s){return s.id!==drop.id;}).map(function(s){
+  return s.id!==keep.id?s:Object.assign({},s,{qty:fim,movs:movs,alias:alias,cods:cods,min:Math.max(Number(keep.min||0),Number(drop.min||0)),_ts:Date.now()});});});
+ try{if(addLog)addLog("estoque","Fundiu duplicados: \""+drop.name+"\" → \""+keep.name+"\" · contagem final "+fim+" "+(keep.unit||"un")+(dif!==0?" (ajuste "+(dif>0?"+":"")+dif+")":""),"");}catch(e){}
+ setMrg(null);setModal(false);};
+const dzOff=function(){if(!edit)return;var nm=edit.name;
+ setStock(function(prev){return (prev||[]).map(function(s){return s.id===edit.id?Object.assign({},s,{inativo:true,_ts:Date.now()}):s;});});
+ try{if(addLog)addLog("estoque","Material desativado: "+nm,"");}catch(e){}
+ setDz("");setModal(false);};
+const dzDel=function(){if(!edit)return;var nm=edit.name;
+ setStock(function(prev){return (prev||[]).filter(function(s){return s.id!==edit.id;});});
+ try{if(addLog)addLog("estoque","Material excluído do estoque: "+nm,"");}catch(e){}
+ setDz("");setModal(false);};
+const stkReativar=function(it){setStock(function(prev){return (prev||[]).map(function(s){return s.id===it.id?Object.assign({},s,{inativo:false,_ts:Date.now()}):s;});});
+ try{if(addLog)addLog("estoque","Material reativado: "+it.name,"");}catch(e){}};
 const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};
 if(edit&&!(user&&user.level>=3))obj.qty=Number(edit.qty);// V268 trava: so nivel 3 corrige contagem (nivel 2 usa +Entrada / -Saida)
 if(edit&&Number(obj.qty)!==Number(edit.qty)){obj.movs=[{t:"aj",q:Number(obj.qty)-Number(edit.qty),date:today(),note:"Correção de contagem ("+Number(edit.qty)+" → "+Number(f.qty)+")"},...(obj.movs||[])];try{if(addLog)addLog("estoque","Ajuste de contagem: "+obj.name+" ("+Number(edit.qty)+" → "+Number(f.qty)+")","");}catch(e){}}// V237 ajuste automatico
@@ -8106,7 +8152,7 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Estoque</h2>
 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
 <Btn ch="📥 Importar NF-e" v="g" onClick={()=>setImpNfe(true)}/>
-<Btn ch="+ Novo Item" onClick={()=>{setEdit(null);setF(b0);setModal(true);}}/>
+<Btn ch="+ Novo Item" onClick={()=>{setEdit(null);setF(b0);setDz("");setModal(true);}}/>
 </div>
 </div>
 {impNfe&&<ImportNFe stock={stock} setStock={setStock} addLog={addLog} onClose={()=>setImpNfe(false)}/>}
@@ -8118,8 +8164,28 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 {qStk?<button onClick={function(){setQStk("");}} title="Limpar" style={{border:"none",background:G.bg,borderRadius:"50%",width:22,height:22,color:G.muted,cursor:"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,padding:0}}>{"\u2715"}</button>:null}
 </div>
 {qStk.trim()&&stkFiltrar(stock,qStk).length===0?<div style={{textAlign:"center",padding:22,color:G.muted,fontSize:13,background:G.card,borderRadius:12,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>{"Nenhum material encontrado para \u201c"+qStk.trim()+"\u201d."}</div>:null}
+{/* V286: detector de materiais duplicados (so admin) */}
+{user&&user.level>=3&&(function(){var pares=stkDupPairs(stock);if(!pares.length)return null;
+return <div style={{background:G.gold+"14",border:"1.5px solid "+G.gold+"55",borderRadius:14,padding:"13px 15px",display:"flex",flexDirection:"column",gap:10}}>
+<div style={{display:"flex",gap:9,alignItems:"flex-start"}}>
+<span style={{fontSize:17,lineHeight:1.2}}>{"\u2699"}</span>
+<div style={{fontSize:13,lineHeight:1.55,color:"#7a5a26"}}><strong>{pares.length===1?"1 possível duplicidade no estoque.":(pares.length+" possíveis duplicidades no estoque.")}</strong>{" O mesmo material cadastrado duas vezes divide a contagem e bagunça o relatório."}</div>
+</div>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.5,marginTop:-4}}>{"Fundir soma as quantidades (você ajusta o número), junta o histórico e junta os apelidos aprendidos das NF-e. Nada se perde."}</div>
+<div style={{display:"flex",flexDirection:"column",gap:7}}>
+{pares.map(function(par,i){var a=par[0],b=par[1];
+return <div key={"dp"+i} style={{background:G.card,borderRadius:11,padding:"10px 12px",boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:11,flexWrap:"wrap"}}>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:12.5,lineHeight:1.45}}>{a.name}<span style={{fontWeight:500,color:G.muted}}>{" · "+a.qty+" "+(a.unit||"un")+" · "+((a.movs||[]).length)+" mov."}</span></div>
+<div style={{fontSize:10.5,color:G.muted,fontWeight:800,letterSpacing:.5,margin:"1px 0"}}>{"É O MESMO QUE"}</div>
+<div style={{fontWeight:700,fontSize:12.5,lineHeight:1.45}}>{b.name}<span style={{fontWeight:500,color:G.muted}}>{" · "+b.qty+" "+(b.unit||"un")+" · "+((b.movs||[]).length)+" mov."}</span></div>
+</div>
+<Btn ch="🔗 Fundir" sm onClick={function(){mrgOpen(a,b);}}/>
+</div>;})}
+</div>
+</div>;})()}
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:11}}>
-{stkFiltrar(stock,qStk).map(s=>{/* V274: lista filtrada pela busca */const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${low?G.red:G.success}`}}>
+{stkFiltrar(stock,qStk).filter(function(_a){return _a&&!_a.inativo;}).map(s=>{/* V274: lista filtrada pela busca */const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${low?G.red:G.success}`}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
 <div><div style={{fontWeight:700,fontSize:13}}>{s.name}</div><div style={{fontSize:11,color:G.muted}}>Custo: {cur(s.price)}/{s.unit}</div></div>
 <div style={{textAlign:"right"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:low?G.red:G.success,lineHeight:1}}>{s.qty}</div><div style={{fontSize:10,color:G.muted}}>{s.unit}</div></div>
@@ -8128,10 +8194,63 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 <div style={{display:"flex",gap:5,marginTop:9}}>
 <Btn ch="+ Entrada" sm onClick={()=>{setM({t:"in",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
 <Btn ch="- Saída" v="y" sm onClick={()=>{setM({t:"out",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
-<Btn ch="✏️" v="g" sm onClick={()=>{setEdit(s);setF({...s});setModal(true);}}/>
+<Btn ch="✏️" v="g" sm onClick={()=>{setEdit(s);setF({...s});setDz("");setModal(true);}}/>
 </div>
 </div>;})}
 </div>
+{/* V286: materiais desativados */}
+{(function(){var off=(stock||[]).filter(function(s){return s&&s.inativo;});if(!off.length)return null;
+off.sort(function(a,b){return String(a.name||"").localeCompare(String(b.name||""),"pt-BR",{sensitivity:"base"});});
+return <div style={{display:"flex",flexDirection:"column",gap:9,marginTop:4}}>
+<div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6}}>{"Materiais desativados ("+off.length+")"}</div>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:11}}>
+{off.map(function(s){return <div key={"of"+s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:"4px solid "+G.border,opacity:.72}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+<div><div style={{fontWeight:700,fontSize:13}}>{s.name}{" "}<span style={{fontSize:10,background:G.border,color:G.muted,borderRadius:5,padding:"1px 6px",fontWeight:700}}>{"Inativo"}</span></div>
+<div style={{fontSize:11,color:G.muted}}>{((s.movs||[]).length)+" mov. preservadas no relatório"}</div></div>
+<div style={{textAlign:"right"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:G.muted,lineHeight:1}}>{s.qty}</div><div style={{fontSize:10,color:G.muted}}>{s.unit}</div></div>
+</div>
+{user&&user.level>=3&&<div style={{marginTop:9}}><Btn ch="♻ Reativar" v="g" sm onClick={function(){stkReativar(s);}}/></div>}
+</div>;})}
+</div>
+</div>;})()}
+
+{/* V286: fusao de materiais duplicados */}
+<Modal open={!!mrg} close={function(){setMrg(null);}} title="Fundir itens duplicados" ch={mrg?(function(){
+var a=mrg.a,b=mrg.b,keep=(a.id===mrg.keep?a:b),drop=(a.id===mrg.keep?b:a);
+var soma=Number(a.qty||0)+Number(b.qty||0),fim=Number(mrg.qty||0),dif=fim-soma;
+var opts=[],vis={};
+[[("Somar ("+soma+")"),soma],[("Só "+a.qty),Number(a.qty||0)],[("Só "+b.qty),Number(b.qty||0)]].forEach(function(o){if(!vis[o[1]]){vis[o[1]]=1;opts.push(o);}});
+var pick=function(s){var on=s.id===mrg.keep;
+return <div key={"pk"+s.id} onClick={function(){setMrg(Object.assign({},mrg,{keep:s.id}));}} style={{background:on?G.primary+"12":G.card,borderRadius:12,padding:12,marginBottom:9,cursor:"pointer",border:"2px solid "+(on?G.primary:"transparent"),boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+<input type="radio" checked={on} readOnly style={{accentColor:G.primary,width:17,height:17,marginTop:2,flexShrink:0}}/>
+<div><div style={{fontWeight:700,fontSize:13.5}}>{s.name}{on&&<span style={{fontSize:10,fontWeight:800,borderRadius:5,padding:"1px 6px",background:G.primary,color:"#fff",marginLeft:6}}>{"FICA"}</span>}</div>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.5,marginTop:3}}>{s.qty+" "+(s.unit||"un")+" · mínimo "+s.min+" · "+cur(s.price)+"/"+(s.unit||"un")}<br/>{((s.movs||[]).length)+" movimentação(ões)"+(((s.alias||[]).length)?" · apelido NF-e: "+(s.alias||[]).join(", "):"")}</div></div>
+</div></div>;};
+return <div style={{display:"flex",flexDirection:"column",gap:2}}>
+<div style={{fontSize:12,color:G.muted,lineHeight:1.55,marginBottom:12}}>{"Escolha qual cadastro continua. O outro some e tudo dele vai junto."}</div>
+{pick(a)}{pick(b)}
+<div style={{background:G.card,borderRadius:12,padding:"12px 13px",margin:"11px 0 4px",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff",border:"2px solid "+G.primary}}>
+<div style={{fontSize:10.5,fontWeight:800,textTransform:"uppercase",letterSpacing:.6,color:G.primary,marginBottom:8}}>{"Quantidade real na prateleira"}</div>
+<div style={{display:"flex",alignItems:"center",gap:10}}>
+<input type="number" min="0" inputMode="numeric" value={String(mrg.qty)} onChange={function(e){setMrg(Object.assign({},mrg,{qty:Number(e.target.value||0)}));}} style={{width:100,borderRadius:12,padding:"11px 12px",fontSize:22,fontFamily:"'Cormorant Garamond'",fontWeight:700,textAlign:"center",color:G.primary}}/>
+<span style={{fontSize:13,color:G.muted,fontWeight:700}}>{keep.unit||"un"}</span>
+</div>
+<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:10}}>
+{opts.map(function(o,i){var on=fim===o[1];
+return <button key={"op"+i} onClick={function(){setMrg(Object.assign({},mrg,{qty:o[1]}));}} style={{border:"none",borderRadius:9,padding:"6px 10px",fontSize:11.5,fontWeight:700,cursor:"pointer",background:on?G.primary:"var(--surface-2)",color:on?"#fff":G.muted,boxShadow:on?"none":"2px 2px 6px var(--nm-dark),-2px -2px 6px #ffffff"}}>{o[0]}</button>;})}
+</div>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.55,marginTop:9}}>{dif===0?("Somando os dois dá "+soma+" "+(keep.unit||"un")+". Se o duplicado era a mesma caixa contada duas vezes, troque para a contagem de verdade."):("Vai gravar "+fim+" "+(keep.unit||"un")+" em vez de "+soma+". A diferença de "+(dif>0?"+":"")+dif+" entra como ajuste de contagem no relatório, fora dos totais em R$.")}</div>
+</div>
+<div style={{background:"var(--surface-2)",borderRadius:12,padding:"12px 13px",marginTop:8}}>
+<div style={{fontSize:10.5,fontWeight:800,textTransform:"uppercase",letterSpacing:.6,color:G.muted,marginBottom:7}}>{"Depois da fusão"}</div>
+{[["Nome que fica",keep.name],["Quantidade final",fim+" "+(keep.unit||"un")]].concat(dif!==0?[["Ajuste gerado",(dif>0?"+":"")+dif+" "+(keep.unit||"un")]]:[]).concat([["Histórico",((keep.movs||[]).length)+" + "+((drop.movs||[]).length)+" = "+(((keep.movs||[]).length)+((drop.movs||[]).length)+(dif!==0?1:0))+" mov."],["Preço unitário",cur(keep.price)+" (do que fica)"],["Cadastro removido",drop.name]]).map(function(ln,i){
+return <div key={"pv"+i} style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:12.5,padding:"5px 0",borderBottom:i<5?"1px solid "+G.border:"none"}}><span style={{color:G.muted}}>{ln[0]}</span><b style={{color:ln[0]==="Cadastro removido"?G.red:(ln[0]==="Ajuste gerado"?G.gold:G.primary),textAlign:"right"}}>{ln[1]}</b></div>;})}
+</div>
+<SC2 save={mrgDo} cancel={function(){setMrg(null);}} lbl="🔗 Fundir os dois"/>
+</div>;})():null}/>
+
 <Modal open={modal} close={()=>setModal(false)} title={edit?"Editar Item":"Novo Item"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
 <Inp lb="Nome do Material" val={f.name} set={upd("name")}/>
 <R2 a={(edit&&!(user&&user.level>=3))?<Inp lb="Qtd. Atual (bloqueado)" val={String(f.qty)} type="number" ro/>:<Inp lb="Qtd. Atual" val={String(f.qty)} set={upd("qty")} type="number"/>} b={<Inp lb="Unidade" val={f.unit} set={upd("unit")} ph="un / cx / ml"/>}/>
@@ -8145,6 +8264,54 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
   </div>
 </label>
 {f.fixo&&<Inp lb="Dia de Vencimento" val={f.diaVenc||""} set={upd("diaVenc")} type="number" ph="Ex: 10 (dia 10 de cada mês)" min="1" max="31"/>}
+
+{/* V286: fundir / desativar / excluir material */}
+{edit&&user&&user.level>=3&&(function(){
+var nMov=(edit.movs||[]).length, al=(edit.alias||[]);
+var box=function(bg,bd,co,inner){return <div style={{background:bg,border:"1.5px solid "+bd,borderRadius:12,padding:"12px 13px",marginTop:11,fontSize:12.5,lineHeight:1.6,color:co}}>{inner}</div>;};
+return <div style={{borderTop:"1px solid "+G.border,marginTop:4,paddingTop:13}}>
+<div style={{fontSize:10.5,fontWeight:800,textTransform:"uppercase",letterSpacing:.6,color:G.red,marginBottom:8}}>{"Tirar este item do estoque"}</div>
+<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+<Btn ch="🔗 Fundir com outro item" v="g" sm onClick={function(){setDz(dz==="mrg"?"":"mrg");}}/>
+{nMov>0&&<Btn ch="🚫 Desativar item" v="g" sm onClick={function(){setDz(dz==="off"?"":"off");}}/>}
+<Btn ch={nMov>0?"🔒 Excluir item":"🗑 Excluir item"} v="g" sm onClick={function(){setDz(nMov>0?(dz==="lock"?"":"lock"):(dz==="del"?"":"del"));}}/>
+</div>
+
+{dz===""&&<div style={{fontSize:11.5,color:G.muted,lineHeight:1.6,marginTop:9}}>
+{nMov>0?<span><strong>{"É duplicidade?"}</strong>{" Use fundir — o histórico migra pro item certo."}<br/><strong>{"Parou de usar?"}</strong>{" Desative — some da lista e das buscas, e o histórico continua no relatório."}<br/><strong>{"Cadastro errado, com movimentações erradas?"}</strong>{" Apague as linhas dele em 📊 Relatório. Quando chegar a zero, o Excluir destrava sozinho aqui."}</span>
+:(al.length?<span>{"Nunca foi movimentado — pode excluir. Só um alerta: ele tem apelido aprendido de NF-e ("+al.join(", ")+"). Excluindo, a próxima nota com esse nome recria o item do zero. Se for duplicidade, fundir resolve melhor."}</span>
+:<span>{"Nunca foi movimentado e não tem apelido de NF-e. Pode excluir sem perder nada."}</span>)}
+</div>}
+
+{dz==="lock"&&box(G.red+"14",G.red+"4d",G.red,<span>{"🔒 "}<strong>{"Excluir está travado."}</strong>{" Este item tem "+nMov+" movimentação(ões) presas a relatórios de meses já fechados — apagar mudaria os totais daqueles meses sozinho. Funda com o item certo, desative, ou apague as movimentações em 📊 Relatório primeiro."}</span>)}
+
+{dz==="off"&&box(G.red+"14",G.red+"4d",G.text,<div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700,marginBottom:5}}>{"Desativar item"}</div>
+<div style={{color:G.muted}}><strong>{edit.name}</strong>{" sai da lista, das buscas e dos botões de entrada e saída. As "+nMov+" movimentação(ões) dele continuam aparecendo no Relatório. Dá para reativar depois."}</div>
+<div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}><Btn ch="Voltar" v="g" sm onClick={function(){setDz("");}}/><Btn ch="🚫 Desativar" v="r" sm onClick={dzOff}/></div>
+</div>)}
+
+{dz==="del"&&box(G.red+"14",G.red+"4d",G.text,<div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700,marginBottom:5}}>{"Excluir item"}</div>
+<div style={{color:G.muted}}><strong>{edit.name}</strong>{" some para sempre. Não tem nenhuma movimentação, então nenhum relatório muda."+(al.length?" Os apelidos de NF-e aprendidos ("+al.join(", ")+") se perdem junto.":"")+" Não dá para desfazer."}</div>
+<div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}><Btn ch="Voltar" v="g" sm onClick={function(){setDz("");}}/><Btn ch="🗑 Excluir" v="r" sm onClick={dzDel}/></div>
+</div>)}
+
+{dz==="mrg"&&(function(){
+var outros=stkFiltrar((stock||[]).filter(function(s){return s&&!s.inativo&&s.id!==edit.id;}),qTgt);
+return box("var(--surface-2)",G.border,G.text,<div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700,marginBottom:3}}>{"Fundir com qual item?"}</div>
+<div style={{fontSize:11.5,color:G.muted,marginBottom:9}}>{"Escolha o outro cadastro que é o mesmo material."}</div>
+<Inp lb="Buscar" val={qTgt} set={setQTgt} ph="ex: luva, resina, agua"/>
+<div style={{maxHeight:230,overflowY:"auto",marginTop:9,display:"flex",flexDirection:"column",gap:7}}>
+{outros.length?outros.map(function(s){return <div key={"tg"+s.id} onClick={function(){mrgOpen(edit,s);}} style={{background:G.card,borderRadius:10,padding:"10px 12px",cursor:"pointer",boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
+<div style={{fontWeight:700,fontSize:13}}>{s.name}</div>
+<div style={{fontSize:11.5,color:G.muted}}>{s.qty+" "+(s.unit||"un")+" · "+((s.movs||[]).length)+" mov. · "+cur(s.price)+"/"+(s.unit||"un")}</div>
+</div>;}):<div style={{textAlign:"center",padding:18,color:G.muted,fontSize:12.5}}>{"Nenhum material encontrado."}</div>}
+</div>
+<div style={{display:"flex",justifyContent:"flex-end",marginTop:10}}><Btn ch="Voltar" v="g" sm onClick={function(){setDz("");}}/></div>
+</div>);})()}
+</div>;})()}
 <SC2 save={save} cancel={()=>setModal(false)}/>
 </div>}/>
 <Modal open={!!mv} close={()=>setMv(null)} title={m.t==="in"?"Entrada":"Saída"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
