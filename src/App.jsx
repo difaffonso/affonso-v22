@@ -3700,7 +3700,12 @@ return(
 <span style={{marginLeft:"auto",fontSize:11.5,fontWeight:700,color:stCol,display:"flex",alignItems:"center",gap:4,flexShrink:0,whiteSpace:"nowrap"}}><i className={"ph-fill "+(SCN_IC[a.status]||"ph-circle")} style={{fontSize:13,animation:isWaiting?"nmpulse 1.2s ease-in-out infinite":"none"}}></i>{SL[a.status]}</span>
 </div>
 <div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginTop:3}}>{a.procedureCustom||a.procedure}</div>
-{p&&anamFalta(p)&&<div style={{display:"flex",marginTop:5}}><span style={{fontSize:9.5,background:"#cf5a78",color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"⚠ ANAMNESE NÃO CADASTRADA"}</span></div>}
+{/* V285: selos de cadastro tambem na visao NORMAL do dia (faltava aqui) */}
+{(isPartial||(p&&p._pre)||(p&&anamFalta(p)))&&<div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
+{isPartial&&<span style={{fontSize:9.5,background:G.red,color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"\u26d4 SEM CADASTRO"}</span>}
+{p&&p._pre&&<span style={{fontSize:9.5,background:G.blue,color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}
+{p&&anamFalta(p)&&<span style={{fontSize:9.5,background:"#cf5a78",color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"⚠ ANAMNESE NÃO CADASTRADA"}</span>}
+</div>}
 {flags.length>0&&<div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
 {flags.map(function(f,i){return <span key={i} style={{fontSize:10,background:"var(--surface)",color:"#9a7636",borderRadius:7,padding:"3px 9px",fontWeight:700,boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px var(--nm-light)"}}>{f}</span>;})}
 </div>}
