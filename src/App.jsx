@@ -3739,7 +3739,9 @@ if(anC.allergicMeds)_flC.push({t:"\ud83d\udc8a "+anC.allergicMeds,hot:true});
 ANAM_CONDS.forEach(function(c){if(anC[c[0]]&&ANAM_ALERT.indexOf(c[0])>=0)_flC.push({t:c[1],hot:true});});
 ANAM_CONDS.forEach(function(c){if(anC[c[0]]&&ANAM_ALERT.indexOf(c[0])<0)_flC.push({t:c[1],hot:false});});
 var _noAnC=pC?anamFalta(pC):false;
-var _temAlertaC=(_flC.length>0||_noAnC);
+var _semCadC=isPartC||!pC;/* V283 */
+var _preC=!!(pC&&pC._pre);/* V283 */
+var _temAlertaC=(_flC.length>0||_noAnC||_semCadC||_preC);
 var nmC=isPartC?aC.patientName:((pC&&pC.name)||"A confirmar");
 var stColC=isPartC?G.red:(SCN[aC.status]||G.primary);
 _slotsCompact.push(
@@ -3748,6 +3750,9 @@ _slotsCompact.push(
 <div style={{width:3.5,height:22,borderRadius:3,flexShrink:0,background:GRAD[aC.status]||GRAD.confirmed}}></div>
 <span style={{fontSize:12.5,fontWeight:800,color:isPartC?G.red:G.text,flex:"1 1 auto",minWidth:0,maxWidth:_temAlertaC?"46%":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:".2px"}}>{nmC}</span>
 {_temAlertaC&&<span style={{flex:"1 1 auto",minWidth:0,display:"flex",alignItems:"center",gap:5,overflow:"hidden"}}>
+{/* V283: situacao do cadastro do paciente, ao lado da anamnese */}
+{_semCadC&&<span style={{fontSize:9,background:G.red,color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26d4 SEM CADASTRO"}</span>}
+{_preC&&<span style={{fontSize:9,background:G.blue,color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}
 {_noAnC&&<span style={{fontSize:9,background:"#cf5a78",color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26a0 SEM ANAMNESE"}</span>}
 {_flC.length>0&&<span style={{fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}} title={_flC.map(function(fx){return fx.t;}).join(" \u00b7 ")}>
 {_flC.map(function(fx,ix){return <span key={ix} style={{color:fx.hot?"#a8342c":"#9a7636"}}>{(ix?" \u00b7 ":"")+fx.t}</span>;})}
@@ -3854,6 +3859,9 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
                     <Bdg l={(SC_ICON[a.status]||"")+" "+SL[a.status]} col={SC[a.status]} sm/>
                   </div>
                   <div style={{fontSize:10,color:G.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.procedure}</div>
+{/* V283: situacao do cadastro */}
+{!p&&a.patientName&&<div style={{marginTop:2}}><span style={{fontSize:8,background:G.red,color:"#fff",borderRadius:3,padding:"1px 5px",fontWeight:800,display:"inline-block",lineHeight:1.2}}>{"\u26d4 SEM CADASTRO"}</span></div>}
+{p&&p._pre&&<div style={{marginTop:2}}><span style={{fontSize:8,background:G.blue,color:"#fff",borderRadius:3,padding:"1px 5px",fontWeight:800,display:"inline-block",lineHeight:1.2}}>{"\u26a1 PR\u00c9-CADASTRO"}</span></div>}
 {p&&anamFalta(p)&&<div style={{marginTop:2}}><span style={{fontSize:8,background:"#D81B60",color:"#fff",borderRadius:3,padding:"1px 5px",fontWeight:800,display:"inline-block",lineHeight:1.2}}>{"⚠ SEM ANAMNESE"}</span></div>}
                   {healthFlags.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:2,marginTop:2}}>{healthFlags.map(function(f,i){return <span key={i} style={{fontSize:8,background:f.startsWith("⚠")?G.red+"20":f.startsWith("💊")?G.yellow+"20":G.blue+"15",color:f.startsWith("⚠")?G.red:f.startsWith("💊")?G.yellow:G.blue,borderRadius:3,padding:"1px 4px",fontWeight:700}}>{f}</span>;})}</div>}
                   {!isDent&&<div style={{display:"flex",gap:3,marginTop:3}}>
@@ -3994,7 +4002,7 @@ return(
 {p&&p.obs&&<div style={{background:G.yellow+"18",border:"2px solid "+G.yellow,borderRadius:10,padding:"8px 12px",fontWeight:700,color:G.yellow}}>{"⚠ "+p.obs}</div>}
 <div style={{background:G.accent,borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={()=>{setViewA(null);setOpenFolder(p);}}>
 <div style={{fontSize:15,fontWeight:700,color:G.primary,textDecoration:"underline"}}>{p&&p.name}</div>
-<div style={{fontSize:12,color:G.muted}}>{"📁 "+(((p&&p.folder))||"sem ficha")+" · Toque para abrir prontuário"}/* V282 */</div>
+<div style={{fontSize:12,color:G.muted}}>{"📁 "+(((p&&p.folder))||"sem ficha")+" · Toque para abrir prontuário"}/* V282 */{/* V283: situacao do cadastro dentro do modal da consulta */}{!p&&<span style={{marginLeft:8,background:G.red,color:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800}}>{"\u26d4 SEM CADASTRO"}</span>}{p&&p._pre&&<span style={{marginLeft:8,background:G.blue,color:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}</div>
 {p&&p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600,marginTop:3}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
 </div>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -4411,7 +4419,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Pacientes</h2>
 <Btn ch="+ Novo Paciente" onClick={()=>{setEp(null);setPf(b0);setPm(true);}}/>
 {/* V282: pre-cadastro rapido para atendimento por telefone */}
-{user.level>=2&&<Btn ch="\u26a1 Pr\u00e9-cadastro" v="w" onClick={()=>{setPreF({name:"",phone:""});setPreM(true);}}/>}
+{user.level>=2&&<Btn ch={"\u26a1 Pr\u00e9-cadastro"} v="w"/* V283: aspas nao interpretam \u em JSX */ onClick={()=>{setPreF({name:"",phone:""});setPreM(true);}}/>}
 </div>
 <Inp val={srch} set={v=>{setSrch(v);setPPage(0);}} ph="🔍 Nome, CPF, telefone ou nº pasta"/>
 {pageItems.map(p=><div key={p.id} style={{background:G.card,borderRadius:13,boxShadow:"0 1px 5px rgba(0,0,0,.07)",padding:"12px 15px",display:"flex",alignItems:"center",gap:11}}>
