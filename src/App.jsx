@@ -1588,7 +1588,8 @@ const patAppts=appts.filter(a=>a.patientId===pat.id).sort((a,b)=>b.date.localeCo
 const patPaid=patRecs.reduce((s,r)=>s+r.paid,0);
 
 const [missPF,setMissPF]=useState(null);
-const savePatOk=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
+// V281: carimbo de autoria na ficha + registro de "salvar mesmo assim" (auditoria de cadastro)
+const savePatOk=(_ovrL)=>{const _uN=(user&&user.name)||"";const _tsI=new Date().toISOString();setPats(prev=>prev.map(function(p){if(p.id!==pat.id)return p;var o=Object.assign({},pf,{_by:p._by||pf._by||"",_cr:p._cr||pf._cr||null,_byTs:p._byTs||pf._byTs||"",_edBy:_uN,_edTs:_tsI});if(_ovrL&&_ovrL.length)o._ovr=((p._ovr)||[]).concat([{campos:_ovrL,por:_uN,ts:_tsI,onde:"edicao"}]);return o;}));setEditMode(false);};
 const savePat=()=>{if(!String(pf.name||"").trim()){alert("N\u00e3o \u00e9 poss\u00edvel salvar a ficha sem o nome do paciente.");return;}var _f=faltamObrig(pf);if(_f.length>0){setMissPF(_f);return;}savePatOk();};
 const saveAnam=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
 
@@ -2538,7 +2539,7 @@ return <>
   </div>
 </div>
 
-{missPF&&<AvisoObrig lista={missPF} onVoltar={function(){setMissPF(null);}} onSalvar={function(){setMissPF(null);savePatOk();}}/>}
+{missPF&&<AvisoObrig lista={missPF} onVoltar={function(){setMissPF(null);}} onSalvar={function(){var _m=missPF;setMissPF(null);savePatOk(_m);}}/* V281 *//>}
 {/* Add procedure to existing plan modal */}
 {confirmDesfazer&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
   <div style={{background:"var(--surface)",borderRadius:18,width:"100%",maxWidth:380,boxShadow:"0 8px 32px rgba(0,0,0,.25)"}}>
@@ -4341,8 +4342,11 @@ var _f=faltamObrig(pf);
 if(_f.length>0){setMissNew(_f);return;}
 savePatOk();
 };
-const savePatOk=()=>{
+const savePatOk=(_ovrL)=>{
 const isNew=!ep;
+// V281: dados do carimbo de auditoria
+const _uN=(user&&user.name)||"";const _tsI=new Date().toISOString();
+const _ovrEntry=(_ovrL&&_ovrL.length)?[{campos:_ovrL,por:_uN,ts:_tsI,onde:isNew?"cadastro":"edicao"}]:null;
 if(isNew){
 const nm=normNome(pf.name);
 const fone=(pf.phone||"").replace(/\D/g,"");
@@ -4362,7 +4366,8 @@ return nomeP||foneP||cpfP;
 });
 if(sim.length>0){
 setDupModal({similares:sim,onConfirm:function(){
-const obj2={...pf,id:nid(pats)};
+// V281: carimbo de autoria do cadastro
+const obj2=Object.assign({},pf,{id:nid(pats),_by:_uN,_cr:Date.now(),_byTs:_tsI},_ovrEntry?{_ovr:_ovrEntry}:{});
 setPats(function(prev){return[...prev,obj2];});
 if(addLog)addLog("paciente","Criou paciente: "+pf.name,pf.name);
 setPm(false);setDupModal(null);
@@ -4370,7 +4375,12 @@ setPm(false);setDupModal(null);
 return;
 }
 }
-const obj={...pf,id:ep?ep.id:nid(pats)};
+// V281: criacao grava _by/_cr/_byTs; edicao grava _edBy/_edTs e preserva a autoria original
+const _pv=ep?((pats||[]).find(function(x){return x.id===ep.id;})||ep):null;
+const obj=Object.assign({},pf,{id:ep?ep.id:nid(pats)},isNew
+  ?{_by:_uN,_cr:Date.now(),_byTs:_tsI}
+  :{_by:(_pv&&_pv._by)||pf._by||"",_cr:(_pv&&_pv._cr)||pf._cr||null,_byTs:(_pv&&_pv._byTs)||pf._byTs||"",_edBy:_uN,_edTs:_tsI});
+if(_ovrEntry)obj._ovr=(((_pv&&_pv._ovr)||[])).concat(_ovrEntry);
 setPats(function(prev){return ep?prev.map(function(p){return p.id===ep.id?obj:p;}):[...prev,obj];});
 if(addLog)addLog("paciente",(isNew?"Criou paciente: ":"Editou cadastro de ")+pf.name,pf.name);
 setPm(false);
@@ -4424,7 +4434,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <button onClick={()=>setDupModal(null)} style={{border:"1.5px solid var(--primary)",background:"transparent",color:"var(--primary)",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
 <button onClick={dupModal.onConfirm} style={{background:"var(--yellow)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>Cadastrar Mesmo Assim</button>
 </div></div></div></div>}
-{missNew&&<AvisoObrig lista={missNew} onVoltar={function(){setMissNew(null);}} onSalvar={function(){setMissNew(null);savePatOk();}}/>}
+{missNew&&<AvisoObrig lista={missNew} onVoltar={function(){setMissNew(null);}} onSalvar={function(){var _m=missNew;setMissNew(null);savePatOk(_m);}}/* V281 *//>}
 {delModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
 <div style={{background:"var(--red)",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>🗑️ Excluir Paciente</div></div>
