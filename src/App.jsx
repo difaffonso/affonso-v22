@@ -9754,7 +9754,7 @@ function pnlItens(bk,D){
     });
   }
   if(bk==="pontoEquipe"){
-    (D.users||[]).filter(function(u){return u.active!==false&&u.level<=2;}).forEach(function(u){
+    (D.users||[]).filter(function(u){return u.active!==false&&Number(u.level)===2&&!u.dentistId;}).forEach(function(u){
       var r=pnlPontoDia(D.pontos,u.id,yd);
       if(!r){out.push({id:"pt"+u.id,av:"⚪",nm:u.name,sub:"Nenhuma batida ontem",bt:"Ver",late:true});return;}
       out.push({id:"pt"+u.id,av:r.falta?"⚠️":"✅",nm:u.name,
@@ -10151,6 +10151,11 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
   {pnlDoUser(user).map(function(_bk){return <PnlBloco key={_bk} bk={_bk}
     D={{appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar}}
     user={user} ticks={pacsTicks} setTicks={setPacsTicks} go={setView} abrirFicha={abrirFicha}/>;})}
+  {user.level>=3&&<button onClick={function(){if(setView)setView("adm");}} style={{border:"none",background:"var(--surface)",borderRadius:11,padding:"11px 14px",fontSize:12.5,fontWeight:700,color:G.muted,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:9,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
+    <span style={{fontSize:15}}>{"⚙️"}</span>
+    <span style={{flex:1}}>{"Configurar o painel de cada pessoa"}</span>
+    <span style={{color:G.muted,fontSize:14}}>{"›"}</span>
+  </button>}
 
   {retroPend.length>0&&<div>
     {head(oRetro,setORetro,"\u26a0\ufe0f","Recebimentos lan\u00e7ados fora do dia",retroPend.length,G.red)}
