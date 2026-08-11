@@ -3282,6 +3282,25 @@ const [f,setF]=useState(blank);
 const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const [blockModal,setBlockModal]=useState(null); // {date,time,dentistId}
 const [blockReason,setBlockReason]=useState("");
+// V288: pre-cadastro direto no modal de Novo Agendamento (mesma regra do V282 da tela Pacientes)
+const [preAg,setPreAg]=useState({name:"",phone:""});
+const _preB0={name:"",dob:"",phone:"",phone2:"",email:"",cpf:"",rg:"",blood:"",allergy:"",insurance:"",notes:"",folder:"",since:today(),rx:"",nf:"",obs:"",origem:"",indicPorId:null,indicPorNome:"",genero:"",anamnese:{hypertension:false,diabetes:false,heartDisease:false,bleeding:false,osteoporosis:false,kidneyDisease:false,liverDisease:false,thyroid:false,epilepsy:false,cancer:false,pregnant:false,smoking:false,allergicMeds:"",otherConditions:"",medications:"",notes:""}};
+const _preNorm=function(s){return String(s||"").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"");};
+const savePreAg=function(){
+  var nm=String(preAg.name||"").trim();
+  var phRaw=String(preAg.phone||"").trim();
+  var ph=phRaw.replace(/\D/g,"");
+  if(nm.split(/\s+/).filter(Boolean).length<2){alert("Digite o nome e o sobrenome do paciente.");return;}
+  if(ph.length<10){alert("O pr\u00e9-cadastro precisa de um telefone com DDD (m\u00ednimo 10 d\u00edgitos).");return;}
+  var dup=(pats||[]).filter(function(x){return String(x.phone||"").replace(/\D/g,"")===ph||_preNorm(x.name)===_preNorm(nm);});
+  if(dup.length>0&&!window.confirm("J\u00e1 existe ficha parecida: "+dup[0].name+(dup[0].phone?(" \u00b7 "+dup[0].phone):"")+".\n\nCriar o pr\u00e9-cadastro mesmo assim?"))return;
+  var _uN=(user&&user.name)||"";var _tsI=new Date().toISOString();
+  var obj=Object.assign({},_preB0,{name:nm,phone:phRaw,id:nid(pats),since:today(),_pre:true,_by:_uN,_cr:Date.now(),_byTs:_tsI});
+  setPats(function(prev){return [].concat(prev,[obj]);});
+  if(addLog)addLog("paciente","Pr\u00e9-cadastro pela agenda: "+nm,nm);
+  setF(function(p){return Object.assign({},p,{patientId:String(obj.id),patientName:"",useManual:false,usePre:false,_preOk:nm});});
+  setPreAg({name:"",phone:""});
+};
 const isDent=user.level===1;
 const td=today();
 const DAY=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
@@ -3430,6 +3449,7 @@ const obj={...f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,pa
 // V280: aviso de conflito de agenda (nao bloqueia, apenas confirma)
 if(!obj.blocked){var _aviso=_cfChecar(obj);if(_aviso&&window.confirm&&!window.confirm(_aviso))return;}
 delete obj._colado; // V255: marca visual do "colado", nao vai para o banco
+delete obj._preOk;delete obj.usePre; // V288: marcas de UI do pre-cadastro, nao vao para o banco
 if(edit&&edit.status!==f.status){obj.statusTs=new Date().toISOString();obj.stBy=(user&&user.name)||"";} // V222
 obj._ts=Date.now(); // V189: carimbo de edicao para o merge respeitar mudancas de paciente/dados
 if(!edit)obj._by=(user&&user.name)||""; // V222: quem criou a consulta
@@ -4053,18 +4073,33 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 <div>
 <div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",marginBottom:4}}>Paciente</div>
 <div style={{display:"flex",gap:6,marginBottom:6}}>
-<button onClick={()=>setF(p=>({...p,useManual:false,patientName:""}))} style={{flex:1,border:`2px solid ${!f.useManual?G.primary:G.border}`,background:!f.useManual?G.primary:"var(--card)",color:!f.useManual?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔍 Cadastrado</button>
-<button onClick={()=>setF(p=>({...p,useManual:true,patientId:""}))} style={{flex:1,border:`2px solid ${f.useManual?G.red:G.border}`,background:f.useManual?G.red:"var(--card)",color:f.useManual?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Digitar nome</button>
+{/* V288: Cadastrado | Pre-cadastro. O nome digitado vira botao secundario, so em consulta antiga. */}
+<button onClick={()=>setF(p=>({...p,useManual:false,usePre:false,patientName:""}))} style={{flex:1,border:`2px solid ${(!f.useManual&&!f.usePre)?G.primary:G.border}`,background:(!f.useManual&&!f.usePre)?G.primary:"var(--card)",color:(!f.useManual&&!f.usePre)?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{"\ud83d\udd0d Cadastrado"}</button>
+<button onClick={()=>{setPreAg({name:"",phone:""});setF(p=>({...p,usePre:true,useManual:false,patientId:"",patientName:"",_preOk:""}));}} style={{flex:1,border:`2px solid ${f.usePre?G.blue:G.border}`,background:f.usePre?G.blue:"var(--card)",color:f.usePre?"#fff":G.muted,borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{"\u26a1 Pr\u00e9-cadastro"}</button>
+{f.useManual&&<button onClick={()=>setF(p=>({...p,useManual:true,usePre:false,patientId:""}))} style={{flex:1,border:`2px solid ${G.red}`,background:G.red,color:"#fff",borderRadius:8,padding:"6px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{"\u270f\ufe0f Nome digitado"}</button>}
 </div>
-{f.useManual
+{/* V288: painel do pre-cadastro dentro do proprio modal do agendamento */}
+{f.usePre
+?<div style={{display:"flex",flexDirection:"column",gap:9}} className="fi">
+<div style={{background:"var(--blue-soft)",border:"1.5px solid "+G.blue,borderRadius:11,padding:"11px 14px",fontSize:12.5,color:G.blue,fontWeight:600,lineHeight:1.5}}>{"Pegue s\u00f3 o nome e o telefone. A ficha fica marcada como PR\u00c9-CADASTRO e \u00e9 completada quando o paciente chegar."}</div>
+<Inp lb="Nome completo *" val={preAg.name} set={function(v){setPreAg(function(x){return Object.assign({},x,{name:v});});}} ph="Nome e sobrenome"/>
+<Inp lb="Telefone (WhatsApp) *" val={preAg.phone} set={function(v){setPreAg(function(x){return Object.assign({},x,{phone:v});});}} ph="11999990000"/>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.5}}>{"Os campos obrigat\u00f3rios n\u00e3o s\u00e3o cobrados agora \u2014 pr\u00e9-cadastro n\u00e3o conta como ficha incompleta."}</div>
+<div style={{display:"flex",gap:8}}>
+<button onClick={savePreAg} style={{flex:1,background:G.blue,color:"#fff",border:"none",borderRadius:9,padding:"10px 14px",fontSize:13,fontWeight:800,cursor:"pointer"}}>{"\u26a1 Criar pr\u00e9-cadastro"}</button>
+<button onClick={()=>setF(p=>({...p,usePre:false}))} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:9,padding:"10px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Voltar</button>
+</div>
+</div>
+:f.useManual
 ?<div>
 <Inp val={f.patientName||""} set={upd("patientName")} ph="Nome completo + telefone do paciente"/>
-<div style={{background:"var(--amber-soft)",borderRadius:8,padding:"5px 9px",fontSize:11,color:"#E65100",marginTop:4}}>⚠️ Aparecerá em vermelho na agenda - cadastro parcial</div>
+<div style={{background:"var(--amber-soft)",borderRadius:8,padding:"5px 9px",fontSize:11,color:"#E65100",marginTop:4}}>{"\u26a0\ufe0f Aparecer\u00e1 em vermelho na agenda - cadastro parcial"}</div>
 </div>
 :<div>
+{f._preOk&&<div style={{background:"var(--green-soft)",border:"1.5px solid "+G.green,borderRadius:9,padding:"8px 11px",fontSize:11.5,color:G.green,fontWeight:700,marginBottom:6,lineHeight:1.45}}>{"\u2705 "+f._preOk+" pr\u00e9-cadastrado(a) e vinculado(a) a este hor\u00e1rio. Confira o hor\u00e1rio e salve o agendamento."}</div>}
 <PatSearch val={f.patientId} set={upd("patientId")} pats={pats} appts={appts} treats={treats}/>
 {f.patientId&&!f.useManual&&<FaltaTarja pid={f.patientId} appts={appts} treats={treats}/>}
-{!f.patientId&&<div style={{fontSize:11,color:G.muted,marginTop:4}}>Não encontrou? Use <strong>"✏️ Digitar nome"</strong> acima</div>}
+{!f.patientId&&<div style={{fontSize:11,color:G.muted,marginTop:4}}>{"N\u00e3o encontrou? Use \u26a1 Pr\u00e9-cadastro acima para criar a ficha na hora."}</div>}
 </div>
 }
 </div>
