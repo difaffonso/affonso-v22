@@ -7823,6 +7823,7 @@ function ImportNFe({stock,setStock,addLog,onClose}){
           if(s){
             s.qty=Number(s.qty||0)+itn.q;
             s.price=itn.vu;
+            s._ts=Date.now();// V289 carimbo
             s.movs=[mov].concat(s.movs||[]);
             var cds=nfeCods(s);
             if(itn.cod&&cds.indexOf(String(itn.cod).trim())<0)cds.push(String(itn.cod).trim());
@@ -8071,9 +8072,17 @@ function stkLev(a,b){var m=a.length,n=b.length;if(!m||!n)return m||n;var p=[],c=
 for(j=0;j<=n;j++)p[j]=j;
 for(i=1;i<=m;i++){c=[i];for(j=1;j<=n;j++){c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a.charAt(i-1)===b.charAt(j-1)?0:1));}p=c.slice();}
 return p[n];}
+// V289: "mesmas palavras, numeros diferentes" = variante (tamanho/cor/numeracao), NAO duplicidade.
+// Ex.: Rolo de Esterelizacao 10cm x 15cm | Resina Forma A1B x A2B | Pino Exacto N1 x N2 | Po Liquido 62 x 66.
+function stkVariante(a,b){var x=stkNorm(a&&a.name),y=stkNorm(b&&b.name);
+if(!x||!y)return false;
+return x.replace(/[0-9]/g,"")===y.replace(/[0-9]/g,"")&&x.replace(/[^0-9]/g,"")!==y.replace(/[^0-9]/g,"");}
+// V289: chave estavel do par (ordenada pelos ids) usada para marcar "nao e duplicidade"
+function stkDupKey(a,b){var x=String((a&&a.id)==null?"":a.id),y=String((b&&b.id)==null?"":b.id);return "stkdup:"+(x<y?(x+"|"+y):(y+"|"+x));}
 function stkIsDup(a,b){var x=stkNorm(a&&a.name),y=stkNorm(b&&b.name);
 if(!x||!y)return false;
 if(x===y)return true;
+if(stkVariante(a,b))return false;// V289
 if(x.length>4&&y.length>4&&(x.indexOf(y)>=0||y.indexOf(x)>=0))return true;
 return stkLev(x,y)<=2&&Math.min(x.length,y.length)>=5;}
 function stkDupPairs(stock){var on=(stock||[]).filter(function(s){return s&&!s.inativo;});var out=[],i,j;
@@ -8101,7 +8110,7 @@ function stkFiltrar(stock,q){
   }
   return arr;
 }
-function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user,gastos,setGastos}){
+function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user,gastos,setGastos,auditDismiss,setAuditDismiss}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
 const [relSub,setRelSub]=useState("resumo");// V268 sub-abas do relatorio (resumo/in/out/aj)
@@ -8141,11 +8150,11 @@ const dzDel=function(){if(!edit)return;var nm=edit.name;
  setDz("");setModal(false);};
 const stkReativar=function(it){setStock(function(prev){return (prev||[]).map(function(s){return s.id===it.id?Object.assign({},s,{inativo:false,_ts:Date.now()}):s;});});
  try{if(addLog)addLog("estoque","Material reativado: "+it.name,"");}catch(e){}};
-const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock)};
+const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f.min),price:Number(f.price),id:edit?edit.id:nid(stock),_ts:Date.now()};// V289 carimbo
 if(edit&&!(user&&user.level>=3))obj.qty=Number(edit.qty);// V268 trava: so nivel 3 corrige contagem (nivel 2 usa +Entrada / -Saida)
 if(edit&&Number(obj.qty)!==Number(edit.qty)){obj.movs=[{t:"aj",q:Number(obj.qty)-Number(edit.qty),date:today(),note:"Correção de contagem ("+Number(edit.qty)+" → "+Number(f.qty)+")"},...(obj.movs||[])];try{if(addLog)addLog("estoque","Ajuste de contagem: "+obj.name+" ("+Number(edit.qty)+" → "+Number(f.qty)+")","");}catch(e){}}// V237 ajuste automatico
 setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
-const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),movs:[{t:m.t,q,date:m.date,note:m.note,dentId:m.dentId||"",p:Number(s.price)||0},...(s.movs||[])]}:s));setMv(null);};
+const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),_ts:Date.now(),movs:[{t:m.t,q,date:m.date,note:m.note,dentId:m.dentId||"",p:Number(s.price)||0},...(s.movs||[])]}:s));setMv(null);};// V289 carimbo
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 {(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta de compra sem lancamento
 var totPend=pend.reduce(function(s2,g2){return s2+valorCompra(g2);},0);
@@ -8200,13 +8209,22 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 </div>
 {qStk.trim()&&stkFiltrar(stock,qStk).length===0?<div style={{textAlign:"center",padding:22,color:G.muted,fontSize:13,background:G.card,borderRadius:12,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>{"Nenhum material encontrado para \u201c"+qStk.trim()+"\u201d."}</div>:null}
 {/* V286: detector de materiais duplicados (so admin) */}
-{user&&user.level>=3&&(function(){var pares=stkDupPairs(stock);if(!pares.length)return null;
+{user&&user.level>=3&&(function(){var _todos=stkDupPairs(stock);var _dis=auditDismiss||{};
+var pares=_todos.filter(function(_p){var _k=stkDupKey(_p[0],_p[1]);return !(_dis[_k]&&_dis[_k].done);});// V289
+var nIgn=_todos.length-pares.length;
+if(!pares.length&&!nIgn)return null;
+var ignorar=function(a,b){var k=stkDupKey(a,b);
+ if(setAuditDismiss)setAuditDismiss(function(prev){var n=Object.assign({},prev||{});n[k]={done:true,ts:Date.now()};return n;});
+ try{if(addLog)addLog("estoque","Marcou como NAO duplicidade: \""+(a&&a.name)+"\" x \""+(b&&b.name)+"\"","");}catch(e){}};
+var revisarTudo=function(){if(!setAuditDismiss)return;
+ setAuditDismiss(function(prev){var n=Object.assign({},prev||{});Object.keys(n).forEach(function(k){if(k.indexOf("stkdup:")===0)n[k]={done:false,ts:Date.now()};});return n;});};
 return <div style={{background:G.gold+"14",border:"1.5px solid "+G.gold+"55",borderRadius:14,padding:"13px 15px",display:"flex",flexDirection:"column",gap:10}}>
+{pares.length>0&&<Fragment>
 <div style={{display:"flex",gap:9,alignItems:"flex-start"}}>
 <span style={{fontSize:17,lineHeight:1.2}}>{"\u2699"}</span>
 <div style={{fontSize:13,lineHeight:1.55,color:"#7a5a26"}}><strong>{pares.length===1?"1 possível duplicidade no estoque.":(pares.length+" possíveis duplicidades no estoque.")}</strong>{" O mesmo material cadastrado duas vezes divide a contagem e bagunça o relatório."}</div>
 </div>
-<div style={{fontSize:11.5,color:G.muted,lineHeight:1.5,marginTop:-4}}>{"Fundir soma as quantidades (você ajusta o número), junta o histórico e junta os apelidos aprendidos das NF-e. Nada se perde."}</div>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.5,marginTop:-4}}>{"Fundir soma as quantidades (você ajusta o número), junta o histórico e junta os apelidos aprendidos das NF-e. Nada se perde. Se forem materiais diferentes, toque em “Não é” — o par sai daqui e não volta mais."}</div>
 <div style={{display:"flex",flexDirection:"column",gap:7}}>
 {pares.map(function(par,i){var a=par[0],b=par[1];
 return <div key={"dp"+i} style={{background:G.card,borderRadius:11,padding:"10px 12px",boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:11,flexWrap:"wrap"}}>
@@ -8215,9 +8233,17 @@ return <div key={"dp"+i} style={{background:G.card,borderRadius:11,padding:"10px
 <div style={{fontSize:10.5,color:G.muted,fontWeight:800,letterSpacing:.5,margin:"1px 0"}}>{"É O MESMO QUE"}</div>
 <div style={{fontWeight:700,fontSize:12.5,lineHeight:1.45}}>{b.name}<span style={{fontWeight:500,color:G.muted}}>{" · "+b.qty+" "+(b.unit||"un")+" · "+((b.movs||[]).length)+" mov."}</span></div>
 </div>
+<div style={{display:"flex",gap:6,flexWrap:"wrap",flexShrink:0}}>
 <Btn ch="🔗 Fundir" sm onClick={function(){mrgOpen(a,b);}}/>
+<Btn ch="✕ Não é" v="g" sm onClick={function(){ignorar(a,b);}}/>
+</div>
 </div>;})}
 </div>
+</Fragment>}
+{nIgn>0&&<div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:9,flexWrap:"wrap",fontSize:11.5,color:G.muted,lineHeight:1.5,borderTop:pares.length?("1px solid "+G.gold+"44"):"none",paddingTop:pares.length?9:0}}>
+<span style={{flex:1,minWidth:150}}>{pares.length?(nIgn===1?"1 par você marcou como “não é duplicidade”.":(nIgn+" pares você marcou como “não é duplicidade”.")):(nIgn===1?"✔ Nada pendente. 1 par foi marcado como “não é duplicidade”.":("✔ Nada pendente. "+nIgn+" pares foram marcados como “não é duplicidade”."))}</span>
+<Btn ch="↩ Revisar de novo" v="g" sm onClick={revisarTudo}/>
+</div>}
 </div>;})()}
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:11}}>
 {stkFiltrar(stock,qStk).filter(function(_a){return _a&&!_a.inativo;}).map(s=>{/* V274: lista filtrada pela busca */const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${low?G.red:G.success}`}}>
@@ -8384,7 +8410,7 @@ var linha=function(mm,i){var isIn=mm.t==="in";var isAj=mm.t==="aj";var cor=isAj?
 <div style={{fontSize:11,color:G.muted}}>{isAj?"fora dos totais":(mm.q+" "+(mm.unit||"un")+" × "+cur(mm.pu))}</div>
 </div>
 </div>
-{user&&user.level>=3&&<button onClick={function(){if(!window.confirm("Apagar esta movimentação do histórico? A quantidade atual do estoque não muda."))return;setStock(function(prev){return prev.map(function(s2){return s2.id===mm.itemId?Object.assign({},s2,{movs:(s2.movs||[]).filter(function(_,ix2){return ix2!==mm.movIdx;})}):s2;});});try{if(addLog)addLog("estoque","Apagou movimentação do relatório: "+mm.itemName+" ("+lbAba(mm.t).toLowerCase()+" "+mm.q+")","");}catch(e){}}} style={{position:"absolute",bottom:8,right:10,border:"none",background:G.bg,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:13,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px #ffffff"}}>{"🗑"}</button>}
+{user&&user.level>=3&&<button onClick={function(){if(!window.confirm("Apagar esta movimentação do histórico? A quantidade atual do estoque não muda."))return;setStock(function(prev){return prev.map(function(s2){return s2.id===mm.itemId?Object.assign({},s2,{_ts:Date.now(),movs:(s2.movs||[]).filter(function(_,ix2){return ix2!==mm.movIdx;})}):s2;});});try{if(addLog)addLog("estoque","Apagou movimentação do relatório: "+mm.itemName+" ("+lbAba(mm.t).toLowerCase()+" "+mm.q+")","");}catch(e){}}} style={{position:"absolute",bottom:8,right:10,border:"none",background:G.bg,borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:13,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px #ffffff"}}>{"🗑"}</button>}
 </div>;};
 var porDia=function(list,corTot,vazio){
 if(!list.length)return <div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{vazio||"Nenhum lançamento neste mês."}</div>;
@@ -12390,7 +12416,7 @@ try{ // V199: base para comparacao de carimbos por chave
 }catch(e){lastSavedKeyJsonRef.current={};}
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
-lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl,orientacoes:data.orientacoes});
+lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl,orientacoes:data.orientacoes,stock:data.stock});// V289 stock
 delItemsRef.current=data.delItems||[];
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
@@ -12414,7 +12440,7 @@ if(data.dents?.length)setDents(data.dents);
 if(data.perms)setPerms(data.perms);
 if(data.labs?.length)setLabs(data.labs);
 if(data.procs?.length)setProcs(data.procs);
-if(data.stock?.length)setStock(data.stock);
+if(data.stock?.length){var _dsk={};(data.delItems||[]).forEach(function(k){_dsk[k]=true;});setStock(data.stock.filter(function(s){return !(s&&s.id!=null&&_dsk["stock:"+s.id]);}));}// V289
 if(data.impl?.length&&data.impl.length>10)setImpl(data.impl);else setImpl(IMPL_DATA_SEED);
 if(data.semTicks)setSemTicks(data.semTicks);
 if(data.anivTicks)setAnivTicks(data.anivTicks);
@@ -12754,7 +12780,7 @@ useEffect(function(){
     }
     // detectar exclusoes de planos/registros desde a ultima sincronizacao
     if(lastSavedItemKeys.current){
-      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes});
+      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes,stock:stock});// V289 stock
       var _di=delItemsRef.current||[];
       Object.keys(lastSavedItemKeys.current).forEach(function(k){if(!_ik[k]&&_di.indexOf(k)<0)_di.push(k);});
       _di=_di.filter(function(k){return !_ik[k];});
@@ -12802,6 +12828,7 @@ useEffect(function(){
           mergeArr(implMov,sd.implMov,setImplMov,"implMov");
           mergeArr(implCat,sd.implCat,setImplCat,"implCat");
           mergeArr(impl,sd.impl,setImpl,"impl");
+          mergeArr(stock,sd.stock,setStock,"stock");// V289: estoque item-a-item + respeita exclusoes/fusoes
           mergeArr(pontos,sd.pontos,setPontos);
           mergeArr(caixa,sd.caixa,setCaixa);
           // V239: cadastros passam a entrar no merge antes de gravar (antes o save levava a copia velha da memoria e desfazia edicao de outro aparelho)
@@ -12811,6 +12838,7 @@ useEffect(function(){
           if(sd.pontoCfg)setPontoCfg(function(prev){var n=_newerCfg(prev,sd.pontoCfg);return n===prev?prev:n;}); // V190
           if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
           if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
+          if(sd.auditDismiss)setAuditDismiss(function(prev){var m=mergeTicks(prev,sd.auditDismiss);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V289
           if(sd.orcResp)setOrcResp(function(prev){return mergeTicks(prev,sd.orcResp);}); // V232
           if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSet);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, nao perde edicao local nem remota
           if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
@@ -12841,7 +12869,7 @@ useEffect(function(){
           lastSaved.current=JSON.stringify(payload);
           {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
           lastSavedGastosKeys.current=_gKeys(gastos);
-          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes});
+          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes,stock:stock});// V289 stock
           // Atualizar timestamp do servidor para o nosso
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
@@ -13004,12 +13032,12 @@ useEffect(function(){
       if(sd.perms)setPerms(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.perms)?prev:sd.perms;});
       if(sd.labs)setLabs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.labs)?prev:sd.labs;});
       if(sd.procs&&sd.procs.length)setProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.procs)?prev:sd.procs;});
-      if(sd.stock)setStock(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.stock)?prev:sd.stock;});
+      if(sd.stock)addArr(sd.stock,setStock,"stock");// V289: antes o servidor sobrescrevia tudo e ressuscitava item fundido/excluido
       if(sd.impl)addArr(sd.impl,setImpl,"impl");
       if(sd.prosProcs)setProsProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.prosProcs)?prev:sd.prosProcs;});
       if(sd.espera)setEspera(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.espera)?prev:sd.espera;});
       if(sd.remarcar)setRemarcar(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.remarcar)?prev:sd.remarcar;});
-      if(sd.pacsTicks)setPacsTicks(function(prev){var m=mergeTicks(prev,sd.pacsTicks);return JSON.stringify(prev)===JSON.stringify(m)?prev:m;});if(sd.auditDismiss)setAuditDismiss(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.auditDismiss)?prev:sd.auditDismiss;});
+      if(sd.pacsTicks)setPacsTicks(function(prev){var m=mergeTicks(prev,sd.pacsTicks);return JSON.stringify(prev)===JSON.stringify(m)?prev:m;});if(sd.auditDismiss)setAuditDismiss(function(prev){var m=mergeTicks(prev,sd.auditDismiss);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V289
       if(sd.semTicks)setSemTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.semTicks)?prev:sd.semTicks;});
       if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
       if(sd.implCat)addArr(sd.implCat,setImplCat,"implCat");// V238 merge aditivo - nao sobrescreve mais
@@ -13388,7 +13416,7 @@ return <>
       {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
-      {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos}/>}
+      {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
