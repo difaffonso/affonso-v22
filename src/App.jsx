@@ -9219,7 +9219,27 @@ return(
   <div style={{display:"flex",gap:7}}>{UCOLS.map(c=><button key={c} onClick={()=>fu("color")(c)} style={{width:26,height:26,borderRadius:"50%",background:c,border:`3px solid ${uf.color===c?"var(--text)":"transparent"}`,cursor:"pointer"}}/>)}</div></div>
   <label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={uf.active} onChange={e=>fu("active")(e.target.checked)} style={{accentColor:G.primary}}/> Usuário ativo</label>
   {!eu&&Number(uf.level)===1&&<label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer",background:uf.criaDentista?G.accent:"var(--surface-2)",borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(uf.criaDentista?G.primary:G.border)}}><input type="checkbox" checked={!!uf.criaDentista} onChange={e=>fu("criaDentista")(e.target.checked)} style={{accentColor:G.primary,width:15,height:15}}/><span><strong>Criar dentista automaticamente</strong><br/><span style={{fontSize:11,color:G.muted}}>Aparecera na agenda e nos horarios</span></span></label>}
-<SC2 save={saveU} cancel={()=>setUm(false)}/>
+{/* V290: blocos do painel de abertura deste usuario */}
+  <div>
+    <div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Painel de abertura</div>
+    <div style={{fontSize:11.5,color:G.muted,marginBottom:8,lineHeight:1.45}}>{"O que esta pessoa ve ao abrir o sistema. Bloco sem nenhum item nao aparece na tela."}</div>
+    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+      {PNL_CAT.filter(function(b){return b.lv<=Number(uf.level||1);}).map(function(b){
+        var atuais=Array.isArray(uf.painel)?uf.painel:pnlDoUser(uf);
+        var on=atuais.indexOf(b.k)>=0;
+        return <label key={b.k} style={{display:"flex",gap:9,alignItems:"flex-start",fontSize:12.5,cursor:"pointer",background:on?G.accent:"var(--surface-2)",borderRadius:9,padding:"9px 11px",border:"1.5px solid "+(on?G.primary:G.border)}}>
+          <input type="checkbox" checked={on} onChange={function(){
+            var arr=atuais.slice();
+            var ix=arr.indexOf(b.k);
+            if(ix>=0)arr.splice(ix,1);else arr.push(b.k);
+            fu("painel")(arr);
+          }} style={{accentColor:G.primary,width:15,height:15,marginTop:1,flex:"none"}}/>
+          <span><strong>{b.e+" "+b.t}</strong>{b.d?<br/>:null}{b.d?<span style={{fontSize:11,color:G.muted}}>{b.d}</span>:null}</span>
+        </label>;
+      })}
+    </div>
+  </div>
+  <SC2 save={saveU} cancel={()=>setUm(false)}/>
 </div>}/>
 <Modal open={pm} close={()=>setPm(false)} title={ep?"Editar Procedimento":"Novo Procedimento"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
   <Inp lb="Nome" val={pf.name} set={fp("name")}/>
@@ -9622,7 +9642,386 @@ function EspelhoMensal({pontos,pontoCfg,users}){
   </div>;
 }
 
-function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent,setRecs,abrirFicha}){
+/* ==================== V290: PAINEL DO DIA ====================
+   Tela inicial por pessoa. Lembretes (gerais + individuais) que atravessam
+   os dias ate alguem dar baixa, mais blocos automaticos escolhidos por
+   usuario em Administrativo > Usuarios.
+   As baixas ficam dentro de pacsTicks (prefixo "pnl_") -> zero array novo,
+   zero risco novo de sync.
+   ============================================================= */
+
+// ---- catalogo de blocos ----
+const PNL_CAT=[
+  {k:"ponto",      e:"⏱",  t:"Seu ponto de ontem",            cor:"primary", lv:2, tipo:"pontoMe", tela:"ponto", d:"Como fechou o seu dia anterior"},
+  {k:"pontoEquipe",e:"⏱",  t:"Ponto da equipe — ontem",       cor:"primary", lv:3, tipo:"pontoEq", tela:"ponto", d:"Quem bateu, quem esqueceu", porDia:true, na:"Já ajustei"},
+  {k:"remarcar",   e:"🔄", t:"Pacientes para remarcar",        cor:"red",     lv:1, tela:"remarcar", d:"Faltas e desmarcados sem novo agendamento", na:"Não vai remarcar", reset:0},
+  {k:"espera",     e:"🪑", t:"Lista de espera com vaga",       cor:"blue",    lv:1, tela:"lems",     d:"Buracos dos próximos dias que batem com o que o paciente pediu", na:"Não encaixar", porDia:true},
+  {k:"proteses",   e:"🦷", t:"Próteses de hoje e atrasadas",   cor:"purple",  lv:1, tela:"pros",     na:"Cancelada", reset:0},
+  {k:"estoque",    e:"📦", t:"Estoque baixo",                  cor:"orange",  lv:1, tela:"stk",      d:"Materiais abaixo do mínimo", na:"Não vai repor", reset:7},
+  {k:"aniversarios",e:"🎂",t:"Aniversariantes de hoje",        cor:"yellow",  lv:1, tela:"lems",     na:"Não mandar", porDia:true}
+];
+function pnlDef(k){for(var i=0;i<PNL_CAT.length;i++)if(PNL_CAT[i].k===k)return PNL_CAT[i];return null;}
+function pnlCor(c){return (G&&G[c])||G.primary;}
+function pnlDoUser(u){
+  if(!u)return [];
+  if(Array.isArray(u.painel))return u.painel.filter(function(k){var d=pnlDef(k);return d&&d.lv<=(u.level||1);});
+  return (u.level>=3)?["pontoEquipe"]:["ponto","remarcar","espera"];
+}
+
+// ---- baixas dentro de pacsTicks ----
+function pnlKey(bk,itemId,porDia){return "pnl_"+bk+"_"+itemId+(porDia?("_"+today()):"");}
+function pnlBaixa(ticks,bk,itemId,porDia,reset){
+  var r=(ticks||{})[pnlKey(bk,itemId,porDia)];
+  if(!r||!r.done)return null;
+  if(reset&&reset>0&&r.at){
+    var dif=Math.round((new Date(today()+"T12:00")-new Date(String(r.at).slice(0,10)+"T12:00"))/86400000);
+    if(dif>=reset)return null;
+  }
+  return r;
+}
+
+// ---- ponto: resumo de um dia ----
+function pnlPontoDia(pontos,uid,ds){
+  var regs=(pontos||[]).filter(function(p){return String(p.uid)===String(uid)&&p.data===ds;})
+    .sort(function(a,b){return String(a.ts)<String(b.ts)?-1:1;});
+  if(!regs.length)return null;
+  var ent=null,sai=null,almI=null,almF=null;
+  regs.forEach(function(p){
+    if(p.sub==="almoco"){ if(p.tipo==="saida"&&!almI)almI=p.hora; if(p.tipo==="entrada"&&!almF)almF=p.hora; }
+    else { if(p.tipo==="entrada"&&!ent)ent=p.hora; if(p.tipo==="saida")sai=p.hora; }
+  });
+  var mh=function(a,b){if(!a||!b)return 0;var x=a.split(":"),y=b.split(":");return (Number(y[0])*60+Number(y[1]))-(Number(x[0])*60+Number(x[1]));};
+  var bruto=mh(ent,sai),alm=mh(almI,almF);
+  var liq=bruto>0?(bruto-(alm>0?alm:0)):0;
+  var falta=!ent||!sai||(almI&&!almF);
+  return {ent:ent,sai:sai,almI:almI,almF:almF,alm:alm,liq:liq,falta:falta,regs:regs.length};
+}
+function pnlHM(m){var neg=m<0;m=Math.abs(m);return (neg?"-":"")+Math.floor(m/60)+"h"+("0"+(m%60)).slice(-2);}
+
+// ---- montagem dos itens de cada bloco ----
+function pnlItens(bk,D){
+  var t=today(),yd=yest(),out=[];
+  var nomeP=function(id){var p=(D.pats||[]).find(function(x){return String(x.id)===String(id);});return p?p.name:("Paciente #"+id);};
+  if(bk==="remarcar"){
+    (D.appts||[]).filter(function(a){return a.date===yd&&a.status==="missed"&&!a.blocked;}).forEach(function(a){
+      var futuro=(D.appts||[]).some(function(b){return String(b.patientId)===String(a.patientId)&&b.date>yd&&b.status!=="cancelled";});
+      if(futuro)return;
+      out.push({id:"f"+a.id,av:"🚫",nm:a.patientName||nomeP(a.patientId),sub:"Faltou ontem · "+(a.procedure||"consulta"),bt:"Abrir",pid:a.patientId,late:true});
+    });
+    (D.remarcar||[]).forEach(function(r){
+      var futuro=(D.appts||[]).some(function(b){return String(b.patientId)===String(r.patId)&&b.date>=t&&b.status!=="cancelled";});
+      if(futuro)return;
+      var dias=Math.round((new Date(t+"T12:00")-new Date((r.date||t)+"T12:00"))/86400000);
+      out.push({id:"r"+r.id,av:"📵",nm:r.patName||nomeP(r.patId),sub:(r.motivo||"Desmarcou")+" · "+dias+" dia(s) sem remarcar",bt:"Abrir",pid:r.patId,late:dias>7});
+    });
+  }
+  if(bk==="espera"){
+    for(var i=0;i<7;i++){
+      var dd=new Date(t+"T12:00");dd.setDate(dd.getDate()+i);
+      var ds=dd.toISOString().split("T")[0];
+      esperaMatchDia(D.espera||[],D.appts||[],D.dents||[],ds).forEach(function(m){
+        if(!m.times||!m.times.length)return;
+        var dsem=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"][new Date(ds+"T12:00").getDay()];
+        out.push({id:"w"+m.esp.id+"_"+ds+"_"+m.times[0],av:"🟢",
+          nm:dsem+" "+ds.slice(8)+"/"+ds.slice(5,7)+" · "+m.times[0]+(m.times.length>1?(" e mais "+(m.times.length-1)+" horário(s)"):""),
+          sub:((m.dent&&m.dent.name)||"")+" · "+(m.esp.patName||nomeP(m.esp.patientId))+" pediu esse horário"+(m.esp.proc?(" · "+m.esp.proc):""),bt:"Encaixar"});
+      });
+    }
+    out=out.slice(0,12);
+  }
+  if(bk==="proteses"){
+    (D.pros||[]).filter(function(p){return p.status==="waiting"&&p.due&&p.due<=t;})
+      .sort(function(a,b){return (a.due||"").localeCompare(b.due||"");}).forEach(function(p){
+        var lab=(D.labs||[]).find(function(l){return l.id===p.labId;});
+        var dias=Math.round((new Date(t+"T12:00")-new Date(p.due+"T12:00"))/86400000);
+        out.push({id:"p"+p.id,av:dias>0?"⚠️":"📦",nm:nomeP(p.patientId),
+          sub:(dias>0?("Atrasada "+dias+" dia(s)"):"Chega hoje")+" · "+((lab&&lab.name)||"lab")+" · "+(p.type||p.proc||""),
+          bt:dias>0?"Cobrar":"Avisar",pid:p.patientId,late:dias>0});
+      });
+  }
+  if(bk==="estoque"){
+    (D.stock||[]).filter(function(s){return Number(s.qty)<=Number(s.min);})
+      .sort(function(a,b){return Number(a.qty)-Number(b.qty);}).forEach(function(s){
+        var zerado=Number(s.qty)<=0;
+        out.push({id:"e"+s.id,av:zerado?"🔴":"🟠",nm:s.name,
+          sub:(zerado?"Acabou":(s.qty+" "+(s.unit||"un")))+" · mínimo "+s.min,bt:"Repor",late:zerado});
+      });
+  }
+  if(bk==="aniversarios"){
+    (D.pats||[]).filter(function(p){return p.dob&&p.dob.slice(5)===t.slice(5);}).forEach(function(p){
+      var idade=Number(t.slice(0,4))-Number(p.dob.slice(0,4));
+      out.push({id:"a"+p.id,av:"🎂",nm:p.name,sub:idade+" anos"+(p.phone?(" · "+p.phone):""),bt:"Abrir",pid:p.id});
+    });
+  }
+  if(bk==="pontoEquipe"){
+    (D.users||[]).filter(function(u){return u.active!==false&&u.level<=2;}).forEach(function(u){
+      var r=pnlPontoDia(D.pontos,u.id,yd);
+      if(!r){out.push({id:"pt"+u.id,av:"⚪",nm:u.name,sub:"Nenhuma batida ontem",bt:"Ver",late:true});return;}
+      out.push({id:"pt"+u.id,av:r.falta?"⚠️":"✅",nm:u.name,
+        sub:r.falta?((r.ent||"—")+" → "+(r.sai||"não bateu a saída")+" · precisa de ajuste")
+                   :((r.ent||"—")+" → "+(r.sai||"—")+" · almoço "+(r.alm>0?pnlHM(r.alm):"—")+" · "+pnlHM(r.liq)+" trabalhadas"),
+        bt:"Ver",late:!!r.falta});
+    });
+  }
+  return out;
+}
+
+// ---- linha de item ----
+function PnlItem({it,def,tick,onBaixa,onReabrir,aberto,setAberto,go,abrirFicha,pats}){
+  var cor=pnlCor(def.cor);
+  var abrir=function(){
+    if(it.pid&&abrirFicha){var p=(pats||[]).find(function(x){return String(x.id)===String(it.pid);});if(p){abrirFicha(p);return;}}
+    if(go&&def.tela)go(def.tela);
+  };
+  return <div style={{background:"var(--surface)",borderRadius:11,marginBottom:8,overflow:"hidden",opacity:tick?.55:1}}>
+    <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 11px"}}>
+      <button onClick={function(){tick?onReabrir(it.id):setAberto(aberto===it.id?null:it.id);}}
+        title={tick?"Reabrir":"Dar baixa"}
+        style={{flex:"none",width:23,height:23,borderRadius:8,border:"2px solid "+(tick?G.success:G.border),
+          background:tick?G.success:G.card,color:tick?"#fff":"transparent",fontSize:13,fontWeight:800,
+          lineHeight:"19px",padding:0,cursor:"pointer",marginTop:1}}>✓</button>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:800,lineHeight:1.3,textDecoration:tick?"line-through":"none"}}>{it.av+" "+it.nm}</div>
+        <div style={{fontSize:11.5,color:(it.late&&!tick)?G.red:G.muted,fontWeight:600,marginTop:2,lineHeight:1.35}}>{it.sub}</div>
+        {tick&&<div style={{fontSize:10.5,color:G.muted,fontWeight:700,marginTop:5}}>{"baixa: "+(tick.motivo||"resolvido")+" · "+(tick.by||"")+(tick.hora?(" às "+tick.hora):"")}</div>}
+      </div>
+      {!tick&&<button onClick={abrir} style={{flex:"none",border:"none",borderRadius:9,padding:"8px 12px",fontSize:11.5,fontWeight:800,cursor:"pointer",
+        background:it.late?cor:G.card,color:it.late?"#fff":cor,alignSelf:"center",boxShadow:it.late?"none":"2px 2px 6px var(--nm-dark),-2px -2px 6px #ffffff"}}>{it.bt}</button>}
+    </div>
+    {aberto===it.id&&!tick&&<div style={{background:G.card,borderTop:"1px solid "+G.border,padding:"10px 11px"}}>
+      <div style={{fontSize:11.5,fontWeight:700,color:G.muted,marginBottom:8}}>Dar baixa neste item?</div>
+      <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+        <button onClick={function(){onBaixa(it.id,"Resolvido");}} style={{border:"none",borderRadius:9,padding:"9px 13px",fontSize:11.5,fontWeight:800,cursor:"pointer",background:G.success,color:"#fff"}}>✓ Resolvido</button>
+        <button onClick={function(){onBaixa(it.id,def.na||"Não se aplica");}} style={{border:"none",borderRadius:9,padding:"9px 13px",fontSize:11.5,fontWeight:800,cursor:"pointer",background:"var(--surface)",color:G.muted,boxShadow:"2px 2px 6px var(--nm-dark),-2px -2px 6px #ffffff"}}>{def.na||"Não se aplica"}</button>
+        <button onClick={function(){setAberto(null);}} style={{border:"none",background:"none",color:G.muted,fontSize:11.5,fontWeight:800,cursor:"pointer",padding:"9px 6px"}}>Cancelar</button>
+      </div>
+    </div>}
+  </div>;
+}
+
+// ---- bloco ----
+function PnlBloco({bk,D,user,ticks,setTicks,go,abrirFicha}){
+  const def=pnlDef(bk);
+  const [aberto,setAberto]=useState(null);
+  const [tudo,setTudo]=useState(false);
+  const [verFeitos,setVerFeitos]=useState(false);
+  if(!def)return null;
+  const cor=pnlCor(def.cor);
+  const card={background:G.card,borderRadius:14,padding:"14px 15px 11px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:"5px solid "+cor};
+
+  if(def.tipo==="pontoMe"){
+    const r=pnlPontoDia(D.pontos,user.id,yest());
+    if(!r)return null;
+    const box={flex:1,minWidth:64,background:"var(--surface)",borderRadius:11,padding:"9px 6px",textAlign:"center"};
+    return <div style={card}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+        <span style={{fontSize:17}}>{def.e}</span>
+        <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20,margin:0,color:cor,flex:1}}>{def.t}</h3>
+      </div>
+      <div style={{fontSize:11.5,color:G.muted,fontWeight:600,marginBottom:10}}>{def.d}</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <div style={box}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700}}>{r.ent||"—"}</div><div style={{fontSize:9.5,fontWeight:800,color:G.muted,textTransform:"uppercase",marginTop:3}}>Entrada</div></div>
+        <div style={box}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700,color:r.sai?G.text:G.red}}>{r.sai||"—"}</div><div style={{fontSize:9.5,fontWeight:800,color:G.muted,textTransform:"uppercase",marginTop:3}}>Saída</div></div>
+        <div style={box}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700}}>{r.alm>0?pnlHM(r.alm):"—"}</div><div style={{fontSize:9.5,fontWeight:800,color:G.muted,textTransform:"uppercase",marginTop:3}}>Almoço</div></div>
+        <div style={box}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700,color:G.success}}>{r.liq>0?pnlHM(r.liq):"—"}</div><div style={{fontSize:9.5,fontWeight:800,color:G.muted,textTransform:"uppercase",marginTop:3}}>Trabalhadas</div></div>
+      </div>
+      {r.falta&&<div style={{marginTop:10,background:"var(--red-soft)",color:G.red,borderRadius:9,padding:"8px 11px",fontSize:12,fontWeight:700}}>{"Faltou bater alguma marcação ontem — avise o administrador."}</div>}
+      <div style={{textAlign:"center",marginTop:6}}><button onClick={function(){go&&go("ponto");}} style={{border:"none",background:"none",color:G.muted,fontSize:12,fontWeight:700,cursor:"pointer",padding:"8px 5px"}}>{"Abrir Ponto →"}</button></div>
+    </div>;
+  }
+
+  const itens=pnlItens(bk,D);
+  const abertos=itens.filter(function(i){return !pnlBaixa(ticks,bk,i.id,def.porDia,def.reset);});
+  const feitos=itens.filter(function(i){return !!pnlBaixa(ticks,bk,i.id,def.porDia,def.reset);});
+  if(!itens.length)return null; // bloco vazio nao ocupa espaco
+  const darBaixa=function(id,motivo){
+    var ag=new Date();
+    setTicks(function(prev){var n=Object.assign({},prev);
+      n[pnlKey(bk,id,def.porDia)]={done:true,motivo:motivo,by:(user&&user.name)||"",at:today(),
+        hora:("0"+ag.getHours()).slice(-2)+":"+("0"+ag.getMinutes()).slice(-2),ts:Date.now()};
+      return n;});
+    setAberto(null);
+  };
+  const reabrir=function(id){
+    setTicks(function(prev){var n=Object.assign({},prev);n[pnlKey(bk,id,def.porDia)]={done:false,ts:Date.now(),by:(user&&user.name)||""};return n;});
+  };
+  const lim=tudo?abertos.length:5;
+  return <div style={card}>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:def.d?3:10}}>
+      <span style={{fontSize:17}}>{def.e}</span>
+      <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20,margin:0,color:cor,flex:1,lineHeight:1.15}}>{def.t}</h3>
+      <span style={{background:cor,color:"#fff",borderRadius:20,padding:"2px 10px",fontSize:11.5,fontWeight:800}}>{abertos.length}</span>
+    </div>
+    {def.d&&<div style={{fontSize:11.5,color:G.muted,fontWeight:600,marginBottom:10}}>{def.d}</div>}
+    {abertos.length===0&&<div style={{fontSize:12.5,color:G.muted,textAlign:"center",padding:"12px 6px",fontWeight:600}}>{"Tudo com baixa por hoje. 🌿"}</div>}
+    {abertos.slice(0,lim).map(function(i){
+      return <PnlItem key={i.id} it={i} def={def} tick={null} aberto={aberto} setAberto={setAberto}
+        onBaixa={darBaixa} onReabrir={reabrir} go={go} abrirFicha={abrirFicha} pats={D.pats}/>;
+    })}
+    {abertos.length>5&&<button onClick={function(){setTudo(!tudo);}} style={{width:"100%",border:"none",background:"none",color:G.muted,fontSize:12,fontWeight:800,cursor:"pointer",padding:8}}>{tudo?"▲ mostrar menos":("▼ ver os outros "+(abertos.length-5))}</button>}
+    {feitos.length>0&&<button onClick={function(){setVerFeitos(!verFeitos);}} style={{width:"100%",border:"none",background:"none",color:G.muted,fontSize:12,fontWeight:800,cursor:"pointer",padding:8}}>{verFeitos?"▲ esconder":("✓ "+feitos.length+" com baixa")}</button>}
+    {verFeitos&&feitos.map(function(i){
+      return <PnlItem key={"d"+i.id} it={i} def={def} tick={pnlBaixa(ticks,bk,i.id,def.porDia,def.reset)}
+        aberto={aberto} setAberto={setAberto} onBaixa={darBaixa} onReabrir={reabrir} go={go} abrirFicha={abrirFicha} pats={D.pats}/>;
+    })}
+    <div style={{textAlign:"center",marginTop:2}}><button onClick={function(){go&&go(def.tela);}} style={{border:"none",background:"none",color:G.muted,fontSize:12,fontWeight:700,cursor:"pointer",padding:"8px 5px"}}>{"Abrir tela completa →"}</button></div>
+  </div>;
+}
+
+// ---- bloco de lembretes (gerais + individuais) ----
+function PnlLembretes({rems,setRems,users,user,pats,go}){
+  const [form,setForm]=useState(false);
+  const [txt,setTxt]=useState("");
+  const [para,setPara]=useState("0");
+  const [soHoje,setSoHoje]=useState(false);
+  const [aberto,setAberto]=useState(null);
+  const [verFeitos,setVerFeitos]=useState(false);
+  const t=today();
+  const meus=(rems||[]).filter(function(r){return Number(r.assignedUserId)===Number(user.id);});
+  const gerais=(rems||[]).filter(function(r){return !r.assignedUserId;});
+  const vivo=function(r){ if(r.done)return false; if(r.pnlSoHoje&&r.date&&r.date<t)return false; return true; };
+  const gA=gerais.filter(vivo),mA=meus.filter(vivo);
+  const feitos=gerais.concat(meus).filter(function(r){return r.done&&r.pnlDoneAt===t;});
+  const card={background:G.card,borderRadius:14,padding:"14px 15px 11px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:"5px solid "+G.primary};
+  const salvar=function(){
+    var v=txt.trim();if(!v)return;
+    var obj={id:nid(rems),title:v,desc:"",date:t,priority:"medium",done:false,patientId:null,
+      assignedUserId:para==="0"?null:Number(para),pnlBy:(user&&user.name)||"",pnlSoHoje:!!soHoje,_ts:Date.now()};
+    setRems(function(prev){return (prev||[]).concat([obj]);});
+    setTxt("");setForm(false);setSoHoje(false);
+  };
+  const baixar=function(id,motivo){
+    var ag=new Date();
+    setRems(function(prev){return (prev||[]).map(function(r){return r.id!==id?r:Object.assign({},r,
+      {done:true,pnlMotivo:motivo,pnlDoneBy:(user&&user.name)||"",pnlDoneAt:t,
+       pnlDoneHora:("0"+ag.getHours()).slice(-2)+":"+("0"+ag.getMinutes()).slice(-2),_ts:Date.now()});});});
+    setAberto(null);
+  };
+  const reabrir=function(id){
+    setRems(function(prev){return (prev||[]).map(function(r){return r.id!==id?r:Object.assign({},r,{done:false,_ts:Date.now()});});});
+  };
+  const excluir=function(id){
+    if(!window.confirm("Excluir este lembrete de vez?"))return;
+    setRems(function(prev){return (prev||[]).filter(function(r){return r.id!==id;});});
+  };
+  const linha=function(r,geral){
+    var dias=r.date?Math.round((new Date(t+"T12:00")-new Date(r.date+"T12:00"))/86400000):0;
+    var idade=r.pnlSoHoje?"só hoje":(dias<=0?"criado hoje":("aberto há "+dias+" dia"+(dias>1?"s":"")));
+    var autor=(r.pnlBy||"");
+    var p=r.patientId?(pats||[]).find(function(x){return String(x.id)===String(r.patientId);}):null;
+    return <div key={r.id} style={{background:"var(--surface)",borderRadius:11,marginBottom:8,overflow:"hidden",
+      borderLeft:geral?("4px solid "+G.primary):"none",opacity:r.done?.55:1}}>
+      <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 11px"}}>
+        <button onClick={function(){r.done?reabrir(r.id):setAberto(aberto===r.id?null:r.id);}}
+          style={{flex:"none",width:23,height:23,borderRadius:8,border:"2px solid "+(r.done?G.success:G.border),
+            background:r.done?G.success:G.card,color:r.done?"#fff":"transparent",fontSize:13,fontWeight:800,
+            lineHeight:"19px",padding:0,cursor:"pointer",marginTop:1}}>✓</button>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,fontWeight:600,lineHeight:1.4,textDecoration:r.done?"line-through":"none"}}>{r.title}</div>
+          <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginTop:5,fontSize:10.5,fontWeight:700,color:G.muted}}>
+            {geral&&<span style={{background:G.accent,color:G.primary,borderRadius:6,padding:"1px 7px",fontWeight:800}}>{"👥 todos"}</span>}
+            {(!geral&&autor&&autor!==user.name)&&<span style={{background:G.accent,color:G.primary,borderRadius:6,padding:"1px 7px",fontWeight:800}}>{"de "+autor}</span>}
+            {p&&<span>{p.name}</span>}
+            <span style={{color:(dias>2&&!r.done&&!r.pnlSoHoje)?G.red:G.muted,fontWeight:800}}>
+              {r.done?("baixa: "+(r.pnlMotivo||"resolvido")+" · "+(r.pnlDoneBy||"")+(r.pnlDoneHora?(" às "+r.pnlDoneHora):"")):idade}
+            </span>
+          </div>
+        </div>
+        <button onClick={function(){excluir(r.id);}} title="Excluir" style={{flex:"none",border:"none",background:"none",color:G.muted,fontSize:14,cursor:"pointer",opacity:.5,alignSelf:"center",padding:6}}>🗑</button>
+      </div>
+      {aberto===r.id&&!r.done&&<div style={{background:G.card,borderTop:"1px solid "+G.border,padding:"10px 11px"}}>
+        <div style={{fontSize:11.5,fontWeight:700,color:G.muted,marginBottom:8}}>Dar baixa neste lembrete?</div>
+        <div style={{display:"flex",gap:7,flexWrap:"wrap"}}>
+          <button onClick={function(){baixar(r.id,"Resolvido");}} style={{border:"none",borderRadius:9,padding:"9px 13px",fontSize:11.5,fontWeight:800,cursor:"pointer",background:G.success,color:"#fff"}}>✓ Resolvido</button>
+          <button onClick={function(){baixar(r.id,"Não era necessário");}} style={{border:"none",borderRadius:9,padding:"9px 13px",fontSize:11.5,fontWeight:800,cursor:"pointer",background:"var(--surface)",color:G.muted,boxShadow:"2px 2px 6px var(--nm-dark),-2px -2px 6px #ffffff"}}>{"Não era necessário"}</button>
+          <button onClick={function(){setAberto(null);}} style={{border:"none",background:"none",color:G.muted,fontSize:11.5,fontWeight:800,cursor:"pointer",padding:"9px 6px"}}>Cancelar</button>
+        </div>
+      </div>}
+    </div>;
+  };
+  const inp={width:"100%",border:"1.5px solid "+G.border,borderRadius:9,padding:"9px 11px",fontSize:13,background:G.card,color:G.text,outline:"none",fontFamily:"inherit"};
+  return <div style={card}>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+      <span style={{fontSize:17}}>{"✅"}</span>
+      <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20,margin:0,color:G.primary,flex:1}}>Lembretes</h3>
+      <span style={{background:G.accent,color:G.primary,borderRadius:20,padding:"2px 10px",fontSize:11.5,fontWeight:800}}>{(gA.length+mA.length)+" aberto"+((gA.length+mA.length)===1?"":"s")}</span>
+      <button onClick={function(){setForm(!form);}} style={{flex:"none",border:"none",background:"var(--surface)",borderRadius:9,width:31,height:31,fontSize:19,fontWeight:700,color:G.primary,cursor:"pointer",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff"}}>+</button>
+    </div>
+    <div style={{fontSize:11.5,color:G.muted,fontWeight:600,marginBottom:10}}>{"Ficam abertos até alguém dar baixa — não somem na virada do dia."}</div>
+    {form&&<div style={{background:"var(--surface)",borderRadius:11,padding:11,marginBottom:10,display:"flex",flexDirection:"column",gap:8}}>
+      <textarea value={txt} onChange={function(e){setTxt(e.target.value);}} placeholder="O que precisa ser feito?" style={Object.assign({},inp,{minHeight:54,resize:"none"})}/>
+      <select value={para} onChange={function(e){setPara(e.target.value);}} style={inp}>
+        <option value="0">{"👥 Para todos"}</option>
+        {(users||[]).filter(function(u){return u.active!==false;}).map(function(u){
+          return <option key={u.id} value={String(u.id)}>{Number(u.id)===Number(user.id)?"Para mim":("Para "+u.name)}</option>;})}
+      </select>
+      <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,fontWeight:700,color:G.muted,cursor:"pointer"}}>
+        <input type="checkbox" checked={soHoje} onChange={function(e){setSoHoje(e.target.checked);}} style={{width:16,height:16,accentColor:G.primary}}/>
+        {"Vale só para hoje (some sozinho amanhã)"}
+      </label>
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={salvar} style={{border:"none",background:G.primary,color:"#fff",borderRadius:9,padding:"10px 15px",fontSize:12.5,fontWeight:800,cursor:"pointer"}}>Criar</button>
+        <button onClick={function(){setForm(false);}} style={{border:"none",background:"none",color:G.muted,fontSize:12.5,fontWeight:700,cursor:"pointer",padding:"10px 5px"}}>Cancelar</button>
+      </div>
+    </div>}
+    {gA.length>0&&<div style={{fontSize:10.5,fontWeight:800,letterSpacing:".08em",textTransform:"uppercase",color:G.muted,margin:"2px 0 8px"}}>Para todos</div>}
+    {gA.map(function(r){return linha(r,true);})}
+    {mA.length>0&&<div style={{fontSize:10.5,fontWeight:800,letterSpacing:".08em",textTransform:"uppercase",color:G.muted,margin:(gA.length?"14px 0 8px":"2px 0 8px")}}>{"Só seus"}</div>}
+    {mA.map(function(r){return linha(r,false);})}
+    {(gA.length+mA.length)===0&&<div style={{fontSize:12.5,color:G.muted,textAlign:"center",padding:"14px 6px",fontWeight:600}}>{"Nada aberto. 🌿"}</div>}
+    {feitos.length>0&&<button onClick={function(){setVerFeitos(!verFeitos);}} style={{width:"100%",border:"none",background:"none",color:G.muted,fontSize:12,fontWeight:800,cursor:"pointer",padding:8}}>{verFeitos?"▲ esconder":("✓ "+feitos.length+" com baixa hoje")}</button>}
+    {verFeitos&&feitos.map(function(r){return linha(r,!r.assignedUserId);})}
+  </div>;
+}
+
+// ---- V290: qual tela abrir no login ----
+// 1o acesso do dia (por aparelho) -> painel. Demais entradas -> ultima tela usada.
+const PNL_LV={fin:3,desp:3,adm:3,audit:3,conversas:2,remarcar:2,satisf:2,pros:2,impl:2,stk:2,caixa:2,rel:2};
+function pnlAbertura(u){
+  if(!u)return "agenda";
+  try{
+    var kD="pnl_dia_"+u.id;
+    if(localStorage.getItem(kD)!==today()){localStorage.setItem(kD,today());return "dash";}
+    var last=localStorage.getItem("pnl_view_"+u.id);
+    if(last&&(PNL_LV[last]||1)<=Number(u.level||1))return last;
+  }catch(e){}
+  return u.level>=3?"dash":"agenda";
+}
+
+// ---- painel da recepcao / dentista (nivel < 3) ----
+function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,users,user,pacsTicks,setPacsTicks,remarcar,setView,abrirFicha}){
+  const t=today();
+  const D={appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar};
+  const hoje=(appts||[]).filter(function(a){return a.date===t&&!a.blocked&&a.status!=="cancelled";});
+  const conf=hoje.filter(function(a){return a.status==="confirmed"||a.status==="done";}).length;
+  const blocos=pnlDoUser(user);
+  const cardMini=function(e,n,l,c){return <div key={l} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c}}>
+    <div style={{fontSize:17}}>{e}</div>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c}}>{n}</div>
+    <div style={{fontSize:10,color:G.muted,fontWeight:600}}>{l}</div>
+  </div>;};
+  return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div>
+        <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>Visão Geral</h2>
+        <div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
+      </div>
+      <div style={{fontSize:12,color:G.muted}}>{"Olá, "}<strong>{user.name}</strong></div>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
+      {cardMini("📅",hoje.length,"Hoje",G.blue)}
+      {cardMini("✅",conf,"Confirmados",G.success)}
+      {cardMini("⏳",hoje.length-conf,"A confirmar",G.orange)}
+    </div>
+    <PnlLembretes rems={rems} setRems={setRems} users={users} user={user} pats={pats} go={setView}/>
+    {blocos.map(function(bk){
+      return <PnlBloco key={bk} bk={bk} D={D} user={user} ticks={pacsTicks} setTicks={setPacsTicks} go={setView} abrirFicha={abrirFicha}/>;
+    })}
+    <button onClick={function(){setView&&setView("agenda");}} style={{border:"none",borderRadius:13,padding:"15px 10px",fontSize:14,fontWeight:800,cursor:"pointer",background:G.primary,color:"#fff",boxShadow:"5px 5px 12px var(--nm-dark),-5px -5px 12px #ffffff"}}>{"Ir para a agenda →"}</button>
+  </div>;
+}
+
+function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent,setRecs,abrirFicha,setRems,users,pontos,remarcar}){
 const t=today();
 const yd=yest();
 const mo=t.slice(0,7);
@@ -9746,6 +10145,12 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
     {[["👥",pats.length,"Pacientes",G.primary],["📅",todayCount,"Hoje",G.blue],["💰",cur(rev),"Receita mês",G.success]].map(function(c){return <div key={c[2]} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c[3]}}><div style={{fontSize:17}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c[3]}}>{c[1]}</div><div style={{fontSize:10,color:G.muted,fontWeight:600}}>{c[2]}</div></div>;})}
   </div>
+
+  {/* V290: lembretes + blocos configuraveis do administrador */}
+  <PnlLembretes rems={rems} setRems={setRems} users={users} user={user} pats={pats} go={setView}/>
+  {pnlDoUser(user).map(function(_bk){return <PnlBloco key={_bk} bk={_bk}
+    D={{appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar}}
+    user={user} ticks={pacsTicks} setTicks={setPacsTicks} go={setView} abrirFicha={abrirFicha}/>;})}
 
   {retroPend.length>0&&<div>
     {head(oRetro,setORetro,"\u26a0\ufe0f","Recebimentos lan\u00e7ados fora do dia",retroPend.length,G.red)}
@@ -13268,7 +13673,7 @@ var iv=setInterval(run,10*60*1000);
 return function(){clearTimeout(t0);clearInterval(iv);};
 },[]);
 
-if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(u.level>=3?"dash":"agenda");}}/>
+if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(pnlAbertura(u));}}/>
 
 // Bloqueio de horário de acesso para nível 2 (Recepção/Secretária) - configurável em Administrativo > Acessos
 if(user.level===2){
@@ -13327,7 +13732,7 @@ const stkAlerta=comprasSemEntrada(gastos,stock).length>0;// V269 alerta no menu
 
 const ALL_NAV=[
 // Rotina
-{id:"dash",l:"Visão Geral",ic:"ph-house",lv:3,grp:"Rotina"},{id:"agenda",l:"Agenda",ic:"ph-calendar-blank",lv:1,grp:"Rotina"},{id:"pacs",l:"Pacientes",ic:"ph-users",lv:1,grp:"Rotina"},
+{id:"dash",l:"Visão Geral",ic:"ph-house",lv:1,grp:"Rotina"},{id:"agenda",l:"Agenda",ic:"ph-calendar-blank",lv:1,grp:"Rotina"},{id:"pacs",l:"Pacientes",ic:"ph-users",lv:1,grp:"Rotina"},
 {id:"lems",l:"Lembretes",ic:"ph-bell",lv:1,b:remBadge,grp:"Rotina"},{id:"conversas",l:"Conversas",ic:"ph-chat-circle",lv:2,b:waUnread,grp:"Rotina"},{id:"remarcar",l:"Remarcar",ic:"ph-arrows-clockwise",lv:2,grp:"Rotina"},
 {id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2,grp:"Rotina"},{id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1,grp:"Rotina"},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1,grp:"Rotina"},{id:"ponto",l:"Ponto",ic:"ph-clock",lv:1,grp:"Rotina"},
 // Clínico
@@ -13341,6 +13746,7 @@ const NAV=ALL_NAV.filter(n=>n.lv<=user.level);
 const go=v=>{
 const n=ALL_NAV.find(x=>x.id===v)||{lv:1};
 if(n.lv>user.level){alert("Acesso não autorizado.");return;}
+try{localStorage.setItem("pnl_view_"+user.id,v);}catch(e){} // V290: lembra a ultima tela
 setView(v);
 setSideOpen(false); // close menu on mobile after navigation
 };
@@ -13350,8 +13756,8 @@ const cp={pats,dents,procs,user,espera:espera,waEvent:waEvent,addLog:function(ti
 const BOTTOM_NAV=user.level>=3
 ?[{id:"dash",icon:"ph-house"},{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"pixdent",icon:"ph-hand-coins"},{id:"adm",icon:"ph-gear"},{id:"ponto",icon:"ph-clock"}]
 :user.level===2
-?[{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"pixdent",icon:"ph-hand-coins"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rel",icon:"ph-chart-bar"},{id:"ponto",icon:"ph-clock"}]
-:[{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"pixdent",icon:"ph-hand-coins"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rec",icon:"ph-clipboard-text"},{id:"ponto",icon:"ph-clock"}];
+?[{id:"dash",icon:"ph-house"},{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rel",icon:"ph-chart-bar"},{id:"ponto",icon:"ph-clock"}]
+:[{id:"dash",icon:"ph-house"},{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rec",icon:"ph-clipboard-text"},{id:"ponto",icon:"ph-clock"}];
 
 const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}.sidebar-scroll::-webkit-scrollbar{width:6px;}.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--nm-dark);border-radius:4px;}.sidebar-scroll::-webkit-scrollbar-track{background:transparent;}/* V221: barra de rolagem do painel principal (Agenda e demais telas) mais visivel */:root{--sb-thumb:#2f5d49;--sb-thumb-hover:#244639;--sb-track:#dfe4db;}html[data-theme="dark"]{--sb-thumb:#e7ece7;--sb-thumb-hover:#ffffff;--sb-track:#333c37;}.main-content{scrollbar-color:var(--sb-thumb) var(--sb-track);}.main-content::-webkit-scrollbar{width:14px;}.main-content::-webkit-scrollbar-track{background:var(--sb-track);}.main-content::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:8px;border:2px solid var(--sb-track);background-clip:padding-box;}.main-content::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-hover);}.app-shell{height:100dvh!important;}`;
 
@@ -13403,7 +13809,9 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha} setRems={setRems} users={users} pontos={pontos} remarcar={remarcar}/>}
+      {/* V290: painel do dia para recepcao e dentistas */}
+      {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} setView={go} abrirFicha={abrirFicha}/>}
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog}/>}
