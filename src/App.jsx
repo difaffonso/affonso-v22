@@ -100,6 +100,37 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
   }catch(e){}
   return C.rows.slice();
 }
+,async loadPontos(since){ // V294: batidas em tabela propria (linha por batida, ~300 bytes)
+  if(!SUPA_URL)return null;
+  try{
+    var all=[],lastId=0,step=1000;
+    var q=since?("&updated_at=gt."+encodeURIComponent(since)):"";
+    for(var g=0;g<60;g++){
+      var r=await fetch(SUPA_URL+"/rest/v1/pontos?select=id,data,updated_at&order=id.asc&limit="+step+"&id=gt."+lastId+q,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});
+      if(!r.ok)return null;
+      var rows=await r.json();
+      if(!rows||!rows.length)break;
+      for(var k=0;k<rows.length;k++){
+        if(rows[k]&&rows[k].data)all.push(rows[k].data);
+        if(rows[k]&&rows[k].updated_at&&(!_pontoCursor||rows[k].updated_at>_pontoCursor))_pontoCursor=rows[k].updated_at;
+      }
+      lastId=rows[rows.length-1].id;
+      if(rows.length<step)break;
+    }
+    return all;
+  }catch(e){return null;}
+}
+,async upsertPontos(arr){ // V294: grava a batida sem reescrever o blob inteiro
+  if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};
+  if(!arr||!arr.length)return {ok:true};
+  try{
+    var now=new Date().toISOString();
+    var body=arr.map(function(p){return {id:p.id,data:p,updated_at:now};});
+    var r=await fetch(SUPA_URL+"/rest/v1/pontos",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(body)});
+    if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}
+    return {ok:true};
+  }catch(e){return {ok:false,msg:String((e&&e.message)||e)};}
+}
 ,async fetchPortal(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/rpc/portal_get",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json"},body:JSON.stringify({p_token:token})});if(!r.ok)return null;const v=await r.json();return v||null;}catch(e){return null;}}
 ,async sendPortalAction(token,action){if(!SUPA_URL)return {ok:false};try{const r=await fetch(SUPA_URL+"/rest/v1/portal_actions",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({token:token,action:action})});return {ok:r.ok};}catch(e){return {ok:false};}}
 ,async fetchPortalActions(){if(!SUPA_URL)return [];try{var since=new Date(Date.now()-3*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/portal_actions?created_at=gte."+encodeURIComponent(since)+"&select=token,action,created_at&order=created_at.desc&limit=300",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
@@ -107,7 +138,50 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
 // ── PONTO: gravacao imediata e segura de uma batida (evita corrida entre aparelhos) ──
 // Grava direto no servidor em cima da versao mais fresca, com trava otimista por
 // updated_at (so grava se ninguem gravou no meio) e reencaixa a batida ate confirmar.
+// V294: cursor da tabela "pontos" (carga incremental por updated_at)
+var _pontoCursor=null;
+// V294: fila de batidas ainda nao confirmadas. Fica no aparelho e sobrevive a
+// fechar o app / recarregar a pagina. Nenhuma batida se perde mais em silencio.
+var PONTO_PEND_KEY="ponto_pend_v1";
+function pontoPendGet(){
+  try{var s=localStorage.getItem(PONTO_PEND_KEY);var a=s?JSON.parse(s):[];return Array.isArray(a)?a:[];}catch(e){return [];}
+}
+function pontoPendSet(a){
+  try{localStorage.setItem(PONTO_PEND_KEY,JSON.stringify((a||[]).slice(-80)));}catch(e){}
+}
+function pontoPendAdd(reg){
+  if(!reg||reg.id==null)return;
+  var a=pontoPendGet();
+  if(!a.some(function(x){return x&&String(x.id)===String(reg.id);})){a.push(reg);pontoPendSet(a);}
+}
+function pontoPendDel(id){
+  pontoPendSet(pontoPendGet().filter(function(x){return !(x&&String(x.id)===String(id));}));
+}
+// Tenta reenviar tudo que esta na fila. Devolve {tent, ok, resta}.
+async function pontoPendFlush(){
+  var a=pontoPendGet();
+  if(!a.length)return {tent:0,ok:0,resta:0};
+  var ok=0;
+  for(var i=0;i<a.length;i++){
+    var enviou=false;
+    try{enviou=await pushPontoSupabase(a[i]);}catch(e){enviou=false;}
+    if(enviou){pontoPendDel(a[i].id);ok++;}
+  }
+  return {tent:a.length,ok:ok,resta:pontoPendGet().length};
+}
 async function pushPontoSupabase(reg){
+  if(!reg)return false;
+  // 1) CAMINHO RAPIDO (V294): uma linha na tabela "pontos".
+  //    ~300 bytes, sem trava otimista, sem disputar com o save de ~1,9 MB do blob
+  //    que os outros aparelhos fazem o dia todo. Funciona com sinal fraco.
+  try{
+    var rt=await supabase.upsertPontos([reg]);
+    if(rt&&rt.ok)return true;
+  }catch(e){}
+  // 2) RESERVA: caminho antigo pelo blob (mantido para nao quebrar aparelhos antigos)
+  try{return await pushPontoBlob(reg);}catch(e){return false;}
+}
+async function pushPontoBlob(reg){
   if(!SUPA_URL||!reg)return false;
   for(var attempt=0;attempt<6;attempt++){
     try{
@@ -9348,10 +9422,24 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
   const [aba,setAba]=useState("reg");
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState(null); // {ok,txt}
+  const [pend,setPend]=useState(function(){return pontoPendGet();}); // V294: batidas na fila
+  useEffect(function(){ // V294: mantem o aviso da fila em dia (o reenvio roda no App)
+    var iv=setInterval(function(){
+      setPend(function(prev){var a=pontoPendGet();return (a.length===(prev||[]).length)?prev:a;});
+    },5000);
+    return function(){clearInterval(iv);};
+  },[]);
   const z=function(n){return ("0"+n).slice(-2);};
   const hoje=today();
   const meuId=user.id;
-  const meusHoje=pontos.filter(function(p){return String(p.uid)===String(meuId)&&p.data===hoje;}).sort(function(a,b){return a.ts<b.ts?-1:1;});
+  // V294: a lista mostra tambem as batidas que ainda estao na fila, marcadas com relogio
+  const meusHoje=(function(){
+    var base=pontos.filter(function(p){return String(p.uid)===String(meuId)&&p.data===hoje;});
+    var tem={};base.forEach(function(p){if(p&&p.id!=null)tem[String(p.id)]=true;});
+    var extra=(pend||[]).filter(function(p){return p&&String(p.uid)===String(meuId)&&p.data===hoje&&!tem[String(p.id)];});
+    return base.concat(extra).sort(function(a,b){return a.ts<b.ts?-1:1;});
+  })();
+  const pendIds=(function(){var m={};(pend||[]).forEach(function(p){if(p&&p.id!=null)m[String(p.id)]=true;});return m;})();
 
   function registrar(tipo,sub){
     if(busy)return;
@@ -9371,8 +9459,12 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
       setMsg({ok:true,txt:"⏳ "+lblReg+" às "+reg.hora+" — salvando no servidor..."});
       pushPontoSupabase(reg).then(function(okSrv){
         setBusy(false);
-        if(okSrv)setMsg({ok:true,txt:"✅ "+lblReg+" registrada às "+reg.hora+" — a "+d+" m da clínica. Salvo no servidor."});
-        else setMsg({ok:false,txt:"⚠️ "+lblReg+" às "+reg.hora+" ficou registrada neste aparelho, mas AINDA NÃO foi confirmada no servidor (conexão fraca?). Mantenha o app aberto por alguns segundos e confira a lista de hoje."});
+        if(okSrv){pontoPendDel(reg.id);setPend(pontoPendGet());setMsg({ok:true,txt:"✅ "+lblReg+" registrada às "+reg.hora+" — a "+d+" m da clínica. Salvo no servidor."});}
+        else{
+          // V294: nao se perde mais. Entra na fila e o app reenvia sozinho.
+          pontoPendAdd(reg);setPend(pontoPendGet());
+          setMsg({ok:false,txt:"⏳ "+lblReg+" às "+reg.hora+" ficou salva neste aparelho e entrou na fila de reenvio. O app tenta de novo sozinho quando a internet melhorar (e também ao abrir o app). NÃO precisa bater de novo."});
+        }
       });
     }).catch(function(e){setBusy(false);setMsg({ok:false,txt:"❌ "+(e.message||"Falha ao obter localização")});});
   }
@@ -9396,6 +9488,20 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
         <button disabled={busy} onClick={function(){registrar("saida");}} style={{border:"none",borderRadius:13,padding:"18px 12px",fontSize:15.5,fontWeight:800,lineHeight:1.15,cursor:busy?"default":"pointer",color:"#fff",background:G.orange,opacity:busy?.6:1}}>🔴 Registrar Saída</button>
       </div>
       {msg&&<div style={{marginTop:14,borderRadius:10,padding:"11px 14px",fontSize:13.5,fontWeight:600,background:msg.ok?G.accent:"var(--red-soft)",color:msg.ok?G.primary:G.red,border:"1px solid "+(msg.ok?G.border:"#F5B7B1")}}>{msg.txt}</div>}
+      {/* V294: fila de batidas aguardando confirmacao do servidor */}
+      {(pend||[]).length>0&&<div style={{marginTop:12,borderRadius:11,padding:"12px 14px",background:"var(--surface-2)",border:"1.5px solid #E2C56B",display:"flex",alignItems:"center",gap:11,flexWrap:"wrap"}}>
+        <span style={{flex:1,minWidth:190,fontSize:12.8,fontWeight:600,color:G.text,lineHeight:1.45}}>
+          {"⏳ "+pend.length+(pend.length===1?" batida aguardando":" batidas aguardando")+" confirmação do servidor. O reenvio é automático — sua batida não vai se perder."}
+        </span>
+        <button disabled={busy} onClick={function(){
+          setBusy(true);setMsg({ok:true,txt:"⏳ Reenviando batidas pendentes…"});
+          pontoPendFlush().then(function(r){
+            setBusy(false);setPend(pontoPendGet());
+            if(r&&r.resta>0)setMsg({ok:false,txt:"⚠️ Ainda faltam "+r.resta+" batida(s). Continuamos tentando sozinhos em segundo plano."});
+            else setMsg({ok:true,txt:"✅ Batidas pendentes confirmadas no servidor."});
+          }).catch(function(){setBusy(false);});
+        }} style={{border:"none",borderRadius:9,padding:"9px 15px",fontSize:12.5,fontWeight:800,cursor:busy?"default":"pointer",color:"#fff",background:G.primary,opacity:busy?.6:1,flexShrink:0}}>Reenviar agora</button>
+      </div>}
 
       <div style={{marginTop:18}}>
         <div style={{fontSize:12,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>Meus registros de hoje</div>
@@ -9404,6 +9510,8 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
             <span style={{fontSize:16}}>{p.sub==="almoco"?(p.tipo==="saida"?"🟡":"🔵"):(p.tipo==="entrada"?"🟢":"🔴")}</span>
             <span style={{fontWeight:700,fontSize:14}}>{p.sub==="almoco"?(p.tipo==="saida"?"Saída p/ almoço":"Volta do almoço"):(p.tipo==="entrada"?"Entrada":"Saída")}</span>
             <span style={{fontSize:14,color:G.text}}>{p.hora}</span>
+            {pendIds[String(p.id)]&&<span style={{fontSize:10.5,fontWeight:800,color:"#8A6D1F",background:"#F6E9BE",borderRadius:6,padding:"2px 7px",letterSpacing:".2px"}}>{"⏳ ENVIANDO"}</span>}
+            {p.manual&&<span style={{fontSize:10.5,fontWeight:800,color:G.primary,background:G.accent,borderRadius:6,padding:"2px 7px",letterSpacing:".2px"}}>{"✎ AJUSTADA"}</span>}
             <span style={{marginLeft:"auto",fontSize:11,color:G.muted}}>{p.dist!=null?("a "+p.dist+" m"):""}</span>
           </div>;})}
       </div>
@@ -13518,6 +13626,51 @@ useEffect(function(){
     patSaving.current=false;
   },1000);
 },[pats]);
+
+// ── V294: PONTO — carga pela tabela propria + reenvio automatico da fila ──
+// Independente do blob de 1,9 MB: uma batida gravada aqui nao e mais apagada
+// por um aparelho que estava no meio de um save longo.
+useEffect(function(){
+  var vivo=true;
+  var mesclar=function(rows){
+    if(!rows||!rows.length)return;
+    setPontos(function(prev){
+      prev=prev||[];
+      var srv={};rows.forEach(function(p){if(p&&p.id!=null)srv[String(p.id)]=p;});
+      var mudou=false;
+      var base=prev.map(function(p){
+        if(!p||p.id==null)return p;
+        var s=srv[String(p.id)];
+        if(s&&JSON.stringify(s)!==JSON.stringify(p)){mudou=true;return s;}
+        return p;
+      });
+      var tem={};base.forEach(function(p){if(p&&p.id!=null)tem[String(p.id)]=true;});
+      var novos=rows.filter(function(p){return p&&p.id!=null&&!tem[String(p.id)];});
+      if(novos.length){base=base.concat(novos);mudou=true;}
+      return mudou?base:prev;
+    });
+  };
+  var puxar=function(){
+    return supabase.loadPontos(_pontoCursor).then(function(rows){if(vivo)mesclar(rows);}).catch(function(){});
+  };
+  var ciclo=function(){
+    if(!vivo)return;
+    puxar();
+    if(pontoPendGet().length){
+      pontoPendFlush().then(function(r){if(vivo&&r&&r.ok)puxar();}).catch(function(){});
+    }
+  };
+  ciclo();
+  var iv=setInterval(ciclo,30000);
+  var acordar=function(){if(!document.hidden)ciclo();};
+  window.addEventListener("online",acordar);
+  document.addEventListener("visibilitychange",acordar);
+  return function(){
+    vivo=false;clearInterval(iv);
+    window.removeEventListener("online",acordar);
+    document.removeEventListener("visibilitychange",acordar);
+  };
+},[]);
 
 // ── SINCRONIZACAO entre dispositivos: polling a cada 15s ──
 useEffect(function(){
