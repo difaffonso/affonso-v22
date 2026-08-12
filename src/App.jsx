@@ -9223,8 +9223,9 @@ return(
   <div>
     <div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Painel de abertura</div>
     <div style={{fontSize:11.5,color:G.muted,marginBottom:8,lineHeight:1.45}}>{"O que esta pessoa ve ao abrir o sistema. Bloco sem nenhum item nao aparece na tela."}</div>
+    {Number(uf.level)>=3&&<div style={{fontSize:11.5,color:G.primary,fontWeight:700,marginBottom:8,lineHeight:1.45,background:G.accent,borderRadius:9,padding:"9px 11px"}}>{"Aniversariantes, faltas de ontem, estoque, proteses e encaixes ficam mais abaixo, em SECOES DA VISAO GERAL."}</div>}
     <div style={{display:"flex",flexDirection:"column",gap:6}}>
-      {PNL_CAT.filter(function(b){return b.lv<=Number(uf.level||1);}).map(function(b){
+      {pnlDisp(uf).map(function(b){
         var atuais=Array.isArray(uf.painel)?uf.painel:pnlDoUser(uf);
         var on=atuais.indexOf(b.k)>=0;
         return <label key={b.k} style={{display:"flex",gap:9,alignItems:"flex-start",fontSize:12.5,cursor:"pointer",background:on?G.accent:"var(--surface-2)",borderRadius:9,padding:"9px 11px",border:"1.5px solid "+(on?G.primary:G.border)}}>
@@ -9690,6 +9691,7 @@ const PNL_LEG=[
   {k:"cardPacientes",t:"Card: total de pacientes"},
   {k:"cardHoje",     t:"Card: agendados hoje"},
   {k:"cardReceita",  t:"Card: receita do mês"},
+  {k:"despHoje",     t:"Contas que vencem hoje"},
   {k:"compras",      t:"Alerta de compras sem entrada no estoque"},
   {k:"retro",        t:"Recebimentos lançados fora do dia"},
   {k:"bday",         t:"Aniversariantes de hoje"},
@@ -9702,9 +9704,19 @@ const PNL_LEG=[
 function pnlLegOn(u,k){return !(u&&Array.isArray(u.painelOff)&&u.painelOff.indexOf(k)>=0);}
 function pnlDef(k){for(var i=0;i<PNL_CAT.length;i++)if(PNL_CAT[i].k===k)return PNL_CAT[i];return null;}
 function pnlCor(c){return (G&&G[c])||G.primary;}
+// V291: no admin estes blocos ja existem como secao antiga -> nao duplicar
+const PNL_DUP=["aniversarios","estoque","proteses","espera"];
+function pnlDisp(u){
+  return PNL_CAT.filter(function(b){
+    if(b.lv>Number((u&&u.level)||1))return false;
+    if(Number((u&&u.level)||1)>=3&&PNL_DUP.indexOf(b.k)>=0)return false;
+    return true;
+  });
+}
 function pnlDoUser(u){
   if(!u)return [];
-  if(Array.isArray(u.painel))return u.painel.filter(function(k){var d=pnlDef(k);return d&&d.lv<=(u.level||1);});
+  var ok={};pnlDisp(u).forEach(function(b){ok[b.k]=1;});
+  if(Array.isArray(u.painel))return u.painel.filter(function(k){return ok[k];});
   return (u.level>=3)?["pontoEquipe"]:["ponto","remarcar","espera"];
 }
 
@@ -10294,6 +10306,13 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     {[["👥",pats.length,"Pacientes",G.primary,"cardPacientes"],["📅",todayCount,"Hoje",G.blue,"cardHoje"],["💰",cur(rev),"Receita mês",G.success,"cardReceita"]].filter(function(c){return pnlLegOn(user,c[4]);}).map(function(c){return <div key={c[2]} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c[3]}}><div style={{fontSize:17}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c[3]}}>{c[1]}</div><div style={{fontSize:10,color:G.muted,fontWeight:600}}>{c[2]}</div></div>;})}
   </div>
 
+  {pnlLegOn(user,"despHoje")&&despHoje.length>0&&<div style={{background:"var(--amber-soft)",border:"2px solid #FF9800",borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={function(){setView("desp");}}>
+    <div style={{fontWeight:700,color:"#E65100",fontSize:13,marginBottom:4}}>{"💸 "+despHoje.length+" despesa(s) vence(m) hoje!"}</div>
+    {despHoje.slice(0,3).map(function(e,i){return <div key={i} style={{fontSize:12,color:"#E65100"}}>{"• "+(e.desc||"")+" — "+(Number(e.value||0)>0?cur(Number(e.value)):"preencher valor")}</div>;})}
+    {despHoje.length>3&&<div style={{fontSize:11,color:"#E65100",marginTop:2}}>{"+ "+(despHoje.length-3)+" mais..."}</div>}
+    <div style={{fontSize:11,color:"#BF360C",marginTop:4,fontWeight:600}}>{"Toque para ver Despesas →"}</div>
+  </div>}
+
   {/* V290: lembretes + blocos configuraveis do administrador */}
   <PnlLembretes rems={rems} setRems={setRems} users={users} user={user} pats={pats} go={setView}/>
   {pnlDoUser(user).map(function(_bk){return <PnlBloco key={_bk} bk={_bk}
@@ -10427,13 +10446,6 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
       </div>;})}
       <button onClick={function(){setView("agenda");}} style={{alignSelf:"flex-start",background:"#7B1FA2",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",marginTop:3}}>Ver Agenda →</button>
     </>,"#7B1FA2")}
-  </div>}
-
-  {despHoje.length>0&&<div style={{background:"var(--amber-soft)",border:"2px solid #FF9800",borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={function(){setView("desp");}}>
-    <div style={{fontWeight:700,color:"#E65100",fontSize:13,marginBottom:4}}>{"💸 "+despHoje.length+" despesa(s) vence(m) hoje!"}</div>
-    {despHoje.slice(0,3).map(function(e,i){return <div key={i} style={{fontSize:12,color:"#E65100"}}>{"• "+(e.desc||"")+" — "+(Number(e.value||0)>0?cur(Number(e.value)):"preencher valor")}</div>;})}
-    {despHoje.length>3&&<div style={{fontSize:11,color:"#E65100",marginTop:2}}>{"+ "+(despHoje.length-3)+" mais..."}</div>}
-    <div style={{fontSize:11,color:"#BF360C",marginTop:4,fontWeight:600}}>{"Toque para ver Despesas →"}</div>
   </div>}
 
   {bdayAll.length===0&&faltOntem.length===0&&prosPend.length===0&&stkBaixo.length===0&&cir.length===0&&despHoje.length===0&&encaixes.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>✅ Tudo em dia! Nenhuma pendência hoje.</div>}
