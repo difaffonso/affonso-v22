@@ -9239,6 +9239,25 @@ return(
       })}
     </div>
   </div>
+  {Number(uf.level)>=3&&<div>
+    <div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Seções da Visão Geral</div>
+    <div style={{fontSize:11.5,color:G.muted,marginBottom:8,lineHeight:1.45}}>{"O que já existia na tela do administrador. Desmarque o que não te serve."}</div>
+    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+      {PNL_LEG.map(function(b){
+        var off=Array.isArray(uf.painelOff)?uf.painelOff:[];
+        var on=off.indexOf(b.k)<0;
+        return <label key={b.k} style={{display:"flex",gap:9,alignItems:"center",fontSize:12.5,cursor:"pointer",background:on?G.accent:"var(--surface-2)",borderRadius:9,padding:"9px 11px",border:"1.5px solid "+(on?G.primary:G.border)}}>
+          <input type="checkbox" checked={on} onChange={function(){
+            var arr=off.slice();
+            var ix=arr.indexOf(b.k);
+            if(ix>=0)arr.splice(ix,1);else arr.push(b.k);
+            fu("painelOff")(arr);
+          }} style={{accentColor:G.primary,width:15,height:15,flex:"none"}}/>
+          <span>{b.t}</span>
+        </label>;
+      })}
+    </div>
+  </div>}
   <SC2 save={saveU} cancel={()=>setUm(false)}/>
 </div>}/>
 <Modal open={pm} close={()=>setPm(false)} title={ep?"Editar Procedimento":"Novo Procedimento"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
@@ -9658,8 +9677,29 @@ const PNL_CAT=[
   {k:"espera",     e:"🪑", t:"Lista de espera com vaga",       cor:"blue",    lv:1, tela:"lems",     d:"Buracos dos próximos dias que batem com o que o paciente pediu", na:"Não encaixar", porDia:true},
   {k:"proteses",   e:"🦷", t:"Próteses de hoje e atrasadas",   cor:"purple",  lv:1, tela:"pros",     na:"Cancelada", reset:0},
   {k:"estoque",    e:"📦", t:"Estoque baixo",                  cor:"orange",  lv:1, tela:"stk",      d:"Materiais abaixo do mínimo", na:"Não vai repor", reset:7},
-  {k:"aniversarios",e:"🎂",t:"Aniversariantes de hoje",        cor:"yellow",  lv:1, tela:"lems",     na:"Não mandar", porDia:true}
+  {k:"aniversarios",e:"🎂",t:"Aniversariantes de hoje",        cor:"yellow",  lv:1, tela:"lems",     na:"Não mandar", porDia:true},
+  {k:"notas",      e:"🧾", t:"Notas fiscais a emitir",         cor:"success", lv:2, tela:"pacs",     d:"Ortodontia do dia anterior e dias inteiros sem nota", na:"Paciente não quer nota", reset:0},
+  {k:"implantes",  e:"🦴", t:"Controle de implantes — a marcar",cor:"blue",   lv:1, tela:"impl",     d:"Toda segunda-feira · pacientes não marcados. Nos outros dias, só os atrasados", na:"Desistiu", soDia:1, reset:0},
+  {k:"pagamentos", e:"💵", t:"Pagamentos de hoje",              cor:"success", lv:3, tela:"caixa",    d:"Quem pagou hoje e quanto", info:true},
+  {k:"orcamentos", e:"📄", t:"Orçamento aprovado sem agendamento",cor:"red",   lv:2, tela:"pacs",     d:"Disseram sim e não têm consulta marcada", na:"Desistiu do tratamento", reset:0},
+  {k:"baixasExcesso",e:"🔍",t:"Baixas sem resolver de verdade",  cor:"purple",  lv:3, tela:"audit",    d:"Quem está marcando \"não se aplica\" acima do normal", na:"Já conversei", reset:7}
 ];
+
+// V291: secoes antigas da Visao Geral do admin — ligadas por padrao, desligaveis
+const PNL_LEG=[
+  {k:"cardPacientes",t:"Card: total de pacientes"},
+  {k:"cardHoje",     t:"Card: agendados hoje"},
+  {k:"cardReceita",  t:"Card: receita do mês"},
+  {k:"compras",      t:"Alerta de compras sem entrada no estoque"},
+  {k:"retro",        t:"Recebimentos lançados fora do dia"},
+  {k:"bday",         t:"Aniversariantes de hoje"},
+  {k:"falt",         t:"Faltaram ontem"},
+  {k:"prosLeg",      t:"Próteses pendentes"},
+  {k:"stkLeg",       t:"Estoque baixo"},
+  {k:"cir",          t:"Pós-cirurgia (contato)"},
+  {k:"espLeg",       t:"Encaixes — lista de espera"}
+];
+function pnlLegOn(u,k){return !(u&&Array.isArray(u.painelOff)&&u.painelOff.indexOf(k)>=0);}
 function pnlDef(k){for(var i=0;i<PNL_CAT.length;i++)if(PNL_CAT[i].k===k)return PNL_CAT[i];return null;}
 function pnlCor(c){return (G&&G[c])||G.primary;}
 function pnlDoUser(u){
@@ -9763,6 +9803,107 @@ function pnlItens(bk,D){
         bt:"Ver",late:!!r.falta});
     });
   }
+  if(bk==="notas"){
+    var nfsDoDia={};
+    (D.pats||[]).forEach(function(p){(p.nfs||[]).forEach(function(n){
+      if(!n||!n.date||n.status==="cancelled")return;
+      nfsDoDia[n.date]=(nfsDoDia[n.date]||0)+1;
+      nfsDoDia[n.date+"|"+p.id]=1;
+    });});
+    var _lim=new Date(t+"T12:00");_lim.setDate(_lim.getDate()-60);
+    var limS=_lim.toISOString().split("T")[0];
+    var ortoIds={};
+    (D.dents||[]).forEach(function(d){
+      var esp=String(d.specialty||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+      if(esp.indexOf("ortodont")>=0)ortoIds[String(d.id)]=1;
+    });
+    (D.recs||[]).forEach(function(r){
+      if(!r||r.date!==yd||!(Number(r.paid)>0))return;
+      if(!ortoIds[String(r.dentistId)])return;
+      if(nfsDoDia[r.date+"|"+r.patientId])return;
+      out.push({id:"nf"+r.id,g:"Ortodontia de ontem — "+yd.slice(8)+"/"+yd.slice(5,7),av:"🧾",
+        nm:nomeP(r.patientId),sub:cur(Number(r.paid))+(r.payment?(" · "+r.payment):""),bt:"Emitir",pid:r.patientId});
+    });
+    var porDia={};
+    (D.recs||[]).forEach(function(r){
+      if(!r||!r.date||!(Number(r.paid)>0))return;
+      if(r.date>=yd||r.date<limS)return;
+      if(!porDia[r.date])porDia[r.date]={tot:0,pac:{}};
+      porDia[r.date].tot+=Number(r.paid);
+      porDia[r.date].pac[r.patientId]=1;
+    });
+    Object.keys(porDia).sort().forEach(function(ds){
+      if(nfsDoDia[ds])return;
+      var q=Object.keys(porDia[ds].pac).length;
+      var dias=Math.round((new Date(t+"T12:00")-new Date(ds+"T12:00"))/86400000);
+      var dsem=["domingo","segunda","terça","quarta","quinta","sexta","sábado"][new Date(ds+"T12:00").getDay()];
+      out.push({id:"nd"+ds,g:"Dias com pagamento e nenhuma nota",av:"⚠️",
+        nm:ds.slice(8)+"/"+ds.slice(5,7)+" · "+dsem,
+        sub:q+" paciente(s) · "+cur(porDia[ds].tot)+" · "+dias+" dia(s) sem nota",bt:"Abrir",late:dias>7});
+    });
+  }
+  if(bk==="implantes"){
+    var MNI=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    var idxMes=function(m){var p=String(m||"").split("/");var i=MNI.indexOf(p[0]);if(i<0)return null;return (2000+Number(p[1]))*12+i;};
+    var _ag=new Date();var idxHoje=_ag.getFullYear()*12+_ag.getMonth();
+    (D.impl||[]).forEach(function(r){
+      if(!r||r.status!=="pending")return;
+      var ix=idxMes(r.mes);
+      if(ix===null||ix>idxHoje)return;
+      var atras=idxHoje-ix;
+      var etapa=r.cirurgia||r.protese||r.controle||"etapa não definida";
+      out.push({id:"im"+r.id,pid:r.patientId,late:atras>0,
+        g:atras>0?"Meses que já passaram":"Mês atual",
+        av:atras>0?"🔴":"🟠",nm:r.paciente||nomeP(r.patientId),
+        sub:r.mes+" · "+etapa+(atras>0?(" · atrasado "+atras+" mês"+(atras>1?"es":"")):" · não marcado"),
+        bt:"Marcar"});
+    });
+    out.sort(function(a,b){return (a.late?0:1)-(b.late?0:1);});
+  }
+  if(bk==="pagamentos"){
+    (D.recs||[]).filter(function(r){return r&&r.date===t&&Number(r.paid)>0;}).forEach(function(r){
+      var dd=(D.dents||[]).find(function(x){return x.id===Number(r.dentistId);});
+      out.push({id:"pg"+r.id,av:"💵",nm:nomeP(r.patientId),
+        sub:cur(Number(r.paid))+(r.payment?(" · "+r.payment):"")+(dd?(" · "+dd.name):""),bt:"Ver",pid:r.patientId});
+    });
+  }
+  if(bk==="orcamentos"){
+    (D.budgets||[]).filter(function(b){return b&&b.status==="approved";}).forEach(function(b){
+      var futuro=(D.appts||[]).some(function(a){return String(a.patientId)===String(b.patientId)&&a.date>=t&&a.status!=="cancelled";});
+      if(futuro)return;
+      var dias=Math.round((new Date(t+"T12:00")-new Date((b.date||t)+"T12:00"))/86400000);
+      if(dias<3)return;
+      var tot=(b.items||[]).reduce(function(s,i){return s+Number(i.v||0);},0)-Number(b.disc||0);
+      out.push({id:"or"+b.id,av:"💰",nm:nomeP(b.patientId),pid:b.patientId,late:dias>14,
+        sub:cur(tot)+" aprovado em "+(b.date||"").slice(8)+"/"+(b.date||"").slice(5,7)+" · "+dias+" dias sem marcar",bt:"Ligar"});
+    });
+    out.sort(function(a,b){return (b.late?1:0)-(a.late?1:0);});
+  }
+  if(bk==="baixasExcesso"){
+    var lim7=new Date(t+"T12:00");lim7.setDate(lim7.getDate()-7);
+    var lim7S=lim7.toISOString().split("T")[0];
+    var acc={};
+    Object.keys(D.ticks||{}).forEach(function(kk){
+      if(kk.indexOf("pnl_")!==0)return;
+      var r=(D.ticks||{})[kk];
+      if(!r||!r.done||!r.at||r.at<lim7S)return;
+      var bl=kk.split("_")[1]||"?";
+      var quem=r.by||"?";
+      var ch=bl+"|"+quem;
+      if(!acc[ch])acc[ch]={tot:0,na:0,bl:bl,quem:quem};
+      acc[ch].tot++;
+      if(String(r.motivo||"").toLowerCase().indexOf("resolvid")<0)acc[ch].na++;
+    });
+    Object.keys(acc).forEach(function(ch){
+      var a=acc[ch];
+      if(a.tot<4)return;
+      var pct=Math.round(a.na/a.tot*100);
+      if(pct<50)return;
+      var def2=pnlDef(a.bl);
+      out.push({id:"bx"+ch,av:"🔍",nm:((def2&&def2.t)||a.bl)+" · "+a.quem,late:pct>=75,
+        sub:a.na+" de "+a.tot+" baixas ("+pct+"%) sem resolver, nos últimos 7 dias",bt:"Ver"});
+    });
+  }
   return out;
 }
 
@@ -9775,11 +9916,12 @@ function PnlItem({it,def,tick,onBaixa,onReabrir,aberto,setAberto,go,abrirFicha,p
   };
   return <div style={{background:"var(--surface)",borderRadius:11,marginBottom:8,overflow:"hidden",opacity:tick?.55:1}}>
     <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 11px"}}>
+      {def.info?<span style={{flex:"none",width:23}}></span>:
       <button onClick={function(){tick?onReabrir(it.id):setAberto(aberto===it.id?null:it.id);}}
         title={tick?"Reabrir":"Dar baixa"}
         style={{flex:"none",width:23,height:23,borderRadius:8,border:"2px solid "+(tick?G.success:G.border),
           background:tick?G.success:G.card,color:tick?"#fff":"transparent",fontSize:13,fontWeight:800,
-          lineHeight:"19px",padding:0,cursor:"pointer",marginTop:1}}>✓</button>
+          lineHeight:"19px",padding:0,cursor:"pointer",marginTop:1}}>✓</button>}
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:13,fontWeight:800,lineHeight:1.3,textDecoration:tick?"line-through":"none"}}>{it.av+" "+it.nm}</div>
         <div style={{fontSize:11.5,color:(it.late&&!tick)?G.red:G.muted,fontWeight:600,marginTop:2,lineHeight:1.35}}>{it.sub}</div>
@@ -9830,7 +9972,9 @@ function PnlBloco({bk,D,user,ticks,setTicks,go,abrirFicha}){
     </div>;
   }
 
-  const itens=pnlItens(bk,D);
+  const itens0=pnlItens(bk,D);
+  // V291: bloco de dia fixo (ex.: implantes na segunda). Nos outros dias so os atrasados aparecem.
+  const itens=(def.soDia!=null&&new Date().getDay()!==def.soDia)?itens0.filter(function(i){return i.late;}):itens0;
   const abertos=itens.filter(function(i){return !pnlBaixa(ticks,bk,i.id,def.porDia,def.reset);});
   const feitos=itens.filter(function(i){return !!pnlBaixa(ticks,bk,i.id,def.porDia,def.reset);});
   if(!itens.length)return null; // bloco vazio nao ocupa espaco
@@ -9854,9 +9998,13 @@ function PnlBloco({bk,D,user,ticks,setTicks,go,abrirFicha}){
     </div>
     {def.d&&<div style={{fontSize:11.5,color:G.muted,fontWeight:600,marginBottom:10}}>{def.d}</div>}
     {abertos.length===0&&<div style={{fontSize:12.5,color:G.muted,textAlign:"center",padding:"12px 6px",fontWeight:600}}>{"Tudo com baixa por hoje. 🌿"}</div>}
-    {abertos.slice(0,lim).map(function(i){
-      return <PnlItem key={i.id} it={i} def={def} tick={null} aberto={aberto} setAberto={setAberto}
-        onBaixa={darBaixa} onReabrir={reabrir} go={go} abrirFicha={abrirFicha} pats={D.pats}/>;
+    {abertos.slice(0,lim).map(function(i,ix,arr){
+      var mostraG=i.g&&(ix===0||arr[ix-1].g!==i.g);
+      return <Fragment key={i.id}>
+        {mostraG?<div style={{fontSize:10.5,fontWeight:800,letterSpacing:".08em",textTransform:"uppercase",color:G.muted,margin:(ix?"12px 0 8px":"2px 0 8px")}}>{i.g}</div>:null}
+        <PnlItem it={i} def={def} tick={null} aberto={aberto} setAberto={setAberto}
+          onBaixa={darBaixa} onReabrir={reabrir} go={go} abrirFicha={abrirFicha} pats={D.pats}/>
+      </Fragment>;
     })}
     {abertos.length>5&&<button onClick={function(){setTudo(!tudo);}} style={{width:"100%",border:"none",background:"none",color:G.muted,fontSize:12,fontWeight:800,cursor:"pointer",padding:8}}>{tudo?"▲ mostrar menos":("▼ ver os outros "+(abertos.length-5))}</button>}
     {feitos.length>0&&<button onClick={function(){setVerFeitos(!verFeitos);}} style={{width:"100%",border:"none",background:"none",color:G.muted,fontSize:12,fontWeight:800,cursor:"pointer",padding:8}}>{verFeitos?"▲ esconder":("✓ "+feitos.length+" com baixa")}</button>}
@@ -9989,9 +10137,9 @@ function pnlAbertura(u){
 }
 
 // ---- painel da recepcao / dentista (nivel < 3) ----
-function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,users,user,pacsTicks,setPacsTicks,remarcar,setView,abrirFicha}){
+function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,users,user,pacsTicks,setPacsTicks,remarcar,recs,budgets,impl,setView,abrirFicha}){
   const t=today();
-  const D={appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar};
+  const D={appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar,recs:recs,budgets:budgets,impl:impl,ticks:pacsTicks};
   const hoje=(appts||[]).filter(function(a){return a.date===t&&!a.blocked&&a.status!=="cancelled";});
   const conf=hoje.filter(function(a){return a.status==="confirmed"||a.status==="done";}).length;
   const blocos=pnlDoUser(user);
@@ -10021,7 +10169,7 @@ function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,
   </div>;
 }
 
-function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent,setRecs,abrirFicha,setRems,users,pontos,remarcar}){
+function Dashboard({appts,pats,recs,rems,pros,dents,setView,user,gastos,stock,labs,pacsTicks,setPacsTicks,espera,waSent,setRecs,abrirFicha,setRems,users,pontos,remarcar,budgets,impl}){
 const t=today();
 const yd=yest();
 const mo=t.slice(0,7);
@@ -10131,7 +10279,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     <div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div>
   </div>
 
-  {(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta na visao geral
+  {pnlLegOn(user,"compras")&&(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta na visao geral
   var totPend=pend.reduce(function(s2,g2){return s2+valorCompra(g2);},0);
   return <div onClick={function(){if(setView)setView("stk");}} style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borderRadius:14,padding:"13px 15px",display:"flex",gap:11,alignItems:"center",cursor:"pointer"}}>
   <span style={{fontSize:19,lineHeight:1}}>{"\u26a0"}</span>
@@ -10143,13 +10291,13 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
   </div>;})()}
 
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
-    {[["👥",pats.length,"Pacientes",G.primary],["📅",todayCount,"Hoje",G.blue],["💰",cur(rev),"Receita mês",G.success]].map(function(c){return <div key={c[2]} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c[3]}}><div style={{fontSize:17}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c[3]}}>{c[1]}</div><div style={{fontSize:10,color:G.muted,fontWeight:600}}>{c[2]}</div></div>;})}
+    {[["👥",pats.length,"Pacientes",G.primary,"cardPacientes"],["📅",todayCount,"Hoje",G.blue,"cardHoje"],["💰",cur(rev),"Receita mês",G.success,"cardReceita"]].filter(function(c){return pnlLegOn(user,c[4]);}).map(function(c){return <div key={c[2]} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c[3]}}><div style={{fontSize:17}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c[3]}}>{c[1]}</div><div style={{fontSize:10,color:G.muted,fontWeight:600}}>{c[2]}</div></div>;})}
   </div>
 
   {/* V290: lembretes + blocos configuraveis do administrador */}
   <PnlLembretes rems={rems} setRems={setRems} users={users} user={user} pats={pats} go={setView}/>
   {pnlDoUser(user).map(function(_bk){return <PnlBloco key={_bk} bk={_bk}
-    D={{appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar}}
+    D={{appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar,recs:recs,budgets:budgets,impl:impl,ticks:pacsTicks}}
     user={user} ticks={pacsTicks} setTicks={setPacsTicks} go={setView} abrirFicha={abrirFicha}/>;})}
   {user.level>=3&&<button onClick={function(){if(setView)setView("adm");}} style={{border:"none",background:"var(--surface)",borderRadius:11,padding:"11px 14px",fontSize:12.5,fontWeight:700,color:G.muted,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:9,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
     <span style={{fontSize:15}}>{"⚙️"}</span>
@@ -10157,7 +10305,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     <span style={{color:G.muted,fontSize:14}}>{"›"}</span>
   </button>}
 
-  {retroPend.length>0&&<div>
+  {pnlLegOn(user,"retro")&&retroPend.length>0&&<div>
     {head(oRetro,setORetro,"\u26a0\ufe0f","Recebimentos lan\u00e7ados fora do dia",retroPend.length,G.red)}
     {oRetro&&bodyWrap(<>
       {retroPend.length===0&&<div style={{fontSize:12,color:G.success,fontWeight:600}}>\u2705 Tudo revisado!</div>}
@@ -10200,7 +10348,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     </>,G.red)}
   </div>}
 
-  {bdayAll.length>0&&<div>
+  {pnlLegOn(user,"bday")&&bdayAll.length>0&&<div>
     {head(oBday,setOBday,"🎂","Aniversariantes hoje",bdayPend.length,G.gold)}
     {oBday&&bodyWrap(<>
       {bdayPend.length===0&&<div style={{fontSize:12,color:G.success,fontWeight:600}}>✅ Todos já contatados!</div>}
@@ -10217,7 +10365,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     </>,G.gold)}
   </div>}
 
-  {faltOntem.length>0&&<div>
+  {pnlLegOn(user,"falt")&&faltOntem.length>0&&<div>
     {head(oFalt,setOFalt,"🚫","Faltaram ontem",faltOntem.length,G.red)}
     {oFalt&&bodyWrap(<>
       {faltOntem.map(function(a){var p=pats.find(function(x){return x.id===a.patientId;});var d=dents.find(function(x){return x.id===a.dentistId;})||dents[0];if(!p)return null;return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
@@ -10228,7 +10376,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     </>,G.red)}
   </div>}
 
-  {prosPend.length>0&&<div>
+  {pnlLegOn(user,"prosLeg")&&prosPend.length>0&&<div>
     {head(oPros,setOPros,"🏥",("Próteses pendentes"+(prosAtras>0?" ("+prosAtras+" atrasada"+(prosAtras>1?"s":"")+")":"")),prosPend.length,G.red)}
     {oPros&&bodyWrap(<>
       {prosPend.slice(0,12).map(function(p){var pat=pats.find(function(x){return x.id===p.patientId;});var lab=(labs||[]).find(function(x){return x.id===p.labId;});var late=p.due&&p.due<t;return <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
@@ -10238,7 +10386,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     </>,G.red)}
   </div>}
 
-  {stkBaixo.length>0&&<div>
+  {pnlLegOn(user,"stkLeg")&&stkBaixo.length>0&&<div>
     {head(oStk,setOStk,"📦","Estoque baixo",stkBaixo.length,G.orange)}
     {oStk&&bodyWrap(<>
       {stkBaixo.map(function(s){return <div key={s.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
@@ -10250,7 +10398,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     </>,G.orange)}
   </div>}
 
-  {cir.length>0&&<div>
+  {pnlLegOn(user,"cir")&&cir.length>0&&<div>
     {head(oCir,setOCir,"🔴","Pós-cirurgia (contato)",cir.length,G.red)}
     {oCir&&bodyWrap(<>
       {cir.map(function(r){var p=pats.find(function(x){return x.id===r.patientId;});var autoOk=!!appts.find(function(a){return a.patientId===r.patientId&&a.date===yest()&&waSent&&waSent["pc_"+a.id];});return <div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border}}>
@@ -10261,7 +10409,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     </>,G.red)}
   </div>}
 
-  {encaixes.length>0&&<div>
+  {pnlLegOn(user,"espLeg")&&encaixes.length>0&&<div>
     {head(oEsp,setOEsp,"⏳","Encaixes — Lista de Espera",encaixes.length,"#7B1FA2")}
     {oEsp&&bodyWrap(<>
       {encaixes.map(function(x){return <div key={x.esp.id} style={{padding:"7px 0",borderBottom:"1px solid "+G.border}}>
@@ -13814,9 +13962,9 @@ return <>
       {remBadge>0&&<span style={{background:G.red,color:"#fff",borderRadius:10,padding:"2px 8px",fontSize:10,fontWeight:700}}>{remBadge}</span>}
     </div>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
-      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha} setRems={setRems} users={users} pontos={pontos} remarcar={remarcar}/>}
+      {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha} setRems={setRems} users={users} pontos={pontos} remarcar={remarcar} budgets={budgets} impl={impl}/>}
       {/* V290: painel do dia para recepcao e dentistas */}
-      {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} setView={go} abrirFicha={abrirFicha}/>}
+      {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog}/>}
