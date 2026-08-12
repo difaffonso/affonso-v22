@@ -9856,6 +9856,22 @@ function pnlPontoDia(pontos,uid,ds){
   var falta=!ent||!sai||(almI&&!almF);
   return {ent:ent,sai:sai,almI:almI,almF:almF,alm:alm,liq:liq,falta:falta,regs:regs.length};
 }
+// V295: ultimo dia que teve batida (pula domingo, feriado e dia sem ninguem)
+function pnlUltimoDia(pontos,uid){
+  var d=new Date(today()+"T12:00");
+  for(var i=1;i<=14;i++){
+    d.setDate(d.getDate()-1);
+    var ds=_ld(d);
+    var tem=(pontos||[]).some(function(p){return p.data===ds&&(uid==null||String(p.uid)===String(uid));});
+    if(tem)return ds;
+  }
+  return yest();
+}
+function pnlDiaLabel(ds){
+  if(!ds)return "";
+  var wd=["domingo","segunda","terça","quarta","quinta","sexta","sábado"][new Date(ds+"T12:00").getDay()];
+  return wd+" "+ds.slice(8)+"/"+ds.slice(5,7);
+}
 function pnlHM(m){var neg=m<0;m=Math.abs(m);return (neg?"-":"")+Math.floor(m/60)+"h"+("0"+(m%60)).slice(-2);}
 
 // ---- montagem dos itens de cada bloco ----
@@ -9914,9 +9930,10 @@ function pnlItens(bk,D){
     });
   }
   if(bk==="pontoEquipe"){
+    var dRef=pnlUltimoDia(D.pontos,null);
     (D.users||[]).filter(function(u){return u.active!==false&&Number(u.level)===2&&!u.dentistId;}).forEach(function(u){
-      var r=pnlPontoDia(D.pontos,u.id,yd);
-      if(!r){out.push({id:"pt"+u.id,av:"⚪",nm:u.name,sub:"Nenhuma batida ontem",bt:"Ver",late:true});return;}
+      var r=pnlPontoDia(D.pontos,u.id,dRef);
+      if(!r){out.push({id:"pt"+u.id,av:"⚪",nm:u.name,sub:"Nenhuma batida em "+pnlDiaLabel(dRef),bt:"Ver",late:true});return;}
       out.push({id:"pt"+u.id,av:r.falta?"⚠️":"✅",nm:u.name,
         sub:r.falta?((r.ent||"—")+" → "+(r.sai||"não bateu a saída")+" · precisa de ajuste")
                    :((r.ent||"—")+" → "+(r.sai||"—")+" · almoço "+(r.alm>0?pnlHM(r.alm):"—")+" · "+pnlHM(r.liq)+" trabalhadas"),
@@ -10072,13 +10089,14 @@ function PnlBloco({bk,D,user,ticks,setTicks,go,abrirFicha}){
   const card={background:G.card,borderRadius:14,padding:"14px 15px 11px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:"5px solid "+cor};
 
   if(def.tipo==="pontoMe"){
-    const r=pnlPontoDia(D.pontos,user.id,yest());
+    const dMe=pnlUltimoDia(D.pontos,user.id);
+    const r=pnlPontoDia(D.pontos,user.id,dMe);
     if(!r)return null;
     const box={flex:1,minWidth:64,background:"var(--surface)",borderRadius:11,padding:"9px 6px",textAlign:"center"};
     return <div style={card}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
         <span style={{fontSize:17}}>{def.e}</span>
-        <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20,margin:0,color:cor,flex:1}}>{def.t}</h3>
+        <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20,margin:0,color:cor,flex:1}}>{"Seu ponto — "+pnlDiaLabel(dMe)}</h3>
       </div>
       <div style={{fontSize:11.5,color:G.muted,fontWeight:600,marginBottom:10}}>{def.d}</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -10110,10 +10128,11 @@ function PnlBloco({bk,D,user,ticks,setTicks,go,abrirFicha}){
     setTicks(function(prev){var n=Object.assign({},prev);n[pnlKey(bk,id,def.porDia)]={done:false,ts:Date.now(),by:(user&&user.name)||""};return n;});
   };
   const lim=tudo?abertos.length:5;
+  const titulo=(bk==="pontoEquipe")?("Ponto da equipe — "+pnlDiaLabel(pnlUltimoDia(D.pontos,null))):def.t;
   return <div style={card}>
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:def.d?3:10}}>
       <span style={{fontSize:17}}>{def.e}</span>
-      <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20,margin:0,color:cor,flex:1,lineHeight:1.15}}>{def.t}</h3>
+      <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20,margin:0,color:cor,flex:1,lineHeight:1.15}}>{titulo}</h3>
       <span style={{background:cor,color:"#fff",borderRadius:20,padding:"2px 10px",fontSize:11.5,fontWeight:800}}>{abertos.length}</span>
     </div>
     {def.d&&<div style={{fontSize:11.5,color:G.muted,fontWeight:600,marginBottom:10}}>{def.d}</div>}
@@ -10146,15 +10165,21 @@ function PnlLembretes({rems,setRems,users,user,pats,go}){
   const [verFeitos,setVerFeitos]=useState(false);
   const t=today();
   const meus=(rems||[]).filter(function(r){return Number(r.assignedUserId)===Number(user.id);});
+  // V295: o que eu pedi para outra pessoa — fica visivel pra mim, para poder cobrar
+  const deleg=(rems||[]).filter(function(r){
+    if(!r.assignedUserId||Number(r.assignedUserId)===Number(user.id))return false;
+    return (r.pnlById!=null)?(Number(r.pnlById)===Number(user.id)):(!!r.pnlBy&&r.pnlBy===user.name);
+  });
+  const nomeU=function(id){var u=(users||[]).find(function(x){return Number(x.id)===Number(id);});return u?u.name:"alguém";};
   const gerais=(rems||[]).filter(function(r){return !r.assignedUserId;});
   const vivo=function(r){ if(r.done)return false; if(r.pnlSoHoje&&r.date&&r.date<t)return false; return true; };
-  const gA=gerais.filter(vivo),mA=meus.filter(vivo);
-  const feitos=gerais.concat(meus).filter(function(r){return r.done&&r.pnlDoneAt===t;});
+  const gA=gerais.filter(vivo),mA=meus.filter(vivo),dA=deleg.filter(vivo);
+  const feitos=gerais.concat(meus).concat(deleg).filter(function(r){return r.done&&r.pnlDoneAt===t;});
   const card={background:G.card,borderRadius:14,padding:"14px 15px 11px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:"5px solid "+G.primary};
   const salvar=function(){
     var v=txt.trim();if(!v)return;
     var obj={id:nid(rems),title:v,desc:"",date:t,priority:"medium",done:false,patientId:null,
-      assignedUserId:para==="0"?null:Number(para),pnlBy:(user&&user.name)||"",pnlSoHoje:!!soHoje,_ts:Date.now()};
+      assignedUserId:para==="0"?null:Number(para),pnlBy:(user&&user.name)||"",pnlById:(user&&user.id)||null,pnlSoHoje:!!soHoje,_ts:Date.now()};
     setRems(function(prev){return (prev||[]).concat([obj]);});
     setTxt("");setForm(false);setSoHoje(false);
   };
@@ -10172,13 +10197,14 @@ function PnlLembretes({rems,setRems,users,user,pats,go}){
     if(!window.confirm("Excluir este lembrete de vez?"))return;
     setRems(function(prev){return (prev||[]).filter(function(r){return r.id!==id;});});
   };
-  const linha=function(r,geral){
+  const linha=function(r,geral,delegado){
     var dias=r.date?Math.round((new Date(t+"T12:00")-new Date(r.date+"T12:00"))/86400000):0;
     var idade=r.pnlSoHoje?"só hoje":(dias<=0?"criado hoje":("aberto há "+dias+" dia"+(dias>1?"s":"")));
     var autor=(r.pnlBy||"");
     var p=r.patientId?(pats||[]).find(function(x){return String(x.id)===String(r.patientId);}):null;
     return <div key={r.id} style={{background:"var(--surface)",borderRadius:11,marginBottom:8,overflow:"hidden",
-      borderLeft:geral?("4px solid "+G.primary):"none",opacity:r.done?.55:1}}>
+      borderLeft:delegado?("4px solid "+G.gold):(geral?("4px solid "+G.primary):"none"),
+      boxShadow:delegado?("inset 0 0 0 1.5px "+G.gold):"none",opacity:r.done?.55:1}}>
       <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 11px"}}>
         <button onClick={function(){r.done?reabrir(r.id):setAberto(aberto===r.id?null:r.id);}}
           style={{flex:"none",width:23,height:23,borderRadius:8,border:"2px solid "+(r.done?G.success:G.border),
@@ -10188,6 +10214,7 @@ function PnlLembretes({rems,setRems,users,user,pats,go}){
           <div style={{fontSize:13,fontWeight:600,lineHeight:1.4,textDecoration:r.done?"line-through":"none"}}>{r.title}</div>
           <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center",marginTop:5,fontSize:10.5,fontWeight:700,color:G.muted}}>
             {geral&&<span style={{background:G.accent,color:G.primary,borderRadius:6,padding:"1px 7px",fontWeight:800}}>{"👥 todos"}</span>}
+            {delegado&&<span style={{background:G.gold,color:"#fff",borderRadius:6,padding:"1px 7px",fontWeight:800}}>{"➜ você pediu para "+nomeU(r.assignedUserId)}</span>}
             {(!geral&&autor&&autor!==user.name)&&<span style={{background:G.accent,color:G.primary,borderRadius:6,padding:"1px 7px",fontWeight:800}}>{"de "+autor}</span>}
             {p&&<span>{p.name}</span>}
             <span style={{color:(dias>2&&!r.done&&!r.pnlSoHoje)?G.red:G.muted,fontWeight:800}}>
@@ -10212,7 +10239,7 @@ function PnlLembretes({rems,setRems,users,user,pats,go}){
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
       <span style={{fontSize:17}}>{"✅"}</span>
       <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20,margin:0,color:G.primary,flex:1}}>Lembretes</h3>
-      <span style={{background:G.accent,color:G.primary,borderRadius:20,padding:"2px 10px",fontSize:11.5,fontWeight:800}}>{(gA.length+mA.length)+" aberto"+((gA.length+mA.length)===1?"":"s")}</span>
+      <span style={{background:G.accent,color:G.primary,borderRadius:20,padding:"2px 10px",fontSize:11.5,fontWeight:800}}>{(gA.length+mA.length)+" aberto"+((gA.length+mA.length)===1?"":"s")+(dA.length?(" · "+dA.length+" delegado"+(dA.length===1?"":"s")):"")}</span>
       <button onClick={function(){setForm(!form);}} style={{flex:"none",border:"none",background:"var(--surface)",borderRadius:9,width:31,height:31,fontSize:19,fontWeight:700,color:G.primary,cursor:"pointer",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff"}}>+</button>
     </div>
     <div style={{fontSize:11.5,color:G.muted,fontWeight:600,marginBottom:10}}>{"Ficam abertos até alguém dar baixa — não somem na virada do dia."}</div>
@@ -10236,9 +10263,13 @@ function PnlLembretes({rems,setRems,users,user,pats,go}){
     {gA.map(function(r){return linha(r,true);})}
     {mA.length>0&&<div style={{fontSize:10.5,fontWeight:800,letterSpacing:".08em",textTransform:"uppercase",color:G.muted,margin:(gA.length?"14px 0 8px":"2px 0 8px")}}>{"Só seus"}</div>}
     {mA.map(function(r){return linha(r,false);})}
-    {(gA.length+mA.length)===0&&<div style={{fontSize:12.5,color:G.muted,textAlign:"center",padding:"14px 6px",fontWeight:600}}>{"Nada aberto. 🌿"}</div>}
+    {dA.length>0&&<div style={{fontSize:10.5,fontWeight:800,letterSpacing:".08em",textTransform:"uppercase",color:G.gold,margin:((gA.length||mA.length)?"14px 0 8px":"2px 0 8px")}}>{"Você pediu para outra pessoa"}</div>}
+    {dA.map(function(r){return linha(r,false,true);})}
+    {(gA.length+mA.length+dA.length)===0&&<div style={{fontSize:12.5,color:G.muted,textAlign:"center",padding:"14px 6px",fontWeight:600}}>{"Nada aberto. 🌿"}</div>}
     {feitos.length>0&&<button onClick={function(){setVerFeitos(!verFeitos);}} style={{width:"100%",border:"none",background:"none",color:G.muted,fontSize:12,fontWeight:800,cursor:"pointer",padding:8}}>{verFeitos?"▲ esconder":("✓ "+feitos.length+" com baixa hoje")}</button>}
-    {verFeitos&&feitos.map(function(r){return linha(r,!r.assignedUserId);})}
+    {verFeitos&&feitos.map(function(r){
+      var dg=r.assignedUserId&&Number(r.assignedUserId)!==Number(user.id);
+      return linha(r,!r.assignedUserId,dg);})}
   </div>;
 }
 
@@ -13215,6 +13246,10 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 });
 },[user]);
 
+// V296: janela do autosave. 800ms gravava ~1.460x/dia (310kB de WAL cada).
+// 6000ms agrupa as edicoes seguidas numa gravacao so. Sair da pagina continua
+// gravando na hora via flushSave(), entao nao ha risco de perder alteracao.
+const AUTOSAVE_MS=6000;
 // ── SALVAR no Supabase (robusto com retry + fila + anti-sobrescrita) ──
 const pendingSave=useRef(false);
 const lastServerTs=useRef(null);
@@ -13601,7 +13636,7 @@ useEffect(function(){
     }
   };
   runSaveRef.current=runSave; // V210
-  saveTimer.current=setTimeout(runSave,800);
+  saveTimer.current=setTimeout(runSave,AUTOSAVE_MS); // V296: era 800ms fixo
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp]);
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
