@@ -13393,7 +13393,7 @@ document.addEventListener("visibilitychange",function(){if(document.visibilitySt
 // V296: janela do autosave. 800ms gravava ~1.460x/dia (310kB de WAL cada).
 // 6000ms agrupa as edicoes seguidas numa gravacao so. Sair da pagina continua
 // gravando na hora via flushSave(), entao nao ha risco de perder alteracao.
-const AUTOSAVE_MS=6000;
+const AUTOSAVE_MS=2000; // V298: era 6000. A medicao de 13/08 mostrou que 6s nao reduziu as gravacoes (as edicoes ja vinham espacadas, nao havia rajada para agrupar). 2s mantem uma folga util e devolve a sincronia rapida entre os aparelhos.
 // ── SALVAR no Supabase (robusto com retry + fila + anti-sobrescrita) ──
 const pendingSave=useRef(false);
 const lastServerTs=useRef(null);
