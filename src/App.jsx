@@ -14057,6 +14057,7 @@ const patSaveTimer=useRef(null);
 const patSaving=useRef(false);
 const patPending=useRef(false);
 const patsRef=useRef([]);
+const afastRef=useRef([]);const holRef=useRef([]);const ferSaldoRef=useRef({});const ferPerRef=useRef(FER_PER_INICIAL);// V305: payload le o estado mais novo, nao o fechamento da renderizacao antiga
 const lastPatPollTs=useRef(null);
 const anamSeenRef=useRef({});
 const anamPullRef=useRef(0);
@@ -14673,7 +14674,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer};// V303
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current};// V305: via refs
     if(!patTableOk.current)payload.pats=pats;
     try{ // V199: carimbo de versao so nas chaves cujo conteudo mudou
       if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
@@ -14752,6 +14753,7 @@ useEffect(function(){
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
+afastRef.current=afast;holRef.current=hol;ferSaldoRef.current=ferSaldo;ferPerRef.current=ferPer;// V305
 useEffect(function(){
   if(!initialized.current||!patTableOk.current)return;
   if(patSaveTimer.current)clearTimeout(patSaveTimer.current);
@@ -14912,6 +14914,10 @@ useEffect(function(){
       if(sd.implCat)addArr(sd.implCat,setImplCat,"implCat");// V238 merge aditivo - nao sobrescreve mais
       if(sd.implMov)addArr(sd.implMov,setImplMov,"implMov");// V238 merge aditivo - nao sobrescreve mais
       if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSetP);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, _ts mais novo vence
+      if(sd.afast)addArr(sd.afast,setAfast,"afast");// V305: afast nao entrava no poll -- aparelho aberto ficava com lista velha e apagava o registro no proprio save
+      if(sd.hol)addArr(sd.hol,setHol,"hol");// V305
+      if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V305
+      if(sd.ferPer)setFerPer(function(prev){return JSON.stringify(sd.ferPer)===JSON.stringify(prev)?prev:sd.ferPer;});// V305
       lastServerTs.current=fresh.updated_at;
       if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
     }catch(e){}
