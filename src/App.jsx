@@ -11336,7 +11336,7 @@ function pnlAbertura(u){
 }
 
 // ---- painel da recepcao / dentista (nivel < 3) ----
-function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,users,user,pacsTicks,setPacsTicks,remarcar,recs,budgets,impl,setView,abrirFicha}){
+function PainelDia({ferPer,afast,appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,users,user,pacsTicks,setPacsTicks,remarcar,recs,budgets,impl,setView,abrirFicha}){
   const t=today();
   const D={appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar,recs:recs,budgets:budgets,impl:impl,ticks:pacsTicks,ferPer:ferPer,afast:afast};/* V301 */
   const hoje=(appts||[]).filter(function(a){return a.date===t&&!a.blocked&&a.status!=="cancelled";});
@@ -14310,6 +14310,10 @@ if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
 if(data.pontos?.length)setPontos(data.pontos);
 if(data.caixa?.length)setCaixa(data.caixa);
+if(data.afast?.length)setAfast(data.afast);// V302: faltava carregar -- o registro sumia ao reabrir
+if(data.hol?.length)setHol(data.hol);// V302: idem holerites
+if(data.ferPer)setFerPer(Object.assign({},FER_PER_INICIAL,data.ferPer));// V302: servidor manda, mas mantem o que ja veio embutido
+if(data.ferSaldo)setFerSaldo(data.ferSaldo);// V302
 if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60},data.pontoCfg));
 if(data.acessoCfg)setAcessoCfg(Object.assign({restringir:true,segIni:"07:00",segFim:"21:00",sabIni:"07:00",sabFim:"13:00",domOn:false,domIni:"08:00",domFim:"12:00"},data.acessoCfg));
 if(data.logs?.length)setLogs(data.logs);
@@ -15325,7 +15329,7 @@ return <>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha} setRems={setRems} users={users} pontos={pontos} remarcar={remarcar} budgets={budgets} impl={impl}/>}
       {/* V290: painel do dia para recepcao e dentistas */}
-      {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
+      {view==="dash"&&user.level<3&&<PainelDia ferPer={ferPer} afast={afast} appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog}/>}
