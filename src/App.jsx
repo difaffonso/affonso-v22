@@ -4349,10 +4349,13 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 function IndicPicker({pats,selfId,valId,valNome,onPick}){
 const [q,setQ]=useState("");
 const LB=<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Quem indicou?</label>;
-if(valId){
+/* V306: aceita tambem nome digitado sem ficha (valNome sozinho) */
+if(valId||String(valNome||"").trim()){
+  var _semFicha=!valId;
   return <div style={{display:"flex",flexDirection:"column",gap:4}}>{LB}
-    <div style={{display:"flex",alignItems:"center",gap:9,background:G.accent,borderRadius:8,padding:"9px 12px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:9,background:_semFicha?"var(--amber-soft)":G.accent,border:_semFicha?("1.5px solid "+G.gold):"1.5px solid transparent",borderRadius:8,padding:"9px 12px"}}>
       <span style={{flex:1,fontSize:13.5,fontWeight:600}}>{valNome||"(sem nome)"}</span>
+      {_semFicha&&<span style={{fontSize:9.5,fontWeight:800,color:G.gold,textTransform:"uppercase",letterSpacing:".4px",whiteSpace:"nowrap"}}>{"sem ficha"}</span>}
       <span onClick={function(){setQ("");onPick(null,"");}} style={{cursor:"pointer",color:G.muted,fontWeight:800,fontSize:15,lineHeight:1}}>✕</span>
     </div>
   </div>;
@@ -4367,7 +4370,14 @@ return <div style={{display:"flex",flexDirection:"column",gap:4}}>{LB}
       <div style={{fontSize:11,color:G.muted}}>{p.phone||"sem telefone"}{p.folder?" \u00b7 Ficha "+p.folder:""}</div>
     </div>;})}
   </div>}
-  {qq.length>=2&&hits.length===0&&<div style={{fontSize:11.5,color:G.muted,marginTop:2}}>Nenhum paciente com esse nome. Se quem indicou nao e paciente, deixe em branco.</div>}
+  {/* V306: saida para quem nao acha a ficha — grava o nome digitado */}
+  {qq.length>=2&&hits.length===0&&<div style={{display:"flex",flexDirection:"column",gap:5,marginTop:2}}>
+    <div style={{fontSize:11.5,color:G.muted}}>{"Nenhum paciente com esse nome."}</div>
+    <div onClick={function(){var _n=q.trim();if(!_n)return;setQ("");onPick(null,_n);}} style={{border:"1.5px dashed "+G.blue,background:"var(--blue-soft)",borderRadius:9,padding:"9px 12px",cursor:"pointer",lineHeight:1.35}}>
+      <div style={{fontSize:12.5,fontWeight:800,color:G.blue}}>{"\u270d\ufe0f Usar \u201c"+q.trim()+"\u201d assim mesmo"}</div>
+      <div style={{fontSize:10.5,fontWeight:600,color:G.muted,marginTop:2}}>{"Guarda s\u00f3 o nome. Use quando o paciente n\u00e3o souber o nome completo de quem indicou, ou quando quem indicou n\u00e3o for paciente."}</div>
+    </div>
+  </div>}
 </div>;
 }
 
@@ -13287,7 +13297,7 @@ var semStatus=appts.filter(function(a){return !a.blocked&&a.date<=ont&&a.date>=d
 var origemPend=pats.filter(function(p){return !p._pre/* V282 */&&!p.origem&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 campo em branco",key:"origem_"+p.id};});
 
 // V243 - 16. Indicacao sem quem indicou informado
-var indicPend=pats.filter(function(p){return !p._pre/* V282 */&&p.origem==="Indicação"&&!p.indicPorId&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 quem indicou em branco",key:"indic_"+p.id};});
+var indicPend=pats.filter(function(p){return !p._pre/* V282 */&&p.origem==="Indicação"&&!p.indicPorId&&!String(p.indicPorNome||"").trim()/* V306 */&&p.since&&p.since>=d30&&p.since<=t;}).sort(function(a,b){return (b.since||"").localeCompare(a.since||"");}).map(function(p){return {nome:p.name,det:"Cadastro em "+fmt(p.since)+" \u00b7 quem indicou em branco",key:"indic_"+p.id};});
 
 // V228 - 15. Conversas com paciente aguardando resposta ha 2h+ (mesmo criterio do V214: ultima msg e do paciente, nao e botao 1/2)
 var chatPend=[];
