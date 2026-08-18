@@ -9607,27 +9607,6 @@ function pegarLocal(){
 // ══════════════════════════════════════════════════════════════════
 var RH_BUCKET="docs-rh";
 
-// V301: relacao de escala de ferias do contador, referencia 08/2026
-// (posicao ate 31/07/2026). Serve so como ponto de partida: assim que
-// o contador mandar a proxima, e so editar na tela.
-// As chaves sao os ids dos usuarios no sistema.
-var FER_PER_INICIAL={
-  // Silvia Melo de Oliveira (id 2) -- admissao 09/01/2025
-  "2":[
-    {id:"p2a",ini:"2025-01-09",fim:"2026-01-08",limite:"2026-12-08",dias:11},
-    {id:"p2b",ini:"2026-01-09",fim:"2027-01-08",limite:"2027-12-08",dias:20}
-  ],
-  // Jaqueline Noleto Lopes (id 4) -- admissao 07/11/2022
-  "4":[
-    {id:"p4a",ini:"2025-11-07",fim:"2026-11-06",limite:"2027-10-06",dias:25}
-  ],
-  // Debora de Medeiros Alexandre (id 8) -- admissao 20/01/2025
-  "8":[
-    {id:"p8a",ini:"2025-01-20",fim:"2026-01-19",limite:"2026-12-19",dias:8},
-    {id:"p8b",ini:"2026-01-20",fim:"2027-01-19",limite:"2027-12-19",dias:17.5}
-  ]
-};
-
 // Envia o arquivo. Devolve {path,nome,tipo,tam}.
 async function rhSubir(file,pasta){
   if(!file)throw new Error("sem arquivo");
@@ -9770,36 +9749,33 @@ function afDoDia(afast,uid,ymd){
   }
   return null;
 }
-// ── V301: PERIODOS AQUISITIVOS DE FERIAS ──────────────────────────
-// Cada funcionario tem uma LISTA de periodos, nao um saldo unico.
-// Estrutura: ferPer[uid] = [{ini,fim,limite,dias,id}]
-// "dias" vem do relatorio do contador (ele ja aplica faltas, avos etc).
-// A data limite e o que importa no dia a dia: passou dela sem conceder,
-// a lei manda pagar em dobro.
+// ── V303: FERIAS POR PERIODO AQUISITIVO ───────────────────────────
+// Espelha a relacao de escala de ferias do contador. Cada funcionario
+// tem uma LISTA de periodos (nao um saldo unico), cada um com sua
+// data limite. O sistema nao recalcula o que o contador calcula:
+// guarda, desconta o que foi lancado e avisa do prazo.
+// ferPer[uid] = [{id,ini,fim,limite,dias}]
 function ferPeriodos(ferPer,uid){
   var l=(ferPer||{})[String(uid)];
   return Array.isArray(l)?l.slice().sort(function(a,b){return (a.limite||"")<(b.limite||"")?-1:1;}):[];
 }
-// quanto ja foi lancado de ferias que desconta deste periodo
 function ferGasto(afast,uid,per){
   var g=0;
   (afast||[]).forEach(function(a){
     if(!a||String(a.uid)!==String(uid))return;
     if(!afTipo(a.tipo).ferias)return;
-    // desconta do periodo cuja janela de gozo cobre a data de inicio
     if(per.ini&&a.ini<per.ini)return;
     if(per.limite&&a.ini>per.limite)return;
     g+=afDias(a.ini,a.fim);
   });
   return g;
 }
-// dias que faltam ate a data limite (negativo = ja venceu)
 function ferDiasAte(limite){
   if(!limite)return null;
   var a=new Date(afHoje()+"T12:00:00"),b=new Date(limite+"T12:00:00");
   return Math.round((b-a)/86400000);
 }
-// urgencia: vencido | critico (<=90d) | atencao (<=180d) | ok
+// vencido | critico (<=90d) | atencao (<=180d) | ok
 function ferUrg(limite,saldo){
   if(saldo<=0)return "ok";
   var d=ferDiasAte(limite);
@@ -9809,20 +9785,21 @@ function ferUrg(limite,saldo){
   if(d<=180)return "atencao";
   return "ok";
 }
-// resumo de todos os periodos pendentes de todo mundo (para o alerta)
-function ferPendentes(ferPer,afast,users){
-  var out=[];
-  (users||[]).forEach(function(u){
-    if(!u||u.active===false)return;
-    ferPeriodos(ferPer,u.id).forEach(function(p){
-      var saldo=Number(p.dias||0)-ferGasto(afast,u.id,p);
-      var urg=ferUrg(p.limite,saldo);
-      if(urg==="ok")return;
-      out.push({uid:u.id,nome:u.name||u.login,per:p,saldo:saldo,urg:urg,dias:ferDiasAte(p.limite)});
-    });
-  });
-  return out.sort(function(a,b){return (a.dias==null?9999:a.dias)-(b.dias==null?9999:b.dias);});
-}
+// Relacao do contador, referencia 08/2026 (posicao ate 31/07/2026).
+// Ponto de partida: quando vier a proxima, e so editar na tela.
+var FER_PER_INICIAL={
+  "2":[ // Silvia Melo de Oliveira -- admissao 09/01/2025
+    {id:"p2a",ini:"2025-01-09",fim:"2026-01-08",limite:"2026-12-08",dias:11},
+    {id:"p2b",ini:"2026-01-09",fim:"2027-01-08",limite:"2027-12-08",dias:20}
+  ],
+  "4":[ // Jaqueline Noleto Lopes -- admissao 07/11/2022
+    {id:"p4a",ini:"2025-11-07",fim:"2026-11-06",limite:"2027-10-06",dias:25}
+  ],
+  "8":[ // Debora de Medeiros Alexandre -- admissao 20/01/2025
+    {id:"p8a",ini:"2025-01-20",fim:"2026-01-19",limite:"2026-12-19",dias:8},
+    {id:"p8b",ini:"2026-01-20",fim:"2027-01-19",limite:"2027-12-19",dias:17.5}
+  ]
+};
 
 // saldo de ferias hoje = saldo informado + 2,5/mes desde a data de referencia - ferias lancadas depois dela
 function afSaldoFerias(ferSaldo,afast,uid){
@@ -9944,7 +9921,7 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,afast,setAfast,
 
     {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} pontoCfg={pontoCfg} users={users} afast={afast}/>}{/* V300: afast */}
     {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos} pontoCfg={pontoCfg} users={users} afast={afast}/>}{/* V300: afast */}
-    {aba==="afa"&&isAdmin&&<Afastamentos afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo} ferPer={ferPer} setFerPer={setFerPer} users={users} user={user}/>}{/* V300/V301 */}
+    {aba==="afa"&&isAdmin&&<Afastamentos afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo} ferPer={ferPer} setFerPer={setFerPer} users={users} user={user}/>}{/* V303 */}
     {aba==="cfg"&&isAdmin&&<ConfigPonto pontoCfg={pontoCfg} setPontoCfg={setPontoCfg}/>}
   </div>;
 }
@@ -10344,26 +10321,30 @@ function Afastamentos({afast,setAfast,ferSaldo,setFerSaldo,ferPer,setFerPer,user
 
     {/* ══════════ SALDO DE FÉRIAS ══════════ */}
     {sub==="fer"&&<div>
-      {(function(){/* V301: alerta de prazo -- ferias nao concedidas ate a data limite viram pagamento em dobro */
-        var pend=ferPendentes(ferPer,afast,users).filter(function(p){return p.urg!=="ok";});
+      {(function(){/* V303: aviso de prazo. Ferias nao concedidas ate a data limite viram pagamento em dobro. */
+        var pend=[];
+        (equipe||[]).forEach(function(u){
+          ferPeriodos(ferPer,u.id).forEach(function(p){
+            var saldo=Number(p.dias||0)-ferGasto(afast,u.id,p);
+            var urg=ferUrg(p.limite,saldo);
+            if(urg==="ok")return;
+            pend.push({nome:u.name||u.login,per:p,saldo:saldo,urg:urg,dias:ferDiasAte(p.limite)});
+          });
+        });
         if(!pend.length)return null;
-        var venc=pend.filter(function(p){return p.urg==="vencido";});
-        var crit=pend.filter(function(p){return p.urg==="critico";});
-        var cor=venc.length?G.red:(crit.length?G.orange:G.gold);
-        var fundo=venc.length?"var(--red-soft)":"var(--amber-soft)";
-        return <div style={{background:fundo,borderRadius:14,padding:"14px 16px",marginBottom:14,borderLeft:"4px solid "+cor}}>
-          <div style={{fontWeight:800,fontSize:13.5,color:cor,marginBottom:8}}>
-            {venc.length?"⚠️ Período de férias vencido":"⏳ Férias com prazo se aproximando"}
-          </div>
+        pend.sort(function(a,b){return (a.dias==null?9999:a.dias)-(b.dias==null?9999:b.dias);});
+        var venc=pend.filter(function(p){return p.urg==="vencido";}).length;
+        var crit=pend.filter(function(p){return p.urg==="critico";}).length;
+        var cor=venc?G.red:(crit?G.orange:G.gold);
+        return <div style={{background:venc?"var(--red-soft)":"var(--amber-soft)",borderRadius:14,padding:"14px 16px",marginBottom:14,borderLeft:"4px solid "+cor}}>
+          <div style={{fontWeight:800,fontSize:13.5,color:cor,marginBottom:8}}>{venc?"Período de férias vencido":"Férias com prazo se aproximando"}</div>
           {pend.map(function(p,i){
             var txt=p.dias<0?("venceu há "+Math.abs(p.dias)+" dias"):("faltam "+p.dias+" dias");
             return <div key={i} style={{fontSize:12.5,color:"#5a4a20",marginBottom:6,lineHeight:1.5}}>
               <b>{p.nome}</b>{": "+p.saldo+(p.saldo===1?" dia":" dias")+" precisam começar até "+p.per.limite.slice(8,10)+"/"+p.per.limite.slice(5,7)+"/"+p.per.limite.slice(0,4)+" — "+txt+"."}
             </div>;
           })}
-          <div style={{fontSize:11.5,color:"#6b5410",marginTop:8,lineHeight:1.5,fontStyle:"italic"}}>
-            Férias não concedidas até a data limite devem ser pagas em dobro. Programe com folga — dezembro e janeiro costumam ser os piores meses para tirar alguém da recepção.
-          </div>
+          <div style={{fontSize:11.5,color:"#6b5410",marginTop:8,lineHeight:1.5,fontStyle:"italic"}}>Férias não concedidas até a data limite devem ser pagas em dobro. Programe com folga — dezembro e janeiro são os piores meses para tirar alguém da recepção.</div>
         </div>;
       })()}
 
@@ -10381,7 +10362,6 @@ function Afastamentos({afast,setAfast,ferSaldo,setFerSaldo,ferPer,setFerPer,user
               <b style={{fontSize:15}}>{u.name||u.login}</b>
               <button onClick={function(){setAjuste({uid:u.id,lista:pers.map(function(p){return Object.assign({},p);})});}} style={{border:"none",borderRadius:9,padding:"6px 13px",fontWeight:700,fontSize:12,cursor:"pointer",background:"var(--surface)",color:G.primary,boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",flexShrink:0}}>{pers.length?"Editar":"Informar"}</button>
             </div>
-
             {pers.length===0
               ?<div style={{fontSize:12,color:G.muted}}>Períodos ainda não informados</div>
               :pers.map(function(p){
@@ -10394,10 +10374,7 @@ function Afastamentos({afast,setAfast,ferSaldo,setFerSaldo,ferPer,setFerPer,user
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:12,fontWeight:700}}>{"Período "+p.ini.slice(8,10)+"/"+p.ini.slice(5,7)+"/"+p.ini.slice(0,4)+" a "+p.fim.slice(8,10)+"/"+p.fim.slice(5,7)+"/"+p.fim.slice(0,4)}</div>
-                      <div style={{fontSize:11.5,color:cor,fontWeight:700,marginTop:3}}>
-                        {"Começar até "+p.limite.slice(8,10)+"/"+p.limite.slice(5,7)+"/"+p.limite.slice(0,4)}
-                        {d!=null?(d<0?(" · venceu há "+Math.abs(d)+" dias"):(" · faltam "+d+" dias")):""}
-                      </div>
+                      <div style={{fontSize:11.5,color:cor,fontWeight:700,marginTop:3}}>{"Começar até "+p.limite.slice(8,10)+"/"+p.limite.slice(5,7)+"/"+p.limite.slice(0,4)+(d!=null?(d<0?(" · venceu há "+Math.abs(d)+" dias"):(" · faltam "+d+" dias")):"")}</div>
                       {gasto>0&&<div style={{fontSize:11,color:G.muted,marginTop:2}}>{"já tirou "+gasto+(gasto===1?" dia":" dias")}</div>}
                     </div>
                     <div style={{textAlign:"right",flexShrink:0}}>
@@ -10411,11 +10388,11 @@ function Afastamentos({afast,setAfast,ferSaldo,setFerSaldo,ferPer,setFerPer,user
         })}
 
         <div style={{background:"var(--amber-soft)",borderRadius:12,padding:"12px 14px",fontSize:12.5,color:"#6b5410",lineHeight:1.55,marginTop:6}}>
-          <b>De onde vêm estes números.</b> São os da relação de escala de férias do contador. O sistema não recalcula — ele guarda, desconta as férias que você lançar e avisa quando a data limite se aproxima. Quando o contador mandar a relação nova, é só editar aqui.
+          <b>De onde vêm estes números.</b> São os da relação de escala de férias do contador. O sistema não recalcula — guarda, desconta as férias lançadas e avisa quando a data limite se aproxima. Quando o contador mandar a relação nova, é só editar aqui.
         </div>
       </div>
 
-      {ajuste&&<div style={{position:"fixed",inset:0,background:"rgba(20,30,25,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:16,overflowY:"auto"}} onClick={function(){setAjuste(null);}}>
+      {ajuste&&<div style={{position:"fixed",top:0,right:0,bottom:0,left:0,background:"rgba(20,30,25,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:16,overflowY:"auto"}} onClick={function(){setAjuste(null);}}>
         <div onClick={function(ev){ev.stopPropagation();}} style={{background:"var(--surface)",borderRadius:18,padding:18,maxWidth:440,width:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"7px 7px 18px var(--nm-dark),-7px -7px 18px var(--nm-light)"}}>
           <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,marginBottom:5}}>{"Férias — "+nomeDe(ajuste.uid)}</div>
           <div style={{fontSize:11.5,color:G.muted,marginBottom:15}}>Copie da relação do contador</div>
@@ -10424,8 +10401,7 @@ function Afastamentos({afast,setAfast,ferSaldo,setFerSaldo,ferPer,setFerPer,user
             function up(campo,valor){
               setAjuste(function(prev){
                 var l=(prev.lista||[]).slice();
-                l[idx]=Object.assign({},l[idx]);
-                l[idx][campo]=valor;
+                l[idx]=Object.assign({},l[idx]);l[idx][campo]=valor;
                 return Object.assign({},prev,{lista:l});
               });
             }
@@ -10435,24 +10411,16 @@ function Afastamentos({afast,setAfast,ferSaldo,setFerSaldo,ferPer,setFerPer,user
                 <button onClick={function(){setAjuste(function(prev){var l=(prev.lista||[]).slice();l.splice(idx,1);return Object.assign({},prev,{lista:l});});}} style={{border:"none",background:"transparent",color:G.red,fontSize:16,cursor:"pointer"}}><i className="ph-trash"/></button>
               </div>
               <div style={{display:"flex",gap:9,flexWrap:"wrap",marginBottom:9}}>
-                <div style={{flex:1,minWidth:118}}>
-                  <label style={labSt}>Início</label>
-                  <input type="date" value={p.ini||""} onChange={function(ev){up("ini",ev.target.value);}} style={{width:"100%",padding:"9px 11px",fontSize:13}}/>
-                </div>
-                <div style={{flex:1,minWidth:118}}>
-                  <label style={labSt}>Fim</label>
-                  <input type="date" value={p.fim||""} onChange={function(ev){up("fim",ev.target.value);}} style={{width:"100%",padding:"9px 11px",fontSize:13}}/>
-                </div>
+                <div style={{flex:1,minWidth:118}}><label style={labSt}>Início</label>
+                  <input type="date" value={p.ini||""} onChange={function(ev){up("ini",ev.target.value);}} style={{width:"100%",padding:"9px 11px",fontSize:13}}/></div>
+                <div style={{flex:1,minWidth:118}}><label style={labSt}>Fim</label>
+                  <input type="date" value={p.fim||""} onChange={function(ev){up("fim",ev.target.value);}} style={{width:"100%",padding:"9px 11px",fontSize:13}}/></div>
               </div>
               <div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
-                <div style={{flex:1,minWidth:118}}>
-                  <label style={labSt}>Data limite</label>
-                  <input type="date" value={p.limite||""} onChange={function(ev){up("limite",ev.target.value);}} style={{width:"100%",padding:"9px 11px",fontSize:13}}/>
-                </div>
-                <div style={{flex:1,minWidth:118}}>
-                  <label style={labSt}>Dias de direito</label>
-                  <input type="number" step="0.5" value={p.dias==null?"":p.dias} onChange={function(ev){up("dias",ev.target.value);}} style={{width:"100%",padding:"9px 11px",fontSize:13}}/>
-                </div>
+                <div style={{flex:1,minWidth:118}}><label style={labSt}>Data limite</label>
+                  <input type="date" value={p.limite||""} onChange={function(ev){up("limite",ev.target.value);}} style={{width:"100%",padding:"9px 11px",fontSize:13}}/></div>
+                <div style={{flex:1,minWidth:118}}><label style={labSt}>Dias de direito</label>
+                  <input type="number" step="0.5" value={p.dias==null?"":p.dias} onChange={function(ev){up("dias",ev.target.value);}} style={{width:"100%",padding:"9px 11px",fontSize:13}}/></div>
               </div>
             </div>;
           })}
@@ -10462,12 +10430,12 @@ function Afastamentos({afast,setAfast,ferSaldo,setFerSaldo,ferPer,setFerPer,user
           <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
             <button onClick={function(){setAjuste(null);}} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:"var(--surface)",color:G.primary,boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)"}}>Cancelar</button>
             <button onClick={function(){
-              var lim=(ajuste.lista||[]).filter(function(p){return p.ini&&p.fim&&p.limite&&p.dias!==""&&p.dias!=null;});
-              if(lim.length!==(ajuste.lista||[]).length){setMsg({ok:false,txt:"Preencha todos os campos de cada período (ou remova o que estiver vazio)."});return;}
+              var l=(ajuste.lista||[]);
+              var ok=l.filter(function(p){return p.ini&&p.fim&&p.limite&&p.dias!==""&&p.dias!=null;});
+              if(ok.length!==l.length){setMsg({ok:false,txt:"Preencha todos os campos de cada período (ou remova o que estiver vazio)."});return;}
               setFerPer(function(prev){
                 var o=Object.assign({},prev||{});
-                o[String(ajuste.uid)]=lim.map(function(p){return {id:p.id,ini:p.ini,fim:p.fim,limite:p.limite,dias:Number(p.dias)};});
-                o._ts=Date.now();
+                o[String(ajuste.uid)]=ok.map(function(p){return {id:p.id,ini:p.ini,fim:p.fim,limite:p.limite,dias:Number(p.dias)};});
                 return o;
               });
               setAjuste(null);setMsg({ok:true,txt:"✅ Períodos atualizados."});
@@ -10819,7 +10787,6 @@ function EspelhoMensal({pontos,pontoCfg,users,afast}){
 const PNL_CAT=[
   {k:"ponto",      e:"⏱",  t:"Seu ponto de ontem",            cor:"primary", lv:2, tipo:"pontoMe", tela:"ponto", d:"Como fechou o seu dia anterior"},
   {k:"pontoEquipe",e:"⏱",  t:"Ponto da equipe — ontem",       cor:"primary", lv:3, tipo:"pontoEq", tela:"ponto", d:"Quem bateu, quem esqueceu", porDia:true, na:"Já ajustei"},
-  {k:"feriasPrazo", e:"🏖", t:"Férias com prazo vencendo",     cor:"gold",    lv:3, tela:"ponto", d:"Períodos que precisam começar antes da data limite (senão a lei manda pagar em dobro)"},/* V301 */
   {k:"remarcar",   e:"🔄", t:"Pacientes para remarcar",        cor:"red",     lv:1, tela:"remarcar", d:"Faltas e desmarcados sem novo agendamento", na:"Não vai remarcar", reset:0},
   {k:"espera",     e:"🪑", t:"Lista de espera com vaga",       cor:"blue",    lv:1, tela:"lems",     d:"Buracos dos próximos dias que batem com o que o paciente pediu", na:"Não encaixar", porDia:true},
   {k:"proteses",   e:"🦷", t:"Próteses de hoje e atrasadas",   cor:"purple",  lv:1, tela:"pros",     na:"Cancelada", reset:0},
@@ -10976,16 +10943,6 @@ function pnlItens(bk,D){
         sub:r.falta?((r.ent||"—")+" → "+(r.sai||"não bateu a saída")+" · precisa de ajuste")
                    :((r.ent||"—")+" → "+(r.sai||"—")+" · almoço "+(r.alm>0?pnlHM(r.alm):"—")+" · "+pnlHM(r.liq)+" trabalhadas"),
         bt:"Ver",late:!!r.falta});
-    });
-  }
-  if(bk==="feriasPrazo"){/* V301: avisa com 6 meses de antecedencia */
-    ferPendentes(D.ferPer,D.afast,D.users).forEach(function(p){
-      if(p.saldo<=0)return;
-      var txt=p.dias<0?("VENCEU há "+Math.abs(p.dias)+" dias"):("faltam "+p.dias+" dias");
-      out.push({id:"fp"+p.uid+p.per.id,av:p.urg==="vencido"?"🔴":(p.urg==="critico"?"🟠":"🟡"),
-        nm:p.nome,
-        sub:p.saldo+(p.saldo===1?" dia":" dias")+" · começar até "+p.per.limite.slice(8,10)+"/"+p.per.limite.slice(5,7)+"/"+p.per.limite.slice(0,4)+" · "+txt,
-        bt:"Ver",late:(p.urg==="vencido"||p.urg==="critico")});
     });
   }
   if(bk==="notas"){
@@ -11336,9 +11293,9 @@ function pnlAbertura(u){
 }
 
 // ---- painel da recepcao / dentista (nivel < 3) ----
-function PainelDia({ferPer,afast,appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,users,user,pacsTicks,setPacsTicks,remarcar,recs,budgets,impl,setView,abrirFicha}){
+function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,users,user,pacsTicks,setPacsTicks,remarcar,recs,budgets,impl,setView,abrirFicha}){
   const t=today();
-  const D={appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar,recs:recs,budgets:budgets,impl:impl,ticks:pacsTicks,ferPer:ferPer,afast:afast};/* V301 */
+  const D={appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar,recs:recs,budgets:budgets,impl:impl,ticks:pacsTicks};
   const hoje=(appts||[]).filter(function(a){return a.date===t&&!a.blocked&&a.status!=="cancelled";});
   const conf=hoje.filter(function(a){return a.status==="confirmed"||a.status==="done";}).length;
   const blocos=pnlDoUser(user);
@@ -11509,7 +11466,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
   {/* V290: lembretes + blocos configuraveis do administrador */}
   <PnlLembretes rems={rems} setRems={setRems} users={users} user={user} pats={pats} go={setView}/>
   {pnlDoUser(user).map(function(_bk){return <PnlBloco key={_bk} bk={_bk}
-    D={{appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar,recs:recs,budgets:budgets,impl:impl,ticks:pacsTicks,ferPer:ferPer,afast:afast}}/* V301 */
+    D={{appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar,recs:recs,budgets:budgets,impl:impl,ticks:pacsTicks}}
     user={user} ticks={pacsTicks} setTicks={setPacsTicks} go={setView} abrirFicha={abrirFicha}/>;})}
   {user.level>=3&&<button onClick={function(){if(setView)setView("adm");}} style={{border:"none",background:"var(--surface)",borderRadius:11,padding:"11px 14px",fontSize:12.5,fontWeight:700,color:G.muted,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:9,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
     <span style={{fontSize:15}}>{"⚙️"}</span>
@@ -14069,7 +14026,7 @@ const [pontos,setPontos]=useState([]);const [caixa,setCaixa]=useState([]);
 const [afast,setAfast]=useState([]);// V300: afastamentos (ferias, atestado, faltas)
 const [hol,setHol]=useState([]);// V300: holerites arquivados
 const [ferSaldo,setFerSaldo]=useState({});// V300: saldo inicial de ferias por funcionario
-const [ferPer,setFerPer]=useState(FER_PER_INICIAL);// V301: periodos aquisitivos (relacao do contador)
+const [ferPer,setFerPer]=useState(FER_PER_INICIAL);// V303: periodos aquisitivos (relacao do contador)
 const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60});
 const [acessoCfg,setAcessoCfg]=useState({restringir:true,segIni:"07:00",segFim:"21:00",sabIni:"07:00",sabFim:"13:00",domOn:false,domIni:"08:00",domFim:"12:00"});
 const [sideOpen,setSideOpen]=useState(false);
@@ -14310,10 +14267,10 @@ if(data.expenses)setExpenses(data.expenses);
 if(data.gastos)setGastos(data.gastos);
 if(data.pontos?.length)setPontos(data.pontos);
 if(data.caixa?.length)setCaixa(data.caixa);
-if(data.afast?.length)setAfast(data.afast);// V302: faltava carregar -- o registro sumia ao reabrir
-if(data.hol?.length)setHol(data.hol);// V302: idem holerites
-if(data.ferPer)setFerPer(Object.assign({},FER_PER_INICIAL,data.ferPer));// V302: servidor manda, mas mantem o que ja veio embutido
-if(data.ferSaldo)setFerSaldo(data.ferSaldo);// V302
+if(data.afast?.length)setAfast(data.afast);// V303: faltava ler na abertura -- por isso o registro sumia
+if(data.hol?.length)setHol(data.hol);// V303
+if(data.ferSaldo)setFerSaldo(data.ferSaldo);// V303
+if(data.ferPer)setFerPer(data.ferPer);// V303: periodos aquisitivos
 if(data.pontoCfg)setPontoCfg(Object.assign({raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60},data.pontoCfg));
 if(data.acessoCfg)setAcessoCfg(Object.assign({restringir:true,segIni:"07:00",segFim:"21:00",sabIni:"07:00",sabFim:"13:00",domOn:false,domIni:"08:00",domFim:"12:00"},data.acessoCfg));
 if(data.logs?.length)setLogs(data.logs);
@@ -14696,7 +14653,7 @@ useEffect(function(){
           mergeArr(caixa,sd.caixa,setCaixa);
           mergeArr(afast,sd.afast,setAfast,"afast");// V300: afastamentos item-a-item + tombstone
           mergeArr(hol,sd.hol,setHol,"hol");// V300: holerites
-          if(sd.ferPer)setFerPer(function(prev){return JSON.stringify(sd.ferPer)===JSON.stringify(prev)?prev:sd.ferPer;});// V301
+          if(sd.ferPer)setFerPer(function(prev){return JSON.stringify(sd.ferPer)===JSON.stringify(prev)?prev:sd.ferPer;});// V303
           if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V300
           // V239: cadastros passam a entrar no merge antes de gravar (antes o save levava a copia velha da memoria e desfazia edicao de outro aparelho)
           if(sd.users)setUsers(function(prev){var m=mergeCad(prev,sd.users,_diSet,"users");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
@@ -14716,7 +14673,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer};// V300/V301: afast + ferias + holerites
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer};// V303
     if(!patTableOk.current)payload.pats=pats;
     try{ // V199: carimbo de versao so nas chaves cujo conteudo mudou
       if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
@@ -15329,7 +15286,7 @@ return <>
     <div style={{padding:"16px",paddingTop:view==="agenda"?"84px":"16px"}}>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha} setRems={setRems} users={users} pontos={pontos} remarcar={remarcar} budgets={budgets} impl={impl}/>}
       {/* V290: painel do dia para recepcao e dentistas */}
-      {view==="dash"&&user.level<3&&<PainelDia ferPer={ferPer} afast={afast} appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
+      {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog}/>}
