@@ -9598,7 +9598,176 @@ function pegarLocal(){
   });
 }
 
-function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
+// ══════════════════════════════════════════════════════════════════
+// V300 ── COFRE DE RH (bucket privado docs-rh) ─────────────────────
+// Atestados, comprovantes de ferias e holerites. Nao usa o bucket
+// "imagens" porque aquele e publico: qualquer um com o endereco abre.
+// Aqui o arquivo so sai por link assinado de validade curta, e o
+// proprio banco recusa quem nao estiver na tabela rh_admins.
+// ══════════════════════════════════════════════════════════════════
+var RH_BUCKET="docs-rh";
+
+// Envia o arquivo. Devolve {path,nome,tipo,tam}.
+async function rhSubir(file,pasta){
+  if(!file)throw new Error("sem arquivo");
+  if(file.size>15*1024*1024)throw new Error("Arquivo maior que 15 MB. Reduza a qualidade da foto e tente de novo.");
+  var ext=(file.name||"").split(".").pop().toLowerCase();
+  if(["pdf","jpg","jpeg","png","heic","webp"].indexOf(ext)<0)ext=(file.type==="application/pdf")?"pdf":"jpg";
+  var path=pasta+"/"+Date.now()+"_"+Math.random().toString(36).slice(2,8)+"."+ext;
+  var r=await fetch(SUPA_URL+"/storage/v1/object/"+RH_BUCKET+"/"+path,{
+    method:"POST",
+    headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),
+             "Content-Type":file.type||"application/octet-stream","x-upsert":"true"},
+    body:file
+  });
+  if(!r.ok){
+    var t="";try{t=await r.text();}catch(e){}
+    if(r.status===403||r.status===401)throw new Error("Sem permissão para gravar no cofre. Saia e entre novamente.");
+    throw new Error("Falha no envio ("+r.status+"). "+t.slice(0,120));
+  }
+  return {path:path,nome:file.name||("arquivo."+ext),tipo:file.type||"",tam:file.size,ts:Date.now()};
+}
+
+// Gera um link temporario (10 min) para abrir o arquivo.
+async function rhLink(path){
+  var r=await fetch(SUPA_URL+"/storage/v1/object/sign/"+RH_BUCKET+"/"+path,{
+    method:"POST",
+    headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json"},
+    body:JSON.stringify({expiresIn:600})
+  });
+  if(!r.ok)throw new Error("Não foi possível abrir o arquivo ("+r.status+").");
+  var d=await r.json();
+  var u=d&&(d.signedURL||d.signedUrl);
+  if(!u)throw new Error("Link inválido.");
+  return SUPA_URL+"/storage/v1"+(u.charAt(0)==="/"?u:"/"+u);
+}
+
+async function rhApagar(path){
+  try{
+    await fetch(SUPA_URL+"/storage/v1/object/"+RH_BUCKET+"/"+path,{
+      method:"DELETE",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});
+  }catch(e){}
+}
+
+// Botao que abre o anexo em aba nova, buscando o link na hora do clique.
+function RhAnexo({anexo,onRemover}){
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState("");
+  if(!anexo)return null;
+  var ehPdf=(anexo.nome||"").toLowerCase().slice(-4)===".pdf"||anexo.tipo==="application/pdf";
+  return <div style={{marginTop:9}}>
+    <div style={{display:"flex",alignItems:"center",gap:9,padding:"9px 12px",borderRadius:11,background:"var(--green-soft)"}}>
+      <i className={ehPdf?"ph-fill ph-file-pdf":"ph-fill ph-image"} style={{fontSize:19,color:G.primary,flexShrink:0}}/>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:700,fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{anexo.nome}</div>
+        <div style={{fontSize:11,color:G.muted}}>{Math.round((anexo.tam||0)/1024)+" KB"}</div>
+      </div>
+      <button disabled={busy} onClick={async function(){
+        setBusy(true);setErr("");
+        try{var u=await rhLink(anexo.path);window.open(u,"_blank");}
+        catch(e){setErr(e.message||"Erro ao abrir.");}
+        setBusy(false);
+      }} style={{border:"none",borderRadius:9,padding:"6px 13px",fontWeight:700,fontSize:12,cursor:busy?"default":"pointer",background:G.primary,color:"#ead9b6",flexShrink:0,opacity:busy?.6:1}}>{busy?"...":"Abrir"}</button>
+      {onRemover&&<button onClick={onRemover} title="Remover anexo" style={{border:"none",background:"transparent",color:G.red,fontSize:17,cursor:"pointer",flexShrink:0,padding:"0 3px"}}><i className="ph-trash"/></button>}
+    </div>
+    {err&&<div style={{fontSize:11.5,color:G.red,marginTop:5}}>{err}</div>}
+  </div>;
+}
+
+// Campo de escolher arquivo, com estado de envio.
+function RhUpload({pasta,onPronto,label}){
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState("");
+  const ref=useRef(null);
+  return <div style={{marginTop:9}}>
+    <input ref={ref} type="file" accept="application/pdf,image/*" style={{display:"none"}} onChange={async function(ev){
+      var f=ev.target.files&&ev.target.files[0];
+      if(!f)return;
+      setBusy(true);setErr("");
+      try{var a=await rhSubir(f,pasta);onPronto(a);}
+      catch(e){setErr(e.message||"Falha no envio.");}
+      setBusy(false);
+      try{ev.target.value="";}catch(_e){}
+    }}/>
+    <button disabled={busy} onClick={function(){if(ref.current)ref.current.click();}} style={{border:"none",borderRadius:10,padding:"9px 15px",fontWeight:700,fontSize:13,cursor:busy?"default":"pointer",background:"var(--surface)",color:G.primary,boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",opacity:busy?.6:1,display:"inline-flex",alignItems:"center",gap:7}}>
+      <i className={busy?"ph-spinner":"ph-paperclip"}/>{busy?"Enviando...":(label||"Anexar arquivo")}
+    </button>
+    <div style={{fontSize:11,color:G.muted,marginTop:5}}>PDF ou foto, até 15 MB. Guardado em cofre privado.</div>
+    {err&&<div style={{fontSize:11.5,color:G.red,marginTop:5}}>{err}</div>}
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// V300 ── AFASTAMENTOS E FERIAS ────────────────────────────────────
+// Registro de ferias, atestados e faltas. Tudo nivel 3: as
+// recepcionistas nao veem esta area. No ponto elas veem apenas a
+// etiqueta do tipo (ex.: "Atestado"), nunca o motivo -- motivo de
+// saude e dado sensivel pela LGPD e fica so para o administrador.
+// ══════════════════════════════════════════════════════════════════
+
+// Tipos. bloq=bloqueia o acesso ao sistema no periodo.
+//        ferias=consome saldo de ferias.
+var AF_TIPOS=[
+  {k:"fer",nome:"Ferias",cor:"blue",  soft:"--blue-soft",  ic:"ph-umbrella",      bloq:true,  ferias:true},
+  {k:"ate",nome:"Atestado medico",cor:"red",soft:"--red-soft",ic:"ph-first-aid-kit",bloq:true, ferias:false},
+  {k:"mat",nome:"Licenca maternidade/paternidade",cor:"purple",soft:"--purple-soft",ic:"ph-baby",bloq:true,ferias:false},
+  {k:"jus",nome:"Falta justificada",cor:"yellow",soft:"--amber-soft",ic:"ph-note",  bloq:true,  ferias:false},
+  {k:"njs",nome:"Falta nao justificada",cor:"orange",soft:"--amber-soft",ic:"ph-warning",bloq:true,ferias:false},
+  {k:"fol",nome:"Folga",cor:"green", soft:"--green-soft", ic:"ph-coffee",        bloq:false, ferias:false}
+];
+function afTipo(k){for(var i=0;i<AF_TIPOS.length;i++)if(AF_TIPOS[i].k===k)return AF_TIPOS[i];return AF_TIPOS[1];}
+function afZ(n){return ("0"+n).slice(-2);}
+function afYmd(dt){return dt.getFullYear()+"-"+afZ(dt.getMonth()+1)+"-"+afZ(dt.getDate());}
+function afHoje(){return afYmd(new Date());}
+// dias corridos entre duas datas YYYY-MM-DD, inclusive nas duas pontas
+function afDias(ini,fim){
+  if(!ini||!fim)return 0;
+  var a=new Date(ini+"T12:00:00"),b=new Date(fim+"T12:00:00");
+  var d=Math.round((b-a)/86400000)+1;
+  return d>0?d:0;
+}
+// o afastamento cobre esta data?
+function afCobre(a,ymd){return !!(a&&a.ini&&a.fim&&ymd>=a.ini&&ymd<=a.fim);}
+// afastamento ativo de um funcionario numa data (o que bloqueia acesso)
+function afAtivo(afast,uid,ymd){
+  var lista=afast||[];
+  for(var i=0;i<lista.length;i++){
+    var a=lista[i];
+    if(!a||String(a.uid)!==String(uid))continue;
+    if(!afCobre(a,ymd))continue;
+    if(!afTipo(a.tipo).bloq)continue;
+    return a;
+  }
+  return null;
+}
+// etiqueta do dia no ponto (sem o motivo)
+function afDoDia(afast,uid,ymd){
+  var lista=afast||[];
+  for(var i=0;i<lista.length;i++){
+    var a=lista[i];
+    if(a&&String(a.uid)===String(uid)&&afCobre(a,ymd))return a;
+  }
+  return null;
+}
+// saldo de ferias hoje = saldo informado + 2,5/mes desde a data de referencia - ferias lancadas depois dela
+function afSaldoFerias(ferSaldo,afast,uid){
+  var base=(ferSaldo||{})[String(uid)];
+  if(!base||base.dias==null||!base.ref)return null;
+  var ref=new Date(base.ref+"T12:00:00"),hoje=new Date();
+  var meses=(hoje.getFullYear()-ref.getFullYear())*12+(hoje.getMonth()-ref.getMonth());
+  if(meses<0)meses=0;
+  var acum=meses*2.5;
+  var gasto=0;
+  (afast||[]).forEach(function(a){
+    if(!a||String(a.uid)!==String(uid))return;
+    if(!afTipo(a.tipo).ferias)return;
+    if(a.ini<base.ref)return; // ferias anteriores ja estao refletidas no saldo informado
+    gasto+=afDias(a.ini,a.fim);
+  });
+  return {atual:Number(base.dias)+acum-gasto,informado:Number(base.dias),ref:base.ref,acum:acum,gasto:gasto,obs:base.obs||"",hist:base.hist||[]};
+}
+
+function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,afast,setAfast,ferSaldo,setFerSaldo}){
   const isAdmin=user.level>=3;
   const [aba,setAba]=useState("reg");
   const [busy,setBusy]=useState(false);
@@ -9656,7 +9825,7 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
     <div style={{fontFamily:"'Cormorant Garamond'",fontSize:30,fontWeight:700,color:G.primary}}>🕐 Ponto</div>
 
     {isAdmin&&<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-      {[["reg","Registrar"],["rel","Diário"],["mes","Mensal"],["cfg","Configuração"]].map(function(o){return <button key={o[0]} onClick={function(){setAba(o[0]);setMsg(null);}} style={{border:"none",borderRadius:9,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",background:aba===o[0]?G.primary:"var(--green-soft)",color:aba===o[0]?"#fff":G.muted}}>{o[1]}</button>;})}
+      {[["reg","Registrar"],["rel","Diário"],["mes","Mensal"],["afa","Afastamentos"],["cfg","Configuração"]].filter(function(o){return o[0]==="reg"||isAdmin;}).map(function(o){return <button key={o[0]} onClick={function(){setAba(o[0]);setMsg(null);}} style={{border:"none",borderRadius:9,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",background:aba===o[0]?G.primary:"var(--green-soft)",color:aba===o[0]?"#fff":G.muted}}>{o[1]}</button>;})}
     </div>}
 
     {aba==="reg"&&<div style={card}>
@@ -9698,13 +9867,14 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users}){
       </div>
     </div>}
 
-    {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} pontoCfg={pontoCfg} users={users}/>}
-    {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos} pontoCfg={pontoCfg} users={users}/>}
+    {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} pontoCfg={pontoCfg} users={users} afast={afast}/>}{/* V300: afast */}
+    {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos} pontoCfg={pontoCfg} users={users} afast={afast}/>}{/* V300: afast */}
+    {aba==="afa"&&isAdmin&&<Afastamentos afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo} users={users} user={user}/>}{/* V300 */}
     {aba==="cfg"&&isAdmin&&<ConfigPonto pontoCfg={pontoCfg} setPontoCfg={setPontoCfg}/>}
   </div>;
 }
 
-function RelatorioPonto({pontos,pontoCfg,users}){
+function RelatorioPonto({pontos,pontoCfg,users,afast}){
   const z=function(n){return ("0"+n).slice(-2);};
   var d0=new Date();
   const [de,setDe]=useState(d0.getFullYear()+"-"+z(d0.getMonth()+1)+"-01");
@@ -9778,6 +9948,10 @@ function RelatorioPonto({pontos,pontoCfg,users}){
             <div style={{display:"flex",alignItems:"baseline",gap:10,minWidth:0}}>
               <span style={{fontWeight:800,fontSize:15}}>{fmtD(l.data)}</span>
               <span style={{fontSize:14,color:G.muted,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.nome}</span>
+              {(function(){/* V300: etiqueta do afastamento (so o tipo, nunca o motivo) */
+                var _a=afDoDia(afast,l.uid,l.data); if(!_a)return null; var _t=afTipo(_a.tipo);
+                return <span style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:4,background:"var("+_t.soft+")",color:G[_t.cor]||G.primary,borderRadius:8,padding:"3px 9px",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}><i className={"ph-fill "+_t.ic}/>{_t.nome}</span>;
+              })()}
             </div>
             <span style={{flexShrink:0,background:G.card,boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px var(--nm-light)",borderRadius:9,padding:"6px 13px",fontSize:14,fontWeight:800,color:mins==null?G.muted:G.primary}}>{fmtH(mins)}</span>
           </div>
@@ -9796,6 +9970,559 @@ function RelatorioPonto({pontos,pontoCfg,users}){
         </div>;
       })}
     </div>}
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// V300 ── TELA DE AFASTAMENTOS (nivel 3) ───────────────────────────
+// ══════════════════════════════════════════════════════════════════
+function Afastamentos({afast,setAfast,ferSaldo,setFerSaldo,users,user}){
+  const [sub,setSub]=useState("lan");           // lan | rel | fer
+  const [edit,setEdit]=useState(null);          // registro em edicao
+  const [msg,setMsg]=useState(null);
+  const [per,setPer]=useState("ano");           // ano | mes
+  const [quando,setQuando]=useState(String(new Date().getFullYear()));
+  const [quemG,setQuemG]=useState("");          // grafico mes a mes
+  const [ajuste,setAjuste]=useState(null);      // ajuste de saldo
+
+  var equipe=(users||[]).filter(function(u){return u&&u.active!==false;});
+  function nomeDe(uid){for(var i=0;i<(users||[]).length;i++)if(String(users[i].id)===String(uid))return users[i].name||users[i].login||"—";return "—";}
+
+  function novo(){
+    setEdit({id:Date.now(),uid:(equipe[0]&&equipe[0].id)||"",tipo:"ate",ini:afHoje(),fim:afHoje(),motivo:"",_novo:true});
+    setMsg(null);
+  }
+  function salvar(){
+    var e=edit;
+    if(!e.uid){setMsg({ok:false,txt:"Escolha o funcionário."});return;}
+    if(!e.ini||!e.fim){setMsg({ok:false,txt:"Preencha início e fim."});return;}
+    if(e.fim<e.ini){setMsg({ok:false,txt:"A data de fim não pode ser antes do início."});return;}
+    var reg={id:e.id,uid:e.uid,tipo:e.tipo,ini:e.ini,fim:e.fim,motivo:(e.motivo||"").trim(),anexo:e.anexo||null,
+             _ts:Date.now(),_by:user.name||user.login,_byTs:Date.now()};
+    if(!e._novo){reg._edBy=user.name||user.login;reg._edTs=Date.now();}
+    setAfast(function(prev){
+      var arr=(prev||[]).slice(),achou=false;
+      for(var i=0;i<arr.length;i++)if(arr[i].id===reg.id){arr[i]=Object.assign({},arr[i],reg);achou=true;}
+      if(!achou)arr.push(reg);
+      return arr;
+    });
+    setEdit(null);
+    setMsg({ok:true,txt:"✅ Afastamento salvo."});
+  }
+  function excluir(id){
+    if(!window.confirm("Excluir este afastamento? A pessoa volta a ter acesso no período."))return;
+    setAfast(function(prev){return (prev||[]).filter(function(x){return x.id!==id;});});
+    try{if(window.__delItemsAdd)window.__delItemsAdd("afast",id);}catch(_e){}
+    setEdit(null);
+    setMsg({ok:true,txt:"Afastamento excluído."});
+  }
+
+  // ── dados do relatorio ──────────────────────────────────────────
+  function dentroPer(a){
+    if(per==="ano")return (a.ini||"").slice(0,4)===quando||(a.fim||"").slice(0,4)===quando;
+    return (a.ini||"").slice(0,7)===quando||(a.fim||"").slice(0,7)===quando;
+  }
+  function totaisDe(uid){
+    var t={fer:0,ate:0,mat:0,jus:0,njs:0,fol:0,tot:0};
+    (afast||[]).forEach(function(a){
+      if(String(a.uid)!==String(uid)||!dentroPer(a))return;
+      var d=afDias(a.ini,a.fim);
+      if(t[a.tipo]!=null)t[a.tipo]+=d;
+      t.tot+=d;
+    });
+    return t;
+  }
+  // dias por mes de uma pessoa no ano corrente do filtro
+  function porMes(uid){
+    var ano=quando.slice(0,4),out=[];
+    for(var m=1;m<=12;m++){
+      var alvo=ano+"-"+afZ(m),soma=0;
+      (afast||[]).forEach(function(a){
+        if(String(a.uid)!==String(uid))return;
+        // conta os dias do afastamento que caem neste mes
+        if(!a.ini||!a.fim)return;
+        var d=new Date(a.ini+"T12:00:00"),f=new Date(a.fim+"T12:00:00");
+        while(d<=f){if(afYmd(d).slice(0,7)===alvo)soma++;d.setDate(d.getDate()+1);}
+      });
+      out.push(soma);
+    }
+    return out;
+  }
+  // motivos agrupados de uma pessoa (so atestados)
+  function motivosDe(uid){
+    var mp={};
+    (afast||[]).forEach(function(a){
+      if(String(a.uid)!==String(uid)||!dentroPer(a))return;
+      if(a.tipo!=="ate")return;
+      var k=(a.motivo||"Sem motivo informado").trim().toLowerCase();
+      if(!mp[k])mp[k]={nome:(a.motivo||"Sem motivo informado").trim(),dias:0,vezes:0};
+      mp[k].dias+=afDias(a.ini,a.fim);mp[k].vezes++;
+    });
+    return Object.keys(mp).map(function(k){return mp[k];}).sort(function(x,y){return y.dias-x.dias;});
+  }
+
+  var ativos=(afast||[]).filter(function(a){return a.fim>=afHoje();})
+                        .sort(function(x,y){return x.ini<y.ini?-1:1;});
+  var anos=[];for(var y=new Date().getFullYear();y>=new Date().getFullYear()-3;y--)anos.push(String(y));
+  var meses=[];for(var k=0;k<12;k++){var dt=new Date();dt.setDate(1);dt.setMonth(dt.getMonth()-k);meses.push(dt.getFullYear()+"-"+afZ(dt.getMonth()+1));}
+  var quemGraf=quemG||((equipe[0]&&equipe[0].id)||"");
+  var barras=quemGraf?porMes(quemGraf):[];
+  var maxBar=Math.max.apply(null,barras.concat([1]));
+
+  const cardSt={background:"var(--surface)",borderRadius:16,padding:16,marginBottom:14,boxShadow:"5px 5px 12px var(--nm-dark),-5px -5px 12px var(--nm-light)"};
+  const labSt={display:"block",fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6};
+  const lv3=<span style={{display:"inline-flex",alignItems:"center",gap:4,background:"var(--amber-soft)",color:G.gold,borderRadius:7,padding:"3px 8px",fontSize:10,fontWeight:800,letterSpacing:".3px"}}>{"\u{1F512} NÍVEL 3"}</span>;
+
+  return <div className="fi">
+    <div style={{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap"}}>
+      {[["lan","Lançar"],["rel","Relatório"],["fer","Saldo de férias"]].map(function(o){
+        return <button key={o[0]} onClick={function(){setSub(o[0]);setMsg(null);}} style={{border:"none",borderRadius:9,padding:"8px 15px",fontWeight:700,fontSize:13,cursor:"pointer",background:sub===o[0]?G.primary:"var(--green-soft)",color:sub===o[0]?"#fff":G.muted}}>{o[1]}</button>;
+      })}
+    </div>
+
+    {msg&&<div style={{background:msg.ok?"var(--green-soft)":"var(--red-soft)",color:msg.ok?G.green:G.red,borderRadius:11,padding:"10px 14px",fontSize:13,fontWeight:700,marginBottom:12}}>{msg.txt}</div>}
+
+    {/* ══════════ LANÇAR ══════════ */}
+    {sub==="lan"&&<div>
+      {!edit&&<button onClick={novo} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.primary,color:"#ead9b6",marginBottom:14,boxShadow:"4px 4px 11px rgba(34,70,52,.40)"}}>{"+ Novo afastamento"}</button>}
+
+      {edit&&<div style={cardSt}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+          <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary}}>{edit._novo?"Novo afastamento":"Editar afastamento"}</div>
+          {lv3}
+        </div>
+
+        <div style={{marginBottom:13}}>
+          <label style={labSt}>Funcionário</label>
+          <select value={edit.uid} onChange={function(ev){setEdit(Object.assign({},edit,{uid:ev.target.value}));}} style={{width:"100%",padding:"11px 13px",fontSize:14}}>
+            {equipe.map(function(u){return <option key={u.id} value={u.id}>{u.name||u.login}</option>;})}
+          </select>
+        </div>
+
+        <div style={{marginBottom:13}}>
+          <label style={labSt}>Tipo</label>
+          <select value={edit.tipo} onChange={function(ev){setEdit(Object.assign({},edit,{tipo:ev.target.value}));}} style={{width:"100%",padding:"11px 13px",fontSize:14}}>
+            {AF_TIPOS.map(function(t){return <option key={t.k} value={t.k}>{t.nome}</option>;})}
+          </select>
+        </div>
+
+        <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:13}}>
+          <div style={{flex:1,minWidth:135}}>
+            <label style={labSt}>Início</label>
+            <input type="date" value={edit.ini} onChange={function(ev){var v=ev.target.value;setEdit(Object.assign({},edit,{ini:v,fim:(edit.fim<v?v:edit.fim)}));}} style={{width:"100%",padding:"11px 13px",fontSize:14}}/>
+          </div>
+          <div style={{flex:1,minWidth:135}}>
+            <label style={labSt}>Fim</label>
+            <input type="date" value={edit.fim} onChange={function(ev){setEdit(Object.assign({},edit,{fim:ev.target.value}));}} style={{width:"100%",padding:"11px 13px",fontSize:14}}/>
+          </div>
+        </div>
+
+        <div style={{marginBottom:13}}>
+          <label style={labSt}>{"Motivo — visível só para você"}</label>
+          <textarea rows={2} value={edit.motivo} onChange={function(ev){setEdit(Object.assign({},edit,{motivo:ev.target.value}));}} placeholder="Ex.: dor na coluna" style={{width:"100%",padding:"11px 13px",fontSize:14,resize:"vertical"}}/>
+        </div>
+
+        {/* V300: comprovante (atestado assinado, aviso de ferias). Cofre privado. */}
+        <div style={{marginBottom:13}}>
+          <label style={labSt}>Comprovante</label>
+          {edit.anexo
+            ?<RhAnexo anexo={edit.anexo} onRemover={function(){
+               if(!window.confirm("Remover o comprovante deste afastamento?"))return;
+               rhApagar(edit.anexo.path);setEdit(Object.assign({},edit,{anexo:null}));
+             }}/>
+            :<RhUpload pasta={"afast/"+edit.uid} label="Anexar comprovante" onPronto={function(a){setEdit(Object.assign({},edit,{anexo:a}));}}/>}
+        </div>
+
+        {(function(){
+          var t=afTipo(edit.tipo),d=afDias(edit.ini,edit.fim);
+          var avisos=[];
+          avisos.push(d+(d===1?" dia":" dias")+(t.bloq?". Nesse período a pessoa não conseguirá entrar no sistema, e o ponto vai mostrar \""+t.nome+"\" em vez de \"Nenhuma batida\".":". Não bloqueia o acesso."));
+          if(t.ferias){
+            var s=afSaldoFerias(ferSaldo,afast,edit.uid);
+            if(s)avisos.push("Consome saldo de férias: hoje são "+(Math.round(s.atual*10)/10)+" dias; depois deste lançamento ficariam "+(Math.round((s.atual-d)*10)/10)+".");
+            else avisos.push("O saldo de férias desta pessoa ainda não foi informado (aba Saldo de férias).");
+          }
+          if(edit.tipo==="njs"){
+            var qt=0;(afast||[]).forEach(function(a){if(String(a.uid)===String(edit.uid)&&a.tipo==="njs"&&a.id!==edit.id&&(a.ini||"").slice(0,4)===(edit.ini||"").slice(0,4))qt+=afDias(a.ini,a.fim);});
+            avisos.push("Pela CLT, acima de 5 faltas no período aquisitivo o direito a férias cai de 30 para 24 dias. Somando esta, seriam "+(qt+d)+" no ano. O sistema apenas avisa e não desconta sozinho — confirme com seu contador.");
+          }
+          return <div style={{background:"var(--amber-soft)",borderRadius:12,padding:"12px 14px",fontSize:12.5,color:"#6b5410",lineHeight:1.55}}>
+            {avisos.map(function(a,i){return <div key={i} style={{marginBottom:i<avisos.length-1?7:0}}>{a}</div>;})}
+          </div>;
+        })()}
+
+        <div style={{display:"flex",gap:9,marginTop:16,justifyContent:"flex-end",flexWrap:"wrap"}}>
+          {!edit._novo&&<button onClick={function(){excluir(edit.id);}} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.red,color:"#fff",marginRight:"auto"}}>Excluir</button>}
+          <button onClick={function(){setEdit(null);setMsg(null);}} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:"var(--surface)",color:G.primary,boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)"}}>Cancelar</button>
+          <button onClick={salvar} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.primary,color:"#ead9b6",boxShadow:"4px 4px 11px rgba(34,70,52,.40)"}}>Salvar</button>
+        </div>
+      </div>}
+
+      <div style={cardSt}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+          <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary}}>Ativos e futuros</div>
+          {lv3}
+        </div>
+        <div style={{fontSize:12,color:G.muted,marginBottom:12}}>Somente você enxerga esta lista</div>
+        {ativos.length===0?<div style={{fontSize:13,color:G.muted}}>Nenhum afastamento em aberto.</div>:
+          ativos.map(function(a){
+            var t=afTipo(a.tipo);
+            return <div key={a.id} onClick={function(){setEdit(Object.assign({},a));setMsg(null);}} style={{display:"flex",alignItems:"center",gap:11,padding:"11px 13px",borderRadius:11,background:"var("+t.soft+")",marginBottom:7,cursor:"pointer"}}>
+              <i className={"ph-fill "+t.ic} style={{fontSize:19,color:G[t.cor]||G.primary}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700,fontSize:14}}>{nomeDe(a.uid)}</div>
+                <div style={{fontSize:11.5,color:G.muted}}>{t.nome}{a.motivo?(" · "+a.motivo):""}{a.anexo?" \u00b7 \u{1F4CE}":""}</div>
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontSize:12.5,fontWeight:700}}>{a.ini.slice(8,10)+"/"+a.ini.slice(5,7)+" a "+a.fim.slice(8,10)+"/"+a.fim.slice(5,7)}</div>
+                <div style={{fontSize:11,color:G.muted}}>{afDias(a.ini,a.fim)+(afDias(a.ini,a.fim)===1?" dia":" dias")}</div>
+              </div>
+            </div>;
+          })}
+      </div>
+    </div>}
+
+    {/* ══════════ RELATÓRIO ══════════ */}
+    {sub==="rel"&&<div>
+      <div style={cardSt}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+          <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary}}>Relatório</div>
+          {lv3}
+        </div>
+        <div style={{fontSize:12,color:G.muted,marginBottom:13}}>Dias afastados por pessoa</div>
+
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:15,flexWrap:"wrap"}}>
+          {[["ano","Anual"],["mes","Mensal"]].map(function(o){
+            return <button key={o[0]} onClick={function(){setPer(o[0]);setQuando(o[0]==="ano"?String(new Date().getFullYear()):(new Date().getFullYear()+"-"+afZ(new Date().getMonth()+1)));}} style={{border:"none",borderRadius:9,padding:"7px 14px",fontWeight:700,fontSize:12.5,cursor:"pointer",background:per===o[0]?G.primary:"var(--surface)",color:per===o[0]?"#ead9b6":G.primary,boxShadow:per===o[0]?"4px 4px 11px rgba(34,70,52,.40)":"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)"}}>{o[1]}</button>;
+          })}
+          <select value={quando} onChange={function(ev){setQuando(ev.target.value);}} style={{width:"auto",marginLeft:"auto",padding:"7px 11px",fontSize:13}}>
+            {(per==="ano"?anos:meses).map(function(v){return <option key={v} value={v}>{v}</option>;})}
+          </select>
+        </div>
+
+        <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <thead><tr>
+            {["Quem","Férias","Atestado","Licença","Justif.","Não justif.","Total"].map(function(h){
+              return <th key={h} style={{textAlign:h==="Quem"?"left":"center",fontSize:10,textTransform:"uppercase",letterSpacing:".5px",color:G.muted,padding:"8px 5px",borderBottom:"1px solid var(--border)",fontWeight:800}}>{h}</th>;})}
+          </tr></thead>
+          <tbody>
+          {equipe.map(function(u){
+            var t=totaisDe(u.id);
+            var cel=function(v,cor){return <td style={{padding:"11px 5px",borderBottom:"1px solid var(--border)",textAlign:"center",color:(v>0&&cor)?cor:G.text,fontWeight:(v>0&&cor)?700:400}}>{v}</td>;};
+            return <tr key={u.id}>
+              <td style={{padding:"11px 5px",borderBottom:"1px solid var(--border)",fontWeight:700}}>{u.name||u.login}</td>
+              {cel(t.fer,G.blue)}{cel(t.ate,G.red)}{cel(t.mat,G.purple)}{cel(t.jus,null)}{cel(t.njs,G.orange)}
+              <td style={{padding:"11px 5px",borderBottom:"1px solid var(--border)",textAlign:"center",fontWeight:800}}>{t.tot}</td>
+            </tr>;
+          })}
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <div style={cardSt}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
+          <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary}}>Mês a mês</div>
+          <select value={quemGraf} onChange={function(ev){setQuemG(ev.target.value);}} style={{width:"auto",marginLeft:"auto",padding:"7px 11px",fontSize:13}}>
+            {equipe.map(function(u){return <option key={u.id} value={u.id}>{u.name||u.login}</option>;})}
+          </select>
+        </div>
+        <div style={{fontSize:12,color:G.muted,marginBottom:16}}>{quando.slice(0,4)+" · dias afastados por mês"}</div>
+
+        <div style={{display:"flex",alignItems:"flex-end",gap:5,height:110,padding:"18px 2px 0"}}>
+          {barras.map(function(v,i){
+            var h=v>0?Math.max(6,Math.round(v/maxBar*100)):0;
+            var cor=v>=maxBar&&v>0?G.red:(v>=maxBar*0.6&&v>0?G.orange:G.primary);
+            return <div key={i} style={{flex:1,position:"relative",height:h+"%",minHeight:v>0?6:4,borderRadius:"7px 7px 3px 3px",background:v>0?cor:"var(--surface)",boxShadow:v>0?"2px 2px 5px var(--nm-dark)":"inset 2px 2px 4px var(--nm-dark),inset -2px -2px 4px var(--nm-light)"}}>
+              {v>0&&<span style={{position:"absolute",top:-17,left:0,right:0,textAlign:"center",fontSize:11,fontWeight:800,color:G.text}}>{v}</span>}
+            </div>;
+          })}
+        </div>
+        <div style={{display:"flex",gap:5,marginTop:6,padding:"0 2px"}}>
+          {["J","F","M","A","M","J","J","A","S","O","N","D"].map(function(m,i){
+            return <span key={i} style={{flex:1,textAlign:"center",fontSize:10,fontWeight:700,color:G.muted}}>{m}</span>;})}
+        </div>
+      </div>
+
+      {(function(){
+        var mv=quemGraf?motivosDe(quemGraf):[];
+        if(!mv.length)return null;
+        var mx=mv[0].dias||1;
+        return <div style={cardSt}>
+          <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,marginBottom:4}}>Atestados por motivo</div>
+          <div style={{fontSize:12,color:G.muted,marginBottom:14}}>{nomeDe(quemGraf)+" · "+quando}</div>
+          {mv.map(function(m,i){
+            return <div key={i} style={{marginBottom:13}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5}}>
+                <span><b>{m.nome}</b><span style={{color:G.muted}}>{" — "+m.vezes+(m.vezes===1?" ocorrência":" ocorrências")}</span></span>
+                <b>{m.dias+(m.dias===1?" dia":" dias")}</b>
+              </div>
+              <div style={{height:9,borderRadius:5,background:"var(--surface)",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px var(--nm-light)",overflow:"hidden"}}>
+                <span style={{display:"block",height:"100%",borderRadius:5,width:Math.round(m.dias/mx*100)+"%",background:i===0?G.red:G.orange}}/>
+              </div>
+            </div>;
+          })}
+        </div>;
+      })()}
+    </div>}
+
+    {/* ══════════ SALDO DE FÉRIAS ══════════ */}
+    {sub==="fer"&&<div>
+      <div style={cardSt}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+          <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary}}>Saldo de férias</div>
+          {lv3}
+        </div>
+        <div style={{fontSize:12,color:G.muted,marginBottom:16}}>Acumula 2,5 dias por mês trabalhado</div>
+
+        {equipe.map(function(u){
+          var s=afSaldoFerias(ferSaldo,afast,u.id);
+          return <div key={u.id} style={{borderRadius:14,padding:14,marginBottom:11,background:"var(--surface)",boxShadow:"inset 5px 5px 11px var(--nm-dark),inset -5px -5px 11px var(--nm-light)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+              <div style={{flex:1,minWidth:0}}>
+                <b style={{fontSize:15}}>{u.name||u.login}</b>
+                {s?<div>
+                  <div style={{fontSize:11,color:G.muted,marginTop:3}}>{"Informado em "+s.ref.slice(8,10)+"/"+s.ref.slice(5,7)+"/"+s.ref.slice(0,4)+": "+s.informado+" dias"}</div>
+                  {s.acum>0&&<div style={{fontSize:11,color:G.green}}>{"+ "+s.acum+" dias acumulados desde então"}</div>}
+                  {s.gasto>0&&<div style={{fontSize:11,color:G.red}}>{"− "+s.gasto+" dias de férias lançadas"}</div>}
+                  {s.obs?<div style={{fontSize:11,color:G.muted,marginTop:3,fontStyle:"italic"}}>{s.obs}</div>:null}
+                </div>:<div style={{fontSize:11,color:G.muted,marginTop:3}}>Saldo ainda não informado</div>}
+              </div>
+              <div style={{textAlign:"right",flexShrink:0}}>
+                <div style={{fontFamily:"'Cormorant Garamond'",fontSize:31,fontWeight:700,color:s?G.primary:G.muted,lineHeight:1}}>{s?(Math.round(s.atual*10)/10):"—"}</div>
+                <div style={{fontSize:11,color:G.muted}}>dias hoje</div>
+              </div>
+            </div>
+            <button onClick={function(){
+              var b=(ferSaldo||{})[String(u.id)]||{};
+              setAjuste({uid:u.id,dias:b.dias!=null?String(b.dias):"",ref:b.ref||afHoje(),obs:b.obs||""});
+            }} style={{border:"none",borderRadius:9,padding:"6px 13px",fontWeight:700,fontSize:12,cursor:"pointer",background:"var(--surface)",color:G.primary,boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",marginTop:11}}>{s?"Ajustar saldo":"Informar saldo"}</button>
+
+            {s&&s.hist&&s.hist.length>0&&<div style={{marginTop:11,paddingTop:11,borderTop:"1px solid var(--border)"}}>
+              <div style={{fontSize:10,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>Histórico de ajustes</div>
+              {s.hist.slice().reverse().slice(0,5).map(function(h,i){
+                return <div key={i} style={{fontSize:11,color:G.muted,marginBottom:3}}>{new Date(h.ts).toLocaleDateString("pt-BR")+" · "+(h.de==null?"—":h.de)+" → "+h.para+" dias · "+(h.por||"")}</div>;
+              })}
+            </div>}
+          </div>;
+        })}
+
+        <div style={{background:"var(--amber-soft)",borderRadius:12,padding:"12px 14px",fontSize:12.5,color:"#6b5410",lineHeight:1.55,marginTop:12}}>
+          <b>Como funciona.</b> Você informa o saldo de hoje de cada uma, com a data de referência. Daí em diante o sistema soma 2,5 dias por mês e desconta as férias lançadas. Se o número divergir do seu contador, é só reajustar. O saldo aqui é informativo — a palavra final é do contador.
+        </div>
+      </div>
+
+      {ajuste&&<div style={{position:"fixed",inset:0,background:"rgba(20,30,25,.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,padding:16}} onClick={function(){setAjuste(null);}}>
+        <div onClick={function(ev){ev.stopPropagation();}} style={{background:"var(--surface)",borderRadius:18,padding:18,maxWidth:400,width:"100%",boxShadow:"7px 7px 18px var(--nm-dark),-7px -7px 18px var(--nm-light)"}}>
+          <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,marginBottom:14}}>{"Saldo de férias — "+nomeDe(ajuste.uid)}</div>
+          <div style={{marginBottom:13}}>
+            <label style={labSt}>Dias de férias a que tem direito</label>
+            <input type="number" step="0.5" value={ajuste.dias} onChange={function(ev){setAjuste(Object.assign({},ajuste,{dias:ev.target.value}));}} placeholder="Ex.: 20" style={{width:"100%",padding:"11px 13px",fontSize:14}}/>
+          </div>
+          <div style={{marginBottom:13}}>
+            <label style={labSt}>Data de referência desse número</label>
+            <input type="date" value={ajuste.ref} onChange={function(ev){setAjuste(Object.assign({},ajuste,{ref:ev.target.value}));}} style={{width:"100%",padding:"11px 13px",fontSize:14}}/>
+          </div>
+          <div style={{marginBottom:13}}>
+            <label style={labSt}>Origem do número (opcional)</label>
+            <input value={ajuste.obs} onChange={function(ev){setAjuste(Object.assign({},ajuste,{obs:ev.target.value}));}} placeholder="Ex.: planilha do contador, ago/2026" style={{width:"100%",padding:"11px 13px",fontSize:14}}/>
+          </div>
+          <div style={{display:"flex",gap:9,justifyContent:"flex-end"}}>
+            <button onClick={function(){setAjuste(null);}} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:"var(--surface)",color:G.primary,boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)"}}>Cancelar</button>
+            <button onClick={function(){
+              if(ajuste.dias===""||isNaN(Number(ajuste.dias))){setMsg({ok:false,txt:"Informe os dias."});return;}
+              setFerSaldo(function(prev){
+                var o=Object.assign({},prev||{});
+                var ant=o[String(ajuste.uid)]||{};
+                var hist=(ant.hist||[]).slice();
+                hist.push({ts:Date.now(),de:ant.dias!=null?ant.dias:null,para:Number(ajuste.dias),por:user.name||user.login});
+                o[String(ajuste.uid)]={dias:Number(ajuste.dias),ref:ajuste.ref,obs:ajuste.obs,hist:hist,_ts:Date.now()};
+                return o;
+              });
+              setAjuste(null);
+              setMsg({ok:true,txt:"✅ Saldo atualizado."});
+            }} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.primary,color:"#ead9b6",boxShadow:"4px 4px 11px rgba(34,70,52,.40)"}}>Salvar</button>
+          </div>
+        </div>
+      </div>}
+    </div>}
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// V300 ── HOLERITES (nivel 3, arquivo digital) ─────────────────────
+// Substitui a pasta de papel. O que se guarda aqui e a copia ja
+// assinada pela funcionaria -- por isso vale como comprovante de
+// verdade, diferente de um "aceite" clicado na tela.
+// A equipe NAO tem acesso: cada uma fica com a propria via em papel.
+// Vale para todos, inclusive quem nao bate ponto (Dr. Diego, Dra. Juliana).
+// ══════════════════════════════════════════════════════════════════
+function Holerites({hol,setHol,users,user}){
+  const [ano,setAno]=useState(String(new Date().getFullYear()));
+  const [edit,setEdit]=useState(null);
+  const [msg,setMsg]=useState(null);
+
+  var equipe=(users||[]).filter(function(u){return u&&u.active!==false;});
+  function nomeDe(uid){for(var i=0;i<(users||[]).length;i++)if(String(users[i].id)===String(uid))return users[i].name||users[i].login||"—";return "—";}
+  var MES_NOME=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  function moeda(v){
+    if(v==null||v==="")return "—";
+    return "R$ "+Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+
+  function novo(){
+    var hj=new Date();
+    setEdit({id:Date.now(),uid:(equipe[0]&&equipe[0].id)||"",comp:hj.getFullYear()+"-"+afZ(hj.getMonth()+1),liquido:"",anexo:null,obs:"",_novo:true});
+    setMsg(null);
+  }
+  function salvar(){
+    var e=edit;
+    if(!e.uid){setMsg({ok:false,txt:"Escolha a pessoa."});return;}
+    if(!e.comp){setMsg({ok:false,txt:"Informe a competência."});return;}
+    if(!e.anexo&&!window.confirm("Salvar sem anexar o holerite assinado?"))return;
+    var dup=(hol||[]).filter(function(x){return x.id!==e.id&&String(x.uid)===String(e.uid)&&x.comp===e.comp;});
+    if(dup.length&&!window.confirm("Já existe um holerite de "+nomeDe(e.uid)+" nessa competência. Salvar assim mesmo?"))return;
+    var reg={id:e.id,uid:e.uid,comp:e.comp,
+             liquido:(e.liquido===""||e.liquido==null)?null:Number(e.liquido),
+             anexo:e.anexo||null,obs:(e.obs||"").trim(),
+             _ts:Date.now(),_by:user.name||user.login,_byTs:Date.now()};
+    if(!e._novo){reg._edBy=user.name||user.login;reg._edTs=Date.now();}
+    setHol(function(prev){
+      var arr=(prev||[]).slice(),achou=false;
+      for(var i=0;i<arr.length;i++)if(arr[i].id===reg.id){arr[i]=Object.assign({},arr[i],reg);achou=true;}
+      if(!achou)arr.push(reg);
+      return arr;
+    });
+    setEdit(null);setMsg({ok:true,txt:"✅ Holerite arquivado."});
+  }
+  function excluir(id){
+    var alvo=(hol||[]).filter(function(x){return x.id===id;})[0];
+    if(!window.confirm("Excluir este holerite do arquivo? O arquivo anexado também será apagado."))return;
+    if(alvo&&alvo.anexo)rhApagar(alvo.anexo.path);
+    setHol(function(prev){return (prev||[]).filter(function(x){return x.id!==id;});});
+    try{if(window.__delItemsAdd)window.__delItemsAdd("hol",id);}catch(_e){}
+    setEdit(null);setMsg({ok:true,txt:"Holerite excluído."});
+  }
+
+  var doAno=(hol||[]).filter(function(h){return (h.comp||"").slice(0,4)===ano;});
+  var anos={};(hol||[]).forEach(function(h){if(h.comp)anos[h.comp.slice(0,4)]=true;});
+  anos[String(new Date().getFullYear())]=true;
+  var listaAnos=Object.keys(anos).sort().reverse();
+
+  var totalAno=0,comValor=0;
+  doAno.forEach(function(h){if(h.liquido!=null){totalAno+=Number(h.liquido);comValor++;}});
+  var semValor=doAno.length-comValor;
+
+  // agrupado por mes, do mais recente para o mais antigo
+  var porMes={};
+  doAno.forEach(function(h){(porMes[h.comp]=porMes[h.comp]||[]).push(h);});
+  var mesesOrd=Object.keys(porMes).sort().reverse();
+
+  const cardSt={background:"var(--surface)",borderRadius:16,padding:16,marginBottom:14,boxShadow:"5px 5px 12px var(--nm-dark),-5px -5px 12px var(--nm-light)"};
+  const labSt={display:"block",fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6};
+
+  return <div className="fi">
+    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:27,color:G.primary,fontWeight:700}}>Holerites</div>
+      <span style={{display:"inline-flex",alignItems:"center",gap:4,background:"var(--amber-soft)",color:G.gold,borderRadius:7,padding:"3px 8px",fontSize:10,fontWeight:800,letterSpacing:".3px"}}>{"\u{1F512} SÓ VOCÊ"}</span>
+      <select value={ano} onChange={function(ev){setAno(ev.target.value);}} style={{width:"auto",marginLeft:"auto",padding:"7px 11px",fontSize:13}}>
+        {listaAnos.map(function(a){return <option key={a} value={a}>{a}</option>;})}
+      </select>
+    </div>
+    <div style={{fontSize:12,color:G.muted,marginBottom:14}}>Arquivo digital das vias assinadas</div>
+
+    {msg&&<div style={{background:msg.ok?"var(--green-soft)":"var(--red-soft)",color:msg.ok?G.green:G.red,borderRadius:11,padding:"10px 14px",fontSize:13,fontWeight:700,marginBottom:12}}>{msg.txt}</div>}
+
+    {!edit&&<button onClick={novo} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.primary,color:"#ead9b6",marginBottom:14,boxShadow:"4px 4px 11px rgba(34,70,52,.40)"}}>{"+ Arquivar holerite"}</button>}
+
+    {edit&&<div style={cardSt}>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,marginBottom:14}}>{edit._novo?"Arquivar holerite":"Editar holerite"}</div>
+
+      <div style={{marginBottom:13}}>
+        <label style={labSt}>Pessoa</label>
+        <select value={edit.uid} onChange={function(ev){setEdit(Object.assign({},edit,{uid:ev.target.value}));}} style={{width:"100%",padding:"11px 13px",fontSize:14}}>
+          {equipe.map(function(u){return <option key={u.id} value={u.id}>{u.name||u.login}</option>;})}
+        </select>
+      </div>
+
+      <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:13}}>
+        <div style={{flex:1,minWidth:135}}>
+          <label style={labSt}>Competência</label>
+          <input type="month" value={edit.comp} onChange={function(ev){setEdit(Object.assign({},edit,{comp:ev.target.value}));}} style={{width:"100%",padding:"11px 13px",fontSize:14}}/>
+        </div>
+        <div style={{flex:1,minWidth:135}}>
+          <label style={labSt}>Valor líquido (opcional)</label>
+          <input type="number" step="0.01" value={edit.liquido} onChange={function(ev){setEdit(Object.assign({},edit,{liquido:ev.target.value}));}} placeholder="Ex.: 2450,00" style={{width:"100%",padding:"11px 13px",fontSize:14}}/>
+        </div>
+      </div>
+
+      <div style={{marginBottom:13}}>
+        <label style={labSt}>Holerite assinado</label>
+        {edit.anexo
+          ?<RhAnexo anexo={edit.anexo} onRemover={function(){
+             if(!window.confirm("Remover o arquivo deste holerite?"))return;
+             rhApagar(edit.anexo.path);setEdit(Object.assign({},edit,{anexo:null}));
+           }}/>
+          :<RhUpload pasta={"holerite/"+edit.uid+"/"+(edit.comp||"").slice(0,4)} label="Anexar holerite" onPronto={function(a){setEdit(Object.assign({},edit,{anexo:a}));}}/>}
+      </div>
+
+      <div style={{marginBottom:13}}>
+        <label style={labSt}>Observação (opcional)</label>
+        <input value={edit.obs} onChange={function(ev){setEdit(Object.assign({},edit,{obs:ev.target.value}));}} placeholder="Ex.: inclui 13º" style={{width:"100%",padding:"11px 13px",fontSize:14}}/>
+      </div>
+
+      <div style={{display:"flex",gap:9,justifyContent:"flex-end",flexWrap:"wrap"}}>
+        {!edit._novo&&<button onClick={function(){excluir(edit.id);}} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.red,color:"#fff",marginRight:"auto"}}>Excluir</button>}
+        <button onClick={function(){setEdit(null);setMsg(null);}} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:"var(--surface)",color:G.primary,boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)"}}>Cancelar</button>
+        <button onClick={salvar} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.primary,color:"#ead9b6",boxShadow:"4px 4px 11px rgba(34,70,52,.40)"}}>Salvar</button>
+      </div>
+    </div>}
+
+    {doAno.length>0&&<div style={cardSt}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+        <div>
+          <div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:".5px"}}>{"Total de "+ano}</div>
+          <div style={{fontSize:11.5,color:G.muted,marginTop:4}}>{doAno.length+(doAno.length===1?" holerite arquivado":" holerites arquivados")}</div>
+          {semValor>0&&<div style={{fontSize:11.5,color:G.gold,marginTop:3}}>{semValor+(semValor===1?" sem valor preenchido":" sem valor preenchido")+" — fora da soma"}</div>}
+        </div>
+        <div style={{fontFamily:"'Cormorant Garamond'",fontSize:29,fontWeight:700,color:G.primary,lineHeight:1,textAlign:"right",flexShrink:0}}>{comValor?moeda(totalAno):"—"}</div>
+      </div>
+    </div>}
+
+    {mesesOrd.length===0
+      ?<div style={{fontSize:13,color:G.muted}}>{"Nenhum holerite arquivado em "+ano+"."}</div>
+      :mesesOrd.map(function(comp){
+        var mes=MES_NOME[Number(comp.slice(5,7))-1];
+        var itens=porMes[comp].slice().sort(function(a,b){return nomeDe(a.uid)<nomeDe(b.uid)?-1:1;});
+        var somaMes=0,temValor=false;
+        itens.forEach(function(h){if(h.liquido!=null){somaMes+=Number(h.liquido);temValor=true;}});
+        return <div key={comp} style={cardSt}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:11,gap:10}}>
+            <div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:G.primary}}>{mes}</div>
+            <div style={{fontSize:13,fontWeight:800,color:temValor?G.primary:G.muted,flexShrink:0}}>{temValor?moeda(somaMes):"—"}</div>
+          </div>
+          {itens.map(function(h){
+            return <div key={h.id} style={{display:"flex",alignItems:"center",gap:11,padding:"10px 12px",borderRadius:11,background:"var(--green-soft)",marginBottom:7}}>
+              <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={function(){setEdit(Object.assign({},h,{liquido:h.liquido==null?"":String(h.liquido)}));setMsg(null);}}>
+                <div style={{fontWeight:700,fontSize:14}}>{nomeDe(h.uid)}</div>
+                <div style={{fontSize:11.5,color:G.muted}}>
+                  {h.anexo?"📎 arquivo anexado":"⚠️ sem arquivo"}{h.obs?(" · "+h.obs):""}
+                </div>
+              </div>
+              <div style={{fontSize:13.5,fontWeight:700,flexShrink:0,color:h.liquido==null?G.muted:G.text}}>{moeda(h.liquido)}</div>
+              {h.anexo&&<button onClick={async function(){
+                try{var u=await rhLink(h.anexo.path);window.open(u,"_blank");}
+                catch(e){setMsg({ok:false,txt:e.message||"Erro ao abrir."});}
+              }} style={{border:"none",borderRadius:9,padding:"6px 12px",fontWeight:700,fontSize:12,cursor:"pointer",background:G.primary,color:"#ead9b6",flexShrink:0}}>Abrir</button>}
+            </div>;
+          })}
+        </div>;
+      })}
+
+    <div style={{background:"var(--amber-soft)",borderRadius:12,padding:"12px 14px",fontSize:12.5,color:"#6b5410",lineHeight:1.55,marginTop:4}}>
+      <b>Arquive a via já assinada.</b> É ela que vale como comprovante — foto ou PDF do papel que a funcionária assinou. O arquivo fica em cofre privado: só abre para você, por link temporário. A equipe não enxerga esta tela.
+    </div>
   </div>;
 }
 
@@ -9841,7 +10568,7 @@ function ConfigPonto({pontoCfg,setPontoCfg}){
   </div>;
 }
 
-function EspelhoMensal({pontos,pontoCfg,users}){
+function EspelhoMensal({pontos,pontoCfg,users,afast}){
   const z=function(n){return ("0"+n).slice(-2);};
   var hoje0=new Date();
   const [mes,setMes]=useState(hoje0.getFullYear()+"-"+z(hoje0.getMonth()+1)); // "YYYY-MM"
@@ -13199,6 +13926,9 @@ const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [pontos,setPontos]=useState([]);const [caixa,setCaixa]=useState([]);
+const [afast,setAfast]=useState([]);// V300: afastamentos (ferias, atestado, faltas)
+const [hol,setHol]=useState([]);// V300: holerites arquivados
+const [ferSaldo,setFerSaldo]=useState({});// V300: saldo inicial de ferias por funcionario
 const [pontoCfg,setPontoCfg]=useState({lat:null,lng:null,raio:150,ativo:true,entradaPadrao:"08:00",saidaPadrao:"18:00",cargaSemanal:44,intervalo:60});
 const [acessoCfg,setAcessoCfg]=useState({restringir:true,segIni:"07:00",segFim:"21:00",sabIni:"07:00",sabFim:"13:00",domOn:false,domIni:"08:00",domFim:"12:00"});
 const [sideOpen,setSideOpen]=useState(false);
@@ -13819,6 +14549,9 @@ useEffect(function(){
           mergeArr(stock,sd.stock,setStock,"stock");// V289: estoque item-a-item + respeita exclusoes/fusoes
           mergeArr(pontos,sd.pontos,setPontos);
           mergeArr(caixa,sd.caixa,setCaixa);
+          mergeArr(afast,sd.afast,setAfast,"afast");// V300: afastamentos item-a-item + tombstone
+          mergeArr(hol,sd.hol,setHol,"hol");// V300: holerites
+          if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V300
           // V239: cadastros passam a entrar no merge antes de gravar (antes o save levava a copia velha da memoria e desfazia edicao de outro aparelho)
           if(sd.users)setUsers(function(prev){var m=mergeCad(prev,sd.users,_diSet,"users");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
           if(sd.dents)setDents(function(prev){var m=mergeCad(prev,sd.dents,_diSet,"dents");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
@@ -13837,7 +14570,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp};
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol};// V300: afast + ferSaldo + holerites
     if(!patTableOk.current)payload.pats=pats;
     try{ // V199: carimbo de versao so nas chaves cujo conteudo mudou
       if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
@@ -14301,7 +15034,18 @@ var iv=setInterval(run,10*60*1000);
 return function(){clearTimeout(t0);clearInterval(iv);};
 },[]);
 
-if(!user)return <Login users={users} onLogin={u=>{setUser(u);setView(pnlAbertura(u));}}/>
+if(!user)return <Login users={users} onLogin={u=>{
+  // V300: afastamento em vigor impede a entrada (ferias, atestado, licenca, falta).
+  // Nivel 3 nunca e barrado. Quem ja esta logado nao e derrubado.
+  var _af=(u&&u.level>=3)?null:afAtivo(afast,u&&u.id,afHoje());
+  if(_af){
+    var _t=afTipo(_af.tipo);
+    window.alert("Acesso indisponível.\n\n"+_t.nome+" registrado de "+_af.ini.slice(8,10)+"/"+_af.ini.slice(5,7)+" a "+_af.fim.slice(8,10)+"/"+_af.fim.slice(5,7)+".\n\nFale com o Dr. Diego.");
+    try{__signOut();}catch(_e){}
+    return;
+  }
+  setUser(u);setView(pnlAbertura(u));
+}}/>
 
 // Bloqueio de horário de acesso para nível 2 (Recepção/Secretária) - configurável em Administrativo > Acessos
 if(user.level===2){
@@ -14362,7 +15106,7 @@ const ALL_NAV=[
 // Rotina
 {id:"dash",l:"Visão Geral",ic:"ph-house",lv:1,grp:"Rotina"},{id:"agenda",l:"Agenda",ic:"ph-calendar-blank",lv:1,grp:"Rotina"},{id:"pacs",l:"Pacientes",ic:"ph-users",lv:1,grp:"Rotina"},
 {id:"lems",l:"Lembretes",ic:"ph-bell",lv:1,b:remBadge,grp:"Rotina"},{id:"conversas",l:"Conversas",ic:"ph-chat-circle",lv:2,b:waUnread,grp:"Rotina"},{id:"remarcar",l:"Remarcar",ic:"ph-arrows-clockwise",lv:2,grp:"Rotina"},
-{id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2,grp:"Rotina"},{id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1,grp:"Rotina"},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1,grp:"Rotina"},{id:"ponto",l:"Ponto",ic:"ph-clock",lv:1,grp:"Rotina"},
+{id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2,grp:"Rotina"},{id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1,grp:"Rotina"},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1,grp:"Rotina"},{id:"ponto",l:"Ponto",ic:"ph-clock",lv:1,grp:"Rotina"},{id:"holerite",l:"Holerites",ic:"ph-file-text",lv:3,grp:"Gestão"},/* V300 */
 // Clínico
 {id:"pros",l:"Próteses",ic:"ph-first-aid-kit",lv:2,b:prosBadge,grp:"Clínico"},{id:"impl",l:"Implantes",ic:"ph-syringe",lv:2,grp:"Clínico"},{id:"stk",l:"Estoque",ic:"ph-package",lv:2,alerta:stkAlerta,grp:"Clínico"},
 // Financeiro
@@ -14456,7 +15200,8 @@ return <>
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
-    {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users}/>}
+    {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users} afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo}/>}
+    {view==="holerite"&&user.level>=3&&<Holerites hol={hol} setHol={setHol} users={users} user={user}/>}{/* V300 */}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientDirtyRef.current=true;setOrientacoes(v);}} user={user}/>}
     {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} setRecs={setRecs} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog} acessoCfg={acessoCfg} setAcessoCfg={setAcessoCfg}/>}
