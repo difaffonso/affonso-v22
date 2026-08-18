@@ -14748,7 +14748,7 @@ useEffect(function(){
   };
   runSaveRef.current=runSave; // V210
   saveTimer.current=setTimeout(runSave,AUTOSAVE_MS); // V296: era 800ms fixo
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp]);
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
