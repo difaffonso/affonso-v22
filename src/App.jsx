@@ -4364,18 +4364,23 @@ const qq=q.trim().toLowerCase();
 const hits=qq.length<2?[]:smartFilter(qq,(pats||[]).filter(function(p){return p.id!==selfId;}),6); // V254
 return <div style={{display:"flex",flexDirection:"column",gap:4}}>{LB}
   <input value={q} onChange={function(e){setQ(e.target.value);}} placeholder="Buscar paciente pelo nome..." style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 12px",fontSize:14,outline:"none"}}/>
+  {/* V307: a caixa e so busca. Digitar e salvar sem escolher nada gravava vazio, sem avisar. */}
+  {qq.length>0&&qq.length<2&&<div style={{fontSize:11,color:G.muted,marginTop:2}}>{"Digite mais uma letra para buscar."}</div>}
   {hits.length>0&&<div style={{border:"1.5px solid "+G.border,borderRadius:8,overflow:"hidden",marginTop:2}}>
     {hits.map(function(p,i){return <div key={p.id} onClick={function(){setQ("");onPick(p.id,p.name);}} style={{padding:"8px 12px",cursor:"pointer",borderBottom:i<hits.length-1?"1px solid "+G.border:"none"}}>
       <div style={{fontSize:13,fontWeight:600}}>{p.name}</div>
       <div style={{fontSize:11,color:G.muted}}>{p.phone||"sem telefone"}{p.folder?" \u00b7 Ficha "+p.folder:""}</div>
     </div>;})}
   </div>}
-  {/* V306: saida para quem nao acha a ficha — grava o nome digitado */}
-  {qq.length>=2&&hits.length===0&&<div style={{display:"flex",flexDirection:"column",gap:5,marginTop:2}}>
-    <div style={{fontSize:11.5,color:G.muted}}>{"Nenhum paciente com esse nome."}</div>
+  {/* V307: o botao aparece SEMPRE que houver 2+ letras digitadas, junto com a lista.
+      No V306 ele so vinha quando a busca voltava vazia — e buscar "Maria" traz centenas
+      de fichas, escondendo a unica saida de quem nao sabe o nome completo. */}
+  {qq.length>=2&&<div style={{display:"flex",flexDirection:"column",gap:5,marginTop:hits.length>0?5:2}}>
+    {hits.length===0&&<div style={{fontSize:11.5,color:G.muted}}>{"Nenhum paciente com esse nome."}</div>}
+    {hits.length>0&&<div style={{fontSize:11,color:G.muted}}>{"N\u00e3o \u00e9 nenhum desses?"}</div>}
     <div onClick={function(){var _n=q.trim();if(!_n)return;setQ("");onPick(null,_n);}} style={{border:"1.5px dashed "+G.blue,background:"var(--blue-soft)",borderRadius:9,padding:"9px 12px",cursor:"pointer",lineHeight:1.35}}>
       <div style={{fontSize:12.5,fontWeight:800,color:G.blue}}>{"\u270d\ufe0f Usar \u201c"+q.trim()+"\u201d assim mesmo"}</div>
-      <div style={{fontSize:10.5,fontWeight:600,color:G.muted,marginTop:2}}>{"Guarda s\u00f3 o nome. Use quando o paciente n\u00e3o souber o nome completo de quem indicou, ou quando quem indicou n\u00e3o for paciente."}</div>
+      <div style={{fontSize:10.5,fontWeight:600,color:G.muted,marginTop:2}}>{"Guarda s\u00f3 o nome, sem ligar a nenhuma ficha. Use quando o paciente n\u00e3o souber o nome completo de quem indicou, ou quando quem indicou n\u00e3o for paciente."}</div>
     </div>
   </div>}
 </div>;
