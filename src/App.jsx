@@ -8402,6 +8402,18 @@ function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dent
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
 const [relSub,setRelSub]=useState("resumo");// V268 sub-abas do relatorio (resumo/in/out/aj)
+// V309: previsao de compra (aba Compras)
+const [cpMeses,setCpMeses]=useState(1);// meses de cobertura
+const [cpFolga,setCpFolga]=useState(20);// % de folga de seguranca
+const [cpAj,setCpAj]=useState(false);// contar ajuste negativo como consumo
+const [cpIni,setCpIni]=useState("2026-08");// mes inicial do historico confiavel
+const [cpSel,setCpSel]=useState({});// id -> bool (marcado na lista)
+const [cpQty,setCpQty]=useState({});// id -> quantidade editada na mao
+const [cpTxt,setCpTxt]=useState(null);// texto da cotacao (modal)
+const [cpSem,setCpSem]=useState(false);// abrir lista de itens sem historico
+const [cpQ,setCpQ]=useState("");// busca dentro dos sem historico
+const [cpAjuda,setCpAjuda]=useState(false);
+const cpSetCons=function(id,v){setStock(function(prev){return (prev||[]).map(function(s){return s.id===id?Object.assign({},s,{consMes:(v===""||v==null?null:Number(v)),_ts:Date.now()}):s;});});};
 const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
@@ -8478,6 +8490,7 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 <button onClick={function(){setMatTab("itens");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="itens"?"var(--card)":G.bg,color:matTab==="itens"?G.primary:G.muted,boxShadow:matTab==="itens"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"Itens"}</button>
 <button onClick={function(){setMatTab("rel");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="rel"?"var(--card)":G.bg,color:matTab==="rel"?G.primary:G.muted,boxShadow:matTab==="rel"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"📊 Relatório"}</button>
+<button onClick={function(){setMatTab("compras");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="compras"?"var(--card)":G.bg,color:matTab==="compras"?G.primary:G.muted,boxShadow:matTab==="compras"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"🛒 Comprar"}</button>
 </div>
 {matTab==="itens"&&<>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
@@ -8797,6 +8810,194 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 {porDia(ajs,"#6a736c","Nenhum ajuste neste mês. 👍")}
 </div>}
 {temEstimado&&<div style={{background:G.gold+"18",border:"1.5px solid "+G.gold+"55",borderRadius:10,padding:"10px 12px",fontSize:11,color:G.muted,lineHeight:1.5}}>{"* Movimentações antigas não gravaram o preço na hora — o valor foi calculado com o preço atual do item. Baixas novas já gravam o preço do momento."}</div>}
+</div>;
+})()}
+
+{/* ══════════ V309: COMPRAS — previsão de reposição ══════════ */}
+{matTab==="compras"&&(function(){
+var hoje=today(), mesAtual=hoje.slice(0,7), ini=cpIni||mesAtual;
+var ya=Number(ini.slice(0,4)),ma=Number(ini.slice(5,7)),yb=Number(mesAtual.slice(0,4)),mb=Number(mesAtual.slice(5,7));
+var cheios=Math.max(0,(yb-ya)*12+(mb-ma));
+var nMes=Math.max(0.5,cheios+Math.min(1,Number(hoje.slice(8,10))/30));
+var ativos=(stock||[]).filter(function(s){return !s.inativo;});
+var calc=ativos.map(function(s){
+  var out=0,nOut=0,ajn=0;
+  (s.movs||[]).forEach(function(mm){
+    var d=String(mm.date||""); if(d<ini+"-01")return;
+    var q=Math.abs(Number(mm.q||0));
+    if(mm.t==="out"){out+=q;nOut++;}
+    else if(mm.t==="aj"&&Number(mm.q||0)<0)ajn+=q;
+  });
+  var man=(s.consMes!=null&&s.consMes!=="")?Number(s.consMes):null;
+  var cons=(man!=null)?man:((out+(cpAj?ajn:0))/nMes);
+  var qtd=Number(s.qty||0);
+  var dd=cons>0?Math.round(qtd/(cons/30)):null;
+  var sug=cons>0?Math.max(0,Math.ceil(cons*cpMeses*(1+cpFolga/100)-qtd)):0;
+  var cf=(man!=null)?["Você definiu",G.primary]:(nOut>=3?["Confiança alta",G.success]:(nOut>=1?["Confiança média",G.gold]:(ajn>0?["Só contagem",G.red]:["Sem dados","#9aa39c"])));
+  return {s:s,cons:cons,qtd:qtd,dd:dd,sug:sug,cf:cf,nOut:nOut,ajn:ajn,man:man,sem:(cons<=0)};
+});
+var qtyDe=function(c){return (cpQty[c.s.id]!=null&&cpQty[c.s.id]!=="")?Number(cpQty[c.s.id]):c.sug;};
+var selDe=function(c){return (cpSel[c.s.id]!=null)?cpSel[c.s.id]:(qtyDe(c)>0);};
+var comHist=calc.filter(function(c){return !c.sem;});
+var semHist=calc.filter(function(c){return c.sem;});
+var nCompra=0,vTot=0,nZero=0,nAcaba=0;
+comHist.forEach(function(c){var q=qtyDe(c);if(selDe(c)&&q>0){nCompra++;vTot+=q*(Number(c.s.price)||0);}
+ if(c.qtd<=0)nZero++;else if(c.dd!=null&&c.dd<cpMeses*30)nAcaba++;});
+semHist.forEach(function(c){var q=qtyDe(c);if(selDe(c)&&q>0){nCompra++;vTot+=q*(Number(c.s.price)||0);}});
+
+var gAcabou=comHist.filter(function(c){return c.qtd<=0;});
+var gAcaba=comHist.filter(function(c){return c.qtd>0&&c.dd!=null&&c.dd<cpMeses*30;});
+var gOk=comHist.filter(function(c){return c.qtd>0&&(c.dd==null||c.dd>=cpMeses*30);});
+var ordena=function(l){return l.slice().sort(function(a,b){return (b.sug*(Number(b.s.price)||0))-(a.sug*(Number(a.s.price)||0));});};
+
+var pill=function(txt,on,fn,key){return <button key={key} onClick={fn} style={{border:"none",borderRadius:10,padding:"8px 13px",fontSize:11.5,fontWeight:700,cursor:"pointer",fontFamily:"'Manrope'",background:on?G.primary:G.card,color:on?"#fff":G.muted,boxShadow:on?"inset 2px 2px 6px rgba(0,0,0,.25)":"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>{txt}</button>;};
+var kpi=function(k,v,cor,h){return <div style={{background:G.card,borderRadius:14,padding:"12px 13px",boxShadow:"5px 5px 12px var(--nm-dark),-5px -5px 12px #ffffff"}}>
+<div style={{fontSize:10,fontWeight:800,letterSpacing:".06em",textTransform:"uppercase",color:G.muted}}>{k}</div>
+<div style={{fontSize:21,fontWeight:800,color:cor,margin:"3px 0 1px"}}>{v}</div>
+<div style={{fontSize:10.5,color:G.muted,lineHeight:1.35}}>{h}</div></div>;};
+
+var linhaItem=function(c){
+var q=qtyDe(c), sel=selDe(c), pr=Number(c.s.price)||0;
+var pct=(c.dd==null)?0:Math.min(100,(c.dd/(cpMeses*30))*100);
+return <div key={c.s.id} style={{background:G.card,borderRadius:14,padding:"11px 13px",display:"flex",gap:11,alignItems:"flex-start",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<button onClick={function(){var o={};o[c.s.id]=!sel;setCpSel(Object.assign({},cpSel,o));}} style={{flexShrink:0,width:22,height:22,marginTop:2,borderRadius:7,border:"none",cursor:"pointer",background:sel?G.primary:G.bg,color:"#fff",fontSize:12,fontWeight:800,lineHeight:1,boxShadow:sel?"none":"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}>{sel?"\u2713":""}</button>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:13.5,lineHeight:1.3}}>{c.s.name}</div>
+<div style={{fontSize:11,color:G.muted,marginTop:3,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+<span><strong>{c.qtd}</strong>{" "+(c.s.unit||"un")+" na prateleira"}</span>
+<span>{"·"}</span>
+<span>{"usa ~"+(c.cons>0?(Math.round(c.cons*10)/10).toString().replace(".",","):"?")+"/mês"}</span>
+{c.dd!=null?<span>{"·"}</span>:null}
+{c.dd!=null?<span style={{color:c.dd<cpMeses*30?G.red:G.muted}}>{"dura ~"+c.dd+" dias"}</span>:null}
+<span style={{fontSize:9.5,fontWeight:800,padding:"2px 7px",borderRadius:20,background:c.cf[1]+"1e",color:c.cf[1]}}>{c.cf[0]}</span>
+</div>
+{c.dd!=null?<div style={{height:5,borderRadius:3,background:G.border,marginTop:7,overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,width:pct+"%",background:pct<100?G.red:G.success}}></div></div>:null}
+</div>
+<div style={{flexShrink:0,textAlign:"right"}}>
+<div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}>
+<input type="number" min="0" value={String(q)} onChange={function(e){var o={};o[c.s.id]=e.target.value;setCpQty(Object.assign({},cpQty,o));}} style={{width:52,textAlign:"center",fontFamily:"'Manrope'",fontWeight:800,fontSize:15,color:G.primary,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
+<span style={{fontSize:10.5,color:G.muted,width:26,textAlign:"left"}}>{c.s.unit||"un"}</span>
+</div>
+<div style={{fontSize:10.5,color:G.muted,marginTop:4}}>{pr>0?cur(q*pr):"sem preço"}</div>
+</div>
+</div>;};
+
+var grupo=function(tit,cor,lista){if(!lista.length)return null;
+return <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:6}}>
+<div style={{display:"flex",alignItems:"baseline",gap:8,flexWrap:"wrap"}}>
+<h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20,fontWeight:600}}>{tit}</h3>
+<span style={{fontSize:10.5,fontWeight:800,padding:"3px 9px",borderRadius:20,background:cor+"1e",color:cor}}>{lista.length+" itens"}</span>
+</div>
+{ordena(lista).map(linhaItem)}
+</div>;};
+
+var gerar=function(){
+var l=["*Affonso Odontologia \u2014 lista de compra*",""];
+calc.forEach(function(c){var q=qtyDe(c);if(selDe(c)&&q>0)l.push("\u2022 "+c.s.name+" \u2014 "+q+" "+(c.s.unit||"un"));});
+l.push("","Por favor, enviar pre\u00e7o e prazo de entrega.");
+setCpTxt(l.join("\n"));};
+
+var semFiltrados=semHist.filter(function(c){return !cpQ.trim()||stkNorm(c.s.name).indexOf(stkNorm(cpQ))>=0;});
+
+return <div style={{display:"flex",flexDirection:"column",gap:13}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
+<div>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"Lista de compra"}</h2>
+<div style={{fontSize:12,color:G.muted,lineHeight:1.5}}>{"Calculada com o consumo registrado desde "+ini.slice(5,7)+"/"+ini.slice(0,4)+" \u2014 "+(Math.round(nMes*10)/10).toString().replace(".",",")+" mês(es) de histórico."}</div>
+</div>
+<button onClick={function(){setCpAjuda(!cpAjuda);}} style={{border:"none",borderRadius:11,padding:"9px 13px",fontSize:11.5,fontWeight:700,cursor:"pointer",fontFamily:"'Manrope'",background:G.card,color:G.primary,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>{"Como é calculado"}</button>
+</div>
+
+{cpAjuda?<div style={{background:G.card,borderRadius:14,padding:"13px 15px",fontSize:12,color:G.muted,lineHeight:1.7,boxShadow:"inset 3px 3px 8px var(--nm-dark),inset -3px -3px 8px #ffffff"}}>
+<div>{"1. Soma tudo que saiu do item desde o mês inicial e divide pelos meses de histórico \u2192 consumo por mês."}</div>
+<div>{"2. Multiplica pelos meses que você quer cobrir e soma a folga de segurança."}</div>
+<div>{"3. Desconta o que já tem na prateleira e arredonda para cima."}</div>
+<div style={{marginTop:8,fontWeight:700,color:G.text}}>{"comprar = (consumo/mês × meses × folga) − estoque atual"}</div>
+<div style={{marginTop:8}}>{"O selo diz o quanto dá para confiar: alta = 3 ou mais baixas; média = 1 ou 2; só contagem = nunca teve baixa, o número veio do que faltou na conferência; sem dados = você precisa definir na mão."}</div>
+</div>:null}
+
+<div style={{background:G.card,borderRadius:14,padding:"13px 15px",display:"flex",flexDirection:"column",gap:13,boxShadow:"5px 5px 12px var(--nm-dark),-5px -5px 12px #ffffff"}}>
+<div>
+<div style={{fontSize:10.5,fontWeight:800,letterSpacing:".06em",textTransform:"uppercase",color:G.muted,marginBottom:7}}>{"Comprar para quanto tempo"}</div>
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{[[0.5,"15 dias"],[1,"1 mês"],[2,"2 meses"],[3,"3 meses"]].map(function(o){return pill(o[1],cpMeses===o[0],function(){setCpMeses(o[0]);setCpQty({});setCpSel({});},o[0]);})}
+</div>
+</div>
+<div>
+<div style={{fontSize:10.5,fontWeight:800,letterSpacing:".06em",textTransform:"uppercase",color:G.muted,marginBottom:7}}>{"Folga de segurança"}</div>
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{[0,10,20,30,50].map(function(o){return pill(o+"%",cpFolga===o,function(){setCpFolga(o);setCpQty({});setCpSel({});},o);})}
+</div>
+</div>
+<div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+<div style={{flex:1,minWidth:150}}>
+<div style={{fontSize:10.5,fontWeight:800,letterSpacing:".06em",textTransform:"uppercase",color:G.muted,marginBottom:7}}>{"Histórico a partir de"}</div>
+<input type="month" value={cpIni} onChange={function(e){setCpIni(e.target.value);setCpQty({});setCpSel({});}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:10,padding:"8px 10px",fontSize:12.5,fontFamily:"'Manrope'",background:G.bg,color:G.text}}/>
+</div>
+<div style={{flex:1,minWidth:150}}>
+<div style={{fontSize:10.5,fontWeight:800,letterSpacing:".06em",textTransform:"uppercase",color:G.muted,marginBottom:7}}>{"Sumiço da contagem"}</div>
+{pill(cpAj?"Conta como consumo":"Só baixas registradas",cpAj,function(){setCpAj(!cpAj);setCpQty({});setCpSel({});},"aj")}
+</div>
+</div>
+</div>
+
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{kpi("Itens a comprar",String(nCompra),G.primary,"marcados na lista")}
+{kpi("Custo estimado",cur(vTot),G.primary,"preço da última compra")}
+{kpi("Já sem estoque",String(nZero),G.red,"acabou, comprar já")}
+{kpi("Acaba no período",String(nAcaba),G.gold,"cobertura menor que o pedido")}
+</div>
+
+{semHist.length>comHist.length?<div style={{background:G.gold+"18",border:"1.5px solid "+G.gold+"55",borderRadius:14,padding:"12px 14px",fontSize:12.5,color:G.muted,lineHeight:1.6,display:"flex",gap:10,alignItems:"flex-start"}}>
+<span style={{fontSize:16,lineHeight:1}}>{"\u26a0"}</span>
+<div><strong style={{color:G.text}}>{semHist.length+" materiais ainda sem consumo conhecido."}</strong>{" A lista só acerta o que tem baixa registrada. Abra a seção lá embaixo e diga quanto usa por mês nos principais — daqui a dois ou três meses o sistema calcula sozinho."}</div>
+</div>:null}
+
+{grupo("Acabou — comprar sem falta",G.red,gAcabou)}
+{grupo("Acaba antes do próximo pedido",G.gold,gAcaba)}
+{grupo("Dá para segurar",G.success,gOk)}
+
+<div style={{marginTop:8}}>
+<button onClick={function(){setCpSem(!cpSem);}} style={{width:"100%",border:"none",borderRadius:14,padding:"13px 15px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'Manrope'",background:G.card,color:G.text,textAlign:"left",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+<span>{"Sem consumo conhecido ("+semHist.length+")"}</span>
+<span style={{color:G.muted,fontSize:11}}>{cpSem?"fechar":"definir na mão"}</span>
+</button>
+{cpSem?<div style={{display:"flex",flexDirection:"column",gap:8,marginTop:9}}>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"Digite quanto costuma usar por mês. O número fica salvo no item e passa a valer no cálculo até existir histórico real."}</div>
+<input value={cpQ} onChange={function(e){setCpQ(e.target.value);}} placeholder="Buscar material…" style={{border:"none",borderRadius:12,padding:"10px 13px",fontSize:13,fontFamily:"'Manrope'",background:G.card,color:G.text,boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px #ffffff",outline:"none"}}/>
+{semFiltrados.slice(0,60).map(function(c){return <div key={c.s.id} style={{background:G.card,borderRadius:12,padding:"10px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:12.5,lineHeight:1.3}}>{c.s.name}</div>
+<div style={{fontSize:10.5,color:G.muted,marginTop:2}}>{c.qtd+" "+(c.s.unit||"un")+" na prateleira"}</div>
+</div>
+<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+<input type="number" min="0" step="0.5" defaultValue={c.s.consMes!=null?String(c.s.consMes):""} onBlur={function(e){cpSetCons(c.s.id,e.target.value);}} placeholder="0" style={{width:54,textAlign:"center",fontFamily:"'Manrope'",fontWeight:800,fontSize:14,color:G.primary,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
+<span style={{fontSize:10.5,color:G.muted}}>{"/mês"}</span>
+</div>
+</div>;})}
+{semFiltrados.length>60?<div style={{fontSize:11,color:G.muted,textAlign:"center",padding:6}}>{"Mostrando 60 de "+semFiltrados.length+". Use a busca para achar o resto."}</div>:null}
+</div>:null}
+</div>
+
+<div style={{position:"sticky",bottom:0,background:G.card,borderRadius:16,padding:"13px 15px",marginTop:6,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",boxShadow:"0 -6px 18px rgba(0,0,0,.07),5px 5px 12px var(--nm-dark)"}}>
+<div>
+<div style={{fontSize:10,fontWeight:800,letterSpacing:".06em",textTransform:"uppercase",color:G.muted}}>{"Total da lista"}</div>
+<div style={{fontSize:23,fontWeight:800,color:G.primary}}>{cur(vTot)}</div>
+</div>
+<Btn ch="Gerar lista para o fornecedor" onClick={gerar}/>
+</div>
+
+{cpTxt!=null?<div onClick={function(e){if(e.target===e.currentTarget)setCpTxt(null);}} style={{position:"fixed",inset:0,background:"rgba(30,40,34,.5)",zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:G.card,borderRadius:18,padding:18,maxWidth:560,width:"100%",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
+<h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:22,marginBottom:4}}>{"Lista para o fornecedor"}</h3>
+<div style={{fontSize:12,color:G.muted,marginBottom:10,lineHeight:1.5}}>{"Copie e mande no WhatsApp da distribuidora pedindo cotação."}</div>
+<textarea readOnly value={cpTxt} style={{width:"100%",height:210,fontFamily:"'Manrope'",fontSize:12,lineHeight:1.6,padding:12,border:"none",borderRadius:12,background:G.bg,color:G.text,boxShadow:"inset 2px 2px 6px var(--nm-dark),inset -2px -2px 6px #ffffff",resize:"vertical"}}/>
+<div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
+<Btn ch="Fechar" v="g" onClick={function(){setCpTxt(null);}}/>
+<Btn ch="Copiar" onClick={function(){try{navigator.clipboard.writeText(cpTxt);}catch(e){}}}/>
+</div>
+</div>
+</div>:null}
 </div>;
 })()}
 </>}
