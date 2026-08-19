@@ -8398,7 +8398,7 @@ function stkFiltrar(stock,q){
   }
   return arr;
 }
-function Estoque({stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user,gastos,setGastos,auditDismiss,setAuditDismiss}){
+function Estoque({cotExtra,setCotExtra,stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user,gastos,setGastos,auditDismiss,setAuditDismiss}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
 const [relSub,setRelSub]=useState("resumo");// V268 sub-abas do relatorio (resumo/in/out/aj)
@@ -8413,6 +8413,14 @@ const [cpTxt,setCpTxt]=useState(null);// texto da cotacao (modal)
 const [cpSem,setCpSem]=useState(false);// abrir lista de itens sem historico
 const [cpQ,setCpQ]=useState("");// busca dentro dos sem historico
 const [cpAjuda,setCpAjuda]=useState(false);
+const [cpNovo,setCpNovo]=useState(null);// V310: {name,qty,unit,price} do item avulso em edicao
+const [cpTudo,setCpTudo]=useState(false);// V310: mostrar todos os itens sem limite
+const cpExAdd=function(o){var it={id:"x"+Date.now()+Math.floor(Math.random()*999),name:String(o.name||"").trim(),qty:Number(o.qty||1),unit:String(o.unit||"un"),price:Number(o.price||0),_ts:Date.now()};
+ if(!it.name)return; setCotExtra(function(prev){return (prev||[]).concat([it]);});
+ try{if(addLog)addLog("estoque","Item avulso na lista de compra: "+it.name+" ("+it.qty+" "+it.unit+")","");}catch(e){}};
+const cpExDel=function(id){setCotExtra(function(prev){return (prev||[]).filter(function(x){return x.id!==id;});});
+ try{if(window.__delItemsAdd)window.__delItemsAdd("cotExtra",id);}catch(e){}};
+const cpExUpd=function(id,campo,v){setCotExtra(function(prev){return (prev||[]).map(function(x){var o={};o[campo]=(campo==="name"||campo==="unit")?v:Number(v||0);return x.id===id?Object.assign({},x,o,{_ts:Date.now()}):x;});});};
 const cpSetCons=function(id,v){setStock(function(prev){return (prev||[]).map(function(s){return s.id===id?Object.assign({},s,{consMes:(v===""||v==null?null:Number(v)),_ts:Date.now()}):s;});});};
 const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
@@ -8844,6 +8852,8 @@ var nCompra=0,vTot=0,nZero=0,nAcaba=0;
 comHist.forEach(function(c){var q=qtyDe(c);if(selDe(c)&&q>0){nCompra++;vTot+=q*(Number(c.s.price)||0);}
  if(c.qtd<=0)nZero++;else if(c.dd!=null&&c.dd<cpMeses*30)nAcaba++;});
 semHist.forEach(function(c){var q=qtyDe(c);if(selDe(c)&&q>0){nCompra++;vTot+=q*(Number(c.s.price)||0);}});
+var extras=(cotExtra||[]);
+extras.forEach(function(x){nCompra++;vTot+=Number(x.qty||0)*(Number(x.price)||0);});
 
 var gAcabou=comHist.filter(function(c){return c.qtd<=0;});
 var gAcaba=comHist.filter(function(c){return c.qtd>0&&c.dd!=null&&c.dd<cpMeses*30;});
@@ -8894,10 +8904,12 @@ return <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:6}}>
 var gerar=function(){
 var l=["*Affonso Odontologia \u2014 lista de compra*",""];
 calc.forEach(function(c){var q=qtyDe(c);if(selDe(c)&&q>0)l.push("\u2022 "+c.s.name+" \u2014 "+q+" "+(c.s.unit||"un"));});
+extras.forEach(function(x){l.push("\u2022 "+x.name+" \u2014 "+x.qty+" "+(x.unit||"un"));});
 l.push("","Por favor, enviar pre\u00e7o e prazo de entrega.");
 setCpTxt(l.join("\n"));};
 
-var semFiltrados=semHist.filter(function(c){return !cpQ.trim()||stkNorm(c.s.name).indexOf(stkNorm(cpQ))>=0;});
+var busca=function(l){return !cpQ.trim()?l:l.filter(function(c){return stkNorm(c.s.name).indexOf(stkNorm(cpQ))>=0;});};
+var semFiltrados=busca(semHist);
 
 return <div style={{display:"flex",flexDirection:"column",gap:13}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
@@ -8953,29 +8965,73 @@ return <div style={{display:"flex",flexDirection:"column",gap:13}}>
 <div><strong style={{color:G.text}}>{semHist.length+" materiais ainda sem consumo conhecido."}</strong>{" A lista só acerta o que tem baixa registrada. Abra a seção lá embaixo e diga quanto usa por mês nos principais — daqui a dois ou três meses o sistema calcula sozinho."}</div>
 </div>:null}
 
-{grupo("Acabou — comprar sem falta",G.red,gAcabou)}
-{grupo("Acaba antes do próximo pedido",G.gold,gAcaba)}
-{grupo("Dá para segurar",G.success,gOk)}
+{/* V310: busca que atravessa todos os grupos */}
+<div style={{display:"flex",alignItems:"center",gap:9,background:G.card,borderRadius:12,padding:"9px 13px",boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px #ffffff"}}>
+<span style={{fontSize:15,opacity:.6,lineHeight:1,flexShrink:0}}>{"\ud83d\udd0d"}</span>
+<input value={cpQ} onChange={function(e){setCpQ(e.target.value);}} placeholder="Buscar material em toda a lista…" style={{flex:1,minWidth:0,border:"none",background:"transparent",outline:"none",fontSize:13.5,fontFamily:"'Manrope'",color:G.text}}/>
+{cpQ?<button onClick={function(){setCpQ("");}} style={{border:"none",background:G.bg,borderRadius:"50%",width:22,height:22,color:G.muted,cursor:"pointer",fontSize:12,lineHeight:1,flexShrink:0,padding:0}}>{"\u2715"}</button>:null}
+</div>
+
+{/* V310: itens avulsos — fora do estoque */}
+<div style={{background:G.card,borderRadius:14,padding:"13px 15px",display:"flex",flexDirection:"column",gap:10,boxShadow:"5px 5px 12px var(--nm-dark),-5px -5px 12px #ffffff"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+<div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,fontWeight:600}}>{"Itens avulsos"}</div>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.5}}>{"Compras pontuais que não são do estoque — aparelho ortodôntico, peça de equipamento, um pedido específico."}</div>
+</div>
+{cpNovo==null?<Btn ch="+ Adicionar" v="g" onClick={function(){setCpNovo({name:"",qty:1,unit:"un",price:""});}}/>:null}
+</div>
+{cpNovo!=null?<div style={{background:G.bg,borderRadius:12,padding:"12px 13px",display:"flex",flexDirection:"column",gap:9,boxShadow:"inset 2px 2px 6px var(--nm-dark),inset -2px -2px 6px #ffffff"}}>
+<input autoFocus value={cpNovo.name} onChange={function(e){setCpNovo(Object.assign({},cpNovo,{name:e.target.value}));}} placeholder="O que é? (ex: Aparelho ortodôntico — Dra. Juliana)" style={{border:"none",borderRadius:10,padding:"10px 12px",fontSize:13,fontFamily:"'Manrope'",background:G.card,color:G.text,outline:"none",boxShadow:"2px 2px 6px var(--nm-dark),-2px -2px 6px #ffffff"}}/>
+<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+<input type="number" min="0" value={String(cpNovo.qty)} onChange={function(e){setCpNovo(Object.assign({},cpNovo,{qty:e.target.value}));}} placeholder="Qtd" style={{width:70,textAlign:"center",border:"none",borderRadius:10,padding:"9px 6px",fontSize:13,fontWeight:800,fontFamily:"'Manrope'",background:G.card,color:G.primary,outline:"none",boxShadow:"2px 2px 6px var(--nm-dark),-2px -2px 6px #ffffff"}}/>
+<input value={cpNovo.unit} onChange={function(e){setCpNovo(Object.assign({},cpNovo,{unit:e.target.value}));}} placeholder="un" style={{width:70,textAlign:"center",border:"none",borderRadius:10,padding:"9px 6px",fontSize:13,fontFamily:"'Manrope'",background:G.card,color:G.text,outline:"none",boxShadow:"2px 2px 6px var(--nm-dark),-2px -2px 6px #ffffff"}}/>
+<input type="number" min="0" step="0.01" value={String(cpNovo.price)} onChange={function(e){setCpNovo(Object.assign({},cpNovo,{price:e.target.value}));}} placeholder="R$ (opcional)" style={{flex:1,minWidth:110,border:"none",borderRadius:10,padding:"9px 10px",fontSize:13,fontFamily:"'Manrope'",background:G.card,color:G.text,outline:"none",boxShadow:"2px 2px 6px var(--nm-dark),-2px -2px 6px #ffffff"}}/>
+</div>
+<div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+<Btn ch="Cancelar" v="g" onClick={function(){setCpNovo(null);}}/>
+<Btn ch="Adicionar à lista" onClick={function(){cpExAdd(cpNovo);setCpNovo(null);}}/>
+</div>
+</div>:null}
+{extras.length===0&&cpNovo==null?<div style={{fontSize:12,color:G.muted}}>{"Nenhum item avulso nesta lista."}</div>:null}
+{extras.map(function(x){return <div key={x.id} style={{background:G.bg,borderRadius:12,padding:"10px 13px",display:"flex",alignItems:"center",gap:10,boxShadow:"inset 2px 2px 6px var(--nm-dark),inset -2px -2px 6px #ffffff"}}>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:13,lineHeight:1.3}}>{x.name}</div>
+<div style={{fontSize:10.5,color:G.muted,marginTop:2}}>{(Number(x.price)>0?cur(Number(x.qty||0)*Number(x.price)):"sem preço")+" · avulso"}</div>
+</div>
+<input type="number" min="0" value={String(x.qty)} onChange={function(e){cpExUpd(x.id,"qty",e.target.value);}} style={{width:50,textAlign:"center",border:"none",borderRadius:10,padding:"7px 3px",fontSize:14,fontWeight:800,fontFamily:"'Manrope'",background:G.card,color:G.primary,outline:"none",boxShadow:"2px 2px 6px var(--nm-dark),-2px -2px 6px #ffffff"}}/>
+<span style={{fontSize:10.5,color:G.muted,width:26}}>{x.unit||"un"}</span>
+<button onClick={function(){if(window.confirm("Tirar \u201c"+x.name+"\u201d da lista?"))cpExDel(x.id);}} title="Remover" style={{border:"none",background:"transparent",color:G.red,cursor:"pointer",fontSize:15,lineHeight:1,padding:4}}>{"\u2715"}</button>
+</div>;})}
+</div>
+
+{grupo("Acabou — comprar sem falta",G.red,busca(gAcabou))}
+{grupo("Acaba antes do próximo pedido",G.gold,busca(gAcaba))}
+{grupo("Dá para segurar",G.success,busca(gOk))}
 
 <div style={{marginTop:8}}>
 <button onClick={function(){setCpSem(!cpSem);}} style={{width:"100%",border:"none",borderRadius:14,padding:"13px 15px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'Manrope'",background:G.card,color:G.text,textAlign:"left",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
 <span>{"Sem consumo conhecido ("+semHist.length+")"}</span>
-<span style={{color:G.muted,fontSize:11}}>{cpSem?"fechar":"definir na mão"}</span>
+<span style={{color:G.muted,fontSize:11}}>{cpSem?"fechar":"ver e marcar"}</span>
 </button>
 {cpSem?<div style={{display:"flex",flexDirection:"column",gap:8,marginTop:9}}>
-<div style={{fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"Digite quanto costuma usar por mês. O número fica salvo no item e passa a valer no cálculo até existir histórico real."}</div>
-<input value={cpQ} onChange={function(e){setCpQ(e.target.value);}} placeholder="Buscar material…" style={{border:"none",borderRadius:12,padding:"10px 13px",fontSize:13,fontFamily:"'Manrope'",background:G.card,color:G.text,boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px #ffffff",outline:"none"}}/>
-{semFiltrados.slice(0,60).map(function(c){return <div key={c.s.id} style={{background:G.card,borderRadius:12,padding:"10px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"Marque o que quiser comprar mesmo sem histórico — aproveitar um preço bom, repor por garantia. E se souber quanto usa por mês, digite no campo /mês: fica salvo no item e passa a valer no cálculo até existir histórico real."}</div>
+{(cpTudo?semFiltrados:semFiltrados.slice(0,60)).map(function(c){
+var q=qtyDe(c), sel=selDe(c), pr=Number(c.s.price)||0;
+return <div key={c.s.id} style={{background:G.card,borderRadius:12,padding:"10px 13px",display:"flex",alignItems:"center",gap:10,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
+<button onClick={function(){var o={};o[c.s.id]=!sel;setCpSel(Object.assign({},cpSel,o));var oq={};if(!sel&&q<=0){oq[c.s.id]=1;setCpQty(Object.assign({},cpQty,oq));}}} style={{flexShrink:0,width:21,height:21,borderRadius:7,border:"none",cursor:"pointer",background:sel?G.primary:G.bg,color:"#fff",fontSize:12,fontWeight:800,lineHeight:1,boxShadow:sel?"none":"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}>{sel?"\u2713":""}</button>
 <div style={{flex:1,minWidth:0}}>
 <div style={{fontWeight:700,fontSize:12.5,lineHeight:1.3}}>{c.s.name}</div>
-<div style={{fontSize:10.5,color:G.muted,marginTop:2}}>{c.qtd+" "+(c.s.unit||"un")+" na prateleira"}</div>
+<div style={{fontSize:10.5,color:G.muted,marginTop:2}}>{c.qtd+" "+(c.s.unit||"un")+" na prateleira"+(pr>0?" · "+cur(pr)+" a unidade":"")}</div>
 </div>
-<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-<input type="number" min="0" step="0.5" defaultValue={c.s.consMes!=null?String(c.s.consMes):""} onBlur={function(e){cpSetCons(c.s.id,e.target.value);}} placeholder="0" style={{width:54,textAlign:"center",fontFamily:"'Manrope'",fontWeight:800,fontSize:14,color:G.primary,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
-<span style={{fontSize:10.5,color:G.muted}}>{"/mês"}</span>
+<div style={{display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
+<input type="number" min="0" value={String(q)} onChange={function(e){var o={};o[c.s.id]=e.target.value;setCpQty(Object.assign({},cpQty,o));}} title="Quantidade a comprar" style={{width:48,textAlign:"center",fontFamily:"'Manrope'",fontWeight:800,fontSize:14,color:G.primary,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
+<span style={{fontSize:10,color:G.muted,width:24}}>{c.s.unit||"un"}</span>
+<input type="number" min="0" step="0.5" defaultValue={c.s.consMes!=null?String(c.s.consMes):""} onBlur={function(e){cpSetCons(c.s.id,e.target.value);}} placeholder="/mês" title="Quanto usa por mês" style={{width:52,textAlign:"center",fontFamily:"'Manrope'",fontWeight:700,fontSize:12.5,color:G.muted,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
 </div>
 </div>;})}
-{semFiltrados.length>60?<div style={{fontSize:11,color:G.muted,textAlign:"center",padding:6}}>{"Mostrando 60 de "+semFiltrados.length+". Use a busca para achar o resto."}</div>:null}
+{!cpTudo&&semFiltrados.length>60?<button onClick={function(){setCpTudo(true);}} style={{border:"none",borderRadius:11,padding:"11px 14px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Manrope'",background:G.card,color:G.primary,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>{"Mostrar os outros "+(semFiltrados.length-60)}</button>:null}
+{semFiltrados.length===0?<div style={{fontSize:12,color:G.muted,textAlign:"center",padding:10}}>{"Nada encontrado para essa busca."}</div>:null}
 </div>:null}
 </div>
 
@@ -14260,6 +14316,7 @@ const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [pontos,setPontos]=useState([]);const [caixa,setCaixa]=useState([]);
 const [afast,setAfast]=useState([]);// V300: afastamentos (ferias, atestado, faltas)
+const [cotExtra,setCotExtra]=useState([]);// V310: itens avulsos da lista de compra (fora do estoque)
 const [hol,setHol]=useState([]);// V300: holerites arquivados
 const [ferSaldo,setFerSaldo]=useState({});// V300: saldo inicial de ferias por funcionario
 const [ferPer,setFerPer]=useState(FER_PER_INICIAL);// V303: periodos aquisitivos (relacao do contador)
@@ -14293,6 +14350,7 @@ const patSaveTimer=useRef(null);
 const patSaving=useRef(false);
 const patPending=useRef(false);
 const patsRef=useRef([]);
+const cotExtraRef=useRef([]);// V310
 const afastRef=useRef([]);const holRef=useRef([]);const ferSaldoRef=useRef({});const ferPerRef=useRef(FER_PER_INICIAL);// V305: payload le o estado mais novo, nao o fechamento da renderizacao antiga
 const lastPatPollTs=useRef(null);
 const anamSeenRef=useRef({});
@@ -14505,6 +14563,7 @@ if(data.gastos)setGastos(data.gastos);
 if(data.pontos?.length)setPontos(data.pontos);
 if(data.caixa?.length)setCaixa(data.caixa);
 if(data.afast?.length)setAfast(data.afast);// V303: faltava ler na abertura -- por isso o registro sumia
+if(data.cotExtra?.length)setCotExtra(data.cotExtra);// V310
 if(data.hol?.length)setHol(data.hol);// V303
 if(data.ferSaldo)setFerSaldo(data.ferSaldo);// V303
 if(data.ferPer)setFerPer(data.ferPer);// V303: periodos aquisitivos
@@ -14889,6 +14948,7 @@ useEffect(function(){
           mergeArr(pontos,sd.pontos,setPontos);
           mergeArr(caixa,sd.caixa,setCaixa);
           mergeArr(afast,sd.afast,setAfast,"afast");// V300: afastamentos item-a-item + tombstone
+          mergeArr(cotExtra,sd.cotExtra,setCotExtra,"cotExtra");// V310: itens avulsos da lista de compra
           mergeArr(hol,sd.hol,setHol,"hol");// V300: holerites
           if(sd.ferPer)setFerPer(function(prev){return JSON.stringify(sd.ferPer)===JSON.stringify(prev)?prev:sd.ferPer;});// V303
           if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V300
@@ -14910,7 +14970,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current};// V305: via refs
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current};// V310: via ref
     if(!patTableOk.current)payload.pats=pats;
     try{ // V199: carimbo de versao so nas chaves cujo conteudo mudou
       if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
@@ -14985,11 +15045,11 @@ useEffect(function(){
   };
   runSaveRef.current=runSave; // V210
   saveTimer.current=setTimeout(runSave,AUTOSAVE_MS); // V296: era 800ms fixo
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
-afastRef.current=afast;holRef.current=hol;ferSaldoRef.current=ferSaldo;ferPerRef.current=ferPer;// V305
+afastRef.current=afast;holRef.current=hol;ferSaldoRef.current=ferSaldo;ferPerRef.current=ferPer;cotExtraRef.current=cotExtra;// V305 // V310
 useEffect(function(){
   if(!initialized.current||!patTableOk.current)return;
   if(patSaveTimer.current)clearTimeout(patSaveTimer.current);
@@ -15150,6 +15210,7 @@ useEffect(function(){
       if(sd.implCat)addArr(sd.implCat,setImplCat,"implCat");// V238 merge aditivo - nao sobrescreve mais
       if(sd.implMov)addArr(sd.implMov,setImplMov,"implMov");// V238 merge aditivo - nao sobrescreve mais
       if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSetP);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, _ts mais novo vence
+      if(sd.cotExtra)addArr(sd.cotExtra,setCotExtra,"cotExtra");// V310: poll dos itens avulsos
       if(sd.afast)addArr(sd.afast,setAfast,"afast");// V305: afast nao entrava no poll -- aparelho aberto ficava com lista velha e apagava o registro no proprio save
       if(sd.hol)addArr(sd.hol,setHol,"hol");// V305
       if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V305
@@ -15541,7 +15602,7 @@ return <>
       {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
-      {view==="stk"&&<Estoque stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
+      {view==="stk"&&<Estoque cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
