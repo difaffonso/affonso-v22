@@ -43,6 +43,24 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
 ,async loadVers(){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at,vers:data->_vers",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
 ,async loadKeys(keys){if(!SUPA_URL||!keys||!keys.length)return null;try{var sel="updated_at,"+keys.map(function(k){return k+":data->"+k;}).join(",");const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select="+encodeURIComponent(sel),{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
 ,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
+// V308: fonte propria e COMPLETA das respostas "Otimo" da pesquisa de satisfacao.
+// O cache de conversas guarda so as ultimas 1000 mensagens, entao avaliacoes antigas
+// sumiam da fila de indicacao. Aqui buscamos SOMENTE as respostas Otimo (poucas linhas,
+// trafego irrisorio) sem janela nenhuma, para a fila enxergar o historico inteiro.
+,__waOtimos:null
+,async loadWaOtimos(){
+  if(!SUPA_URL)return [];
+  var C=this.__waOtimos;
+  if(C&&(Date.now()-C.t)<300000)return C.rows.slice();
+  try{
+    const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=id,wamid,phone,patient_name,direction,body,ts,created_at&direction=eq.in&body=ilike.*timo*&order=id.asc&limit=5000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});
+    if(!r.ok)return (C&&C.rows.slice())||[];
+    var rowsO=await r.json();
+    if(!Array.isArray(rowsO))return (C&&C.rows.slice())||[];
+    this.__waOtimos={t:Date.now(),rows:rowsO};
+    return rowsO.slice();
+  }catch(e){return (C&&C.rows.slice())||[];}
+}
 // V232: le o registro de envios do SERVIDOR (wa_sent_srv) - fonte da verdade dos follow-ups de orcamento
 ,async loadWaSentSrv(){if(!SUPA_URL)return {};try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.wa_sent_srv&select=data",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();if(Array.isArray(rows)&&rows[0]&&rows[0].data&&typeof rows[0].data==="object")return rows[0].data;return {};}catch(e){return {};}}
 // V196: versao economica do carregamento de conversas. Na 1a chamada baixa tudo (como antes);
@@ -11357,7 +11375,7 @@ const [vRetroRev,setVRetroRev]=useState(false);
 // V299: pedidos de indicacao que ficaram para tras (cobranca do administrador)
 const [oInd,setOInd]=useState(false);
 const [waMsgsInd,setWaMsgsInd]=useState([]);
-useEffect(function(){var ativo=true;try{supabase.loadWaMessagesLite().then(function(rows){if(ativo)setWaMsgsInd(Array.isArray(rows)?rows:[]);}).catch(function(){});}catch(e){}return function(){ativo=false;};},[]);
+useEffect(function(){var ativo=true;try{supabase.loadWaOtimos().then(function(rows){if(ativo)setWaMsgsInd(Array.isArray(rows)?rows:[]);}).catch(function(){});}catch(e){}return function(){ativo=false;};},[]); // V308: historico completo das avaliacoes Otimo
 const [vBdayDone,setVBdayDone]=useState(false);
 const rev=recs.filter(r=>r.date.startsWith(mo)&&r.paid>0).reduce((s,r)=>s+r.paid,0);
 const todayCount=appts.filter(a=>a.date===t&&!a.blocked&&a.status!=="cancelled").length;
@@ -13836,6 +13854,8 @@ const [per,setPer]=useState(30);
 const [soPendG,setSoPendG]=useState(false); // V249: filtro pedidos de avaliacao Google
 const [vIndic,setVIndic]=useState(false); // V299: tela do pedido de indicacao
 const [vIndFeitos,setVIndFeitos]=useState(false); // V299: lista "ja pedidos" recolhida
+const [otimosFull,setOtimosFull]=useState([]); // V308: historico COMPLETO das respostas Otimo (fora do cache de 1000 msgs)
+useEffect(function(){var ativo=true;try{supabase.loadWaOtimos().then(function(rows){if(ativo)setOtimosFull(Array.isArray(rows)?rows:[]);}).catch(function(){});}catch(e){}return function(){ativo=false;};},[]);
 const load=function(){supabase.loadWaMessagesLite().then(function(rows){setMsgs(Array.isArray(rows)?rows:[]);setLoading(false);});}; // V196: poll economico
 useEffect(function(){load();var t=setInterval(load,30000);return function(){clearInterval(t);};},[]);
 var soDig=function(s){return (s||"").replace(/\D/g,"");};
@@ -13868,7 +13888,7 @@ var grSeen={};var grPend=[];
 avalsF.forEach(function(a){if(a.nota!=="otimo")return;if(grSeen[a.phone])return;grSeen[a.phone]=1;if(!grOk(a.phone))grPend.push(a);});
 // V299: fila do pedido de indicacao. Usa TODAS as avaliacoes (nao o filtro 30/90/Tudo),
 // senao quem avaliou ha mais tempo sumiria da fila antes de ser abordado.
-var indPend=indFila(msgs,pats,ticks,IND_DIAS);
+var indPend=indFila((otimosFull||[]).concat(msgs||[]),pats,ticks,IND_DIAS); // V308: historico completo + o que chegou agora
 var indTxtDe=function(nome){return getWA(waTemplates,"pedir_indicacao",{nome:String(nome||"").trim().split(" ")[0],anos:String(clinicaAnos())});};
 var indFeitos=[];
 Object.keys(ticks||{}).forEach(function(k){
