@@ -8398,6 +8398,31 @@ function stkFiltrar(stock,q){
   }
   return arr;
 }
+// V312: a conta do consumo/sugestao virou funcao unica, pra tela de compra e o card do
+// estoque nunca mostrarem numeros diferentes do mesmo material.
+function cpMesesHist(ini,hoje){
+  var mesAtual=String(hoje).slice(0,7); var i=ini||mesAtual;
+  var ya=Number(i.slice(0,4)),ma=Number(i.slice(5,7));
+  var yb=Number(mesAtual.slice(0,4)),mb=Number(mesAtual.slice(5,7));
+  var cheios=Math.max(0,(yb-ya)*12+(mb-ma));
+  return Math.max(0.5,cheios+Math.min(1,Number(String(hoje).slice(8,10))/30));
+}
+function cpCalc(s,ini,nMes,usarAj,meses,folga){
+  var out=0,nOut=0,ajn=0;
+  (s.movs||[]).forEach(function(mm){
+    var d=String(mm.date||""); if(d<ini+"-01")return;
+    var q=Math.abs(Number(mm.q||0));
+    if(mm.t==="out"){out+=q;nOut++;}
+    else if(mm.t==="aj"&&Number(mm.q||0)<0)ajn+=q;
+  });
+  var man=(s.consMes!=null&&s.consMes!=="")?Number(s.consMes):null;
+  var cons=(man!=null)?man:((out+(usarAj?ajn:0))/nMes);
+  var qtd=Number(s.qty||0);
+  var dd=cons>0?Math.round(qtd/(cons/30)):null;
+  var sug=cons>0?Math.max(0,Math.ceil(cons*meses*(1+folga/100)-qtd)):0;
+  var cf=(man!=null)?["Você definiu",G.primary]:(nOut>=3?["Confiança alta",G.success]:(nOut>=1?["Confiança média",G.gold]:(ajn>0?["Só contagem",G.red]:["Sem dados","#9aa39c"])));
+  return {s:s,cons:cons,qtd:qtd,dd:dd,sug:sug,cf:cf,nOut:nOut,ajn:ajn,man:man,sem:(cons<=0)};
+}
 function Estoque({cotExtra,setCotExtra,stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user,gastos,setGastos,auditDismiss,setAuditDismiss}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
@@ -8418,13 +8443,22 @@ const [cpTudo,setCpTudo]=useState(false);// V310: mostrar todos os itens sem lim
 // V311: a marcacao da lista de compra fica gravada no proprio item do estoque (cpMark),
 // entao sobrevive ao F5 e chega nos outros aparelhos pelo merge item-a-item que ja existe.
 // cpMark ausente = automatico | {q:N} = dentro da lista | {off:1} = tirado da lista
+const cpCfg=(function(){var h=today();return {ini:(cpIni||h.slice(0,7)),nMes:cpMesesHist(cpIni,h)};})();// V312
 const cpMarkSet=function(id,val){setStock(function(prev){return (prev||[]).map(function(s){return s.id===id?Object.assign({},s,{cpMark:val,_ts:Date.now()}):s;});});};
 const cpNaLista=function(s){var mk=s&&s.cpMark;return !!(mk&&!mk.off&&mk.q!=null);};
 const cpFora=function(s){var mk=s&&s.cpMark;return !!(mk&&mk.off);};
 const cpToggle=function(s,sugerida){if(cpNaLista(s))cpMarkSet(s.id,{off:1});else cpMarkSet(s.id,{q:Math.max(1,Number(sugerida||1))});};
 // V311: na tela de compra o item pode estar marcado sozinho pela sugestao -- entao o toggle olha o que esta na tela
 const cpToggleVis=function(s,estaMarcado,quantidade){if(estaMarcado)cpMarkSet(s.id,{off:1});else cpMarkSet(s.id,{q:Math.max(1,Number(quantidade||1))});};
-const cpNaListaTotal=function(){var n=0;(stock||[]).forEach(function(s){if(!s.inativo&&cpNaLista(s))n++;});return n;};
+const cpNaListaTotal=function(){var n=0;(stock||[]).forEach(function(s){if(!s.inativo&&cpProg(s).q>0)n++;});return n;};
+// V312: quanto está programado comprar deste material, considerando a sugestão automática
+// e a sua decisão manual. {q, manual} — q=0 quer dizer fora da lista.
+const cpProg=function(s){
+  if(cpFora(s))return {q:0,manual:true};
+  if(cpNaLista(s))return {q:Number(s.cpMark.q),manual:true};
+  var c=cpCalc(s,cpCfg.ini,cpCfg.nMes,cpAj,cpMeses,cpFolga);
+  return {q:c.sug,manual:false};
+};
 const cpExAdd=function(o){var it={id:"x"+Date.now()+Math.floor(Math.random()*999),name:String(o.name||"").trim(),qty:Number(o.qty||1),unit:String(o.unit||"un"),price:Number(o.price||0),_ts:Date.now()};
  if(!it.name)return; setCotExtra(function(prev){return (prev||[]).concat([it]);});
  try{if(addLog)addLog("estoque","Item avulso na lista de compra: "+it.name+" ("+it.qty+" "+it.unit+")","");}catch(e){}};
@@ -8571,10 +8605,14 @@ return <div key={"dp"+i} style={{background:G.card,borderRadius:11,padding:"10px
 <div style={{textAlign:"right"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:low?G.red:G.success,lineHeight:1}}>{s.qty}</div><div style={{fontSize:10,color:G.muted}}>{s.unit}</div></div>
 </div>
 {low&&<div style={{background:G.red+"15",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:G.red,marginTop:5}}>⚠ Estoque baixo!</div>}
-{cpNaLista(s)&&<div style={{background:G.primary+"15",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:G.primary,marginTop:5}}>{"\ud83d\uded2 Na lista de compra ("+s.cpMark.q+" "+(s.unit||"un")+")"}</div>}
+{(function(){var pg=cpProg(s);// V312: selo com a quantidade programada
+if(pg.q>0)return <div style={{background:G.primary+"15",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:G.primary,marginTop:5,lineHeight:1.4}}>{"\ud83d\uded2 Na lista de compra: "+pg.q+" "+(s.unit||"un")+(pg.manual?" (você definiu)":" (sugestão)")}</div>;
+if(pg.manual)return <div style={{background:G.border,borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:G.muted,marginTop:5}}>{"Fora da lista de compra"}</div>;
+return null;})()}
 <div style={{display:"flex",gap:5,marginTop:9,alignItems:"center"}}>
 {/* V311: joga o material direto na lista de compra, sem sair daqui */}
-<button onClick={function(){cpToggle(s,1);}} title={cpNaLista(s)?"Na lista de compra — clique para tirar":"Colocar na lista de compra"} style={{border:"none",borderRadius:9,padding:"6px 9px",fontSize:13,lineHeight:1,cursor:"pointer",flexShrink:0,background:cpNaLista(s)?G.primary:G.card,color:cpNaLista(s)?"#fff":G.muted,boxShadow:cpNaLista(s)?"inset 2px 2px 5px rgba(0,0,0,.25)":"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff"}}>{"\ud83d\uded2"}</button>
+{(function(){var pg=cpProg(s),on=pg.q>0;// V312: aceso tambem quando a sugestao ja colocou o item na lista
+return <button onClick={function(){cpToggleVis(s,on,pg.q>0?pg.q:1);}} title={on?("Na lista de compra: "+pg.q+" "+(s.unit||"un")+" — clique para tirar"):"Colocar na lista de compra"} style={{border:"none",borderRadius:9,padding:"6px 9px",fontSize:13,lineHeight:1,cursor:"pointer",flexShrink:0,background:on?G.primary:G.card,color:on?"#fff":G.muted,boxShadow:on?"inset 2px 2px 5px rgba(0,0,0,.25)":"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff"}}>{"\ud83d\uded2"}</button>;})()}
 <Btn ch="+ Entrada" sm onClick={()=>{setM({t:"in",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
 <Btn ch="- Saída" v="y" sm onClick={()=>{setM({t:"out",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
 <Btn ch="✏️" v="g" sm onClick={()=>{setEdit(s);setF({...s});setDz("");setModal(true);}}/>
@@ -8836,27 +8874,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 
 {/* ══════════ V309: COMPRAS — previsão de reposição ══════════ */}
 {matTab==="compras"&&(function(){
-var hoje=today(), mesAtual=hoje.slice(0,7), ini=cpIni||mesAtual;
-var ya=Number(ini.slice(0,4)),ma=Number(ini.slice(5,7)),yb=Number(mesAtual.slice(0,4)),mb=Number(mesAtual.slice(5,7));
-var cheios=Math.max(0,(yb-ya)*12+(mb-ma));
-var nMes=Math.max(0.5,cheios+Math.min(1,Number(hoje.slice(8,10))/30));
+var ini=cpCfg.ini, nMes=cpCfg.nMes;// V312: mesma conta do card do estoque
 var ativos=(stock||[]).filter(function(s){return !s.inativo;});
-var calc=ativos.map(function(s){
-  var out=0,nOut=0,ajn=0;
-  (s.movs||[]).forEach(function(mm){
-    var d=String(mm.date||""); if(d<ini+"-01")return;
-    var q=Math.abs(Number(mm.q||0));
-    if(mm.t==="out"){out+=q;nOut++;}
-    else if(mm.t==="aj"&&Number(mm.q||0)<0)ajn+=q;
-  });
-  var man=(s.consMes!=null&&s.consMes!=="")?Number(s.consMes):null;
-  var cons=(man!=null)?man:((out+(cpAj?ajn:0))/nMes);
-  var qtd=Number(s.qty||0);
-  var dd=cons>0?Math.round(qtd/(cons/30)):null;
-  var sug=cons>0?Math.max(0,Math.ceil(cons*cpMeses*(1+cpFolga/100)-qtd)):0;
-  var cf=(man!=null)?["Você definiu",G.primary]:(nOut>=3?["Confiança alta",G.success]:(nOut>=1?["Confiança média",G.gold]:(ajn>0?["Só contagem",G.red]:["Sem dados","#9aa39c"])));
-  return {s:s,cons:cons,qtd:qtd,dd:dd,sug:sug,cf:cf,nOut:nOut,ajn:ajn,man:man,sem:(cons<=0)};
-});
+var calc=ativos.map(function(s){return cpCalc(s,ini,nMes,cpAj,cpMeses,cpFolga);});// V312
 var qtyDe=function(c){
  if(cpQty[c.s.id]!=null&&cpQty[c.s.id]!=="")return Number(cpQty[c.s.id]);// digitando agora
  if(cpNaLista(c.s))return Number(c.s.cpMark.q);// V311: quantidade que voce gravou
