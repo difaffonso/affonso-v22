@@ -8415,6 +8415,16 @@ const [cpQ,setCpQ]=useState("");// busca dentro dos sem historico
 const [cpAjuda,setCpAjuda]=useState(false);
 const [cpNovo,setCpNovo]=useState(null);// V310: {name,qty,unit,price} do item avulso em edicao
 const [cpTudo,setCpTudo]=useState(false);// V310: mostrar todos os itens sem limite
+// V311: a marcacao da lista de compra fica gravada no proprio item do estoque (cpMark),
+// entao sobrevive ao F5 e chega nos outros aparelhos pelo merge item-a-item que ja existe.
+// cpMark ausente = automatico | {q:N} = dentro da lista | {off:1} = tirado da lista
+const cpMarkSet=function(id,val){setStock(function(prev){return (prev||[]).map(function(s){return s.id===id?Object.assign({},s,{cpMark:val,_ts:Date.now()}):s;});});};
+const cpNaLista=function(s){var mk=s&&s.cpMark;return !!(mk&&!mk.off&&mk.q!=null);};
+const cpFora=function(s){var mk=s&&s.cpMark;return !!(mk&&mk.off);};
+const cpToggle=function(s,sugerida){if(cpNaLista(s))cpMarkSet(s.id,{off:1});else cpMarkSet(s.id,{q:Math.max(1,Number(sugerida||1))});};
+// V311: na tela de compra o item pode estar marcado sozinho pela sugestao -- entao o toggle olha o que esta na tela
+const cpToggleVis=function(s,estaMarcado,quantidade){if(estaMarcado)cpMarkSet(s.id,{off:1});else cpMarkSet(s.id,{q:Math.max(1,Number(quantidade||1))});};
+const cpNaListaTotal=function(){var n=0;(stock||[]).forEach(function(s){if(!s.inativo&&cpNaLista(s))n++;});return n;};
 const cpExAdd=function(o){var it={id:"x"+Date.now()+Math.floor(Math.random()*999),name:String(o.name||"").trim(),qty:Number(o.qty||1),unit:String(o.unit||"un"),price:Number(o.price||0),_ts:Date.now()};
  if(!it.name)return; setCotExtra(function(prev){return (prev||[]).concat([it]);});
  try{if(addLog)addLog("estoque","Item avulso na lista de compra: "+it.name+" ("+it.qty+" "+it.unit+")","");}catch(e){}};
@@ -8498,7 +8508,7 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 <button onClick={function(){setMatTab("itens");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="itens"?"var(--card)":G.bg,color:matTab==="itens"?G.primary:G.muted,boxShadow:matTab==="itens"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"Itens"}</button>
 <button onClick={function(){setMatTab("rel");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="rel"?"var(--card)":G.bg,color:matTab==="rel"?G.primary:G.muted,boxShadow:matTab==="rel"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"📊 Relatório"}</button>
-<button onClick={function(){setMatTab("compras");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="compras"?"var(--card)":G.bg,color:matTab==="compras"?G.primary:G.muted,boxShadow:matTab==="compras"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"🛒 Comprar"}</button>
+<button onClick={function(){setMatTab("compras");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="compras"?"var(--card)":G.bg,color:matTab==="compras"?G.primary:G.muted,boxShadow:matTab==="compras"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"🛒 Comprar"+((function(){var n=cpNaListaTotal()+((cotExtra||[]).length);return n>0?" ("+n+")":"";})())}</button>
 </div>
 {matTab==="itens"&&<>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
@@ -8561,7 +8571,10 @@ return <div key={"dp"+i} style={{background:G.card,borderRadius:11,padding:"10px
 <div style={{textAlign:"right"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:low?G.red:G.success,lineHeight:1}}>{s.qty}</div><div style={{fontSize:10,color:G.muted}}>{s.unit}</div></div>
 </div>
 {low&&<div style={{background:G.red+"15",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:G.red,marginTop:5}}>⚠ Estoque baixo!</div>}
-<div style={{display:"flex",gap:5,marginTop:9}}>
+{cpNaLista(s)&&<div style={{background:G.primary+"15",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:G.primary,marginTop:5}}>{"\ud83d\uded2 Na lista de compra ("+s.cpMark.q+" "+(s.unit||"un")+")"}</div>}
+<div style={{display:"flex",gap:5,marginTop:9,alignItems:"center"}}>
+{/* V311: joga o material direto na lista de compra, sem sair daqui */}
+<button onClick={function(){cpToggle(s,1);}} title={cpNaLista(s)?"Na lista de compra — clique para tirar":"Colocar na lista de compra"} style={{border:"none",borderRadius:9,padding:"6px 9px",fontSize:13,lineHeight:1,cursor:"pointer",flexShrink:0,background:cpNaLista(s)?G.primary:G.card,color:cpNaLista(s)?"#fff":G.muted,boxShadow:cpNaLista(s)?"inset 2px 2px 5px rgba(0,0,0,.25)":"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff"}}>{"\ud83d\uded2"}</button>
 <Btn ch="+ Entrada" sm onClick={()=>{setM({t:"in",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
 <Btn ch="- Saída" v="y" sm onClick={()=>{setM({t:"out",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
 <Btn ch="✏️" v="g" sm onClick={()=>{setEdit(s);setF({...s});setDz("");setModal(true);}}/>
@@ -8844,8 +8857,16 @@ var calc=ativos.map(function(s){
   var cf=(man!=null)?["Você definiu",G.primary]:(nOut>=3?["Confiança alta",G.success]:(nOut>=1?["Confiança média",G.gold]:(ajn>0?["Só contagem",G.red]:["Sem dados","#9aa39c"])));
   return {s:s,cons:cons,qtd:qtd,dd:dd,sug:sug,cf:cf,nOut:nOut,ajn:ajn,man:man,sem:(cons<=0)};
 });
-var qtyDe=function(c){return (cpQty[c.s.id]!=null&&cpQty[c.s.id]!=="")?Number(cpQty[c.s.id]):c.sug;};
-var selDe=function(c){return (cpSel[c.s.id]!=null)?cpSel[c.s.id]:(qtyDe(c)>0);};
+var qtyDe=function(c){
+ if(cpQty[c.s.id]!=null&&cpQty[c.s.id]!=="")return Number(cpQty[c.s.id]);// digitando agora
+ if(cpNaLista(c.s))return Number(c.s.cpMark.q);// V311: quantidade que voce gravou
+ return c.sug;};
+var selDe=function(c){
+ if(cpFora(c.s))return false;// V311: voce tirou da lista
+ if(cpNaLista(c.s))return true;// V311: voce colocou na lista
+ return (cpSel[c.s.id]!=null)?cpSel[c.s.id]:(qtyDe(c)>0);};
+// V311: grava a marcacao ao soltar o campo (nao a cada tecla, pra nao salvar o blob sem parar)
+var cpFirma=function(c,v){var q=Number(v||0);if(q>0)cpMarkSet(c.s.id,{q:q});else cpMarkSet(c.s.id,{off:1});};
 var comHist=calc.filter(function(c){return !c.sem;});
 var semHist=calc.filter(function(c){return c.sem;});
 var nCompra=0,vTot=0,nZero=0,nAcaba=0;
@@ -8857,7 +8878,11 @@ extras.forEach(function(x){nCompra++;vTot+=Number(x.qty||0)*(Number(x.price)||0)
 
 var gAcabou=comHist.filter(function(c){return c.qtd<=0;});
 var gAcaba=comHist.filter(function(c){return c.qtd>0&&c.dd!=null&&c.dd<cpMeses*30;});
-var gOk=comHist.filter(function(c){return c.qtd>0&&(c.dd==null||c.dd>=cpMeses*30);});
+var gOkBruto=comHist.filter(function(c){return c.qtd>0&&(c.dd==null||c.dd>=cpMeses*30);});
+// V311: o que voce marcou na mao e nao era urgente sobe pro topo, num grupo proprio
+var gVoce=calc.filter(function(c){return cpNaLista(c.s)&&c.qtd>0&&(c.dd==null||c.dd>=cpMeses*30);});
+var idsVoce={};gVoce.forEach(function(c){idsVoce[c.s.id]=1;});
+var gOk=gOkBruto.filter(function(c){return !idsVoce[c.s.id];});
 var ordena=function(l){return l.slice().sort(function(a,b){return (b.sug*(Number(b.s.price)||0))-(a.sug*(Number(a.s.price)||0));});};
 
 var pill=function(txt,on,fn,key){return <button key={key} onClick={fn} style={{border:"none",borderRadius:10,padding:"8px 13px",fontSize:11.5,fontWeight:700,cursor:"pointer",fontFamily:"'Manrope'",background:on?G.primary:G.card,color:on?"#fff":G.muted,boxShadow:on?"inset 2px 2px 6px rgba(0,0,0,.25)":"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>{txt}</button>;};
@@ -8870,7 +8895,7 @@ var linhaItem=function(c){
 var q=qtyDe(c), sel=selDe(c), pr=Number(c.s.price)||0;
 var pct=(c.dd==null)?0:Math.min(100,(c.dd/(cpMeses*30))*100);
 return <div key={c.s.id} style={{background:G.card,borderRadius:14,padding:"11px 13px",display:"flex",gap:11,alignItems:"flex-start",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
-<button onClick={function(){var o={};o[c.s.id]=!sel;setCpSel(Object.assign({},cpSel,o));}} style={{flexShrink:0,width:22,height:22,marginTop:2,borderRadius:7,border:"none",cursor:"pointer",background:sel?G.primary:G.bg,color:"#fff",fontSize:12,fontWeight:800,lineHeight:1,boxShadow:sel?"none":"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}>{sel?"\u2713":""}</button>
+<button onClick={function(){cpToggleVis(c.s,sel,q>0?q:1);var o={};o[c.s.id]=undefined;setCpQty(Object.assign({},cpQty,o));}} style={{flexShrink:0,width:22,height:22,marginTop:2,borderRadius:7,border:"none",cursor:"pointer",background:sel?G.primary:G.bg,color:"#fff",fontSize:12,fontWeight:800,lineHeight:1,boxShadow:sel?"none":"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}>{sel?"\u2713":""}</button>
 <div style={{flex:1,minWidth:0}}>
 <div style={{fontWeight:700,fontSize:13.5,lineHeight:1.3}}>{c.s.name}</div>
 <div style={{fontSize:11,color:G.muted,marginTop:3,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -8885,7 +8910,7 @@ return <div key={c.s.id} style={{background:G.card,borderRadius:14,padding:"11px
 </div>
 <div style={{flexShrink:0,textAlign:"right"}}>
 <div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}>
-<input type="number" min="0" value={String(q)} onChange={function(e){var o={};o[c.s.id]=e.target.value;setCpQty(Object.assign({},cpQty,o));}} style={{width:52,textAlign:"center",fontFamily:"'Manrope'",fontWeight:800,fontSize:15,color:G.primary,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
+<input type="number" min="0" value={String(q)} onChange={function(e){var o={};o[c.s.id]=e.target.value;setCpQty(Object.assign({},cpQty,o));}} onBlur={function(e){cpFirma(c,e.target.value);}} style={{width:52,textAlign:"center",fontFamily:"'Manrope'",fontWeight:800,fontSize:15,color:G.primary,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
 <span style={{fontSize:10.5,color:G.muted,width:26,textAlign:"left"}}>{c.s.unit||"un"}</span>
 </div>
 <div style={{fontSize:10.5,color:G.muted,marginTop:4}}>{pr>0?cur(q*pr):"sem preço"}</div>
@@ -8909,7 +8934,7 @@ l.push("","Por favor, enviar pre\u00e7o e prazo de entrega.");
 setCpTxt(l.join("\n"));};
 
 var busca=function(l){return !cpQ.trim()?l:l.filter(function(c){return stkNorm(c.s.name).indexOf(stkNorm(cpQ))>=0;});};
-var semFiltrados=busca(semHist);
+var semFiltrados=busca(semHist).filter(function(c){return !idsVoce[c.s.id];});
 
 return <div style={{display:"flex",flexDirection:"column",gap:13}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap"}}>
@@ -9005,6 +9030,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:13}}>
 </div>;})}
 </div>
 
+{grupo("Você adicionou à lista",G.primary,busca(gVoce))}
 {grupo("Acabou — comprar sem falta",G.red,busca(gAcabou))}
 {grupo("Acaba antes do próximo pedido",G.gold,busca(gAcaba))}
 {grupo("Dá para segurar",G.success,busca(gOk))}
@@ -9019,13 +9045,13 @@ return <div style={{display:"flex",flexDirection:"column",gap:13}}>
 {(cpTudo?semFiltrados:semFiltrados.slice(0,60)).map(function(c){
 var q=qtyDe(c), sel=selDe(c), pr=Number(c.s.price)||0;
 return <div key={c.s.id} style={{background:G.card,borderRadius:12,padding:"10px 13px",display:"flex",alignItems:"center",gap:10,boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>
-<button onClick={function(){var o={};o[c.s.id]=!sel;setCpSel(Object.assign({},cpSel,o));var oq={};if(!sel&&q<=0){oq[c.s.id]=1;setCpQty(Object.assign({},cpQty,oq));}}} style={{flexShrink:0,width:21,height:21,borderRadius:7,border:"none",cursor:"pointer",background:sel?G.primary:G.bg,color:"#fff",fontSize:12,fontWeight:800,lineHeight:1,boxShadow:sel?"none":"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}>{sel?"\u2713":""}</button>
+<button onClick={function(){cpToggleVis(c.s,sel,q>0?q:1);var oq={};oq[c.s.id]=undefined;setCpQty(Object.assign({},cpQty,oq));}} style={{flexShrink:0,width:21,height:21,borderRadius:7,border:"none",cursor:"pointer",background:sel?G.primary:G.bg,color:"#fff",fontSize:12,fontWeight:800,lineHeight:1,boxShadow:sel?"none":"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}>{sel?"\u2713":""}</button>
 <div style={{flex:1,minWidth:0}}>
 <div style={{fontWeight:700,fontSize:12.5,lineHeight:1.3}}>{c.s.name}</div>
 <div style={{fontSize:10.5,color:G.muted,marginTop:2}}>{c.qtd+" "+(c.s.unit||"un")+" na prateleira"+(pr>0?" · "+cur(pr)+" a unidade":"")}</div>
 </div>
 <div style={{display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
-<input type="number" min="0" value={String(q)} onChange={function(e){var o={};o[c.s.id]=e.target.value;setCpQty(Object.assign({},cpQty,o));}} title="Quantidade a comprar" style={{width:48,textAlign:"center",fontFamily:"'Manrope'",fontWeight:800,fontSize:14,color:G.primary,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
+<input type="number" min="0" value={String(q)} onChange={function(e){var o={};o[c.s.id]=e.target.value;setCpQty(Object.assign({},cpQty,o));}} onBlur={function(e){cpFirma(c,e.target.value);}} title="Quantidade a comprar" style={{width:48,textAlign:"center",fontFamily:"'Manrope'",fontWeight:800,fontSize:14,color:G.primary,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
 <span style={{fontSize:10,color:G.muted,width:24}}>{c.s.unit||"un"}</span>
 <input type="number" min="0" step="0.5" defaultValue={c.s.consMes!=null?String(c.s.consMes):""} onBlur={function(e){cpSetCons(c.s.id,e.target.value);}} placeholder="/mês" title="Quanto usa por mês" style={{width:52,textAlign:"center",fontFamily:"'Manrope'",fontWeight:700,fontSize:12.5,color:G.muted,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
 </div>
