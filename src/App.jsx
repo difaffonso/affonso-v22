@@ -14714,6 +14714,7 @@ const patPollNowRef=useRef(null); // V225: gatilho imediato do sync de pacientes
 const rtTickRef=useRef(0); // V225: contador p/ poll adaptativo
 const rtCanalRef=useRef(null); // V226: canal p/ broadcast 'mudou'
 const lastSavedKeyJsonRef=useRef(null); // V199: JSON por chave da ultima gravacao/leitura
+const lastSavedSigRef=useRef(null); // V313: assinatura do ultimo blob gravado COM SUCESSO (sem _vers). Serve so para evitar regravar conteudo identico.
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
 const delItemsRef=useRef([]);
@@ -15018,6 +15019,16 @@ useEffect(function(){
     }catch(e){}}
     const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current};// V310: via ref
     if(!patTableOk.current)payload.pats=pats;
+    // V313: assinatura ANTES do carimbo _vers (o _vers muda a cada save e mascararia a comparacao).
+    var _sigNow=null;try{_sigNow=JSON.stringify(payload);}catch(e){_sigNow=null;}
+    // V313: gatilhos como "pats" (que ja gravam na tabela propria e nao entram no blob) disparavam
+    // uma regravacao de ~412kB sem nenhuma mudanca dentro. Se nada mudou, nao ha o que gravar.
+    if(!force&&_sigNow!==null&&lastSavedSigRef.current===_sigNow){
+      if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
+      if(lastLocalChangeTs.current===_editAtStart)orientDirtyRef.current=false;
+      if(lastLocalChangeTs.current===_editAtStart){try{idb.set("draft_v1",null);}catch(e){}}
+      return true;
+    }
     try{ // V199: carimbo de versao so nas chaves cujo conteudo mudou
       if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
       var _vNow=new Date().toISOString();
@@ -15034,6 +15045,7 @@ useEffect(function(){
         var saved=await supabase.save(payload);
         if(saved!==false){
           lastSaved.current=JSON.stringify(payload);
+          lastSavedSigRef.current=_sigNow; // V313: so marca depois do save confirmado. Save que falhou continua sendo retentado.
           {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
           lastSavedGastosKeys.current=_gKeys(gastos);
           lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes,stock:stock});// V289 stock
