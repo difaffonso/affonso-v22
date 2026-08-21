@@ -8269,6 +8269,119 @@ if(d&&t)return d<t?d:t;
 return d||t;
 }catch(e){return String((g||{}).date||"");}
 }
+// ══════════════ V314: HISTORICO DE PRECO DO MATERIAL ══════════════
+// Le as entradas (t:"in") que gravaram o preco unitario pago (mov.p) e monta a
+// serie de compras do material, da mais antiga para a mais nova. Movimentacao
+// antiga sem "p" fica de fora: sem preco real ela mentiria o grafico.
+function hpCompras(s){
+  var l=[];
+  ((s&&s.movs)||[]).forEach(function(m){
+    if(!m||m.t!=="in")return;
+    // data tem que ser AAAA-MM-DD de verdade: data torta ordenaria errado e
+    // acabaria virando "ultima compra" sem ser.
+    var dt=String(m.date||"");
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(dt))return;
+    if(isNaN(new Date(dt+"T00:00:00").getTime()))return;
+    var p=Number(m.p);
+    if(!isFinite(p)||p<=0)return;
+    l.push({d:dt,p:p,q:Math.abs(Number(m.q)||0),f:String(m.note||"").trim()});
+  });
+  l.sort(function(a,b){return String(a.d).localeCompare(String(b.d));});
+  return l;
+}
+function hpUlt(s){var l=hpCompras(s);return l.length?l[l.length-1]:null;}
+// meses inteiros entre a data e hoje
+function hpMeses(d){
+  if(!d)return null;
+  var a=new Date(String(d)+"T00:00:00");
+  if(isNaN(a.getTime()))return null;
+  return Math.max(0,Math.round((Date.now()-a.getTime())/2592000000));
+}
+// variacao % da primeira compra para a ultima
+function hpVarTotal(s){var l=hpCompras(s);if(l.length<2)return null;return ((l[l.length-1].p-l[0].p)/l[0].p)*100;}
+// variacao % da ultima compra contra a compra anterior
+function hpDelta(s){var l=hpCompras(s);if(l.length<2)return null;return ((l[l.length-1].p-l[l.length-2].p)/l[l.length-2].p)*100;}
+// intervalo medio entre compras, em meses
+function hpIntervalo(s){var l=hpCompras(s);if(l.length<2)return null;var m0=hpMeses(l[0].d);if(m0==null||m0<=0)return null;return Math.max(1,Math.round(m0/(l.length-1)));}
+// cor do texto + fundo do selo conforme a variacao (tokens reais, nao hex+alpha)
+function hpCor(pct){
+  if(pct==null)return [G.muted,"var(--surface-2)"];
+  if(pct>15)return [G.red,"var(--red-soft)"];
+  if(pct>5)return [G.gold,"var(--amber-soft)"];
+  if(pct<-3)return [G.success,"var(--green-soft)"];
+  return [G.muted,"var(--surface-2)"];
+}
+function hpPct(v){return (v>=0?"+":"")+(Math.round(v*10)/10).toString().replace(".",",")+"%";}
+function hpData(d){var p=String(d||"").split("-");return p.length===3?(p[2]+"/"+p[1]+"/"+p[0]):String(d||"");}
+function hpMesAno(d){var p=String(d||"").split("-");return p.length>=2?(p[1]+"/"+p[0].slice(2)):"";}
+function hpMesTxt(m){return m==null?"sem data":("há "+m+(m===1?" mês":" meses"));}
+
+// Grafico de linha das compras. So aparece a partir da segunda compra.
+function HpGrafico({l}){
+  if(!l||l.length<2)return null;
+  var W=420,H=152,pl=42,pr=12,pt=20,pb=24;
+  var vs=l.map(function(x){return x.p;});
+  var mn=Math.min.apply(null,vs),mx=Math.max.apply(null,vs);
+  var pad=(mx-mn)*0.4||mx*0.1||1;mn=mn-pad;mx=mx+pad;
+  var X=function(i){return pl+(i/(l.length-1))*(W-pl-pr);};
+  var Y=function(v){return pt+(1-(v-mn)/((mx-mn)||1))*(H-pt-pb);};
+  var d=l.map(function(x,i){return (i?"L":"M")+X(i).toFixed(1)+" "+Y(x.p).toFixed(1);}).join(" ");
+  var area=d+" L"+X(l.length-1).toFixed(1)+" "+(H-pb)+" L"+pl+" "+(H-pb)+" Z";
+  return <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",height:"auto",display:"block"}}>
+    {[0,0.5,1].map(function(t,i){var y=pt+t*(H-pt-pb);return <g key={"gl"+i}>
+      <line x1={pl} y1={y} x2={W-pr} y2={y} stroke={G.border} strokeWidth="1"/>
+      <text x={pl-6} y={y+3.5} textAnchor="end" fontSize="9" fontWeight="700" fontFamily="Manrope" fill={G.muted}>{(mx-t*(mx-mn)).toFixed(0)}</text>
+    </g>;})}
+    <path d={area} fill={G.primary} fillOpacity="0.10"/>
+    <path d={d} fill="none" stroke={G.primary} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
+    {l.map(function(x,i){var fim=(i===l.length-1);return <g key={"pt"+i}>
+      <circle cx={X(i)} cy={Y(x.p)} r={fim?5:3.8} fill={fim?G.primary:G.bg} stroke={G.primary} strokeWidth="2.2"/>
+      <text x={X(i)} y={Y(x.p)-11} textAnchor="middle" fontSize="9.5" fontWeight="800" fontFamily="Manrope" fill={G.text}>{x.p.toFixed(2).replace(".",",")}</text>
+      <text x={X(i)} y={H-6} textAnchor="middle" fontSize="9" fontWeight="700" fontFamily="Manrope" fill={G.muted}>{hpMesAno(x.d)}</text>
+    </g>;})}
+  </svg>;
+}
+
+// Painel completo: numeros do topo, grafico e tabela de compras.
+// Usado no modal chamado da aba Itens, da aba Precos e da lista de compra.
+function PainelPreco({s}){
+  if(!s)return null;
+  var l=hpCompras(s), un=s.unit||"un";
+  if(!l.length)return <div style={{fontSize:12.5,color:G.muted,lineHeight:1.75,textAlign:"center",padding:"22px 12px"}}>
+    {"Nenhuma compra deste material gravou o preço ainda."}<br/>{"Lance a próxima entrada com o preço pago, ou importe a NF-e, e o histórico começa aqui."}</div>;
+  var u=l[l.length-1];
+  var med=l.reduce(function(a,x){return a+x.p;},0)/l.length;
+  var v=hpVarTotal(s), cv=hpCor(v), iv=hpIntervalo(s), mm=hpMeses(u.d);
+  var box=function(k,val,cor,sub,key){return <div key={key} style={{background:"var(--surface)",borderRadius:12,padding:"10px 12px",boxShadow:"inset 3px 3px 8px var(--nm-dark),inset -3px -3px 8px #ffffff"}}>
+    <div style={{fontSize:10,fontWeight:800,letterSpacing:".06em",textTransform:"uppercase",color:G.muted}}>{k}</div>
+    <div style={{fontSize:17,fontWeight:800,margin:"2px 0",color:cor}}>{val}</div>
+    <div style={{fontSize:10.5,color:G.muted,lineHeight:1.35}}>{sub}</div></div>;};
+  var td={padding:"8px 3px",borderBottom:"1px solid "+G.border};
+  return <div style={{display:"flex",flexDirection:"column",gap:11}}>
+   <div style={{fontSize:11.5,color:G.muted}}>{l.length+(l.length>1?" compras registradas":" compra registrada")+(iv?(" · a cada ~"+iv+" meses"):"")}</div>
+   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(118px,1fr))",gap:9}}>
+    {box("Última compra",cur(u.p),G.text,hpData(u.d)+" · "+hpMesTxt(mm),"hk1")}
+    {box("Média das "+l.length,cur(med),G.text,"por "+un,"hk2")}
+    {box("Variação",v==null?"—":hpPct(v),cv[0],v==null?"1ª compra":("desde "+hpMesAno(l[0].d)),"hk3")}
+   </div>
+   {l.length>1?<div style={{background:"var(--surface)",borderRadius:12,padding:"10px 8px 4px",boxShadow:"inset 3px 3px 8px var(--nm-dark),inset -3px -3px 8px #ffffff"}}><HpGrafico l={l}/></div>:null}
+   <div style={{overflowX:"auto"}}>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:11.5}}>
+     <thead><tr>{["Data","Fornecedor / nota","Qtd","Preço/"+un,"vs. ant."].map(function(h,i){
+       return <th key={"hth"+i} style={{textAlign:i>=2?"right":"left",fontSize:9.5,fontWeight:800,letterSpacing:".05em",textTransform:"uppercase",color:G.muted,padding:"6px 3px",borderBottom:"1px solid "+G.border,whiteSpace:"nowrap"}}>{h}</th>;})}</tr></thead>
+     <tbody>{l.slice().reverse().map(function(x,i,arr){
+       var ant=arr[i+1], dp=ant?(((x.p-ant.p)/ant.p)*100):null, fc=hpCor(dp);
+       return <tr key={"htr"+i}>
+        <td style={Object.assign({whiteSpace:"nowrap"},td)}>{hpData(x.d)}</td>
+        <td style={Object.assign({color:G.muted},td)}>{x.f||"—"}</td>
+        <td style={Object.assign({textAlign:"right"},td)}>{x.q||"—"}</td>
+        <td style={Object.assign({textAlign:"right",fontWeight:800},td)}>{cur(x.p)}</td>
+        <td style={Object.assign({textAlign:"right",fontWeight:800,color:dp==null?G.muted:fc[0]},td)}>{dp==null?"—":hpPct(dp)}</td>
+       </tr>;})}</tbody></table></div>
+   <div style={{background:"var(--surface-2)",borderRadius:11,padding:"10px 12px",fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"O preço é sempre por "+un+" — o que foi pago, não o conteúdo da embalagem. Se o fornecedor mudar o tamanho da caixa, confira antes de comparar."}</div>
+  </div>;
+}
+
 // V272: compras de material feitas no mes (YYYY-MM), independente do parcelamento
 function comprasDoMes(gastos,ym){
 try{
@@ -8438,6 +8551,10 @@ const [cpTxt,setCpTxt]=useState(null);// texto da cotacao (modal)
 const [cpSem,setCpSem]=useState(false);// abrir lista de itens sem historico
 const [cpQ,setCpQ]=useState("");// busca dentro dos sem historico
 const [cpAjuda,setCpAjuda]=useState(false);
+// V314: historico de preco — estado so de tela, nada disso vai pro blob
+const [hpId,setHpId]=useState(null);// item aberto no modal de historico
+const [hpCot,setHpCot]=useState({});// id -> preco cotado agora (conferencia, nao grava)
+const [hpOrd,setHpOrd]=useState("alta");// ordem da aba Precos do relatorio
 const [cpNovo,setCpNovo]=useState(null);// V310: {name,qty,unit,price} do item avulso em edicao
 const [cpTudo,setCpTudo]=useState(false);// V310: mostrar todos os itens sem limite
 // V311: a marcacao da lista de compra fica gravada no proprio item do estoque (cpMark),
@@ -8468,7 +8585,7 @@ const cpExUpd=function(id,campo,v){setCotExtra(function(prev){return (prev||[]).
 const cpSetCons=function(id,v){setStock(function(prev){return (prev||[]).map(function(s){return s.id===id?Object.assign({},s,{consMes:(v===""||v==null?null:Number(v)),_ts:Date.now()}):s;});});};
 const b0={name:"",qty:0,unit:"un",min:1,price:0,movs:[]};
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
-const [m,setM]=useState({t:"in",q:"",note:"",date:today()});
+const [m,setM]=useState({t:"in",q:"",note:"",date:today(),p:""});// V314: p = preco unitario pago
 const [impNfe,setImpNfe]=useState(false); // Importação NF-e (V195)
 const [qStk,setQStk]=useState("");// V274: termo da busca de materiais
 // V286: fusao de duplicados + zona de risco do modal de item
@@ -8506,7 +8623,12 @@ const save=()=>{if(!f.name)return;const obj={...f,qty:Number(f.qty),min:Number(f
 if(edit&&!(user&&user.level>=3))obj.qty=Number(edit.qty);// V268 trava: so nivel 3 corrige contagem (nivel 2 usa +Entrada / -Saida)
 if(edit&&Number(obj.qty)!==Number(edit.qty)){obj.movs=[{t:"aj",q:Number(obj.qty)-Number(edit.qty),date:today(),note:"Correção de contagem ("+Number(edit.qty)+" → "+Number(f.qty)+")"},...(obj.movs||[])];try{if(addLog)addLog("estoque","Ajuste de contagem: "+obj.name+" ("+Number(edit.qty)+" → "+Number(f.qty)+")","");}catch(e){}}// V237 ajuste automatico
 setStock(prev=>edit?prev.map(s=>s.id===edit.id?obj:s):[...prev,obj]);setModal(false);};
-const addMov=()=>{if(!m.q)return;const q=Number(m.q);setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),_ts:Date.now(),movs:[{t:m.t,q,date:m.date,note:m.note,dentId:m.dentId||"",p:Number(s.price)||0},...(s.movs||[])]}:s));setMv(null);};// V289 carimbo
+const addMov=()=>{if(!m.q)return;const q=Number(m.q);
+// V314: na entrada grava o preco realmente pago e atualiza o custo do item.
+// Na saida nada muda: continua carimbando o custo atual, como sempre foi.
+var _pd=Number(String(m.p==null?"":m.p).replace(",","."));
+var _pOk=(m.t==="in"&&isFinite(_pd)&&_pd>0);
+setStock(prev=>prev.map(s=>s.id===mv?{...s,qty:m.t==="in"?s.qty+q:Math.max(0,s.qty-q),price:_pOk?_pd:s.price,_ts:Date.now(),movs:[{t:m.t,q,date:m.date,note:m.note,dentId:m.dentId||"",p:_pOk?_pd:(Number(s.price)||0)},...(s.movs||[])]}:s));try{if(_pOk&&addLog)addLog("estoque","Entrada com preço: "+q+" un a "+cur(_pd)+" cada","");}catch(e){}setMv(null);};// V289 carimbo
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 {(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta de compra sem lancamento
 var totPend=pend.reduce(function(s2,g2){return s2+valorCompra(g2);},0);
@@ -8601,7 +8723,15 @@ return <div key={"dp"+i} style={{background:G.card,borderRadius:11,padding:"10px
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:11}}>
 {stkFiltrar(stock,qStk).filter(function(_a){return _a&&!_a.inativo;}).map(s=>{/* V274: lista filtrada pela busca */const low=s.qty<=s.min;return <div key={s.id} style={{background:G.card,borderRadius:12,padding:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${low?G.red:G.success}`}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-<div><div style={{fontWeight:700,fontSize:13}}>{s.name}</div><div style={{fontSize:11,color:G.muted}}>Custo: {cur(s.price)}/{s.unit}</div></div>
+<div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:13}}>{s.name}</div>
+{/* V314: a linha de custo passou a mostrar de quando e o preco e abre o historico */}
+{(function(){var _u=hpUlt(s),_m=_u?hpMeses(_u.d):null,_dl=hpDelta(s),_fc=hpCor(_dl);
+return <button onClick={function(){setHpId(s.id);}} title="Ver histórico de preço" style={{border:"none",background:"transparent",padding:0,margin:0,cursor:"pointer",fontFamily:"'Manrope'",fontSize:11,color:G.muted,textAlign:"left",display:"flex",alignItems:"center",gap:5,flexWrap:"wrap",lineHeight:1.5}}>
+<span>{"Custo: "}<strong style={{color:G.text,fontWeight:700}}>{cur(_u?_u.p:s.price)+"/"+(s.unit||"un")}</strong></span>
+<span style={{color:G.border}}>{"|"}</span>
+<strong style={{color:G.primary,fontWeight:800}}>{(_m!=null?hpMesTxt(_m):"ver histórico")+" \u203a"}</strong>
+{(_dl!=null&&Math.abs(_dl)>3)?<span style={{fontSize:9.5,fontWeight:800,padding:"1px 6px",borderRadius:20,background:_fc[1],color:_fc[0]}}>{(_dl>0?"\u2191":"\u2193")+Math.abs(Math.round(_dl))+"%"}</span>:null}
+</button>;})()}</div>
 <div style={{textAlign:"right"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,color:low?G.red:G.success,lineHeight:1}}>{s.qty}</div><div style={{fontSize:10,color:G.muted}}>{s.unit}</div></div>
 </div>
 {low&&<div style={{background:G.red+"15",borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700,color:G.red,marginTop:5}}>⚠ Estoque baixo!</div>}
@@ -8613,7 +8743,7 @@ return null;})()}
 {/* V311: joga o material direto na lista de compra, sem sair daqui */}
 {(function(){var pg=cpProg(s),on=pg.q>0;// V312: aceso tambem quando a sugestao ja colocou o item na lista
 return <button onClick={function(){cpToggleVis(s,on,pg.q>0?pg.q:1);}} title={on?("Na lista de compra: "+pg.q+" "+(s.unit||"un")+" — clique para tirar"):"Colocar na lista de compra"} style={{border:"none",borderRadius:9,padding:"6px 9px",fontSize:13,lineHeight:1,cursor:"pointer",flexShrink:0,background:on?G.primary:G.card,color:on?"#fff":G.muted,boxShadow:on?"inset 2px 2px 5px rgba(0,0,0,.25)":"3px 3px 7px var(--nm-dark),-3px -3px 7px #ffffff"}}>{"\ud83d\uded2"}</button>;})()}
-<Btn ch="+ Entrada" sm onClick={()=>{setM({t:"in",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
+<Btn ch="+ Entrada" sm onClick={()=>{var _u=hpUlt(s);setM({t:"in",q:"",note:"",dentId:"",date:today(),p:String(_u?_u.p:(Number(s.price)||""))});setMv(s.id);}}/>
 <Btn ch="- Saída" v="y" sm onClick={()=>{setM({t:"out",q:"",note:"",dentId:"",date:today()});setMv(s.id);}}/>
 <Btn ch="✏️" v="g" sm onClick={()=>{setEdit(s);setF({...s});setDz("");setModal(true);}}/>
 </div>
@@ -8737,7 +8867,19 @@ return box("var(--surface-2)",G.border,G.text,<div>
 </div>}/>
 <Modal open={!!mv} close={()=>setMv(null)} title={m.t==="in"?"Entrada":"Saída"} ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
 <R2 a={<Inp lb="Quantidade" val={m.q} set={v=>setM(p=>({...p,q:v}))} type="number"/>} b={<Inp lb="Data" val={m.date} set={v=>setM(p=>({...p,date:v}))} type="date"/>}/>
-{m.t==="out"?<div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{"Dentista"}</label><select value={m.dentId||""} onChange={function(e){var v=e.target.value;var d=(dents||[]).filter(function(x){return String(x.id)===String(v);})[0];setM(function(p){return Object.assign({},p,{dentId:v,note:d?String(d.name||"").trim():""});});}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)",fontFamily:"'Manrope'"}}><option value="">{"— selecione —"}</option>{(dents||[]).map(function(d){return <option key={d.id} value={String(d.id)}>{String(d.name||"").trim()}</option>;})}</select></div>:<Inp lb="Fornecedor / Nota" val={m.note} set={v=>setM(p=>({...p,note:v}))}/>}
+{m.t==="out"?<div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>{"Dentista"}</label><select value={m.dentId||""} onChange={function(e){var v=e.target.value;var d=(dents||[]).filter(function(x){return String(x.id)===String(v);})[0];setM(function(p){return Object.assign({},p,{dentId:v,note:d?String(d.name||"").trim():""});});}} style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)",fontFamily:"'Manrope'"}}><option value="">{"— selecione —"}</option>{(dents||[]).map(function(d){return <option key={d.id} value={String(d.id)}>{String(d.name||"").trim()}</option>;})}</select></div>:<Fragment><Inp lb="Fornecedor / Nota" val={m.note} set={v=>setM(p=>({...p,note:v}))}/>
+{/* V314: sem este campo o historico de preco nao existe */}
+<div style={{background:"var(--accent)",border:"1.5px solid "+G.primary,borderRadius:12,padding:"11px 12px",marginTop:11}}>
+<Inp lb="Preço unitário pago" val={m.p} set={function(v){setM(function(pp){return Object.assign({},pp,{p:v});});}} type="number" ph="R$ por unidade"/>
+{(function(){var _s=(stock||[]).filter(function(x){return String(x.id)===String(mv);})[0];
+if(!_s)return null;
+var u=hpUlt(_s);
+if(!u)return <div style={{fontSize:11,color:G.muted,lineHeight:1.55,marginTop:7}}>{"Primeira compra com preço gravado deste material — daqui começa o histórico."}</div>;
+var v=Number(String(m.p==null?"":m.p).replace(",","."));
+if(!isFinite(v)||v<=0)return <div style={{fontSize:11,color:G.muted,lineHeight:1.55,marginTop:7}}>{"Última compra: "+cur(u.p)+" em "+hpData(u.d)+"."}</div>;
+var dif=((v-u.p)/u.p)*100,fc=hpCor(dif);
+return <div style={{fontSize:11,color:G.muted,lineHeight:1.55,marginTop:7}}>{"Última compra: "}<strong style={{color:G.text}}>{cur(u.p)}</strong>{" em "+hpData(u.d)+" — "}<strong style={{color:fc[0]}}>{hpPct(dif)}</strong>{". Vem preenchido com o último preço: se não mudou, é só confirmar."}</div>;})()}
+</div></Fragment>}
 <SC2 save={addMov} cancel={()=>setMv(null)} lbl="Registrar"/>
 </div>}/>
 </>}
@@ -8806,7 +8948,7 @@ var card=function(lb,vl,cor,sub){return <div style={{background:G.card,borderRad
 </div>;};
 var titulo=function(t){return <div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6,margin:"4px 0 8px"}}>{t}</div>;};
 var aviso=function(tipo,txt){var vermelho=tipo==="red";return <div style={{background:(vermelho?G.red:G.gold)+"14",border:"1.5px solid "+(vermelho?G.red:G.gold)+"55",borderRadius:12,padding:"11px 13px",fontSize:12.5,lineHeight:1.55,color:vermelho?G.red:"#7a5a26",display:"flex",gap:9,alignItems:"flex-start"}}><span style={{fontSize:16}}>{vermelho?"⚠":"⚙"}</span><div>{txt}</div></div>;};
-var abas=[["resumo","Resumo",doMes.length],["in","📥 Entradas",ins.length],["out","📤 Saídas",outs.length],["aj","⚙ Ajustes",ajs.length]];
+var abas=[["resumo","Resumo",doMes.length],["in","📥 Entradas",ins.length],["out","📤 Saídas",outs.length],["aj","⚙ Ajustes",ajs.length],["precos","💰 Preços",(stock||[]).filter(function(_s){return _s&&!_s.inativo&&hpCompras(_s).length>0;}).length]];// V314
 return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"Relatório de Materiais"}</h2>
@@ -8868,6 +9010,47 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 {titulo("Ajustes por data")}
 {porDia(ajs,"#6a736c","Nenhum ajuste neste mês. 👍")}
 </div>}
+{/* ══════════ V314: PRECOS — historico de preco de todos os materiais ══════════ */}
+{relSub==="precos"&&(function(){
+var ordens=[["alta","Maior alta"],["antigo","Compra mais antiga"],["queda","Ficou mais barato"],["az","A–Z"]];
+var ativos=(stock||[]).filter(function(_s){return _s&&!_s.inativo;});
+var comHp=ativos.filter(function(_s){return hpCompras(_s).length>0;});
+var semHp=ativos.length-comHp.length;
+var subiu=comHp.filter(function(_s){var v=hpVarTotal(_s);return v!=null&&v>5;}).length;
+var lista=comHp.slice().sort(function(a,b){
+ if(hpOrd==="az")return String(a.name||"").localeCompare(String(b.name||""),"pt-BR",{sensitivity:"base"});
+ if(hpOrd==="antigo"){var ma=hpMeses(hpUlt(a).d),mb=hpMeses(hpUlt(b).d);return (mb==null?-1:mb)-(ma==null?-1:ma);}
+ var va=hpVarTotal(a),vb=hpVarTotal(b);
+ if(va==null&&vb==null)return 0;
+ if(va==null)return 1;
+ if(vb==null)return -1;
+ return hpOrd==="queda"?(va-vb):(vb-va);});
+return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{card("Com histórico de preço",String(comHp.length),G.primary,"de "+ativos.length+" materiais ativos")}
+{card("Subiram no período",String(subiu),subiu>0?G.red:G.success,"mais de 5%")}
+</div>
+{titulo("Preço por material")}
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{ordens.map(function(o){var on=hpOrd===o[0];
+return <button key={"ho"+o[0]} onClick={function(){setHpOrd(o[0]);}} style={{border:"none",borderRadius:10,padding:"8px 12px",fontSize:11.5,fontWeight:700,cursor:"pointer",fontFamily:"'Manrope'",background:on?G.primary:G.card,color:on?"#fff":G.muted,boxShadow:on?"inset 2px 2px 6px rgba(0,0,0,.25)":"3px 3px 8px var(--nm-dark),-3px -3px 8px #ffffff"}}>{o[1]}</button>;})}
+</div>
+{lista.length===0?<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:12.5,lineHeight:1.75}}>{"Nenhum material tem preço gravado ainda."}<br/>{"Importe uma NF-e ou lance a próxima entrada com o preço pago."}</div>:
+<div style={{display:"flex",flexDirection:"column",gap:8}}>
+{lista.map(function(_s){
+var u=hpUlt(_s),mm=hpMeses(u.d),v=hpVarTotal(_s),fc=hpCor(v),n=hpCompras(_s).length,frio=(mm!=null&&mm>=4);
+return <div key={"hpl"+_s.id} onClick={function(){setHpId(_s.id);}} style={{background:G.card,borderRadius:12,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:11,cursor:"pointer",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:13}}>{_s.name}</div>
+<div style={{fontSize:11,color:G.muted,marginTop:2}}>{cur(u.p)+"/"+(_s.unit||"un")+" · "}<span style={{color:frio?G.gold:G.muted,fontWeight:frio?700:400}}>{hpMesTxt(mm)}</span>{" · "+n+(n>1?" compras":" compra")}</div>
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<span style={{fontSize:11,fontWeight:800,padding:"3px 8px",borderRadius:20,background:fc[1],color:fc[0],whiteSpace:"nowrap"}}>{v==null?"1ª compra":hpPct(v)}</span>
+<div style={{fontSize:9.5,color:G.muted,marginTop:3}}>{v==null?"sem comparação":("desde "+hpMesAno(hpCompras(_s)[0].d))}</div>
+</div></div>;})}
+</div>}
+{semHp>0?aviso("gold",<span><strong>{semHp+" material(is) ainda sem preço gravado."}</strong>{" Movimentações antigas não guardaram o valor pago. Daqui pra frente toda entrada grava, e o histórico se forma sozinho."}</span>):null}
+</div>;})()}
 {temEstimado&&<div style={{background:G.gold+"18",border:"1.5px solid "+G.gold+"55",borderRadius:10,padding:"10px 12px",fontSize:11,color:G.muted,lineHeight:1.5}}>{"* Movimentações antigas não gravaram o preço na hora — o valor foi calculado com o preço atual do item. Baixas novas já gravam o preço do momento."}</div>}
 </div>;
 })()}
@@ -8927,6 +9110,30 @@ return <div key={c.s.id} style={{background:G.card,borderRadius:14,padding:"11px
 <span style={{fontSize:9.5,fontWeight:800,padding:"2px 7px",borderRadius:20,background:c.cf[1]+"1e",color:c.cf[1]}}>{c.cf[0]}</span>
 </div>
 {c.dd!=null?<div style={{height:5,borderRadius:3,background:G.border,marginTop:7,overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,width:pct+"%",background:pct<100?G.red:G.success}}></div></div>:null}
+{/* V314: de quando e por quanto foi a ultima compra deste material */}
+{(function(){var u=hpUlt(c.s);if(!u)return null;
+var mm=hpMeses(u.d),frio=(mm!=null&&mm>=4);
+return <div onClick={function(){setHpId(c.s.id);}} style={{marginTop:7,padding:"6px 9px",borderRadius:10,background:"var(--surface-2)",fontSize:11,color:G.muted,lineHeight:1.5,cursor:"pointer",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+<span style={{lineHeight:1}}>{frio?"\ud83d\udd50":"\ud83e\uddfe"}</span>
+<span>{"última compra "}<strong style={{color:G.text}}>{hpMesTxt(mm)}</strong>{" · "}<strong style={{color:G.text}}>{cur(u.p)+"/"+(c.s.unit||"un")}</strong>{u.f?(" · "+u.f):""}</span>
+{frio?<span style={{fontSize:9.5,fontWeight:800,padding:"2px 7px",borderRadius:20,background:"var(--amber-soft)",color:G.gold}}>{"preço antigo"}</span>:null}
+<strong style={{marginLeft:"auto",color:G.primary,fontWeight:800}}>{"ver \u203a"}</strong>
+</div>;})()}
+{/* V314: aviso quando o preco cotado agora foge do que foi pago */}
+{(function(){var u=hpUlt(c.s);if(!u)return null;
+var raw=hpCot[c.s.id];
+if(raw==null||String(raw).trim()==="")return null;
+var v=Number(String(raw).replace(",","."));
+if(!isFinite(v)||v<=0)return null;
+var dif=((v-u.p)/u.p)*100;
+if(dif<=15&&dif>=-3)return null;
+var alta=(dif>15),mm=hpMeses(u.d);
+return <div style={{marginTop:7,borderRadius:11,padding:"9px 11px",fontSize:11.5,lineHeight:1.55,display:"flex",gap:8,alignItems:"flex-start",background:alta?"var(--red-soft)":"var(--green-soft)",border:"1.5px solid "+(alta?G.red:G.success)}}>
+<span style={{fontSize:14,lineHeight:1}}>{alta?"\u26a0":"\u2713"}</span>
+<div>{alta
+?<span><strong style={{color:G.red}}>{hpPct(dif)+" acima da última compra."}</strong>{" Pagou "+cur(u.p)+" "+hpMesTxt(mm)+". Vale pedir outra cotação antes de fechar."}</span>
+:<span><strong style={{color:G.success}}>{"Abaixo do que pagou da última vez."}</strong>{" Da última compra para esta cotação, "+hpPct(dif)+"."}</span>}</div>
+</div>;})()}
 </div>
 <div style={{flexShrink:0,textAlign:"right"}}>
 <div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}>
@@ -8934,6 +9141,17 @@ return <div key={c.s.id} style={{background:G.card,borderRadius:14,padding:"11px
 <span style={{fontSize:10.5,color:G.muted,width:26,textAlign:"left"}}>{c.s.unit||"un"}</span>
 </div>
 <div style={{fontSize:10.5,color:G.muted,marginTop:4}}>{pr>0?cur(q*pr):"sem preço"}</div>
+{/* V314: preco que o fornecedor mandou agora — so confere na hora, nao grava nada */}
+{hpUlt(c.s)?<div style={{marginTop:7}}>
+<div style={{fontSize:9,fontWeight:800,letterSpacing:".05em",textTransform:"uppercase",color:G.muted}}>{"cotado"}</div>
+<input type="number" min="0" step="0.01" placeholder="R$" value={hpCot[c.s.id]!=null?String(hpCot[c.s.id]):""} onChange={function(e){var o={};o[c.s.id]=e.target.value;setHpCot(Object.assign({},hpCot,o));}} style={{width:78,textAlign:"right",fontFamily:"'Manrope'",fontWeight:700,fontSize:12.5,color:G.text,background:G.bg,border:"none",borderRadius:10,padding:"6px 8px",marginTop:3,boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
+{(function(){var u=hpUlt(c.s),raw=hpCot[c.s.id];
+if(raw==null||String(raw).trim()==="")return null;
+var v=Number(String(raw).replace(",","."));
+if(!isFinite(v)||v<=0)return null;
+var dif=((v-u.p)/u.p)*100,fc=hpCor(dif);
+return <div style={{marginTop:5,fontSize:10.5,fontWeight:800,padding:"3px 8px",borderRadius:20,background:fc[1],color:fc[0],display:"inline-block"}}>{hpPct(dif)}</div>;})()}
+</div>:null}
 </div>
 </div>;};
 
@@ -9103,6 +9321,16 @@ return <div key={c.s.id} style={{background:G.card,borderRadius:12,padding:"10px
 </div>;
 })()}
 </>}
+
+{/* ══════════ V314: modal do historico de preco — chamado pelas 3 abas ══════════ */}
+<Modal open={hpId!=null} close={function(){setHpId(null);}} title="Histórico de preço" ch={(function(){
+var _s=(stock||[]).filter(function(x){return String(x.id)===String(hpId);})[0];
+if(!_s)return <div style={{fontSize:12.5,color:G.muted,padding:"18px 4px"}}>{"Material não encontrado."}</div>;
+return <div style={{display:"flex",flexDirection:"column",gap:11}}>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,fontWeight:600,lineHeight:1.2}}>{_s.name}</div>
+<PainelPreco s={_s}/>
+<div style={{display:"flex",justifyContent:"flex-end",marginTop:2}}><Btn ch="Fechar" v="g" onClick={function(){setHpId(null);}}/></div>
+</div>;})()}/>
 
   </div>;
 }
