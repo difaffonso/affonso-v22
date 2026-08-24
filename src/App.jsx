@@ -9094,6 +9094,18 @@ var card=function(lb,vl,cor,sub){return <div style={{background:G.card,borderRad
 var titulo=function(t){return <div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6,margin:"4px 0 8px"}}>{t}</div>;};
 var aviso=function(tipo,txt){var vermelho=tipo==="red";return <div style={{background:(vermelho?G.red:G.gold)+"14",border:"1.5px solid "+(vermelho?G.red:G.gold)+"55",borderRadius:12,padding:"11px 13px",fontSize:12.5,lineHeight:1.55,color:vermelho?G.red:"#7a5a26",display:"flex",gap:9,alignItems:"flex-start"}}><span style={{fontSize:16}}>{vermelho?"⚠":"⚙"}</span><div>{txt}</div></div>;};
 var ntGr=notaCasar(notaGrupos(ins),gastos);// V315
+// V317: "Não lançado" era totCompMes - entradaMes, uma subtração cega. Uma nota
+// conciliada dos dois lados inflava a diferença, e o número brigava com o alerta
+// de pendência da aba Itens, que sempre respeitou o "✓ Conferido".
+// Agora é a mesma verdade nos dois lugares: compra pendente = a que não casou com
+// nenhuma entrada de estoque E que você também não marcou como conferida.
+// O casamento roda sobre TODAS as entradas, não só as do mês: nota emitida em
+// julho e paga em agosto continua sendo a mesma compra.
+var ntCasados={};
+try{notaCasar(notaGrupos(movsAll.filter(function(m){return m&&m.t==="in";})),gastos).forEach(function(g){if(g&&g.fin)ntCasados[String(g.fin.id)]=true;});}catch(e){}
+var compSemEnt=compMes.filter(function(g){return g&&!g._stkOk&&!ntCasados[String(g.id)];});
+var totSemEnt=compSemEnt.reduce(function(s2,g){return s2+valorCompra(g);},0);
+var compConf=compMes.filter(function(g){return g&&g._stkOk&&!ntCasados[String(g.id)];});
 var ntSemFin=ntGr.filter(function(g){return !g.fin&&g.valor>0.01&&g.nf;});
 var ntSemAv=ntGr.filter(function(g){return !g.fin&&g.valor>0.01&&!g.nf;});
 var ntTotSem=ntSemFin.reduce(function(s2,g){return s2+g.valor;},0);
@@ -9183,8 +9195,10 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
 {card("Comprado no mês",cur(totCompMes),G.primary,compMes.length+" compra(s) no financeiro")}
 {card("Lançado no estoque",cur(entradaMes),G.success,ins.length+" entrada(s)")}
-{card("Não lançado",cur(Math.max(0,totCompMes-entradaMes)),totCompMes-entradaMes>0.009?G.red:G.success,"diferença")}
+{card("Não lançado",cur(totSemEnt),totSemEnt>0.009?G.red:G.success,totSemEnt>0.009?(compSemEnt.length+" compra(s) sem entrada"):(compConf.length>0?(compConf.length+" conferida(s) na mão"):"tudo conciliado"))}
 </div>
+{compSemEnt.length>0&&aviso("red",<span><strong>{"Falta lançar no estoque: "+cur(totSemEnt)+"."}</strong>{" "+compSemEnt.map(function(g){return String(g.desc||"sem descrição").trim()+" ("+cur(valorCompra(g))+")";}).join(", ")+". Se o material já chegou, lance a entrada; se foi conferido, marque na aba Itens."}</span>)}
+{compSemEnt.length===0&&compConf.length>0&&<div style={{background:"var(--surface-2)",borderRadius:11,padding:"10px 12px",fontSize:11.5,color:G.muted,lineHeight:1.55}}>{compConf.length+" compra(s) do mês não têm entrada no estoque, mas estão marcadas como “✓ Conferido” — por isso não contam como pendência: "+compConf.map(function(g){return String(g.desc||"sem descrição").trim();}).join(", ")+"."}</div>}
 {compMes.length>0&&<div>
 {titulo("Compras do mês por fornecedor")}
 <div style={{display:"flex",flexDirection:"column",gap:8}}>
