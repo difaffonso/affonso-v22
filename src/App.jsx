@@ -8027,7 +8027,20 @@ function nfeParse(txt){
     itens.push({cod:tag(prod,"cProd"),desc:tag(prod,"xProd"),un:(tag(prod,"uCom")||"un").toLowerCase(),q:parseFloat(tag(prod,"qCom"))||0,vu:parseFloat(tag(prod,"vUnCom"))||0});
   }
   if(!itens.length)return {err:"Nenhum item válido encontrado no XML."};
-  return {forn:forn,num:num,date:dt,itens:itens};
+  // V315: total real da nota (com frete/impostos/descontos) e as duplicatas.
+  // vNF e obrigatorio na NF-e; cobr/dup so existe quando a venda foi a prazo.
+  var soma=0;itens.forEach(function(x){soma+=(Number(x.q)||0)*(Number(x.vu)||0);});
+  var tot0=parseFloat(tag(doc.getElementsByTagName("ICMSTot")[0],"vNF"))||0;
+  var dups=[];
+  var dn=doc.getElementsByTagName("dup");
+  for(var d2=0;d2<dn.length;d2++){
+    var dv=String(tag(dn[d2],"dVenc")||"").slice(0,10);
+    var vv=parseFloat(tag(dn[d2],"vDup"))||0;
+    if(dv||vv)dups.push({venc:dv,val:vv});
+  }
+  dups.sort(function(a,b){return String(a.venc).localeCompare(String(b.venc));});
+  return {forn:forn,num:num,date:dt,itens:itens,cnpj:tag(emit,"CNPJ"),
+          total:(tot0>0?tot0:Math.round(soma*100)/100),somaItens:Math.round(soma*100)/100,dups:dups};
 }
 // V275: casamento de NF-e por faixa de confianca + padronizacao do nome pelo fornecedor.
 //  verde   = codigo do produto ja gravado (ou nome identico) -> reconhecido
@@ -8061,7 +8074,83 @@ function nfeScore2(itNF,itStk){
   return melhor;
 }
 function nfeFaixa(sc){return sc>=1?"g":(sc>=0.62?"y":"r");}
-function ImportNFe({stock,setStock,addLog,onClose}){
+// ══════════════ V315: NOTA -> GASTO NO FINANCEIRO ══════════════
+// Ate a V314 a importacao do XML mexia SO no estoque. O gasto continuava manual,
+// e nada avisava quando ele ficava para tras (o card "Nao lancado" so olha o
+// sentido contrario: compra no financeiro sem entrada no estoque).
+// Agora a mesma confirmacao pode criar o gasto ja carimbado com a nota (_stkNf).
+function nfeFornKey(nota){var s=String(nota||"");var i=s.indexOf(" - ");return i<0?"":s.slice(i+3).trim();}
+// Apelido do fornecedor: em vez de guardar um mapa novo no blob, procura o nome
+// que VOCE usou da ultima vez num gasto ja carimbado com nota do mesmo emitente.
+function nfeApelido(gastos,forn){
+  try{
+    var alvo=String(forn||"").trim();if(!alvo)return "";
+    var achado="",melhor=-1;
+    (((gastos||{}).clinica)||[]).forEach(function(g){
+      if(!g||!g._stkNf)return;
+      if(nfeFornKey(g._stkNf)!==alvo)return;
+      var t=Number(g._ts||g._cr||0);
+      if(t>=melhor){melhor=t;achado=String(g.desc||"").trim();}
+    });
+    return achado;
+  }catch(e){return "";}
+}
+function nfeNum(v){var n=Number(String(v==null?"":v).replace(",","."));return isNaN(n)?0:n;}
+// O campo "value" do gasto guarda a PARCELA, nunca o total (ver valorCompra).
+function nfeNovoGasto(o){
+  var n=Math.max(1,Math.floor(nfeNum(o.parc)||1));
+  var tot=Math.round(nfeNum(o.val)*100)/100;
+  var ag=Date.now();
+  return {id:nid(),_ts:ag,_cr:ag,cat:"Material",
+          desc:String(o.desc||"").trim()||"Compra de material",
+          date:String(o.venc||o.date||today()),
+          value:Math.round((tot/n)*100)/100,
+          paid:false,diaVenc:"",parcelas:n,pagoMeses:{},
+          parcelado:n>1,recorrente:false,
+          _stkOk:true,_stkNf:String(o.note||"")};
+}
+// ══════════════ V315: AGRUPAR AS ENTRADAS POR NOTA ══════════════
+// Uma NF-e vira UM card, nao 46 linhas soltas. Entrada digitada a mao (sem
+// numero de nota) agrupa por dia, que e como ela foi lancada na pratica.
+function notaGrupos(ins){
+  var by={},ordem=[];
+  (ins||[]).forEach(function(m){
+    var nt=String((m&&m.note)||"").trim();
+    var isNf=nt.indexOf("NF-e")===0;
+    var k=isNf?nt:("avulso:"+String(m.date||"")+(nt?("|"+nt):""));
+    if(!by[k]){by[k]={key:k,nf:isNf,note:nt,date:String(m.date||""),itens:[],valor:0};ordem.push(k);}
+    by[k].itens.push(m);
+    by[k].valor+=Number(m.val)||0;
+    if(m.date&&String(m.date)<by[k].date)by[k].date=String(m.date);
+  });
+  return ordem.map(function(k){return by[k];}).sort(function(a,b){
+    var c=String(b.date).localeCompare(String(a.date));return c!==0?c:(b.valor-a.valor);});
+}
+// Casa cada grupo com um gasto de Material: primeiro o vinculo explicito da nota,
+// depois valor proximo (ate R$ 1) e data ate 30 dias. Cada gasto casa uma vez so.
+function notaCasar(grupos,gastos){
+  var pool=(((gastos||{}).clinica)||[]).filter(function(g){return g&&String(g.cat||"")==="Material";}).slice();
+  var out=(grupos||[]).map(function(g){return Object.assign({},g,{fin:null});});
+  out.forEach(function(gr){
+    var ix=-1;
+    pool.forEach(function(g,i){if(ix<0&&String(g._stkNf||"")!==""&&String(g._stkNf||"")===gr.key)ix=i;});
+    if(ix>=0){gr.fin=pool[ix];pool.splice(ix,1);}
+  });
+  out.forEach(function(gr){
+    if(gr.fin||gr.valor<=0.01)return;
+    var ix=-1;
+    pool.forEach(function(g,i){
+      if(ix>=0)return;
+      if(Math.abs(valorCompra(g)-gr.valor)>1)return;
+      if(_difDias(gr.date,refCompra(g))>30&&_difDias(gr.date,String(g.date||""))>30)return;
+      ix=i;
+    });
+    if(ix>=0){gr.fin=pool[ix];pool.splice(ix,1);}
+  });
+  return out;
+}
+function ImportNFe({stock,setStock,addLog,onClose,gastos,setGastos}){
+  const [fin,setFin]=useState(null);// V315: gasto que sera criado junto com as entradas
   const [nf,setNf]=useState(null);
   const [its,setIts]=useState([]);
   const [erro,setErro]=useState("");
@@ -8086,6 +8175,12 @@ function ImportNFe({stock,setStock,addLog,onClose}){
                 conf:false,adotar:true,nome:it.desc,busca:"",edit:false};
       });
       var abre=arr.some(function(x,ix){return x.faixa==="g"&&nfeNorm(nomeDe(x.alvo))!==nfeNorm(x.nome);});
+      // V315: sugestao do lancamento no financeiro, tudo editavel antes de confirmar.
+      var _ap=nfeApelido(gastos,r.forn);
+      setFin({on:true,desc:_ap||r.forn,val:String(r.total||r.somaItens||0),
+              parc:String((r.dups&&r.dups.length)||1),
+              venc:((r.dups&&r.dups[0]&&r.dups[0].venc)||r.date),
+              lidoDaNota:!!(r.dups&&r.dups.length>1),apelido:!!_ap});
       setAbrirG(abre);setIts(arr);setNf(r);
     };
     rd.onerror=function(){setErro("Não foi possível ler o arquivo.");};
@@ -8130,7 +8225,20 @@ function ImportNFe({stock,setStock,addLog,onClose}){
       return next;
     });
     try{if(addLog)addLog("estoque","Entrada NF-e nº "+nf.num+" - "+nf.forn+" ("+nf.itens.length+" itens"+(renom?", "+renom+" nome(s) padronizado(s)":"")+")","");}catch(e){}
-    setDone({tot:nf.itens.length,casados:casados,criados:criados,renom:renom});
+    // V315: mesmo clique cria o gasto no financeiro, ja carimbado com a nota.
+    var finTxt="";
+    try{
+      var _tot=fin?Math.round(nfeNum(fin.val)*100)/100:0;
+      if(fin&&fin.on&&setGastos&&_tot>0){
+        var _np=Math.max(1,Math.floor(nfeNum(fin.parc)||1));
+        var _g=nfeNovoGasto({desc:fin.desc,val:_tot,parc:_np,venc:fin.venc||nf.date,
+                             note:"NF-e nº "+nf.num+" - "+nf.forn});
+        setGastos(function(prev){var p=prev||{};return Object.assign({},p,{clinica:((p.clinica)||[]).concat([_g])});});
+        finTxt=_g.desc+" · "+cur(_tot)+(_np>1?(" em "+_np+"x de "+cur(_g.value)):" à vista");
+        if(addLog)addLog("financeiro","Gasto criado pela importação da NF-e nº "+nf.num+": "+finTxt,"");
+      }
+    }catch(e){}
+    setDone({tot:nf.itens.length,casados:casados,criados:criados,renom:renom,fin:finTxt});
   }
   // ── blocos visuais ──────────────────────────────────────────
   function blocoNome(e,i){
@@ -8207,6 +8315,8 @@ function ImportNFe({stock,setStock,addLog,onClose}){
       <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
         {done&&<>
           <div style={{background:"var(--green-soft)",borderRadius:10,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:26}}>✅</div><div style={{fontWeight:700,color:G.success}}>{done.tot+" entrada"+(done.tot>1?"s":"")+" registrada"+(done.tot>1?"s":"")+" no estoque!"}</div><div style={{fontSize:12.5,color:G.muted,marginTop:4,lineHeight:1.6}}>{done.casados+" item(ns) atualizado(s) · "+done.criados+" criado(s)"}{done.renom?<br/>:null}{done.renom?(done.renom+" nome(s) padronizado(s) pelo do fornecedor"):""}<br/>{"Códigos aprendidos para as próximas notas."}</div></div>
+          {done.fin?<div style={{background:G.bg,borderRadius:10,padding:"11px 13px",fontSize:12.5,lineHeight:1.6,borderLeft:"4px solid "+G.primary}}><strong style={{color:G.primary}}>{"💰 Lançado também no financeiro"}</strong><br/>{done.fin}<div style={{color:G.muted,fontSize:11.5,marginTop:3}}>{"Já entra conferido — não vai aparecer como pendência."}</div></div>
+           :<div style={{background:G.bg,borderRadius:10,padding:"11px 13px",fontSize:12,color:G.muted,lineHeight:1.55}}>{"Nada foi lançado no financeiro. Você pode fazer isso depois em Relatório → 🧾 Notas."}</div>}
           <Btn ch="Fechar" onClick={onClose}/>
         </>}
         {!done&&!nf&&<>
@@ -8238,6 +8348,37 @@ function ImportNFe({stock,setStock,addLog,onClose}){
 
           {idxY.length>0&&<>{sec("Precisam da sua confirmação")}<div style={{display:"flex",flexDirection:"column",gap:9}}>{idxY.map(function(i){return cardItem(nf.itens[i],i);})}</div></>}
           {idxR.length>0&&<>{sec("Não encontrei no estoque")}<div style={{display:"flex",flexDirection:"column",gap:9}}>{idxR.map(function(i){return cardItem(nf.itens[i],i);})}</div></>}
+
+          {/* ══════ V315: o gasto nasce junto com as entradas ══════ */}
+          {fin&&<>
+            {sec("Lançar no financeiro")}
+            <div style={{background:G.bg,borderRadius:11,padding:"12px 13px",display:"flex",flexDirection:"column",gap:10,borderLeft:"4px solid "+(fin.on?G.primary:G.border)}}>
+              <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12.5,fontWeight:800,cursor:"pointer"}}>
+                <input type="checkbox" checked={!!fin.on} onChange={function(ev){var c=ev.target.checked;setFin(function(p){return Object.assign({},p,{on:c});});}} style={{accentColor:G.primary,width:16,height:16,cursor:"pointer"}}/>
+                {"Criar o gasto desta nota no financeiro"}
+              </label>
+              {!fin.on&&<div style={{fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"Só o estoque será atualizado. A nota vai ficar marcada como pendente em Relatório → 🧾 Notas."}</div>}
+              {fin.on&&<>
+                <Inp lb="Fornecedor (nome que aparece no financeiro)" val={fin.desc} set={function(v){setFin(function(p){return Object.assign({},p,{desc:v});});}}/>
+                {fin.apelido?<div style={{fontSize:11,color:G.muted,marginTop:-4}}>{"Usei o nome que você deu a este fornecedor da última vez."}</div>
+                            :<div style={{fontSize:11,color:G.muted,marginTop:-4}}>{"Veio a razão social da nota. Se trocar, guardo para as próximas."}</div>}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+                  <Inp lb="Valor total da nota" val={fin.val} set={function(v){setFin(function(p){return Object.assign({},p,{val:v});});}}/>
+                  <Inp lb="Parcelas" type="number" min={1} val={fin.parc} set={function(v){setFin(function(p){return Object.assign({},p,{parc:v});});}}/>
+                </div>
+                <Inp lb="1º vencimento" type="date" val={fin.venc} set={function(v){setFin(function(p){return Object.assign({},p,{venc:v});});}}/>
+                {(function(){
+                  var t=Math.round(nfeNum(fin.val)*100)/100;
+                  var n=Math.max(1,Math.floor(nfeNum(fin.parc)||1));
+                  var dif=Math.round((t-(Number(nf.somaItens)||0))*100)/100;
+                  return <div style={{fontSize:11.5,color:G.muted,lineHeight:1.6}}>
+                    {n>1?(n+" parcelas de "+cur(Math.round((t/n)*100)/100)+". "):"À vista. "}
+                    {fin.lidoDaNota?"Parcelas e vencimento vieram das duplicatas da própria nota. ":"A nota não trouxe duplicatas — ajuste se for parcelado. "}
+                    {Math.abs(dif)>0.009?("O total da nota é "+cur(Math.abs(dif))+(dif>0?" maior":" menor")+" que a soma dos itens ("+cur(Number(nf.somaItens)||0)+") — frete, impostos ou desconto."):"Igual à soma dos itens."}
+                  </div>;})()}
+              </>}
+            </div>
+          </>}
 
           <div style={{display:"flex",gap:8,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",borderTop:"1px solid "+G.border,paddingTop:12}}>
             <div style={{fontSize:12,lineHeight:1.45,color:faltam?G.red:G.muted,fontWeight:faltam?700:400}}>
@@ -8540,6 +8681,8 @@ function Estoque({cotExtra,setCotExtra,stock,setStock,implCat,setImplCat,implMov
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
 const [relSub,setRelSub]=useState("resumo");// V268 sub-abas do relatorio (resumo/in/out/aj)
+const [ntSel,setNtSel]=useState(null);// V315: chave da nota aberta
+const [ntForm,setNtForm]=useState(null);// V315: form de lancamento no financeiro
 // V309: previsao de compra (aba Compras)
 const [cpMeses,setCpMeses]=useState(1);// meses de cobertura
 const [cpFolga,setCpFolga]=useState(20);// % de folga de seguranca
@@ -8674,7 +8817,7 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 <Btn ch="+ Novo Item" onClick={()=>{setEdit(null);setF(b0);setDz("");setModal(true);}}/>
 </div>
 </div>
-{impNfe&&<ImportNFe stock={stock} setStock={setStock} addLog={addLog} onClose={()=>setImpNfe(false)}/>}
+{impNfe&&<ImportNFe stock={stock} setStock={setStock} addLog={addLog} onClose={()=>setImpNfe(false)} gastos={gastos} setGastos={setGastos}/>}
 {/* V274: campo de busca inteligente */}
 <div style={{display:"flex",alignItems:"center",gap:9,background:G.card,borderRadius:12,padding:"9px 13px",boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px #ffffff"}}>
 <span style={{fontSize:15,opacity:.6,lineHeight:1,flexShrink:0}}>{"\ud83d\udd0d"}</span>
@@ -8948,7 +9091,12 @@ var card=function(lb,vl,cor,sub){return <div style={{background:G.card,borderRad
 </div>;};
 var titulo=function(t){return <div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.6,margin:"4px 0 8px"}}>{t}</div>;};
 var aviso=function(tipo,txt){var vermelho=tipo==="red";return <div style={{background:(vermelho?G.red:G.gold)+"14",border:"1.5px solid "+(vermelho?G.red:G.gold)+"55",borderRadius:12,padding:"11px 13px",fontSize:12.5,lineHeight:1.55,color:vermelho?G.red:"#7a5a26",display:"flex",gap:9,alignItems:"flex-start"}}><span style={{fontSize:16}}>{vermelho?"⚠":"⚙"}</span><div>{txt}</div></div>;};
-var abas=[["resumo","Resumo",doMes.length],["in","📥 Entradas",ins.length],["out","📤 Saídas",outs.length],["aj","⚙ Ajustes",ajs.length],["precos","💰 Preços",(stock||[]).filter(function(_s){return _s&&!_s.inativo&&hpCompras(_s).length>0;}).length]];// V314
+var ntGr=notaCasar(notaGrupos(ins),gastos);// V315
+var ntSemFin=ntGr.filter(function(g){return !g.fin&&g.valor>0.01&&g.nf;});
+var ntSemAv=ntGr.filter(function(g){return !g.fin&&g.valor>0.01&&!g.nf;});
+var ntTotSem=ntSemFin.reduce(function(s2,g){return s2+g.valor;},0);
+var ntTot=ntGr.reduce(function(s2,g){return s2+g.valor;},0);
+var abas=[["resumo","Resumo",doMes.length],["in","📥 Entradas",ins.length],["out","📤 Saídas",outs.length],["aj","⚙ Ajustes",ajs.length],["notas","🧾 Notas",ntGr.length],["precos","💰 Preços",(stock||[]).filter(function(_s){return _s&&!_s.inativo&&hpCompras(_s).length>0;}).length]];// V314
 return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"Relatório de Materiais"}</h2>
@@ -8990,6 +9138,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{fontSize:11,color:G.muted,lineHeight:1.5,marginTop:8}}>{"Valor cheio da compra, no mês em que foi feita — parcelamento não divide o total entre os meses."}</div>
 </div>}
 {ins.length===0&&aviso("red",<span><strong>{"Nenhuma entrada registrada neste mês."}</strong>{" Todo material que chega precisa ser lançado no botão + Entrada, com data e quantidade."}</span>)}
+{/* V315: o card "Não lançado" so olha um sentido. Este aviso olha o inverso. */}
+{ntSemFin.length>0&&aviso("red",<span><strong>{"Entrou material que não está no financeiro."}</strong>{" "+ntSemFin.length+" nota(s), "+cur(ntTotSem)+", foram lançadas no estoque mas não têm gasto correspondente. Veja em "}<b>{"🧾 Notas"}</b>{"."}</span>)}
 {ins.length>0&&titulo("Compras por material")}
 {ins.length>0&&porMaterial(ins,G.success)}
 {ins.length>0&&titulo("Entradas por data")}
@@ -9010,6 +9160,97 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}}>
 {titulo("Ajustes por data")}
 {porDia(ajs,"#6a736c","Nenhum ajuste neste mês. 👍")}
 </div>}
+{/* ══════════ V315: NOTAS — cada compra como um card so ══════════ */}
+{relSub==="notas"&&(function(){
+var ntAberta=ntSel?ntGr.filter(function(g){return g.key===ntSel;})[0]:null;
+var podeLancar=!!(user&&user.level>=3&&setGastos);
+var abrirForm=function(gr){
+  var fk=gr.nf?nfeFornKey(gr.note):"";
+  setNtForm({key:gr.key,desc:(nfeApelido(gastos,fk)||fk||""),val:String(Math.round(gr.valor*100)/100),parc:"1",venc:gr.date});
+};
+var lancar=function(gr,f){
+  var t=Math.round(nfeNum(f.val)*100)/100;
+  if(!(t>0)){window.alert("Informe o valor da compra.");return;}
+  if(!String(f.desc||"").trim()){window.alert("Informe o fornecedor.");return;}
+  var g=nfeNovoGasto({desc:f.desc,val:t,parc:f.parc,venc:f.venc||gr.date,note:gr.key});
+  setGastos(function(prev){var p=prev||{};return Object.assign({},p,{clinica:((p.clinica)||[]).concat([g])});});
+  try{if(addLog)addLog("financeiro","Gasto lançado a partir do estoque: "+g.desc+" ("+cur(t)+")","");}catch(e){}
+  setNtForm(null);setNtSel(null);
+};
+return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{card("Compras no mês",cur(ntTot),G.primary,ntGr.length+" nota(s) / lançamento(s)")}
+{card("Sem lançar no financeiro",cur(ntTotSem),ntTotSem>0.009?G.red:G.success,ntSemFin.length+" compra(s)")}
+</div>
+{ntSemFin.length>0&&aviso("red",<span><strong>{"Entrou material que não está no financeiro."}</strong>{" "+ntSemFin.length+" compra(s), "+cur(ntTotSem)+", foram lançadas no estoque mas não aparecem como gasto. Toque na nota para lançar."}</span>)}
+{ntSemAv.length>0&&aviso("gold",<span><strong>{ntSemAv.length+" lançamento(s) avulso(s) sem correspondência."}</strong>{" Somam "+cur(ntSemAv.reduce(function(s2,g){return s2+g.valor;},0))+". Como não têm nota, o valor raramente bate com o gasto — um lançamento só no financeiro costuma cobrir várias entradas. Confira antes de lançar de novo."}</span>)}
+{titulo("Notas e lançamentos do mês")}
+{ntGr.length===0?<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{"Nenhuma entrada de material neste mês."}</div>:
+<div style={{display:"flex",flexDirection:"column",gap:8}}>
+{ntGr.map(function(gr){
+var semFin=!gr.fin&&gr.valor>0.01&&gr.nf;
+return <div key={gr.key} onClick={function(){setNtSel(gr.key);setNtForm(null);}} style={{background:G.card,borderRadius:12,padding:"12px 13px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:11,borderLeft:"4px solid "+(gr.fin?G.success:(semFin?G.red:(gr.valor>0.01?G.gold:G.border))),boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontSize:9.5,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.4}}>{gr.nf?("NF-e nº "+String(gr.note).replace("NF-e nº ","").split(" - ")[0]):"Sem nota fiscal"}</div>
+<div style={{fontWeight:700,fontSize:13.5,lineHeight:1.3,marginTop:1}}>{gr.nf?(nfeFornKey(gr.note)||"Fornecedor"):"Lançamento avulso"}</div>
+<div style={{fontSize:11,color:G.muted,marginTop:3}}>{fmt(gr.date)+" · "+gr.itens.length+" item(ns) · "+(gr.nf?"XML da NF-e":"digitado à mão")}</div>
+{(function(){var c=gr.fin?G.success:(semFin?G.red:(gr.valor>0.01?G.gold:G.muted));
+var t=gr.fin?"✓ no financeiro":(semFin?"⚠ falta no financeiro":(gr.valor>0.01?"? não localizei no financeiro":"sem valor gravado"));
+return <span style={{display:"inline-block",fontSize:10,fontWeight:800,padding:"3px 8px",borderRadius:20,marginTop:6,background:c+"1f",color:c}}>{t}</span>;})()}
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontWeight:800,fontSize:14,color:G.primary,whiteSpace:"nowrap"}}>{cur(gr.valor)}</div>
+<div style={{fontSize:10,color:G.muted,fontWeight:600,marginTop:3}}>{"ver itens ›"}</div>
+</div>
+</div>;})}
+</div>}
+<div style={{background:"var(--surface-2)",borderRadius:11,padding:"10px 12px",fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"Cada nota junta todas as entradas gravadas com o mesmo número. As entradas digitadas à mão, sem nota, ficam agrupadas por dia."}</div>
+
+{ntAberta&&<div onClick={function(){setNtSel(null);setNtForm(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
+<div onClick={function(e){e.stopPropagation();}} style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,maxHeight:"88vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30)"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,padding:"14px 18px",borderBottom:"1px solid "+G.border}}>
+<div style={{minWidth:0}}>
+<div style={{fontSize:9.5,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.4}}>{ntAberta.nf?("NF-e nº "+String(ntAberta.note).replace("NF-e nº ","").split(" - ")[0]):"Sem nota fiscal"}</div>
+<div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,lineHeight:1.2}}>{ntAberta.nf?(nfeFornKey(ntAberta.note)||"Fornecedor"):"Lançamento avulso"}</div>
+<div style={{fontSize:11.5,color:G.muted,marginTop:2}}>{fmt(ntAberta.date)+" · "+ntAberta.itens.length+" item(ns)"}</div>
+</div>
+<button onClick={function(){setNtSel(null);setNtForm(null);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted,lineHeight:1}}>×</button>
+</div>
+<div style={{padding:"16px 18px 22px",display:"flex",flexDirection:"column",gap:11}}>
+{ntAberta.fin?<div style={{background:"var(--green-soft)",borderRadius:11,padding:"11px 13px",fontSize:12.5,lineHeight:1.6,borderLeft:"4px solid "+G.success}}><strong style={{color:G.success}}>{"✓ Já está no financeiro"}</strong><br/>{String(ntAberta.fin.desc||"")+" · "+cur(valorCompra(ntAberta.fin))+(ntAberta.fin.parcelado?(" em "+(ntAberta.fin.parcelas||1)+"x de "+cur(Number(ntAberta.fin.value)||0)):" à vista")}<div style={{color:G.muted,fontSize:11,marginTop:3}}>{"Vencimento a partir de "+fmt(ntAberta.fin.date)}</div></div>
+:(ntAberta.valor<=0.01?<div style={{background:"var(--surface-2)",borderRadius:11,padding:"11px 13px",fontSize:12,color:G.muted,lineHeight:1.55}}>{"Esta entrada não gravou preço, então não dá para comparar com o financeiro."}</div>
+:<div style={{background:(ntAberta.nf?G.red:G.gold)+"14",border:"1.5px solid "+(ntAberta.nf?G.red:G.gold)+"55",borderRadius:11,padding:"11px 13px",fontSize:12.5,lineHeight:1.6,color:ntAberta.nf?G.red:"#7a5a26"}}>{ntAberta.nf?<span><strong>{"Esta nota não está no financeiro."}</strong>{" O material entrou no estoque, mas o gasto de "+cur(ntAberta.valor)+" não foi registrado."}</span>:<span><strong>{"Não localizei este lançamento no financeiro."}</strong>{" Sem nota fiscal a comparação é só pelo valor ("+cur(ntAberta.valor)+"), e um gasto só costuma cobrir várias entradas. Confira antes de lançar."}</span>}</div>)}
+
+{!ntAberta.fin&&ntAberta.valor>0.01&&podeLancar&&!(ntForm&&ntForm.key===ntAberta.key)&&<Btn ch="💰 Lançar no financeiro" onClick={function(){abrirForm(ntAberta);}}/>}
+{!ntAberta.fin&&ntAberta.valor>0.01&&!podeLancar&&<div style={{fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"Só o administrador pode lançar gastos."}</div>}
+{ntForm&&ntForm.key===ntAberta.key&&<div style={{background:G.bg,borderRadius:11,padding:"12px 13px",display:"flex",flexDirection:"column",gap:10,borderLeft:"4px solid "+G.primary}}>
+<Inp lb="Fornecedor (nome no financeiro)" val={ntForm.desc} set={function(v){setNtForm(function(p){return Object.assign({},p,{desc:v});});}}/>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
+<Inp lb="Valor total" val={ntForm.val} set={function(v){setNtForm(function(p){return Object.assign({},p,{val:v});});}}/>
+<Inp lb="Parcelas" type="number" min={1} val={ntForm.parc} set={function(v){setNtForm(function(p){return Object.assign({},p,{parc:v});});}}/>
+</div>
+<Inp lb="1º vencimento" type="date" val={ntForm.venc} set={function(v){setNtForm(function(p){return Object.assign({},p,{venc:v});});}}/>
+<div style={{fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"O valor sugerido é a soma dos itens. Se a nota teve frete ou desconto, corrija aqui."}</div>
+<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+<Btn ch="Lançar" onClick={function(){lancar(ntAberta,ntForm);}}/>
+<Btn ch="Cancelar" v="g" onClick={function(){setNtForm(null);}}/>
+</div>
+</div>}
+
+{titulo("Itens desta compra")}
+<div style={{display:"flex",flexDirection:"column",gap:0}}>
+{ntAberta.itens.slice().sort(function(a,b){return b.val-a.val;}).map(function(m,i){
+return <div key={"nti"+i} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"9px 0",borderBottom:"1px solid "+G.border,fontSize:12.5}}>
+<div style={{flex:1,minWidth:0,lineHeight:1.35}}>{m.itemName}<div style={{fontSize:11,color:G.muted,marginTop:2}}>{m.q+" "+(m.unit||"un")+" × "+cur(m.pu)+(m.estimado?" *":"")}</div></div>
+<div style={{fontWeight:700,whiteSpace:"nowrap"}}>{cur(m.val)}</div>
+</div>;})}
+</div>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:10,borderTop:"2px solid "+G.border,fontWeight:800}}><span>{"Total dos itens"}</span><span style={{color:G.primary}}>{cur(ntAberta.valor)}</span></div>
+</div>
+</div>
+</div>}
+</div>;})()}
+
 {/* ══════════ V314: PRECOS — historico de preco de todos os materiais ══════════ */}
 {relSub==="precos"&&(function(){
 var ordens=[["alta","Maior alta"],["antigo","Compra mais antiga"],["queda","Ficou mais barato"],["az","A–Z"]];
