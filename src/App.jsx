@@ -9039,8 +9039,10 @@ var gastoMes=outs.reduce(function(s2,mm){return s2+mm.val;},0);
 var temEstimado=doMes.some(function(mm){return mm.estimado;});
 var compMes=comprasDoMes(gastos,relMes);// V272
 var totCompMes=compMes.reduce(function(s2,g2){return s2+valorCompra(g2);},0);
-var porForn=function(){var by={};compMes.forEach(function(g2){var k=String(g2.desc||"(sem descrição)").trim();if(!by[k])by[k]={v:0,n:0};by[k].v+=valorCompra(g2);by[k].n++;});
-return Object.keys(by).map(function(k){return{name:k,v:by[k].v,n:by[k].n};}).sort(function(x,y){return y.v-x.v;});};
+var porForn=function(){var by={};compMes.forEach(function(g2){var k=String(g2.desc||"(sem descrição)").trim();if(!by[k])by[k]={v:0,n:0,ids:[]};by[k].v+=valorCompra(g2);by[k].n++;by[k].ids.push(g2.id);});
+return Object.keys(by).map(function(k){return{name:k,v:by[k].v,n:by[k].n,ids:by[k].ids};}).sort(function(x,y){return y.v-x.v;});};
+// V316: acha o grupo de entradas do estoque que pertence a este fornecedor
+var ntDoForn=function(it){try{return ntGr.filter(function(g){return g.fin&&(it.ids||[]).indexOf(g.fin.id)>=0;})[0]||null;}catch(e){return null;}};
 var nDif=function(list){var o={},n=0;list.forEach(function(mm){if(!o[mm.itemName]){o[mm.itemName]=1;n++;}});return n;};
 var lbAba=function(k){return k==="in"?"Entrada":(k==="out"?"Saída":"Ajuste");};
 var linha=function(mm,i){var isIn=mm.t==="in";var isAj=mm.t==="aj";var cor=isAj?"#9aa39c":(isIn?G.success:G.red);return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",borderLeft:"4px solid "+cor,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff",position:"relative"}}>
@@ -9096,72 +9098,8 @@ var ntSemFin=ntGr.filter(function(g){return !g.fin&&g.valor>0.01&&g.nf;});
 var ntSemAv=ntGr.filter(function(g){return !g.fin&&g.valor>0.01&&!g.nf;});
 var ntTotSem=ntSemFin.reduce(function(s2,g){return s2+g.valor;},0);
 var ntTot=ntGr.reduce(function(s2,g){return s2+g.valor;},0);
-var abas=[["resumo","Resumo",doMes.length],["in","📥 Entradas",ins.length],["out","📤 Saídas",outs.length],["aj","⚙ Ajustes",ajs.length],["notas","🧾 Notas",ntGr.length],["precos","💰 Preços",(stock||[]).filter(function(_s){return _s&&!_s.inativo&&hpCompras(_s).length>0;}).length]];// V314
-return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"Relatório de Materiais"}</h2>
-<input type="month" value={relMes} onChange={function(e){setRelMes(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"7px 10px",fontSize:13,background:G.card,color:G.text}}/>
-</div>
-<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-{abas.map(function(tb){var on=relSub===tb[0];return <button key={tb[0]} onClick={function(){setRelSub(tb[0]);}} style={{border:"none",borderRadius:10,padding:"9px 14px",fontSize:12,fontWeight:700,cursor:"pointer",background:on?G.primary:G.card,color:on?"#fff":G.muted,boxShadow:on?"inset 2px 2px 6px rgba(0,0,0,.25)":"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>{tb[1]+" ("+tb[2]+")"}</button>;})}
-</div>
-{relSub==="resumo"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
-{card("Entradas (compras)",cur(entradaMes),G.success,ins.length+" lançamento(s)")}
-{card("Saídas (consumo)",cur(gastoMes),G.red,outs.length+" lançamento(s)")}
-{card("Saldo do mês",cur(entradaMes-gastoMes),entradaMes-gastoMes>=0?G.success:G.red,"entradas − saídas")}
-{card("Comprado no mês",cur(totCompMes),G.primary,compMes.length+" compra(s) no financeiro")}
-</div>
-{ins.length===0&&aviso("red",<span><strong>{"Nenhuma compra lançada neste mês."}</strong>{" Se chegou material na clínica, ele não foi registrado como entrada no estoque."}</span>)}
-{ajs.length>0&&aviso("gold",<span><strong>{ajs.length+" ajuste(s) de contagem neste mês."}</strong>{" Ajustes mudam a quantidade sem registrar compra e ficam fora dos totais em R$. Se foi compra, o certo é usar + Entrada."}</span>)}
-{titulo("Últimos lançamentos")}
-{porDia(doMes,G.muted,"Nenhuma movimentação neste mês.")}
-</div>}
-{relSub==="in"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
-{card("Comprado no mês",cur(totCompMes),G.primary,compMes.length+" compra(s) no financeiro")}
-{card("Lançado no estoque",cur(entradaMes),G.success,ins.length+" entrada(s)")}
-{card("Não lançado",cur(Math.max(0,totCompMes-entradaMes)),totCompMes-entradaMes>0.009?G.red:G.success,"diferença")}
-</div>
-{compMes.length>0&&<div>
-{titulo("Compras do mês por fornecedor")}
-<div style={{display:"flex",flexDirection:"column",gap:8}}>
-{porForn().map(function(it,i){return <div key={i} style={{background:G.card,borderRadius:12,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
-<div style={{flex:1,minWidth:0}}>
-<div style={{fontWeight:700,fontSize:13}}>{it.name}</div>
-<div style={{fontSize:11,color:G.muted}}>{it.n+(it.n>1?" compras":" compra")}</div>
-<div style={{height:5,borderRadius:3,background:G.border,marginTop:6,overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:G.primary,width:(totCompMes>0?(it.v/totCompMes*100):0)+"%"}}></div></div>
-</div>
-<div style={{fontWeight:800,color:G.primary,whiteSpace:"nowrap"}}>{cur(it.v)}</div>
-</div>;})}
-</div>
-<div style={{fontSize:11,color:G.muted,lineHeight:1.5,marginTop:8}}>{"Valor cheio da compra, no mês em que foi feita — parcelamento não divide o total entre os meses."}</div>
-</div>}
-{ins.length===0&&aviso("red",<span><strong>{"Nenhuma entrada registrada neste mês."}</strong>{" Todo material que chega precisa ser lançado no botão + Entrada, com data e quantidade."}</span>)}
-{/* V315: o card "Não lançado" so olha um sentido. Este aviso olha o inverso. */}
-{ntSemFin.length>0&&aviso("red",<span><strong>{"Entrou material que não está no financeiro."}</strong>{" "+ntSemFin.length+" nota(s), "+cur(ntTotSem)+", foram lançadas no estoque mas não têm gasto correspondente. Veja em "}<b>{"🧾 Notas"}</b>{"."}</span>)}
-{ins.length>0&&titulo("Compras por material")}
-{ins.length>0&&porMaterial(ins,G.success)}
-{ins.length>0&&titulo("Entradas por data")}
-{ins.length>0&&porDia(ins,G.success,"Nenhuma entrada neste mês.")}
-</div>}
-{relSub==="out"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
-{card("Total consumido",cur(gastoMes),G.red,outs.length+" saída(s)")}
-{card("Itens diferentes",String(nDif(outs)),G.primary,"no mês")}
-</div>
-{outs.length>0&&titulo("Consumo por material")}
-{outs.length>0&&porMaterial(outs,G.red)}
-{titulo("Saídas por data")}
-{porDia(outs,G.red,"Nenhuma saída neste mês.")}
-</div>}
-{relSub==="aj"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
-{aviso("gold",<span>{"Ajustes são correções de contagem feitas direto na quantidade do item. Eles "}<strong>{"não entram"}</strong>{" nos totais em R$ — servem para auditar quando o estoque mudou sem entrada nem saída. Só o administrador pode gerar ajuste."}</span>)}
-{titulo("Ajustes por data")}
-{porDia(ajs,"#6a736c","Nenhum ajuste neste mês. 👍")}
-</div>}
-{/* ══════════ V315: NOTAS — cada compra como um card so ══════════ */}
-{relSub==="notas"&&(function(){
+// V316: o detalhe da nota saiu de dentro da aba Notas e virou funcao, para o
+// card do fornecedor (aba Entradas) abrir exatamente a mesma tela.
 var ntAberta=ntSel?ntGr.filter(function(g){return g.key===ntSel;})[0]:null;
 var podeLancar=!!(user&&user.level>=3&&setGastos);
 var abrirForm=function(gr){
@@ -9177,36 +9115,7 @@ var lancar=function(gr,f){
   try{if(addLog)addLog("financeiro","Gasto lançado a partir do estoque: "+g.desc+" ("+cur(t)+")","");}catch(e){}
   setNtForm(null);setNtSel(null);
 };
-return <div style={{display:"flex",flexDirection:"column",gap:12}}>
-<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
-{card("Compras no mês",cur(ntTot),G.primary,ntGr.length+" nota(s) / lançamento(s)")}
-{card("Sem lançar no financeiro",cur(ntTotSem),ntTotSem>0.009?G.red:G.success,ntSemFin.length+" compra(s)")}
-</div>
-{ntSemFin.length>0&&aviso("red",<span><strong>{"Entrou material que não está no financeiro."}</strong>{" "+ntSemFin.length+" compra(s), "+cur(ntTotSem)+", foram lançadas no estoque mas não aparecem como gasto. Toque na nota para lançar."}</span>)}
-{ntSemAv.length>0&&aviso("gold",<span><strong>{ntSemAv.length+" lançamento(s) avulso(s) sem correspondência."}</strong>{" Somam "+cur(ntSemAv.reduce(function(s2,g){return s2+g.valor;},0))+". Como não têm nota, o valor raramente bate com o gasto — um lançamento só no financeiro costuma cobrir várias entradas. Confira antes de lançar de novo."}</span>)}
-{titulo("Notas e lançamentos do mês")}
-{ntGr.length===0?<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{"Nenhuma entrada de material neste mês."}</div>:
-<div style={{display:"flex",flexDirection:"column",gap:8}}>
-{ntGr.map(function(gr){
-var semFin=!gr.fin&&gr.valor>0.01&&gr.nf;
-return <div key={gr.key} onClick={function(){setNtSel(gr.key);setNtForm(null);}} style={{background:G.card,borderRadius:12,padding:"12px 13px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:11,borderLeft:"4px solid "+(gr.fin?G.success:(semFin?G.red:(gr.valor>0.01?G.gold:G.border))),boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
-<div style={{flex:1,minWidth:0}}>
-<div style={{fontSize:9.5,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.4}}>{gr.nf?("NF-e nº "+String(gr.note).replace("NF-e nº ","").split(" - ")[0]):"Sem nota fiscal"}</div>
-<div style={{fontWeight:700,fontSize:13.5,lineHeight:1.3,marginTop:1}}>{gr.nf?(nfeFornKey(gr.note)||"Fornecedor"):"Lançamento avulso"}</div>
-<div style={{fontSize:11,color:G.muted,marginTop:3}}>{fmt(gr.date)+" · "+gr.itens.length+" item(ns) · "+(gr.nf?"XML da NF-e":"digitado à mão")}</div>
-{(function(){var c=gr.fin?G.success:(semFin?G.red:(gr.valor>0.01?G.gold:G.muted));
-var t=gr.fin?"✓ no financeiro":(semFin?"⚠ falta no financeiro":(gr.valor>0.01?"? não localizei no financeiro":"sem valor gravado"));
-return <span style={{display:"inline-block",fontSize:10,fontWeight:800,padding:"3px 8px",borderRadius:20,marginTop:6,background:c+"1f",color:c}}>{t}</span>;})()}
-</div>
-<div style={{textAlign:"right",flexShrink:0}}>
-<div style={{fontWeight:800,fontSize:14,color:G.primary,whiteSpace:"nowrap"}}>{cur(gr.valor)}</div>
-<div style={{fontSize:10,color:G.muted,fontWeight:600,marginTop:3}}>{"ver itens ›"}</div>
-</div>
-</div>;})}
-</div>}
-<div style={{background:"var(--surface-2)",borderRadius:11,padding:"10px 12px",fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"Cada nota junta todas as entradas gravadas com o mesmo número. As entradas digitadas à mão, sem nota, ficam agrupadas por dia."}</div>
-
-{ntAberta&&<div onClick={function(){setNtSel(null);setNtForm(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
+var ntModal=function(){if(!ntAberta)return null;return <div onClick={function(){setNtSel(null);setNtForm(null);}} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:14}}>
 <div onClick={function(e){e.stopPropagation();}} style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,maxHeight:"88vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,padding:"14px 18px",borderBottom:"1px solid "+G.border}}>
 <div style={{minWidth:0}}>
@@ -9248,7 +9157,108 @@ return <div key={"nti"+i} style={{display:"flex",justifyContent:"space-between",
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:10,borderTop:"2px solid "+G.border,fontWeight:800}}><span>{"Total dos itens"}</span><span style={{color:G.primary}}>{cur(ntAberta.valor)}</span></div>
 </div>
 </div>
+</div>;};
+var abas=[["resumo","Resumo",doMes.length],["in","📥 Entradas",ins.length],["out","📤 Saídas",outs.length],["aj","⚙ Ajustes",ajs.length],["notas","🧾 Notas",ntGr.length],["precos","💰 Preços",(stock||[]).filter(function(_s){return _s&&!_s.inativo&&hpCompras(_s).length>0;}).length]];// V314
+return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+<h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>{"Relatório de Materiais"}</h2>
+<input type="month" value={relMes} onChange={function(e){setRelMes(e.target.value);}} style={{border:"1.5px solid "+G.border,borderRadius:10,padding:"7px 10px",fontSize:13,background:G.card,color:G.text}}/>
+</div>
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{abas.map(function(tb){var on=relSub===tb[0];return <button key={tb[0]} onClick={function(){setRelSub(tb[0]);}} style={{border:"none",borderRadius:10,padding:"9px 14px",fontSize:12,fontWeight:700,cursor:"pointer",background:on?G.primary:G.card,color:on?"#fff":G.muted,boxShadow:on?"inset 2px 2px 6px rgba(0,0,0,.25)":"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>{tb[1]+" ("+tb[2]+")"}</button>;})}
+</div>
+{relSub==="resumo"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{card("Entradas (compras)",cur(entradaMes),G.success,ins.length+" lançamento(s)")}
+{card("Saídas (consumo)",cur(gastoMes),G.red,outs.length+" lançamento(s)")}
+{card("Saldo do mês",cur(entradaMes-gastoMes),entradaMes-gastoMes>=0?G.success:G.red,"entradas − saídas")}
+{card("Comprado no mês",cur(totCompMes),G.primary,compMes.length+" compra(s) no financeiro")}
+</div>
+{ins.length===0&&aviso("red",<span><strong>{"Nenhuma compra lançada neste mês."}</strong>{" Se chegou material na clínica, ele não foi registrado como entrada no estoque."}</span>)}
+{ajs.length>0&&aviso("gold",<span><strong>{ajs.length+" ajuste(s) de contagem neste mês."}</strong>{" Ajustes mudam a quantidade sem registrar compra e ficam fora dos totais em R$. Se foi compra, o certo é usar + Entrada."}</span>)}
+{titulo("Últimos lançamentos")}
+{porDia(doMes,G.muted,"Nenhuma movimentação neste mês.")}
 </div>}
+{relSub==="in"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{card("Comprado no mês",cur(totCompMes),G.primary,compMes.length+" compra(s) no financeiro")}
+{card("Lançado no estoque",cur(entradaMes),G.success,ins.length+" entrada(s)")}
+{card("Não lançado",cur(Math.max(0,totCompMes-entradaMes)),totCompMes-entradaMes>0.009?G.red:G.success,"diferença")}
+</div>
+{compMes.length>0&&<div>
+{titulo("Compras do mês por fornecedor")}
+<div style={{display:"flex",flexDirection:"column",gap:8}}>
+{porForn().map(function(it,i){var _gr=ntDoForn(it);
+return <div key={i} onClick={_gr?function(){setNtSel(_gr.key);setNtForm(null);}:null} style={{background:G.card,borderRadius:12,padding:"11px 13px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,cursor:_gr?"pointer":"default",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontWeight:700,fontSize:13}}>{it.name}</div>
+<div style={{fontSize:11,color:G.muted}}>{it.n+(it.n>1?" compras":" compra")+(_gr?(" · "+_gr.itens.length+" item(ns) no estoque"):"")}</div>
+<div style={{height:5,borderRadius:3,background:G.border,marginTop:6,overflow:"hidden"}}><div style={{height:"100%",borderRadius:3,background:G.primary,width:(totCompMes>0?(it.v/totCompMes*100):0)+"%"}}></div></div>
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontWeight:800,color:G.primary,whiteSpace:"nowrap"}}>{cur(it.v)}</div>
+<div style={{fontSize:10,color:G.muted,fontWeight:600,marginTop:3,whiteSpace:"nowrap"}}>{_gr?"ver itens ›":"sem itens detalhados"}</div>
+</div>
+</div>;})}
+</div>
+<div style={{fontSize:11,color:G.muted,lineHeight:1.5,marginTop:8}}>{"Valor cheio da compra, no mês em que foi feita — parcelamento não divide o total entre os meses."}</div>
+</div>}
+{ins.length===0&&aviso("red",<span><strong>{"Nenhuma entrada registrada neste mês."}</strong>{" Todo material que chega precisa ser lançado no botão + Entrada, com data e quantidade."}</span>)}
+{/* V315: o card "Não lançado" so olha um sentido. Este aviso olha o inverso. */}
+{ntSemFin.length>0&&aviso("red",<span><strong>{"Entrou material que não está no financeiro."}</strong>{" "+ntSemFin.length+" nota(s), "+cur(ntTotSem)+", foram lançadas no estoque mas não têm gasto correspondente. Veja em "}<b>{"🧾 Notas"}</b>{"."}</span>)}
+{ins.length>0&&titulo("Compras por material")}
+{ins.length>0&&porMaterial(ins,G.success)}
+{ins.length>0&&titulo("Entradas por data")}
+{ins.length>0&&porDia(ins,G.success,"Nenhuma entrada neste mês.")}
+{ntModal()}
+</div>}
+{relSub==="out"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{card("Total consumido",cur(gastoMes),G.red,outs.length+" saída(s)")}
+{card("Itens diferentes",String(nDif(outs)),G.primary,"no mês")}
+</div>
+{outs.length>0&&titulo("Consumo por material")}
+{outs.length>0&&porMaterial(outs,G.red)}
+{titulo("Saídas por data")}
+{porDia(outs,G.red,"Nenhuma saída neste mês.")}
+</div>}
+{relSub==="aj"&&<div style={{display:"flex",flexDirection:"column",gap:12}}>
+{aviso("gold",<span>{"Ajustes são correções de contagem feitas direto na quantidade do item. Eles "}<strong>{"não entram"}</strong>{" nos totais em R$ — servem para auditar quando o estoque mudou sem entrada nem saída. Só o administrador pode gerar ajuste."}</span>)}
+{titulo("Ajustes por data")}
+{porDia(ajs,"#6a736c","Nenhum ajuste neste mês. 👍")}
+</div>}
+{/* ══════════ V315: NOTAS — cada compra como um card so ══════════ */}
+{relSub==="notas"&&(function(){
+return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10}}>
+{card("Compras no mês",cur(ntTot),G.primary,ntGr.length+" nota(s) / lançamento(s)")}
+{card("Sem lançar no financeiro",cur(ntTotSem),ntTotSem>0.009?G.red:G.success,ntSemFin.length+" compra(s)")}
+</div>
+{ntSemFin.length>0&&aviso("red",<span><strong>{"Entrou material que não está no financeiro."}</strong>{" "+ntSemFin.length+" compra(s), "+cur(ntTotSem)+", foram lançadas no estoque mas não aparecem como gasto. Toque na nota para lançar."}</span>)}
+{ntSemAv.length>0&&aviso("gold",<span><strong>{ntSemAv.length+" lançamento(s) avulso(s) sem correspondência."}</strong>{" Somam "+cur(ntSemAv.reduce(function(s2,g){return s2+g.valor;},0))+". Como não têm nota, o valor raramente bate com o gasto — um lançamento só no financeiro costuma cobrir várias entradas. Confira antes de lançar de novo."}</span>)}
+{titulo("Notas e lançamentos do mês")}
+{ntGr.length===0?<div style={{textAlign:"center",padding:24,color:G.muted,fontSize:13,background:G.card,borderRadius:12}}>{"Nenhuma entrada de material neste mês."}</div>:
+<div style={{display:"flex",flexDirection:"column",gap:8}}>
+{ntGr.map(function(gr){
+var semFin=!gr.fin&&gr.valor>0.01&&gr.nf;
+return <div key={gr.key} onClick={function(){setNtSel(gr.key);setNtForm(null);}} style={{background:G.card,borderRadius:12,padding:"12px 13px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:11,borderLeft:"4px solid "+(gr.fin?G.success:(semFin?G.red:(gr.valor>0.01?G.gold:G.border))),boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontSize:9.5,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.4}}>{gr.nf?("NF-e nº "+String(gr.note).replace("NF-e nº ","").split(" - ")[0]):"Sem nota fiscal"}</div>
+<div style={{fontWeight:700,fontSize:13.5,lineHeight:1.3,marginTop:1}}>{gr.nf?(nfeFornKey(gr.note)||"Fornecedor"):"Lançamento avulso"}</div>
+<div style={{fontSize:11,color:G.muted,marginTop:3}}>{fmt(gr.date)+" · "+gr.itens.length+" item(ns) · "+(gr.nf?"XML da NF-e":"digitado à mão")}</div>
+{(function(){var c=gr.fin?G.success:(semFin?G.red:(gr.valor>0.01?G.gold:G.muted));
+var t=gr.fin?"✓ no financeiro":(semFin?"⚠ falta no financeiro":(gr.valor>0.01?"? não localizei no financeiro":"sem valor gravado"));
+return <span style={{display:"inline-block",fontSize:10,fontWeight:800,padding:"3px 8px",borderRadius:20,marginTop:6,background:c+"1f",color:c}}>{t}</span>;})()}
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontWeight:800,fontSize:14,color:G.primary,whiteSpace:"nowrap"}}>{cur(gr.valor)}</div>
+<div style={{fontSize:10,color:G.muted,fontWeight:600,marginTop:3}}>{"ver itens ›"}</div>
+</div>
+</div>;})}
+</div>}
+<div style={{background:"var(--surface-2)",borderRadius:11,padding:"10px 12px",fontSize:11.5,color:G.muted,lineHeight:1.55}}>{"Cada nota junta todas as entradas gravadas com o mesmo número. As entradas digitadas à mão, sem nota, ficam agrupadas por dia."}</div>
+
+{ntModal()}
 </div>;})()}
 
 {/* ══════════ V314: PRECOS — historico de preco de todos os materiais ══════════ */}
