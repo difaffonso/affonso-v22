@@ -14877,6 +14877,16 @@ return function(){ativo=false;clearInterval(t);};
 },[user]);
 const abrirFicha=function(p){if(!p)return;var pp=(p&&typeof p==="object")?p:pats.find(function(x){return x.id===Number(p);});if(pp)setFichaPat(pp);};
 const [saveStatus,setSaveStatus]=useState("idle");
+// V318: rede de seguranca do salvamento de pacientes (anamnese que "salva" e some).
+// O save de pacientes nao tinha retry, nem flush ao sair, nem aviso de erro proprio:
+// o balao verde "Dados salvos!" e do blob, que desde o V313 devolve sucesso na hora
+// quando so pats mudou. Uma falha no upsert da tabela patients passava em silencio.
+const [patSaveStatus,setPatSaveStatus]=useState("idle");
+const patPendRef=useRef({});   // {id:true} fichas com gravacao pendente/falhada neste aparelho
+const patTouchRef=useRef(0);   // ultima alteracao local em pats
+const patScanRef=useRef(0);    // ultima varredura concluida
+const patNextTryRef=useRef(0); // proxima tentativa permitida (backoff)
+const patFailRef=useRef(0);    // falhas seguidas
 const saveTimer=useRef(null);
 const initialized=useRef(false);
 const isSaving=useRef(false);
@@ -14957,6 +14967,7 @@ useEffect(function(){
         chg.forEach(function(c){
           if(!c||c.id==null||!c.data)return;
           if(_dpT[c.id])return; // V197: excluido, nao ressuscitar
+          if(patPendRef.current&&patPendRef.current[c.id])return; // V318: ficha com gravacao pendente aqui - o servidor nao pode apaga-la
           var sj=JSON.stringify(c.data);
           if(idx[c.id]!=null){if(JSON.stringify(next[idx[c.id]])!==sj){next[idx[c.id]]=c.data;mut=true;}}
           else{next.push(c.data);mut=true;}
@@ -15151,6 +15162,7 @@ var oldPats=(data&&data.pats)||[];
             chg.forEach(function(c){
               if(!c||c.id==null||!c.data)return;
               if(_dpc[c.id])return;
+              if(patPendRef.current&&patPendRef.current[c.id])return; // V318: pendencia restaurada do cache - nao sobrescrever
               if(idx[c.id]!=null)next[idx[c.id]]=c.data;else next.push(c.data);
             });
             var mm2=lastSavedPats.current||{};
@@ -15621,6 +15633,78 @@ useEffect(function(){
     patSaving.current=false;
   },1000);
 },[pats]);
+
+// ── V318: WATCHDOG DE GRAVACAO DE PACIENTES ──
+// Varre o que ficou por gravar na tabela patients, reenvia com backoff, dispara na
+// hora ao sair/bloquear a tela e ao voltar a rede, e guarda a lista de pendencias no
+// cache local para sobreviver a recarga do app. Nao altera o save normal (1s); so
+// entra em acao quando ele nao concluiu.
+useEffect(function(){
+  var vivo=true;
+  var gravarPend=function(){try{idb.set("pats_pend_v1",Object.keys(patPendRef.current||{}));}catch(e){}};
+  var pendentes=function(){
+    var cur=patsRef.current||[];var prev=lastSavedPats.current||{};var forc=patPendRef.current||{};
+    var out=[];var mapa={};
+    cur.forEach(function(p){
+      if(!p||p.id==null)return;
+      var sj;try{sj=JSON.stringify(p);}catch(e){return;}
+      if(prev[p.id]!==sj||forc[p.id]){out.push(p);mapa[p.id]=true;}
+    });
+    patPendRef.current=mapa;
+    return out;
+  };
+  var rodar=async function(forcar){
+    if(!vivo||!initialized.current||!patTableOk.current)return;
+    if(patSaving.current||patPending.current)return;
+    if(!forcar&&Date.now()<patNextTryRef.current)return;
+    if(!forcar&&patTouchRef.current<=patScanRef.current&&!Object.keys(patPendRef.current||{}).length)return;
+    if(!forcar&&Date.now()-patTouchRef.current<5000)return; // deixa o save normal (1s) agir primeiro
+    var pend=pendentes();
+    patScanRef.current=Date.now();
+    if(!pend.length){
+      patFailRef.current=0;patNextTryRef.current=0;gravarPend();
+      setPatSaveStatus(function(s){return s==="idle"?s:"idle";});
+      return;
+    }
+    setPatSaveStatus("pend");gravarPend();
+    patSaving.current=true;
+    var r=null;try{r=await supabase.upsertPatients(pend);}catch(e){r=null;}
+    patSaving.current=false;
+    if(!vivo)return;
+    if(r&&r.ok){
+      var mm=lastSavedPats.current||{};
+      pend.forEach(function(p){if(p&&p.id!=null){try{mm[p.id]=JSON.stringify(p);}catch(e){}}});
+      lastSavedPats.current=mm;
+      patPendRef.current={};patFailRef.current=0;patNextTryRef.current=0;gravarPend();
+      try{idb.set("pats_v1",patsRef.current||[]);idb.set("pats_ts_v1",new Date(Date.now()-10*60000).toISOString());}catch(e){}
+      setPatSaveStatus("ok");
+      setTimeout(function(){if(vivo)setPatSaveStatus("idle");},2500);
+    }else{
+      patFailRef.current=(patFailRef.current||0)+1;
+      patNextTryRef.current=Date.now()+Math.min(60000,3000*Math.pow(2,Math.min(5,patFailRef.current-1)));
+      setPatSaveStatus("err");
+    }
+  };
+  (async function(){ // pendencias de uma sessao anterior (app fechado antes de gravar)
+    try{var ids=await idb.get("pats_pend_v1");if(ids&&ids.length){var m=patPendRef.current||{};ids.forEach(function(i){m[i]=true;});patPendRef.current=m;}}catch(e){}
+    setTimeout(function(){if(vivo)rodar(true);},6000);
+  })();
+  var iv=setInterval(function(){rodar(false);},4000);
+  var forcarJa=function(){patNextTryRef.current=0;rodar(true);};
+  var aoTrocarAba=function(){if(document.visibilityState==="hidden")forcarJa();else rodar(false);};
+  document.addEventListener("visibilitychange",aoTrocarAba);
+  window.addEventListener("pagehide",forcarJa);
+  window.addEventListener("online",forcarJa);
+  return function(){
+    vivo=false;clearInterval(iv);
+    document.removeEventListener("visibilitychange",aoTrocarAba);
+    window.removeEventListener("pagehide",forcarJa);
+    window.removeEventListener("online",forcarJa);
+  };
+},[]);
+
+// V318: marca a hora da ultima alteracao local em pats (usado pelo watchdog acima)
+useEffect(function(){patTouchRef.current=Date.now();},[pats]);
 
 // ── V294: PONTO — carga pela tabela propria + reenvio automatico da fila ──
 // Independente do blob de 1,9 MB: uma batida gravada aqui nao e mais apagada
@@ -16095,6 +16179,7 @@ return <>
 <style>{CSS+RESPONSIVE_CSS}</style>
 
 {saveStatus!=="idle"&&<div style={{position:"fixed",bottom:80,right:16,zIndex:9999,borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,boxShadow:"0 2px 8px rgba(0,0,0,.15)",background:saveStatus==="saved"?"var(--green-soft)":saveStatus==="error"?"var(--red-soft)":"var(--amber-soft)",color:saveStatus==="saved"?"#2E7D32":saveStatus==="error"?"#C62828":"#E65100",border:"1.5px solid "+(saveStatus==="saved"?"#A5D6A7":saveStatus==="error"?"#EF9A9A":"#E65100")}}>{saveStatus==="saving"?"💾 Salvando... aguarde":saveStatus==="saved"?"✅ Dados salvos!":"❌ Erro ao salvar"}</div>}
+{patSaveStatus!=="idle"&&<div style={{position:"fixed",bottom:saveStatus!=="idle"?124:80,right:16,zIndex:9999,maxWidth:280,borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,lineHeight:1.35,boxShadow:"0 2px 8px rgba(0,0,0,.15)",background:patSaveStatus==="ok"?"var(--green-soft)":patSaveStatus==="err"?"var(--red-soft)":"var(--amber-soft)",color:patSaveStatus==="ok"?"#2E7D32":patSaveStatus==="err"?"#C62828":"#E65100",border:"1.5px solid "+(patSaveStatus==="ok"?"#A5D6A7":patSaveStatus==="err"?"#EF9A9A":"#E65100")}}>{patSaveStatus==="err"?"\u26a0\ufe0f Ficha do paciente ainda N\u00c3O gravada \u2014 tentando de novo. N\u00e3o feche o app.":patSaveStatus==="pend"?"\ud83d\udcbe Gravando ficha do paciente...":"\u2705 Ficha do paciente gravada"}</div>}
 {/* Overlay for mobile sidebar */}
 {sideOpen&&<div className="sidebar-overlay" onClick={()=>setSideOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.18)",zIndex:499}}/>}
 
