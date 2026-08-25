@@ -1730,8 +1730,15 @@ const patAppts=appts.filter(a=>a.patientId===pat.id).sort((a,b)=>b.date.localeCo
 const patPaid=patRecs.reduce((s,r)=>s+r.paid,0);
 
 const [missPF,setMissPF]=useState(null);
+const [gateF,setGateF]=useState(null);/* V319 */
+/* V319: carimba o agradecimento (ou o motivo) na ficha aberta */
+const _agStamp=function(o){setPats(function(prev){return prev.map(function(p){return p.id===pat.id?Object.assign({},p,o,{_ts:Date.now()}):p;});});setPf(function(p){return Object.assign({},p,o);});};
 // V281: carimbo de autoria na ficha + registro de "salvar mesmo assim" (auditoria de cadastro)
-const savePatOk=(_ovrL)=>{const _uN=(user&&user.name)||"";const _tsI=new Date().toISOString();setPats(prev=>prev.map(function(p){if(p.id!==pat.id)return p;var o=Object.assign({},pf,{_by:p._by||pf._by||"",_cr:p._cr||pf._cr||null,_byTs:p._byTs||pf._byTs||"",_edBy:_uN,_edTs:_tsI});if(_ovrL&&_ovrL.length)o._ovr=((p._ovr)||[]).concat([{campos:_ovrL,por:_uN,ts:_tsI,onde:"edicao"}]);/* V282: sai do estado pre-cadastro quando os obrigatorios ficam completos */if(p._pre){if(faltamObrig(o).length===0){o._pre=false;o._preDoneBy=_uN;o._preDoneTs=_tsI;}else{o._pre=true;}}return o;}));setEditMode(false);};
+const savePatOk=(_ovrL)=>{const _uN=(user&&user.name)||"";const _tsI=new Date().toISOString();setPats(prev=>prev.map(function(p){if(p.id!==pat.id)return p;var o=Object.assign({},pf,{_by:p._by||pf._by||"",_cr:p._cr||pf._cr||null,_byTs:p._byTs||pf._byTs||"",_edBy:_uN,_edTs:_tsI});if(_ovrL&&_ovrL.length)o._ovr=((p._ovr)||[]).concat([{campos:_ovrL,por:_uN,ts:_tsI,onde:"edicao"}]);/* V282: sai do estado pre-cadastro quando os obrigatorios ficam completos */if(p._pre){if(faltamObrig(o).length===0){o._pre=false;o._preDoneBy=_uN;o._preDoneTs=_tsI;}else{o._pre=true;}}return o;}));
+/* V319: nao fecha a edicao com indicacao pendente de agradecimento */
+var _gp=agradPend(Object.assign({},pf,{id:pat.id}),pats);
+if(_gp&&user&&user.level>=2){setGateF(_gp);return;}
+setEditMode(false);};
 const savePat=()=>{if(!String(pf.name||"").trim()){alert("N\u00e3o \u00e9 poss\u00edvel salvar a ficha sem o nome do paciente.");return;}var _f=faltamObrig(pf);if(_f.length>0){setMissPF(_f);return;}savePatOk();};
 const saveAnam=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
 
@@ -2681,6 +2688,10 @@ return <>
   </div>
 </div>
 
+{gateF&&<GateAgrad pac={gateF.pac} ind={gateF.ind} pats={pats} waTemplates={waTemplates}
+  onAgradecer={function(){var ind=gateF.ind;var txt=getWA(waTemplates,gateF.pac._pre?"indicacao_pre":"indicacao",{nome:String(ind.name||"").split(" ")[0],paciente:gateF.pac.name});wa(ind.phone,txt);_agStamp({indicAgrad:new Date().toISOString(),indicAgradBy:(user&&user.name)||""});setGateF(null);setEditMode(false);}}
+  onPular={function(m,susp){_agStamp({indicAgradSkip:m,indicAgradSkipBy:(user&&user.name)||"",indicAgradSkipTs:new Date().toISOString(),indicAgradSusp:!!susp});setGateF(null);setEditMode(false);}}
+  onVoltar={function(){setGateF(null);}}/>}/* V319 */
 {missPF&&<AvisoObrig lista={missPF} onVoltar={function(){setMissPF(null);}} onSalvar={function(){var _m=missPF;setMissPF(null);savePatOk(_m);}}/* V281 *//>}
 {/* Add procedure to existing plan modal */}
 {confirmDesfazer&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -4364,6 +4375,138 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 // ══════════════════════════════════════════════════════════
 // V243 - INDICACAO: seletor de quem indicou
 // ══════════════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   V319 · TRAVA DE AGRADECIMENTO DE INDICACAO
+   Nao deixa fechar a ficha com indicacao pendente: ou manda o
+   WhatsApp, ou registra o motivo (so impossibilidade tecnica).
+   ═══════════════════════════════════════════════════════════ */
+const _agDig=function(s){return String(s||"").replace(/\D/g,"");};
+/* celular BR: 11 digitos com 9 na 3a posicao (ou 13 com o 55 na frente) */
+const _agCel=function(s){var d=_agDig(s);
+  if(d.length===13&&d.slice(0,2)==="55")d=d.slice(2);
+  if(d.length===12&&d.slice(0,2)==="55")d=d.slice(2);
+  return d.length===11&&d.charAt(2)==="9";};
+const _agNm=function(s){return String(s||"").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ");};
+/* devolve {pac,ind} quando falta agradecer, ou null */
+const agradPend=function(o,pats){
+  if(!o)return null;
+  if(String(o.origem||"")!=="Indica\u00e7\u00e3o")return null;
+  if(!o.indicPorId)return null;
+  if(o.indicAgrad)return null;
+  if(o.indicAgradSkip)return null;
+  var ind=(pats||[]).find(function(x){return x.id===o.indicPorId;});
+  if(!ind)return null;
+  return {pac:o,ind:ind};
+};
+const AG_MOT=["Indicador s\u00f3 tem telefone fixo / n\u00e3o tem WhatsApp","N\u00famero errado ou desatualizado"];
+
+/* seletor de motivo — usado na trava e no pre-cadastro */
+function MotivoPular({ind,onPular,compact}){
+const [m,setM]=useState("");
+const susp=m===AG_MOT[0]&&_agCel(ind&&ind.phone);
+return <div style={{display:"flex",flexDirection:"column",gap:7,borderTop:compact?"none":"1px solid "+G.border,paddingTop:compact?0:13}}>
+  <div style={{fontSize:10.5,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:G.muted}}>{"Por que n\u00e3o d\u00e1 para mandar?"}</div>
+  {AG_MOT.map(function(op){return <div key={op} onClick={function(){setM(op);}} style={{display:"flex",alignItems:"center",gap:9,background:"var(--surface-2, "+G.accent+")",borderRadius:9,padding:"10px 12px",fontSize:12.5,fontWeight:600,cursor:"pointer",border:"2px solid "+(m===op?G.primary:"transparent")}}>
+    <span style={{width:15,height:15,borderRadius:"50%",border:"2px solid "+(m===op?G.primary:G.border),background:m===op?G.primary:"transparent",flexShrink:0}}/>
+    <span>{op}</span>
+  </div>;})}
+  {susp&&<div style={{fontSize:11,color:G.yellow,fontWeight:700,lineHeight:1.45}}>{"\u26a0\ufe0f O n\u00famero cadastrado ("+String((ind&&ind.phone)||"")+") tem cara de celular. Confira antes \u2014 essa justificativa fica marcada para revis\u00e3o."}</div>}
+  <Btn ch="Salvar sem agradecer" v="y" dis={!m} onClick={function(){if(!m)return;onPular(m,!!susp);}} style={{width:"100%",justifyContent:"center"}}/>
+</div>;
+}
+
+/* modal que trava o fechamento da ficha */
+function GateAgrad({pac,ind,pats,waTemplates,onAgradecer,onPular,onVoltar}){
+const ehCel=_agCel(ind&&ind.phone);
+const temFone=_agDig(ind&&ind.phone).length>=10;
+const [mostraMot,setMostraMot]=useState(!ehCel);
+/* V319: o mesmo indicador ja foi agradecido por um paciente de mesmo nome?
+   acontece quando o pre-cadastro vira uma ficha nova em vez de ser completado */
+const dup=(pats||[]).filter(function(x){return x.id!==pac.id&&x.indicPorId===ind.id&&x.indicAgrad&&_agNm(x.name)===_agNm(pac.name);});
+return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
+<div style={{background:G.gold,borderRadius:"16px 16px 0 0",padding:"14px 18px",fontWeight:700,color:"#fff",fontSize:15}}>{"\ud83e\udd1d Falta agradecer a indica\u00e7\u00e3o"}</div>
+<div style={{padding:20,display:"flex",flexDirection:"column",gap:13}}>
+
+  <div style={{background:G.accent,borderRadius:11,padding:"12px 14px"}}>
+    <div style={{fontSize:10,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:".5px"}}>Paciente novo</div>
+    <div style={{fontSize:14,fontWeight:800,marginTop:3}}>{pac.name}</div>
+    <div style={{fontSize:10,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginTop:10}}>Indicado por</div>
+    <div style={{fontSize:14,fontWeight:800,marginTop:3}}><span style={{color:G.gold}}>{"\u21b3 "}</span>{ind.name}</div>
+    <div style={{fontSize:12,fontWeight:600,color:G.muted,marginTop:2}}>{temFone?String(ind.phone||""):"sem telefone cadastrado"}</div>
+  </div>
+
+  {dup.length>0&&<div style={{background:"var(--amber-soft)",border:"1.5px solid "+G.gold,borderRadius:10,padding:"11px 13px",fontSize:12,fontWeight:600,color:G.yellow,lineHeight:1.5}}>{"\u26a0\ufe0f "+ind.name.split(" ")[0]+" j\u00e1 recebeu agradecimento por um paciente com este mesmo nome. Confira antes de mandar de novo."}</div>}
+
+  {ehCel
+  ?<Fragment>
+    <div style={{fontSize:12.5,color:G.muted,lineHeight:1.55}}>{"Antes de fechar a ficha, mande o agradecimento. O WhatsApp abre com o texto pronto \u2014 leva um toque."}</div>
+    <Btn ch={"\ud83d\udcf1 Abrir WhatsApp e salvar"} v="w" onClick={function(){onAgradecer();}} style={{width:"100%",justifyContent:"center"}}/>
+    {!mostraMot&&<Btn ch={"N\u00e3o \u00e9 poss\u00edvel mandar WhatsApp"} v="g" onClick={function(){setMostraMot(true);}} style={{width:"100%",justifyContent:"center"}}/>}
+  </Fragment>
+  :<div style={{background:"var(--amber-soft)",border:"1.5px solid "+G.gold,borderRadius:10,padding:"11px 13px",fontSize:12.5,fontWeight:600,color:G.yellow,lineHeight:1.5}}>{temFone?("\u26a0\ufe0f A ficha de "+String(ind.name||"").split(" ")[0]+" s\u00f3 tem telefone fixo \u2014 n\u00e3o d\u00e1 para mandar WhatsApp. Atualize o n\u00famero na ficha dela, ou registre o motivo para salvar assim mesmo."):("\u26a0\ufe0f "+String(ind.name||"").split(" ")[0]+" n\u00e3o tem telefone cadastrado. Atualize a ficha dela, ou registre o motivo para salvar assim mesmo.")}</div>}
+
+  {mostraMot&&<MotivoPular ind={ind} onPular={onPular}/>}
+  <Btn ch="Voltar para a ficha" v="g" onClick={onVoltar} style={{width:"100%",justifyContent:"center"}}/>
+</div></div></div>;
+}
+
+/* painel simplificado: paciente novo -> quem indicou */
+function PainelIndic({pats,user,onOpen,waTemplates,setPats}){
+const [ab,setAb]=useState(false);
+const lista=(pats||[]).filter(function(p){return String(p.origem||"")==="Indica\u00e7\u00e3o"&&p.indicPorId&&!p.indicAgrad;})
+  .map(function(p){var ind=(pats||[]).find(function(x){return x.id===p.indicPorId;});return ind?{p:p,ind:ind}:null;})
+  .filter(Boolean).sort(function(a,b){return String(a.p.since||"").localeCompare(String(b.p.since||""));});
+const semQuem=(pats||[]).filter(function(p){return String(p.origem||"")==="Indica\u00e7\u00e3o"&&!p.indicPorId&&!String(p.indicPorNome||"").trim();})
+  .sort(function(a,b){return String(a.since||"").localeCompare(String(b.since||""));});
+const tot=lista.length+semQuem.length;
+const mandar=function(o){
+  var txt=getWA(waTemplates,o.p._pre?"indicacao_pre":"indicacao",{nome:String(o.ind.name||"").split(" ")[0],paciente:o.p.name});
+  wa(o.ind.phone,txt);
+  var st=new Date().toISOString();var by=(user&&user.name)||"";
+  setPats(function(prev){return prev.map(function(x){return x.id===o.p.id?Object.assign({},x,{indicAgrad:st,indicAgradBy:by,_ts:Date.now()}):x;});});
+};
+const linha=function(k,dt,nome,sub,extra,btn){
+  return <div key={k} style={{display:"flex",alignItems:"center",gap:10,background:G.accent,borderRadius:9,padding:"9px 11px",marginBottom:6}}>
+    <span style={{fontSize:10,color:G.muted,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>{dt}</span>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontWeight:800,fontSize:12.5,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"pointer"}} onClick={function(){onOpen&&onOpen(nome.pat);}}>{nome.txt}</div>
+      <div style={{fontSize:11,color:G.muted,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginTop:2}}>{sub}</div>
+      {extra}
+    </div>
+    {btn}
+  </div>;
+};
+return <div style={{background:G.card,borderRadius:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px var(--nm-light)",padding:"14px 16px"}}>
+<div onClick={function(){setAb(!ab);}} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,cursor:"pointer"}}>
+  <span style={{fontWeight:800,fontSize:13.5,color:G.primary}}>{"\ud83e\udd1d Indica\u00e7\u00f5es"}</span>
+  <span style={{background:tot?G.gold:G.accent,color:tot?"#fff":G.muted,borderRadius:20,padding:"2px 10px",fontSize:11.5,fontWeight:800}}>{tot?(tot+" pendente"+(tot>1?"s":"")):"tudo em dia"}</span>
+</div>
+{ab&&<div style={{marginTop:13,display:"flex",flexDirection:"column",gap:13}}>
+  <div>
+    <div style={{fontSize:10.5,fontWeight:800,letterSpacing:"1px",textTransform:"uppercase",color:G.muted,margin:"2px 0 7px 2px"}}>{"Falta mandar o WhatsApp de agradecimento"}</div>
+    {lista.length===0?<div style={{fontSize:12,color:G.muted,fontWeight:600,textAlign:"center",padding:"12px 0"}}>{"Tudo agradecido \ud83d\udc4f"}</div>
+    :lista.map(function(o){
+      var cel=_agCel(o.ind.phone);
+      return linha("a"+o.p.id,fmt(o.p.since).slice(0,5),{txt:o.p.name,pat:o.p},
+        <Fragment><span style={{color:G.gold,fontWeight:800}}>{"\u21b3 "}</span>{"indicado por "}<b style={{color:G.text}}>{o.ind.name}</b></Fragment>,
+        (!cel&&<div style={{fontSize:10,color:G.yellow,fontWeight:800,marginTop:2}}>{o.p.indicAgradSkip?("registrado: "+o.p.indicAgradSkip):"\u26a0 sem celular na ficha do indicador"}</div>),
+        cel?<Btn ch="Agradecer" v="w" sm onClick={function(){mandar(o);}}/>:<Btn ch="Abrir ficha" v="g" sm onClick={function(){onOpen&&onOpen(o.ind);}}/>);
+    })}
+  </div>
+  <div style={{height:1,background:G.border}}/>
+  <div>
+    <div style={{fontSize:10.5,fontWeight:800,letterSpacing:"1px",textTransform:"uppercase",color:G.muted,margin:"2px 0 7px 2px"}}>{"Indica\u00e7\u00e3o sem quem indicou"}</div>
+    {semQuem.length===0?<div style={{fontSize:12,color:G.muted,fontWeight:600,textAlign:"center",padding:"12px 0"}}>{"Nenhuma pend\u00eancia \ud83d\udc4f"}</div>
+    :semQuem.map(function(p){return linha("b"+p.id,fmt(p.since).slice(0,5),{txt:(p._pre?"\u26a1 ":"")+p.name,pat:p},
+      "marcou Indica\u00e7\u00e3o mas n\u00e3o disse quem indicou",null,
+      <Btn ch="Preencher" v="g" sm onClick={function(){onOpen&&onOpen(p);}}/>);})}
+  </div>
+  <div style={{fontSize:10.5,color:G.muted,fontWeight:700,textAlign:"center"}}>{"Toque no nome do paciente para abrir a ficha"}</div>
+</div>}
+</div>;
+}
+
 function IndicPicker({pats,selfId,valId,valNome,onPick}){
 const [q,setQ]=useState("");
 const LB=<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Quem indicou?</label>;
@@ -4630,6 +4773,7 @@ const agrSt=function(p){
   if(!p.indicPorId)return "na";
   var ind=(pats||[]).find(function(x){return x.id===p.indicPorId;});
   if(!ind||!String(ind.phone||"").trim())return "warn";
+  if(!p.indicAgrad&&p.indicAgradSkip)return "warn";/* V319 */
   return p.indicAgrad?"ok":"no";
 };
 const atendido=function(pid){return (appts||[]).some(function(a){return a&&a.patientId===pid&&a.status==="done";});};
@@ -4825,6 +4969,7 @@ const [preM,setPreM]=useState(false);
 const _preF0={name:"",phone:"",origem:"",indicPorId:null,indicPorNome:"",preMotivo:"",preMotivoObs:""}; // V297
 const [preF,setPreF]=useState({name:"",phone:"",origem:"",indicPorId:null,indicPorNome:"",preMotivo:"",preMotivoObs:""});
 const [preDone,setPreDone]=useState(null); // V297: confirmacao + agradecimento logo apos salvar
+const [gateP,setGateP]=useState(null);/* V319: trava de agradecimento no cadastro */
 const savePre=function(){
   var nm=String(preF.name||"").trim();
   var phRaw=String(preF.phone||"").trim();
@@ -4845,7 +4990,8 @@ const savePre=function(){
   // V297: so segura o modal aberto quando ha alguem para agradecer. Sem indicacao,
   // fecha na hora igual antes — a Silvia faz isso o dia inteiro, nao pode ganhar clique extra.
   var _ind=(obj.origem==="Indica\u00e7\u00e3o"&&obj.indicPorId)?((pats||[]).find(function(x){return x.id===obj.indicPorId;})||null):null;
-  if(_ind&&String(_ind.phone||"").trim()){setPreDone({pac:obj,ind:_ind,sent:false});}
+  if(_ind&&!_agCel(_ind.phone)){setPreDone({pac:obj,ind:_ind,sent:false});}/* V319: fixo/sem numero tambem para na confirmacao */
+  else if(_ind&&String(_ind.phone||"").trim()){setPreDone({pac:obj,ind:_ind,sent:false});}
   else{setPreM(false);setPreDone(null);setPreF(_preF0);}
 };
 // V297: fecha o modal e zera tudo
@@ -4894,7 +5040,10 @@ setDupModal({similares:sim,onConfirm:function(){
 const obj2=Object.assign({},pf,{id:nid(pats),_by:_uN,_cr:Date.now(),_byTs:_tsI},_ovrEntry?{_ovr:_ovrEntry}:{});
 setPats(function(prev){return[...prev,obj2];});
 if(addLog)addLog("paciente","Criou paciente: "+pf.name,pf.name);
-setPm(false);setDupModal(null);
+setDupModal(null);
+var _g2=agradPend(obj2,pats);/* V319 */
+if(_g2){setGateP(_g2);return;}
+setPm(false);
 }});
 return;
 }
@@ -4909,8 +5058,13 @@ if(_ovrEntry)obj._ovr=(((_pv&&_pv._ovr)||[])).concat(_ovrEntry);
 if(!isNew&&_pv&&_pv._pre){if(faltamObrig(obj).length===0){obj._pre=false;obj._preDoneBy=_uN;obj._preDoneTs=_tsI;}else{obj._pre=true;}}
 setPats(function(prev){return ep?prev.map(function(p){return p.id===ep.id?obj:p;}):[...prev,obj];});
 if(addLog)addLog("paciente",(isNew?"Criou paciente: ":"Editou cadastro de ")+pf.name,pf.name);
+/* V319: so fecha depois de resolver o agradecimento da indicacao */
+var _g=agradPend(obj,pats);
+if(_g){setGateP(_g);return;}
 setPm(false);
 };
+/* V319: carimba na lista e fecha o cadastro */
+const _agStampP=function(pid,o){setPats(function(prev){return prev.map(function(p){return p.id===pid?Object.assign({},p,o,{_ts:Date.now()}):p;});});};
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
 
@@ -4921,6 +5075,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {user.level>=2&&<Btn ch={"\u26a1 Pr\u00e9-cadastro"} v="w"/* V283: aspas nao interpretam \u em JSX */ onClick={()=>{setPreF(_preF0);setPreDone(null);setPreM(true);}}/>}
 </div>
 {/* V284: painel de auditoria de cadastro */}
+{/* V319: painel simplificado de indicacoes */}
+{user.level>=2&&<PainelIndic pats={pats} user={user} waTemplates={waTemplates} setPats={setPats} onOpen={function(p){setOpenFolder(p);}}/>}
 {user.level>=2&&<RelCadastro pats={pats} appts={appts} user={user} onOpen={function(p){setOpenFolder(p);}}/>}
 <Inp val={srch} set={v=>{setSrch(v);setPPage(0);}} ph="🔍 Nome, CPF, telefone ou nº pasta"/>
 {pageItems.map(p=><div key={p.id} style={{background:G.card,borderRadius:13,boxShadow:"0 1px 5px rgba(0,0,0,.07)",padding:"12px 15px",display:"flex",alignItems:"center",gap:11}}>
@@ -4977,26 +5133,33 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
   {preDone
   ?<div style={{display:"flex",flexDirection:"column",gap:10}} className="fi">
     <div style={{background:"var(--green-soft)",border:"1.5px solid "+G.success,borderRadius:11,padding:"11px 14px",fontSize:12.5,color:G.success,fontWeight:700,lineHeight:1.5}}>{"\u26a1 "+preDone.pac.name+" pr\u00e9-cadastrado(a)."+(preDone.pac.preMotivo?(" Motivo: "+preDone.pac.preMotivo+"."):"")}</div>
-    {preDone.ind&&preDone.ind.phone&&<div style={{background:G.card,border:"2px solid #25D366",borderRadius:11,padding:"12px 14px",display:"flex",flexDirection:"column",gap:9}}>
+    {preDone.ind&&preDone.ind.phone&&_agCel(preDone.ind.phone)/* V319 */&&<div style={{background:G.card,border:"2px solid #25D366",borderRadius:11,padding:"12px 14px",display:"flex",flexDirection:"column",gap:9}}>
       <div style={{fontSize:12.5,fontWeight:800,color:G.primary}}>{"\ud83e\udd1d "+preDone.ind.name+" indicou este paciente"}</div>
       {preDone.sent
       ?<div style={{fontSize:12,fontWeight:800,color:G.success}}>{"\u2713 Indica\u00e7\u00e3o agradecida"}</div>
       :<Fragment>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <Btn ch={"\ud83d\udcf1 Agradecer agora no WhatsApp"} v="w" sm onClick={agradecerPre}/>
-          <Btn ch="Depois" v="g" sm onClick={fecharPre}/>
         </div>
-        <div style={{fontSize:11,color:G.muted,lineHeight:1.45}}>{"Se deixar para depois n\u00e3o se perde: fica na lista de agradecimento pendente da Auditoria de cadastro, e tamb\u00e9m no bot\u00e3o dentro da ficha."}</div>
+        {/* V319: "Depois" saiu. So sai daqui mandando, ou registrando por que nao da. */}
+        <MotivoPular ind={preDone.ind} compact onPular={function(m,susp){setPats(function(prev){return prev.map(function(p){return p.id===preDone.pac.id?Object.assign({},p,{indicAgradSkip:m,indicAgradSkipBy:(user&&user.name)||"",indicAgradSkipTs:new Date().toISOString(),indicAgradSusp:!!susp,_ts:Date.now()}):p;});});fecharPre();}}/>
       </Fragment>}
     </div>}
-    {preDone.ind&&!preDone.ind.phone&&<div style={{fontSize:11.5,color:G.muted}}>{"Indicado por "+preDone.ind.name+" \u00b7 sem telefone cadastrado para agradecer"}</div>}
-    <Btn ch="Fechar" onClick={fecharPre}/>
+    {preDone.ind&&!_agCel(preDone.ind.phone)&&<div style={{background:"var(--amber-soft)",border:"1.5px solid "+G.gold,borderRadius:11,padding:"12px 14px",display:"flex",flexDirection:"column",gap:9}}>
+      <div style={{fontSize:12.5,fontWeight:700,color:G.yellow,lineHeight:1.5}}>{"\u26a0\ufe0f "+preDone.ind.name+(_agDig(preDone.ind.phone).length>=10?" s\u00f3 tem telefone fixo na ficha \u2014 n\u00e3o d\u00e1 para mandar WhatsApp.":" n\u00e3o tem telefone cadastrado.")}</div>
+      <MotivoPular ind={preDone.ind} compact onPular={function(m,susp){setPats(function(prev){return prev.map(function(p){return p.id===preDone.pac.id?Object.assign({},p,{indicAgradSkip:m,indicAgradSkipBy:(user&&user.name)||"",indicAgradSkipTs:new Date().toISOString(),indicAgradSusp:!!susp,_ts:Date.now()}):p;});});fecharPre();}}/>
+    </div>}/* V319 */
+    {(!preDone.ind||preDone.sent)&&<Btn ch="Fechar" onClick={fecharPre}/>}
   </div>
   :<Fragment>
     <div style={{fontSize:11.5,color:G.muted}}>{"Os campos obrigat\u00f3rios da ficha completa n\u00e3o s\u00e3o cobrados agora \u2014 pr\u00e9-cadastro n\u00e3o conta como ficha incompleta."}</div>
     <SC2 save={savePre} cancel={fecharPre}/>
   </Fragment>}
 </div>}/>
+{gateP&&<GateAgrad pac={gateP.pac} ind={gateP.ind} pats={pats} waTemplates={waTemplates}
+  onAgradecer={function(){var ind=gateP.ind;var txt=getWA(waTemplates,gateP.pac._pre?"indicacao_pre":"indicacao",{nome:String(ind.name||"").split(" ")[0],paciente:gateP.pac.name});wa(ind.phone,txt);_agStampP(gateP.pac.id,{indicAgrad:new Date().toISOString(),indicAgradBy:(user&&user.name)||""});setGateP(null);setPm(false);}}
+  onPular={function(m,susp){_agStampP(gateP.pac.id,{indicAgradSkip:m,indicAgradSkipBy:(user&&user.name)||"",indicAgradSkipTs:new Date().toISOString(),indicAgradSusp:!!susp});setGateP(null);setPm(false);}}
+  onVoltar={function(){setGateP(null);}}/>}/* V319 */
 {missNew&&<AvisoObrig lista={missNew} onVoltar={function(){setMissNew(null);}} onSalvar={function(){var _m=missNew;setMissNew(null);savePatOk(_m);}}/* V281 *//>}
 {delModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
