@@ -316,6 +316,22 @@ return true;
 };
 const ANAM_LINK="https://claude.ai/public/artifacts/134f3434-6997-4396-ab62-3d37bae9d44e";
 const CLINICA_INFO={nome:"Affonso Odontologia",endereco:"Rua Sabbado D Angelo, 1980 - Itaquera, Sao Paulo",telefone:"(11) 2524-9975",whatsapp:"(11) 2524-9975",appUrl:""};
+// ══════════════════════════════════════════════════════════
+// V321: TERMO DE CONSENTIMENTO — EXO DO SISO
+// Usa a MESMA tabela 'contratos' e a MESMA Edge Function do contrato de tratamento.
+// O tipo do documento vive em payload.tipo ("termo_siso") — sem alteracao de schema.
+// ══════════════════════════════════════════════════════════
+const TERMO_SISO_TIPO="termo_siso";
+// normaliza p/ comparar nome de procedimento sem depender de acento/caixa/espaco
+function _norm(s){try{return String(s==null?"":s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();}catch(e){return String(s==null?"":s).toLowerCase().trim();}}
+// V321: a consulta e de siso? Reconhece o procedimento cadastrado "Exo do Siso"
+// de forma tolerante (caixa/acento/variacoes de escrita), mas NAO casa com
+// extracao comum — "exo" sozinho nao basta, precisa conter "siso".
+function isExoSiso(a){
+  if(!a)return false;
+  var n=_norm((a.procedureCustom||"")+" "+(a.procedure||""));
+  return n.indexOf("siso")>=0;
+}
 const ANAM_CONDS=[["hypertension","Pressao alta"],["diabetes","Diabetes"],["heartDisease","Problema no coracao"],["rheumaticFever","Febre reumatica / valvula"],["bleeding","Problema de coagulacao"],["anticoagulant","Usa anticoagulante"],["osteoporosis","Osteoporose"],["bisphosphonate","Usa/usou bifosfonato"],["kidneyDisease","Doenca renal"],["liverDisease","Doenca no figado"],["hepatitis","Hepatite (B ou C)"],["hiv","HIV"],["infectious","Doenca infectocontagiosa"],["thyroid","Tireoide"],["epilepsy","Epilepsia / convulsoes"],["cancer","Cancer / quimioterapia"],["pregnant","Gestante"],["smoking","Fumante"]];
 // Detecta se a anamnese ja foi cadastrada (salva, assinada, enviada pelo paciente ou com qualquer conteudo de saude)
 function anamCadastrada(a){
@@ -484,6 +500,7 @@ const PROCS0=[
 {id:4,name:"Canal",price:900},{id:5,name:"Extração",price:250},{id:6,name:"Cirurgia",price:600},
 {id:7,name:"Clareamento",price:700},{id:8,name:"Implante",price:3500},{id:9,name:"Ortodontia",price:300},
 {id:10,name:"Prótese",price:1200},{id:11,name:"Radiografia",price:80},
+{id:12,name:"Exo do Siso",price:650},// V321
 ];
 const PROS_PROCS0=[
 {id:1,name:"Instalação de Coroa"},{id:2,name:"Instalação de Prótese Total"},
@@ -1217,6 +1234,37 @@ const contratoApi={
   renewC(id){return this.call({op:"renew",id:id});}
 };
 function contratoLink(token){return appBase()+"?contrato="+encodeURIComponent(token);}
+// V321: o termo usa o MESMO link publico do contrato (mesma Edge Function, mesmo fluxo de assinatura)
+function termoLink(token){return contratoLink(token);}
+// V321: monta o HTML do termo de consentimento de exo do siso.
+// O texto de riscos e o mesmo ja usado na orientacao "Pre-cirurgia de siso" — nao foi alterado.
+function buildTermoSisoHTML(o){
+  function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+  var pat=o.pat||{},dent=o.dent||{},dentes=o.dentes||"";
+  var hoje=new Date();var dEmiss=("0"+hoje.getDate()).slice(-2)+"/"+("0"+(hoje.getMonth()+1)).slice(-2)+"/"+hoje.getFullYear();
+  return "<div style='font-family:Georgia,serif;color:#23332b;max-width:720px;margin:0 auto;font-size:14px;line-height:1.55'>"
+   +"<div style='text-align:center;margin-bottom:16px'><div style='font-size:22px;font-weight:700;color:#2f5d49'>"+esc(CLINICA_INFO.nome)+"</div><div style='font-size:12px;color:#7c8a80'>"+esc(CLINICA_INFO.endereco)+" \u00b7 Tel: "+esc(CLINICA_INFO.telefone)+"</div></div>"
+   +"<div style='text-align:center;font-size:16px;font-weight:700;margin:14px 0 16px;text-transform:uppercase;letter-spacing:.5px'>Termo de Consentimento<br/>Extra\u00e7\u00e3o de Terceiro Molar (Siso)</div>"
+   +"<div style='background:#f4f6f3;border-radius:8px;padding:11px 13px;margin-bottom:14px;font-family:Arial,sans-serif;font-size:12.5px;line-height:1.7'>"
+     +"<div><b>Paciente:</b> "+esc(pat.name||"")+(pat.cpf?(" \u00b7 CPF "+esc(pat.cpf)):"")+"</div>"
+     +(dentes?("<div><b>Dente(s):</b> "+esc(dentes)+"</div>"):"")
+     +"<div><b>Cirurgi\u00e3o(\u00e3)-dentista:</b> "+esc(dent.name||"")+(dent.cro?(" \u2014 CRO "+esc(dent.cro)):"")+"</div>"
+   +"</div>"
+   +"<p style='font-weight:700;color:#8B6914;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px'>1. Orienta\u00e7\u00f5es pr\u00e9-operat\u00f3rias</p>"
+   +"<ul style='margin:6px 0 6px 18px'>"
+     +"<li>Alimente-se bem antes do procedimento (n\u00e3o venha em jejum, salvo orienta\u00e7\u00e3o contr\u00e1ria).</li>"
+     +"<li>Tome os medicamentos pr\u00e9-operat\u00f3rios se foram prescritos.</li>"
+     +"<li>Venha acompanhado(a) e use roupas confort\u00e1veis.</li>"
+     +"<li>Avise-nos se fizer uso de algum medicamento, anticoagulante ou se tiver alergia.</li>"
+   +"</ul>"
+   +"<p style='font-weight:700;color:#8B6914;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;margin:14px 0 6px'>2. Sobre os riscos</p>"
+   +"<div style='background:#FFF8E1;border-left:3px solid #C0902E;padding:10px 13px;margin:8px 0'>A extra\u00e7\u00e3o de sisos \u00e9 um procedimento seguro, mas como o dente fica pr\u00f3ximo a um nervo, existe a possibilidade (pequena e geralmente tempor\u00e1ria) de <b>PARESTESIA</b> \u2014 uma dorm\u00eancia ou formigamento no l\u00e1bio, l\u00edngua ou queixo. Na maioria dos casos isso \u00e9 passageiro e se recupera com o tempo. Estamos \u00e0 disposi\u00e7\u00e3o para esclarecer qualquer d\u00favida antes da cirurgia.</div>"
+   +"<p style='font-weight:700;color:#8B6914;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;margin:14px 0 6px'>3. Declara\u00e7\u00e3o</p>"
+   +"<div style='background:#E8F5E9;border-left:3px solid #2f8f5f;padding:10px 13px;margin:8px 0'>Declaro que li e compreendi as informa\u00e7\u00f5es acima, que tive oportunidade de esclarecer minhas d\u00favidas com o profissional, e que <b>autorizo</b> a realiza\u00e7\u00e3o do procedimento.</div>"
+   +(o.obs?("<p style='margin-top:10px'><b>Observa\u00e7\u00f5es:</b> "+esc(o.obs)+"</p>"):"")
+   +"<p style='margin-top:14px'>S\u00e3o Paulo, "+dEmiss+".</p>"
+   +"</div>";
+}
 function buildContratoHTML(o){
   function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
   function brd2(d){if(!d)return "";var p=String(d).split("-");return p.length===3?(p[2]+"/"+p[1]+"/"+p[0]):String(d);}
@@ -1289,6 +1337,119 @@ function PublicContrato({token}){
       <button onClick={assinar} disabled={!sig||!agree||sending} style={{marginTop:14,width:"100%",background:(!sig||!agree||sending)?G.muted:G.primary,color:"#fff",border:"none",borderRadius:10,padding:"13px 16px",fontSize:15,fontWeight:700,cursor:(!sig||!agree||sending)?"not-allowed":"pointer"}}>{sending?"Enviando…":"✍️ Assinar contrato"}</button>
       <div style={{fontSize:11,color:G.muted,marginTop:8,textAlign:"center"}}>Serão registrados data/hora, IP e código de verificação do documento (MP 2.200-2/2001, art. 10 §2º).</div>
     </div>}
+  </div>;
+}
+// V321: aba "Termo" na ficha — gera, envia por WhatsApp OU colhe a assinatura na hora.
+function TermoSiso({pat,dents,user}){
+  const [rows,setRows]=useState(null);
+  const [dentes,setDentes]=useState("");
+  const [obs,setObs]=useState("");
+  const [dentId,setDentId]=useState(String((user&&user.dentistId)||(dents[0]&&dents[0].id)||""));
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState("");
+  const [prev,setPrev]=useState(null);   // {html,token,id} aguardando assinatura local
+  const [sig,setSig]=useState("");
+  const [agree,setAgree]=useState(false);
+  function load(){setRows(null);contratoApi.listC(String(pat.id)).then(function(r){
+    var all=(r.ok&&r.contratos)||[];
+    setRows(all.filter(function(c){try{return c.payload&&c.payload.tipo===TERMO_SISO_TIPO;}catch(e){return false;}}));
+  });}
+  useEffect(function(){load();},[pat.id]);
+  var dent=dents.find(function(d){return String(d.id)===String(dentId);})||dents[0]||{};
+  function gerar(modo){
+    if(busy)return;
+    setBusy(true);setMsg("");
+    var html=buildTermoSisoHTML({pat:pat,dent:dent,dentes:dentes,obs:obs});
+    contratoApi.createC({
+      patientId:String(pat.id),patientName:pat.name||"",
+      html:html,
+      payload:{tipo:TERMO_SISO_TIPO,dentes:dentes,obs:obs,dentista:dent.name||"",dentistaId:dent.id,cro:dent.cro||""}
+    }).then(function(r){
+      setBusy(false);
+      if(!r.ok){setMsg(r.msg||"N\u00e3o foi poss\u00edvel gerar o termo.");return;}
+      if(modo==="wa"){
+        wa(pat.phone,"Ol\u00e1, "+(pat.name||"")+"! \ud83d\ude0a\n\nAntes da sua cirurgia de siso na "+CLINICA_INFO.nome+", precisamos que voc\u00ea leia e assine o termo de consentimento:\n"+termoLink(r.token)+"\n\nO link \u00e9 pessoal e vale por 48 horas. Qualquer d\u00favida, estamos \u00e0 disposi\u00e7\u00e3o!");
+        setMsg("Link enviado. Assim que o paciente assinar, o termo aparece como Assinado aqui e no Hist\u00f3rico.");
+        setDentes("");setObs("");load();
+      }else{
+        setPrev({html:html,token:r.token,id:r.id});setSig("");setAgree(false);
+      }
+    });
+  }
+  function assinarLocal(){
+    if(!prev||!sig||!agree||busy)return;
+    setBusy(true);setMsg("");
+    contratoApi.signC(prev.token,sig).then(function(r){
+      setBusy(false);
+      if(!r.ok){setMsg(r.msg||"N\u00e3o foi poss\u00edvel registrar a assinatura.");return;}
+      setPrev(null);setSig("");setAgree(false);setDentes("");setObs("");
+      setMsg("\u2705 Termo assinado e arquivado.");load();
+    });
+  }
+  var CCOL={pendente:G.yellow,assinado:G.success,expirado:G.red};
+  var CLAB={pendente:"Aguardando assinatura",assinado:"Assinado",expirado:"Link expirado"};
+  // ── tela de assinatura presencial ──
+  if(prev)return <div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <Div lb="Assinatura do paciente"/>
+    <div style={{fontSize:12,color:G.muted}}>Entregue o aparelho ao paciente para leitura e assinatura.</div>
+    <div style={{background:"#ffffff",borderRadius:10,padding:14,maxHeight:"42vh",overflowY:"auto",border:"1px solid "+G.border}} dangerouslySetInnerHTML={{__html:prev.html}}/>
+    <div>
+      <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Assinatura</label>
+      <div style={{marginTop:6}}><SignaturePad value={sig} disabled={false} onChange={setSig}/></div>
+    </div>
+    <label style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={agree} onChange={function(e){setAgree(e.target.checked);}} style={{marginTop:2}}/><span>Li o termo acima e <b>autorizo</b> a realiza\u00e7\u00e3o do procedimento.</span></label>
+    {msg&&<div style={{background:"var(--red-soft)",color:G.red,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:600}}>{msg}</div>}
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <Btn ch={busy?"Registrando\u2026":"\u270d\ufe0f Confirmar assinatura"} onClick={assinarLocal} dis={!sig||!agree||busy}/>
+      <Btn ch="Cancelar" v="g" onClick={function(){setPrev(null);setMsg("");load();}}/>
+    </div>
+    <div style={{fontSize:11,color:G.muted}}>{"S\u00e3o registrados data/hora, IP e c\u00f3digo de verifica\u00e7\u00e3o do documento (MP 2.200-2/2001, art. 10 \u00a72\u00ba)."}</div>
+  </div>;
+  // ── tela normal ──
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <Div lb="Termo de Consentimento \u2014 Exo do Siso"/>
+    {msg&&<div style={{background:"var(--green-soft)",color:G.success,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:700}}>{msg}</div>}
+    <div style={{background:G.bg,borderRadius:12,padding:"13px 15px",display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{fontSize:12,color:G.muted}}>Gere o termo, escolha se o paciente assina agora ou pelo celular dele.</div>
+      <div>
+        <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Dente(s)</label>
+        <input value={dentes} onChange={function(e){setDentes(e.target.value);}} placeholder="ex.: 38, 48" style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)"}}/>
+      </div>
+      <div>
+        <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Cirurgi\u00e3o(\u00e3)-dentista</label>
+        <select value={dentId} onChange={function(e){setDentId(e.target.value);}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)"}}>
+          {dents.filter(function(d){return !d.inativo;}).map(function(d){return <option key={d.id} value={String(d.id)}>{d.name+(d.cro?(" \u2014 CRO "+d.cro):"")}</option>;})}
+        </select>
+      </div>
+      <div>
+        <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Observa\u00e7\u00f5es (opcional)</label>
+        <input value={obs} onChange={function(e){setObs(e.target.value);}} placeholder="algo espec\u00edfico deste caso" style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)"}}/>
+      </div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+        <Btn ch={busy?"Gerando\u2026":"\u270d\ufe0f Assinar aqui agora"} onClick={function(){gerar("aqui");}} dis={busy}/>
+        <Btn ch="\ud83d\udcf1 Enviar link por WhatsApp" v="w" onClick={function(){gerar("wa");}} dis={busy||!pat.phone}/>
+      </div>
+      {!pat.phone&&<div style={{fontSize:11,color:G.muted}}>{"Sem telefone na ficha \u2014 s\u00f3 d\u00e1 para assinar aqui."}</div>}
+    </div>
+    {rows===null&&<div style={{fontSize:13,color:G.muted,padding:"12px 4px"}}>Carregando\u2026</div>}
+    {rows&&rows.length===0&&<div style={{fontSize:13,color:G.muted,background:G.bg,borderRadius:10,padding:"14px 16px"}}>Nenhum termo emitido para este paciente ainda.</div>}
+    {rows&&rows.map(function(c){
+      var dts="";try{dts=(c.payload&&c.payload.dentes)||"";}catch(e){}
+      return <div key={c.id} style={{background:G.bg,borderRadius:10,padding:"11px 13px",borderLeft:"3px solid "+(CCOL[c.status]||G.muted)}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}}>
+          <div style={{display:"flex",flexDirection:"column"}}>
+            <span style={{fontWeight:700,fontSize:13}}>{"Termo \u2014 Exo do Siso"+(dts?(" \u00b7 dente(s) "+dts):"")}</span>
+            <span style={{fontSize:11,color:G.muted}}>{"Criado em "+(c.created_at?new Date(c.created_at).toLocaleString("pt-BR"):"-")+(c.signed_at?(" \u00b7 Assinado em "+new Date(c.signed_at).toLocaleString("pt-BR")):"")}</span>
+          </div>
+          <Bdg l={CLAB[c.status]||c.status} col={CCOL[c.status]||G.muted} sm/>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
+          <Btn ch="\ud83d\udc41 Ver / Imprimir" v="g" sm onClick={function(){abrirContratoPrint(c);}}/>
+          {c.status==="pendente"&&pat.phone&&<Btn ch="\ud83d\udcf1 Reenviar link" v="w" sm onClick={function(){wa(pat.phone,"Ol\u00e1, "+(pat.name||"")+"! Segue novamente o termo para assinatura:\n"+termoLink(c.token));}}/>}
+          {c.status==="expirado"&&<Btn ch="\ud83d\udd04 Renovar 48h" v="y" sm onClick={function(){contratoApi.renewC(c.id).then(function(r){if(r.ok){setMsg("Validade renovada. Reenvie o link.");load();}else alert(r.msg||"N\u00e3o foi poss\u00edvel renovar.");});}}/>}
+        </div>
+      </div>;
+    })}
   </div>;
 }
 function DocsContratos({pat}){
@@ -1887,7 +2048,7 @@ setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",n
 };
 const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets),_by:(budgEdit&&budgEdit._by)||(user&&user.name)||""};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
-const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["odonto3d","🦷 3D"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],["docs","📑 Documentos"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
+const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["odonto3d","🦷 3D"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],["termo","📋 Termo"],["docs","📑 Documentos"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
 // NF (Nota Fiscal) state
 const [nfModal,setNfModal]=useState(false);
 const [showAtestado,setShowAtestado]=useState(false);
@@ -2534,6 +2695,7 @@ return <>
 
   {/* ── NOTA FISCAL ── */}
   {tab==="docs"&&<DocsContratos pat={pat}/>}
+  {tab==="termo"&&<TermoSiso pat={pat} dents={dents} user={user}/>}// V321
   {tab==="odonto3d"&&<Odonto3DTab pat={pat} setPats={setPats} setPf={setPf}/>}
 
   {tab==="atestado"&&(function(){
@@ -3458,6 +3620,28 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 // AGENDA
 // ══════════════════════════════════════════════════════════
 function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos}){
+// V321: quais pacientes ja tem termo de siso ASSINADO (para o alerta na linha da agenda).
+// Busca uma vez ao abrir a agenda; o alerta some sozinho quando o termo e assinado.
+const [sisoOk,setSisoOk]=useState({});
+useEffect(function(){
+  var alive=true;
+  if(!SUPA_URL)return;
+  contratoApi.listC("").then(function(r){
+    if(!alive||!r||!r.ok)return;
+    var m={};
+    (r.contratos||[]).forEach(function(c){
+      try{if(c&&c.payload&&c.payload.tipo===TERMO_SISO_TIPO&&c.status==="assinado"&&c.patient_id!=null)m[String(c.patient_id)]=true;}catch(e){}
+    });
+    setSisoOk(m);
+  });
+  return function(){alive=false;};
+},[]);
+// true = esta consulta e de siso E o paciente ainda nao assinou o termo
+function termoSisoPend(a){
+  if(!a||!a.patientId||a.blocked)return false;
+  if(!isExoSiso(a))return false;
+  return !sisoOk[String(a.patientId)];
+}
 
 const [selDate,setSelDate]=useState(today());
 const [agView,setAgView]=useState("dia");
@@ -3985,7 +4169,7 @@ ANAM_CONDS.forEach(function(c){if(anC[c[0]]&&ANAM_ALERT.indexOf(c[0])<0)_flC.pus
 var _noAnC=pC?anamFalta(pC):false;
 var _semCadC=isPartC||!pC;/* V283 */
 var _preC=!!(pC&&pC._pre);/* V283 */
-var _temAlertaC=(_flC.length>0||_noAnC||_semCadC||_preC);
+var _temAlertaC=(_flC.length>0||_noAnC||_semCadC||_preC||termoSisoPend(aC));// V321
 var nmC=isPartC?aC.patientName:((pC&&pC.name)||"A confirmar");
 var stColC=isPartC?G.red:(SCN[aC.status]||G.primary);
 _slotsCompact.push(
@@ -3998,6 +4182,7 @@ _slotsCompact.push(
 {_semCadC&&<span style={{fontSize:9,background:G.red,color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26d4 SEM CADASTRO"}</span>}
 {_preC&&<span style={{fontSize:9,background:G.blue,color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}
 {_noAnC&&<span style={{fontSize:9,background:"#cf5a78",color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26a0 SEM ANAMNESE"}</span>}
+{termoSisoPend(aC)&&<span style={{fontSize:9,background:"#8B6914",color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\ud83d\udccb TERMO PENDENTE"}</span>}
 {_flC.length>0&&<span style={{fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}} title={_flC.map(function(fx){return fx.t;}).join(" \u00b7 ")}>
 {_flC.map(function(fx,ix){return <span key={ix} style={{color:fx.hot?"#a8342c":"#9a7636"}}>{(ix?" \u00b7 ":"")+fx.t}</span>;})}
 </span>}
