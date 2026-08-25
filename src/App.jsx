@@ -1576,7 +1576,7 @@ function AvisoObrig({lista,onVoltar,onSalvar}){
   </div>;
 }
 
-function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose,waTemplates}){
+function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose,waTemplates,docsEmitidos=[],setDocsEmitidos=function(){}}){
 // Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
 const isDentUser=user&&user.level===1;
@@ -2415,6 +2415,44 @@ return <>
         {faltou>=3&&<div style={{background:G.red+"12",border:"1px solid "+G.red,borderRadius:8,padding:"7px 12px",fontSize:12,color:G.red,fontWeight:600}}>⚠️ Paciente faltou {faltou}x — reforce a confirmação.</div>}
       </div>;
     })()}
+    {(function(){
+      var patDocs=(docsEmitidos||[]).filter(function(d){return d&&d.patientId===pat.id;}).sort(function(a,b){return (b._ts||0)-(a._ts||0);});
+      if(!patDocs.length)return null;
+      var TIPO_DOC={atestado:{ic:"🩹",lbl:"Atestado odontológico",bg:"var(--red-soft)",cor:G.red},receituario:{ic:"💊",lbl:"Receituário",bg:"var(--blue-soft)",cor:G.blue}};
+      var reimprimir=function(d){
+        if(!d.html)return;
+        var blob=new Blob([d.html],{type:"text/html"});
+        var url=URL.createObjectURL(blob);
+        var a=document.createElement("a");
+        a.href=url;a.target="_blank";a.rel="noreferrer";
+        document.body.appendChild(a);a.click();
+        setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+      };
+      return <>
+        <Div lb="Documentos Emitidos"/>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {patDocs.map(function(d){
+            var td=TIPO_DOC[d.tipo]||{ic:"📄",lbl:d.tipo,bg:G.bg,cor:G.muted};
+            var dh=new Date(d._ts||Date.now());
+            var dataLbl=fmt(d.data)+(d._ts?(" · "+dh.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})):"");
+            return <div key={d.id} style={{background:"var(--surface)",borderRadius:12,padding:"11px 13px",boxShadow:"4px 4px 11px var(--nm-dark),-4px -4px 11px var(--nm-light)"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:30,height:30,borderRadius:9,background:td.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{td.ic}</div>
+                  <span style={{fontWeight:700,fontSize:13}}>{td.lbl}</span>
+                </div>
+                <span style={{fontSize:10,color:G.muted,fontWeight:700,textTransform:"uppercase",whiteSpace:"nowrap"}}>{dataLbl}</span>
+              </div>
+              <div style={{fontSize:12.5,color:G.text,marginTop:6,paddingLeft:38,lineHeight:1.5}}>{d.resumo}</div>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,paddingLeft:38}}>
+                <span style={{fontSize:11,color:G.muted}}>{"👨‍⚕️ "+(d.dentistName||"")}</span>
+                {d.html&&<button onClick={function(){reimprimir(d);}} style={{border:"1.5px solid "+G.primary,background:"none",color:G.primary,borderRadius:8,padding:"4px 11px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{"🖨️ Reimprimir"}</button>}
+              </div>
+            </div>;
+          })}
+        </div>
+      </>;
+    })()}
     {patAppts.length>0&&<>
       <Div lb="Consultas Agendadas"/>
       {patAppts.map(a=>{const d=dents.find(x=>x.id===a.dentistId)||dents[0];return <div key={a.id} style={{display:"flex",gap:9,padding:"6px 0",borderBottom:`1px solid ${G.border}`,alignItems:"center",flexWrap:"wrap"}}>
@@ -2549,6 +2587,10 @@ return <>
   ha+="<div class='date'>Sao Paulo, "+hoje2+"</div>";
   ha+="<div class='footer'><div class='ln'></div><div class='nm'>"+dentName+"</div><div class='cr'>"+dentCro+"</div><div class='ad'>Rua Sabbado D Angelo, 1980 - Itaquera | Tel. 2524-9975</div></div>";
   ha+="</div></body></html>";
+  if(pat&&pat.id!=null){
+    var _atResumo=atModo==="horas"?("Afastamento das "+(atHoraIni||"00:00")+" \u00e0s "+(atHoraFim||"00:00")+cidTxt):(diasTxt+cidTxt);
+    setDocsEmitidos(function(prev){return (prev||[]).concat([{id:"at_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),patientId:pat.id,tipo:"atestado",data:atData||today(),resumo:_atResumo,dentistId:dentAtest&&dentAtest.id,dentistName:dentName,obs:atObs||"",html:ha,_ts:Date.now(),_by:(user&&user.name)||""}]);});
+  }
   var blob=new Blob([ha],{type:"text/html"});
   var url=URL.createObjectURL(blob);
   var a=document.createElement("a");
@@ -3415,7 +3457,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos}){
 
 const [selDate,setSelDate]=useState(today());
 const [agView,setAgView]=useState("dia");
@@ -4364,7 +4406,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 </div>
 
   </div>}
-{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs||[]} setRecs={setRecs||(()=>{})} treats={treats||[]} setTreats={setTreats||(()=>{})} budgets={budgets||[]} setBudgets={setBudgets||(()=>{})} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
+{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs||[]} setRecs={setRecs||(()=>{})} treats={treats||[]} setTreats={setTreats||(()=>{})} budgets={budgets||[]} setBudgets={setBudgets||(()=>{})} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} onClose={()=>setOpenFolder(null)}/>}
 </div>
 );
 }
@@ -4942,7 +4984,7 @@ return <div style={{background:G.card,borderRadius:13,boxShadow:"6px 6px 15px va
 </div>;
 }
 
-function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat,waTemplates}){
+function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat,waTemplates,docsEmitidos,setDocsEmitidos}){
 var _fidx=useMemo(function(){return faltaIdx(appts);},[appts]);
 const [srch,setSrch]=useState("");
 const [pPage,setPPage]=useState(0);
@@ -5172,7 +5214,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <button onClick={()=>setDelModal(null)} style={{border:"1.5px solid var(--primary)",background:"transparent",color:"var(--primary)",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
 <button onClick={async ()=>{if(delModal._busy)return;setDelModal(Object.assign({},delModal,{_busy:true}));var _r=null;try{_r=delPat?await delPat(delModal.pat.id):{ok:true};}catch(e){_r={ok:false,msg:String((e&&e.message)||e)};}if(_r&&_r.ok){setPats(prev=>prev.filter(x=>x.id!==delModal.pat.id));if(addLog)addLog("paciente","Excluiu paciente: "+delModal.pat.name,delModal.pat.name);setDelModal(null);}else{alert("Não foi possível excluir no servidor"+((_r&&_r.msg)?(": "+_r.msg):".")+" Verifique a conexão e tente novamente.");setDelModal(prev=>prev?Object.assign({},prev,{_busy:false}):prev);}}} style={{background:"var(--red)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:delModal._busy?0.6:1}}>{delModal._busy?"Excluindo...":"Excluir Permanentemente"}</button>
 </div></div></div></div>}
-{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={()=>setOpenFolder(null)}/>}
+{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} onClose={()=>setOpenFolder(null)}/>}
 
 <Modal open={pm} close={()=>setPm(false)} title={ep?"Editar Paciente":"Novo Paciente"} wide ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
   <Inp lb="Nome completo *" val={pf.name} set={fp("name")}/>
@@ -12736,7 +12778,7 @@ var MEDS_BASE=[
 {id:"listerine",cat:"Antisséptico",name:"Listerine Cool Blue",pos:"Bochechar após a escovação",qty:"1 frasco"},
 ];
 
-function Receituario({pats,dents,user}){
+function Receituario({pats,dents,user,setDocsEmitidos}){
 var [patId,setPatId]=useState("");
 var [dentId,setDentId]=useState(String(user.level===1&&user.dentistId?user.dentistId:dents[0]&&dents[0].id||""));
 var [cat,setCat]=useState("Todos");
@@ -12928,6 +12970,10 @@ return(
   if(obs)html+="<div class='obs'>"+obs+"</div>";
   html+="<div class='footer'><div class='dent-name'>"+nomeDent2+"</div><div class='cro'>"+cro2+"</div><div class='date'>Sao Paulo, "+hoje2+"</div><div class='addr'>Rua Sabbado D Angelo, 1980 - Itaquera | Tel. 2524-9975</div></div>";
   html+="</div></body></html>";
+  if(pat&&pat.id!=null){
+    var _rxMeds=sel.map(function(m){return m.name;}).join(" \u00b7 ");
+    setDocsEmitidos(function(prev){return (prev||[]).concat([{id:"rx_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),patientId:pat.id,tipo:"receituario",data:today(),resumo:_rxMeds||"(sem medica\u00e7\u00f5es selecionadas)",dentistId:dent&&dent.id,dentistName:nomeDent2,obs:obs||"",html:html,_ts:Date.now(),_by:(user&&user.name)||""}]);});
+  }
   var blob=new Blob([html],{type:"text/html"});
   var url=URL.createObjectURL(blob);
   var a=document.createElement("a");
@@ -15019,6 +15065,7 @@ const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
 const [pontos,setPontos]=useState([]);const [caixa,setCaixa]=useState([]);
 const [afast,setAfast]=useState([]);// V300: afastamentos (ferias, atestado, faltas)
 const [cotExtra,setCotExtra]=useState([]);// V310: itens avulsos da lista de compra (fora do estoque)
+const [docsEmitidos,setDocsEmitidos]=useState([]);// V320: log de atestados/receituarios emitidos por paciente
 const [hol,setHol]=useState([]);// V300: holerites arquivados
 const [ferSaldo,setFerSaldo]=useState({});// V300: saldo inicial de ferias por funcionario
 const [ferPer,setFerPer]=useState(FER_PER_INICIAL);// V303: periodos aquisitivos (relacao do contador)
@@ -15063,6 +15110,7 @@ const patSaving=useRef(false);
 const patPending=useRef(false);
 const patsRef=useRef([]);
 const cotExtraRef=useRef([]);// V310
+const docsEmitidosRef=useRef([]);// V320
 const afastRef=useRef([]);const holRef=useRef([]);const ferSaldoRef=useRef({});const ferPerRef=useRef(FER_PER_INICIAL);// V305: payload le o estado mais novo, nao o fechamento da renderizacao antiga
 const lastPatPollTs=useRef(null);
 const anamSeenRef=useRef({});
@@ -15277,6 +15325,7 @@ if(data.pontos?.length)setPontos(data.pontos);
 if(data.caixa?.length)setCaixa(data.caixa);
 if(data.afast?.length)setAfast(data.afast);// V303: faltava ler na abertura -- por isso o registro sumia
 if(data.cotExtra?.length)setCotExtra(data.cotExtra);// V310
+if(data.docsEmitidos?.length)setDocsEmitidos(data.docsEmitidos);// V320
 if(data.hol?.length)setHol(data.hol);// V303
 if(data.ferSaldo)setFerSaldo(data.ferSaldo);// V303
 if(data.ferPer)setFerPer(data.ferPer);// V303: periodos aquisitivos
@@ -15664,6 +15713,7 @@ useEffect(function(){
           mergeArr(caixa,sd.caixa,setCaixa);
           mergeArr(afast,sd.afast,setAfast,"afast");// V300: afastamentos item-a-item + tombstone
           mergeArr(cotExtra,sd.cotExtra,setCotExtra,"cotExtra");// V310: itens avulsos da lista de compra
+          mergeArr(docsEmitidos,sd.docsEmitidos,setDocsEmitidos);// V320: log de documentos emitidos
           mergeArr(hol,sd.hol,setHol,"hol");// V300: holerites
           if(sd.ferPer)setFerPer(function(prev){return JSON.stringify(sd.ferPer)===JSON.stringify(prev)?prev:sd.ferPer;});// V303
           if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V300
@@ -15685,7 +15735,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current};// V310: via ref
+    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
     if(!patTableOk.current)payload.pats=pats;
     // V313: assinatura ANTES do carimbo _vers (o _vers muda a cada save e mascararia a comparacao).
     var _sigNow=null;try{_sigNow=JSON.stringify(payload);}catch(e){_sigNow=null;}
@@ -15771,11 +15821,12 @@ useEffect(function(){
   };
   runSaveRef.current=runSave; // V210
   saveTimer.current=setTimeout(runSave,AUTOSAVE_MS); // V296: era 800ms fixo
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra,docsEmitidos]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra // V320: docsEmitidos
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
 afastRef.current=afast;holRef.current=hol;ferSaldoRef.current=ferSaldo;ferPerRef.current=ferPer;cotExtraRef.current=cotExtra;// V305 // V310
+docsEmitidosRef.current=docsEmitidos;// V320
 useEffect(function(){
   if(!initialized.current||!patTableOk.current)return;
   if(patSaveTimer.current)clearTimeout(patSaveTimer.current);
@@ -16009,6 +16060,7 @@ useEffect(function(){
       if(sd.implMov)addArr(sd.implMov,setImplMov,"implMov");// V238 merge aditivo - nao sobrescreve mais
       if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSetP);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, _ts mais novo vence
       if(sd.cotExtra)addArr(sd.cotExtra,setCotExtra,"cotExtra");// V310: poll dos itens avulsos
+      if(sd.docsEmitidos)addArr(sd.docsEmitidos,setDocsEmitidos);// V320: poll dos documentos emitidos
       if(sd.afast)addArr(sd.afast,setAfast,"afast");// V305: afast nao entrava no poll -- aparelho aberto ficava com lista velha e apagava o registro no proprio save
       if(sd.hol)addArr(sd.hol,setHol,"hol");// V305
       if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V305
@@ -16326,7 +16378,7 @@ try{localStorage.setItem("pnl_view_"+user.id,v);}catch(e){} // V290: lembra a ul
 setView(v);
 setSideOpen(false); // close menu on mobile after navigation
 };
-const cp={pats,dents,procs,user,espera:espera,waEvent:waEvent,addLog:function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}};
+const cp={pats,dents,procs,user,espera:espera,waEvent:waEvent,docsEmitidos,setDocsEmitidos,addLog:function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}};// V320: docsEmitidos
 
 // Bottom nav shortcuts (most used)
 const BOTTOM_NAV=user.level>=3
@@ -16390,7 +16442,7 @@ return <>
       {/* V290: painel do dia para recepcao e dentistas */}
       {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
-      {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
+      {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts} abrirFicha={abrirFicha}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
@@ -16404,7 +16456,7 @@ return <>
       {view==="stk"&&<Estoque cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
-    {view==="rec"&&<Receituario pats={pats} dents={dents} user={user}/>}
+    {view==="rec"&&<Receituario pats={pats} dents={dents} user={user} setDocsEmitidos={setDocsEmitidos}/>}
     {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users} afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo} ferPer={ferPer} setFerPer={setFerPer}/>}
     {view==="holerite"&&user.level>=3&&<Holerites hol={hol} setHol={setHol} users={users} user={user}/>}{/* V300 */}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientDirtyRef.current=true;setOrientacoes(v);}} user={user}/>}
@@ -16441,7 +16493,7 @@ return <>
   })}
 </div>
 
-{fichaPat&&<PatientFolder waTemplates={waTemplates} pat={fichaPat} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} onClose={function(){setFichaPat(null);}}/>}
+{fichaPat&&<PatientFolder waTemplates={waTemplates} pat={fichaPat} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} onClose={function(){setFichaPat(null);}}/>}
 
 </>;
 }
