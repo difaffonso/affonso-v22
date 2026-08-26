@@ -479,6 +479,7 @@ const SLOTS=(()=>{const s=[];for(let h=8;h<=19;h++){if(h===8)s.push("08:30");els
 const SLOTS_ORTO=(()=>{const s=[];for(let h=8;h<=19;h++){for(let m=0;m<60;m+=20){if(h===8&&m===0)continue; // skip 8:00, start 8:20
 s.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);}}return s;})();
 const MONTHS_PT=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const DSEM_V322=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];// V322: calendario rapido da lateral
 const EXPENSE_CATS=["Aluguel","Água","Luz","Internet","Telefone","Salários","Material","Equipamento","Manutenção","Contabilidade","Outros"];
 
 // ── Seeds ──────────────────────────────────────────────────
@@ -3619,7 +3620,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate}){
 // V321: quais pacientes ja tem termo de siso ASSINADO (para o alerta na linha da agenda).
 // Busca uma vez ao abrir a agenda; o alerta some sozinho quando o termo e assinado.
 const [sisoOk,setSisoOk]=useState({});
@@ -3643,7 +3644,9 @@ function termoSisoPend(a){
   return !sisoOk[String(a.patientId)];
 }
 
-const [selDate,setSelDate]=useState(today());
+const [selDate,setSelDate]=useState(agendaSelDate||today());// V322: abre no dia escolhido no calendario da lateral
+useEffect(function(){if(agendaSelDate&&agendaSelDate!==selDate)setSelDate(agendaSelDate);},[agendaSelDate]);// V322
+useEffect(function(){if(typeof setAgendaSelDate==="function"&&selDate!==agendaSelDate)setAgendaSelDate(selDate);},[selDate]);// V322: mantem a faixa verde do topo sincronizada com o dia aberto
 const [agView,setAgView]=useState("dia");
 const [agZoom,setAgZoom]=useState(1);
 const [agViewMode,setAgViewMode]=useState(function(){try{return localStorage.getItem("agenda_view_mode")||"normal";}catch(e){return "normal";}});
@@ -15229,6 +15232,10 @@ try{document.documentElement.setAttribute("data-theme",localStorage.getItem("orb
 export default function App(){
 const [user,setUser]=useState(null);const [theme,setTheme]=useState(function(){try{return localStorage.getItem("orbe_theme")||"light";}catch(e){return "light";}});useEffect(function(){try{document.documentElement.setAttribute("data-theme",theme);localStorage.setItem("orbe_theme",theme);}catch(e){}},[theme]);const [view,setView]=useState("dash");
 const [agendaSelDate,setAgendaSelDate]=useState(today());
+const [calOpen,setCalOpen]=useState(false);// V322: calendario rapido da lateral
+const [calVY,setCalVY]=useState(new Date().getFullYear());// V322
+const [calVM,setCalVM]=useState(new Date().getMonth());// V322
+const [calSel,setCalSel]=useState(today());// V322
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [waTemplates,setWaTemplates]=useState({});
 const [orientacoes,setOrientacoes]=useState(ORIENT_DEFAULT);
@@ -16572,7 +16579,7 @@ const BOTTOM_NAV=user.level>=3
 ?[{id:"dash",icon:"ph-house"},{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rel",icon:"ph-chart-bar"},{id:"ponto",icon:"ph-clock"}]
 :[{id:"dash",icon:"ph-house"},{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rec",icon:"ph-clipboard-text"},{id:"ponto",icon:"ph-clock"}];
 
-const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}.sidebar-scroll::-webkit-scrollbar{width:6px;}.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--nm-dark);border-radius:4px;}.sidebar-scroll::-webkit-scrollbar-track{background:transparent;}/* V221: barra de rolagem do painel principal (Agenda e demais telas) mais visivel */:root{--sb-thumb:#2f5d49;--sb-thumb-hover:#244639;--sb-track:#dfe4db;}html[data-theme="dark"]{--sb-thumb:#e7ece7;--sb-thumb-hover:#ffffff;--sb-track:#333c37;}.main-content{scrollbar-color:var(--sb-thumb) var(--sb-track);}.main-content::-webkit-scrollbar{width:14px;}.main-content::-webkit-scrollbar-track{background:var(--sb-track);}.main-content::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:8px;border:2px solid var(--sb-track);background-clip:padding-box;}.main-content::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-hover);}.app-shell{height:100dvh!important;}`;
+const RESPONSIVE_CSS=`@media(min-width:640px){.sidebar-overlay{display:none!important;}.sidebar{position:relative!important;transform:none!important;width:195px!important;flex-shrink:0;}.bottom-nav{display:none!important;}.main-content{padding-bottom:16px!important;}.mobile-topbar{display:none!important;}}@media(max-width:639px){.sidebar{position:fixed!important;top:0!important;left:0!important;height:100vh!important;z-index:500!important;width:240px!important;transition:transform .25s ease!important;}.sidebar.closed{transform:translateX(-100%)!important;}.main-content{padding-bottom:70px!important;}}.sidebar-scroll::-webkit-scrollbar{width:6px;}.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--nm-dark);border-radius:4px;}.sidebar-scroll::-webkit-scrollbar-track{background:transparent;}/* V221: barra de rolagem do painel principal (Agenda e demais telas) mais visivel */:root{--sb-thumb:#2f5d49;--sb-thumb-hover:#244639;--sb-track:#dfe4db;}html[data-theme="dark"]{--sb-thumb:#e7ece7;--sb-thumb-hover:#ffffff;--sb-track:#333c37;}.main-content{scrollbar-color:var(--sb-thumb) var(--sb-track);}.main-content::-webkit-scrollbar{width:14px;}.main-content::-webkit-scrollbar-track{background:var(--sb-track);}.main-content::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:8px;border:2px solid var(--sb-track);background-clip:padding-box;}.main-content::-webkit-scrollbar-thumb:hover{background:var(--sb-thumb-hover);}.app-shell{height:100dvh!important;}/* V322: janela do calendario rapido */.calpop-v322{position:fixed;z-index:601;width:288px;max-width:calc(100vw - 28px);background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.22);padding:12px;left:50%;transform:translateX(-50%);top:92px;}@media(min-width:640px){.calpop-v322{left:200px;transform:none;top:84px;}}`;
 
 return <>
 
@@ -16593,6 +16600,18 @@ return <>
         <div style={{fontFamily:"'Cormorant Garamond'",fontSize:12,color:"var(--muted)"}}>Dr. Diego Affonso</div>
       </div>
       <button onClick={()=>setSideOpen(false)} style={{border:"none",background:"var(--surface)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",borderRadius:8,color:"var(--text)",fontSize:15,cursor:"pointer",padding:"5px 9px",lineHeight:1}} className="sidebar-close-btn"><i className="ph ph-x"></i></button>
+    </div>
+    {/* V322: calendario rapido - card com a data de hoje, fixo no topo da lateral */}
+    <div style={{flexShrink:0,margin:"-6px 0 8px"}}>
+      <button onClick={function(){setSideOpen(false);var _n=new Date();setCalVY(_n.getFullYear());setCalVM(_n.getMonth());setCalOpen(function(v){return !v;});}} title="Calendário" style={{width:"100%",border:"none",background:"var(--surface)",boxShadow:calOpen?"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px var(--nm-light)":"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",borderRadius:13,padding:"9px 11px",cursor:"pointer",display:"flex",alignItems:"center",gap:11,textAlign:"left",transition:"box-shadow .15s"}}>
+        <span style={{fontFamily:"'Cormorant Garamond'",fontSize:27,fontWeight:700,color:"var(--primary)",lineHeight:1,flexShrink:0}}>{new Date().getDate()}</span>
+        <span style={{minWidth:0}}>
+          <span style={{display:"block",fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:"var(--text)"}}>{DSEM_V322[new Date().getDay()]}</span>
+          <span style={{display:"block",fontSize:10,color:"var(--muted)",fontWeight:600,marginTop:1}}>{MONTHS_PT[new Date().getMonth()]+" "+new Date().getFullYear()}</span>
+        </span>
+        <i className={(calOpen?"ph-fill ":"ph-light ")+"ph-calendar-dots"} style={{marginLeft:"auto",fontSize:15,color:calOpen?"var(--primary)":"var(--muted)",flexShrink:0}}></i>
+      </button>
+      <div style={{height:1,background:"var(--border)",marginTop:9}}></div>
     </div>
     <div className="sidebar-scroll" style={{flex:1,overflowY:"auto",minHeight:0,display:"flex",flexDirection:"column",gap:2}}>
     {NAV.map((n,i)=>[
@@ -16657,6 +16676,53 @@ return <>
   var meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   return <div style={{position:"fixed",top:48,left:0,right:0,background:"#164436",color:"rgba(255,255,255,.92)",padding:"5px 16px",fontSize:12,fontWeight:700,textAlign:"center",zIndex:98,boxShadow:"0 2px 6px rgba(0,0,0,.2)"}}>
     {"📅 "+dias[d.getDay()]+", "+d.getDate()+" de "+meses[d.getMonth()]+" · "+d.getFullYear()}
+  </div>;
+})()}
+
+{/* V322: janela do calendario rapido - abre por cima de qualquer tela */}
+{calOpen&&<div onClick={function(){setCalOpen(false);}} style={{position:"fixed",inset:0,zIndex:600}}></div>}
+{calOpen&&(function(){
+  var _td=today();
+  var _dim=new Date(calVY,calVM+1,0).getDate();
+  var _fd=new Date(calVY,calVM,1).getDay();
+  var _pdim=new Date(calVY,calVM,0).getDate();
+  var _soDoDentista=(user.level===1&&user.dentistId);
+  var _cnt=function(ds){return appts.filter(function(a){return a.date===ds&&!a.blocked&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed"&&(!_soDoDentista||a.dentistId===user.dentistId);}).length;};
+  var _sd=new Date(calSel+"T12:00");
+  var _diff=Math.round((_sd-new Date(_td+"T12:00"))/86400000);
+  var _rel=_diff===0?"Hoje":_diff===1?"Amanhã":_diff===-1?"Ontem":(_diff>0?("Daqui a "+_diff+" dias"):("Há "+Math.abs(_diff)+" dias"));
+  var _q=_cnt(calSel);
+  var _prevMes=function(){if(calVM===0){setCalVM(11);setCalVY(calVY-1);}else setCalVM(calVM-1);};
+  var _proxMes=function(){if(calVM===11){setCalVM(0);setCalVY(calVY+1);}else setCalVM(calVM+1);};
+  return <div className="calpop-v322 fi">
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+      <button onClick={_prevMes} style={{border:"none",background:"transparent",fontSize:17,cursor:"pointer",color:"var(--primary)",fontWeight:700,padding:"2px 9px",borderRadius:7}}>{"<"}</button>
+      <span style={{fontWeight:700,fontSize:12.5}}>{MONTHS_PT[calVM]+" "+calVY}</span>
+      <button onClick={_proxMes} style={{border:"none",background:"transparent",fontSize:17,cursor:"pointer",color:"var(--primary)",fontWeight:700,padding:"2px 9px",borderRadius:7}}>{">"}</button>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:3}}>
+      {["D","S","T","Q","Q","S","S"].map(function(d,i){return <div key={"w"+i} style={{textAlign:"center",fontSize:9.5,fontWeight:700,color:"var(--muted)"}}>{d}</div>;})}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+      {Array.from({length:_fd}).map(function(_,i){return <div key={"p"+i} style={{textAlign:"center",padding:"5px 2px 3px",fontSize:11.5,fontWeight:700,color:"var(--muted)",opacity:.35}}>{_pdim-(_fd-1-i)}</div>;})}
+      {Array.from({length:_dim}).map(function(_,i){
+        var ds=calVY+"-"+String(calVM+1).padStart(2,"0")+"-"+String(i+1).padStart(2,"0");
+        var isSel=ds===calSel,isTd=ds===_td,q=_cnt(ds);
+        return <div key={ds} onClick={function(){setCalSel(ds);}} style={{borderRadius:7,padding:"3.5px 2px 2px",textAlign:"center",cursor:"pointer",background:isSel?"var(--primary)":"transparent",border:"1.5px solid "+((isTd&&!isSel)?"var(--primary)":"transparent")}}>
+          <div style={{fontSize:11.5,fontWeight:700,color:isSel?"#fff":"var(--text)"}}>{i+1}</div>
+          <div style={{width:4,height:4,borderRadius:"50%",margin:"1px auto 0",background:q>0?(isSel?"rgba(255,255,255,.75)":"var(--primary)"):"transparent"}}></div>
+        </div>;
+      })}
+      {Array.from({length:(7-((_fd+_dim)%7))%7}).map(function(_,i){return <div key={"n"+i} style={{textAlign:"center",padding:"5px 2px 3px",fontSize:11.5,fontWeight:700,color:"var(--muted)",opacity:.35}}>{i+1}</div>;})}
+    </div>
+    <div style={{marginTop:9,paddingTop:9,borderTop:"1px solid var(--border)"}}>
+      <div style={{fontSize:12,fontWeight:700,lineHeight:1.3}}>{DSEM_V322[_sd.getDay()]+(_sd.getDay()===0||_sd.getDay()===6?"":"-feira")+", "+_sd.getDate()+" de "+MONTHS_PT[_sd.getMonth()].toLowerCase()}</div>
+      <div style={{fontSize:10.5,color:"var(--muted)",marginTop:2}}>{_rel+" \u00b7 "+(_q>0?(_q+" consulta"+(_q>1?"s":"")):"sem consultas")}</div>
+    </div>
+    <div style={{display:"flex",gap:6,marginTop:9}}>
+      <button onClick={function(){var _n=new Date();setCalSel(_td);setCalVY(_n.getFullYear());setCalVM(_n.getMonth());}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 6px",fontSize:11,fontWeight:700,cursor:"pointer",background:"var(--accent)",color:"var(--primary)",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}><i className="ph-light ph-arrow-counter-clockwise"></i>Hoje</button>
+      <button onClick={function(){setAgendaSelDate(calSel);setCalOpen(false);go("agenda");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 6px",fontSize:11,fontWeight:700,cursor:"pointer",background:"var(--primary)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}><i className="ph-fill ph-calendar-blank"></i>Abrir na agenda</button>
+    </div>
   </div>;
 })()}
 
