@@ -480,6 +480,31 @@ const SLOTS_ORTO=(()=>{const s=[];for(let h=8;h<=19;h++){for(let m=0;m<60;m+=20)
 s.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);}}return s;})();
 const MONTHS_PT=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const DSEM_V322=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];// V322: calendario rapido da lateral
+// V323: contas em aberto que vencem num dia. Mesma regra da tela de Gastos:
+// avulso vence na "date"; recorrente vence todo mes no "diaVenc"; parcelado vence
+// no mesmo dia do mes enquanto houver parcela ativa. Pago sai da lista (paid ou pagoMeses[ym]).
+function vencemNoDia_V323(gastos,ds){
+  var out=[];
+  if(!ds||!gastos)return out;
+  var ym=ds.slice(0,7), dia=Number(ds.slice(8,10));
+  ["clinica","pessoal"].forEach(function(tab){
+    ((gastos&&gastos[tab])||[]).forEach(function(e){
+      if(!e)return;
+      var vence=false,pago=false;
+      if(e.recorrente&&e.diaVenc){
+        vence=Number(e.diaVenc)===dia; pago=!!(e.pagoMeses&&e.pagoMeses[ym]);
+      }else if(e.parcelado){
+        var k=(Number(ym.slice(0,4))*12+Number(ym.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));
+        vence=(k>=0&&k<Number(e.parcelas||1))&&Number((e.date||"").slice(8,10))===dia;
+        pago=!!(e.pagoMeses&&e.pagoMeses[ym]);
+      }else{
+        vence=(String(e.date||"")===ds); pago=!!e.paid;
+      }
+      if(vence&&!pago)out.push({id:e.id,tab:tab,desc:String(e.desc||e.cat||"Pagamento"),cat:String(e.cat||""),value:Number(e.value||0)});
+    });
+  });
+  return out;
+}
 const EXPENSE_CATS=["Aluguel","Água","Luz","Internet","Telefone","Salários","Material","Equipamento","Manutenção","Contabilidade","Outros"];
 
 // ── Seeds ──────────────────────────────────────────────────
@@ -6477,8 +6502,8 @@ if(filt==='done')return r.done;
 return true;
 }).sort((a,b)=>a.date.localeCompare(b.date));
 
-const save=()=>{if(!f.title)return;const obj={...f,patientId:f.patientId?Number(f.patientId):null,assignedUserId:f.assignedUserId?Number(f.assignedUserId):null,id:edit?edit.id:nid(rems)};setRems(prev=>edit?prev.map(r=>r.id===edit.id?obj:r):[...prev,obj]);setModal(false);setEdit(null);setF(b0);};
-const tog=id=>{if(typeof id==='string')return;setRems(prev=>prev.map(r=>r.id===id?{...r,done:!r.done}:r));};
+const save=()=>{if(!f.title)return;const obj={...f,patientId:f.patientId?Number(f.patientId):null,assignedUserId:f.assignedUserId?Number(f.assignedUserId):null,criadoPorId:(edit&&edit.criadoPorId!=null)?edit.criadoPorId:(user&&user.id!=null?Number(user.id):null),id:edit?edit.id:nid(rems),_ts:Date.now()};setRems(prev=>edit?prev.map(r=>r.id===edit.id?obj:r):[...prev,obj]);setModal(false);setEdit(null);setF(b0);};// V323: criadoPorId permite acompanhar no calendario o que foi delegado
+const tog=id=>{if(typeof id==='string')return;setRems(prev=>prev.map(function(r){if(r.id!==id)return r;var nd=!r.done;return {...r,done:nd,doneBy:nd?(user&&user.name)||'':'',doneAt:nd?Date.now():null,_ts:Date.now()};}));};// V323: guarda quem concluiu, para a cobranca no calendario
 const rm=id=>{if(typeof id==='string')return;setRems(prev=>prev.filter(r=>r.id!==id));};
 const PRIO={high:'Alta',medium:'Media',low:'Baixa'};
 const PRIOC={high:G.red,medium:G.yellow,low:G.primary};
@@ -15228,6 +15253,19 @@ return (
 );
 }
 
+// V323: campo de nota isolado. Se o texto morasse no estado do App, cada tecla
+// digitada re-renderizaria o sistema inteiro (agenda, pacientes, tudo).
+function NotaInputV323({onAdd}){
+  const [tx,setTx]=useState("");
+  const [hr,setHr]=useState("");
+  const go=function(){var t=String(tx||"").trim();if(!t)return;onAdd(t,String(hr||"").trim());setTx("");setHr("");};
+  return <div style={{display:"flex",gap:5,marginTop:9}}>
+    <input value={hr} onChange={function(e){setHr(e.target.value);}} placeholder="hh:mm" maxLength={5} style={{width:52,border:"1px solid var(--border)",borderRadius:9,padding:"7px 5px",fontSize:11.5,textAlign:"center",background:"var(--surface)",color:"var(--text)"}}/>
+    <input value={tx} onChange={function(e){setTx(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")go();}} placeholder="Anotar neste dia..." style={{flex:1,minWidth:0,border:"1px solid var(--border)",borderRadius:9,padding:"7px 9px",fontSize:11.5,background:"var(--surface)",color:"var(--text)"}}/>
+    <button onClick={go} title="Adicionar nota" style={{border:"none",borderRadius:9,background:"var(--primary)",color:"#fff",width:34,cursor:"pointer",fontSize:15,flexShrink:0}}>{"+"}</button>
+  </div>;
+}
+
 try{document.documentElement.setAttribute("data-theme",localStorage.getItem("orbe_theme")||"light");}catch(e){}
 export default function App(){
 const [user,setUser]=useState(null);const [theme,setTheme]=useState(function(){try{return localStorage.getItem("orbe_theme")||"light";}catch(e){return "light";}});useEffect(function(){try{document.documentElement.setAttribute("data-theme",theme);localStorage.setItem("orbe_theme",theme);}catch(e){}},[theme]);const [view,setView]=useState("dash");
@@ -15236,6 +15274,8 @@ const [calOpen,setCalOpen]=useState(false);// V322: calendario rapido da lateral
 const [calVY,setCalVY]=useState(new Date().getFullYear());// V322
 const [calVM,setCalVM]=useState(new Date().getMonth());// V322
 const [calSel,setCalSel]=useState(today());// V322
+const [notas,setNotas]=useState([]);// V323: notas pessoais do calendario (uid = dono)
+// V323: o texto da nota vive dentro de NotaInputV323, nao aqui (evita re-render do app a cada tecla)
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [waTemplates,setWaTemplates]=useState({});
 const [orientacoes,setOrientacoes]=useState(ORIENT_DEFAULT);
@@ -15476,7 +15516,7 @@ try{ // V199: base para comparacao de carimbos por chave
 }catch(e){lastSavedKeyJsonRef.current={};}
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
-lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl,orientacoes:data.orientacoes,stock:data.stock});// V289 stock
+lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl,orientacoes:data.orientacoes,stock:data.stock,notas:data.notas});// V289 stock // V323 notas
 delItemsRef.current=data.delItems||[];
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
@@ -15494,6 +15534,7 @@ setTreats(treatsmig);
 }
 if(data.pros?.length)setPros(data.pros);
 if(data.rems?.length)setRems(data.rems);
+if(data.notas?.length)setNotas(data.notas);// V323
 if(data.budgets?.length)setBudgets(data.budgets);
 if(data.users?.length)setUsers(data.users);
 if(data.dents?.length)setDents(data.dents);
@@ -15852,7 +15893,7 @@ useEffect(function(){
     }
     // detectar exclusoes de planos/registros desde a ultima sincronizacao
     if(lastSavedItemKeys.current){
-      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes,stock:stock});// V289 stock
+      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V323 notas
       var _di=delItemsRef.current||[];
       Object.keys(lastSavedItemKeys.current).forEach(function(k){if(!_ik[k]&&_di.indexOf(k)<0)_di.push(k);});
       _di=_di.filter(function(k){return !_ik[k];});
@@ -15896,6 +15937,7 @@ useEffect(function(){
           setTreats(function(prev){var _a=mergeTreats(prev,sd.treats,_diSet);return JSON.stringify(_a)===JSON.stringify(prev)?prev:_a;});
           mergeArr(pros,sd.pros,setPros,"pros");
           mergeArr(rems,sd.rems,setRems,"rems");
+          mergeArr(notas,sd.notas,setNotas,"notas");// V323
           mergeArr(logs,sd.logs,setLogs);
           mergeArr(implMov,sd.implMov,setImplMov,"implMov");
           mergeArr(implCat,sd.implCat,setImplCat,"implCat");
@@ -15927,7 +15969,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
+    const payload={appts,recs,treats,pros,rems,notas,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
     if(!patTableOk.current)payload.pats=pats;
     // V313: assinatura ANTES do carimbo _vers (o _vers muda a cada save e mascararia a comparacao).
     var _sigNow=null;try{_sigNow=JSON.stringify(payload);}catch(e){_sigNow=null;}
@@ -16544,6 +16586,27 @@ if(user.level===2){
   }
 };
 
+// ══════════════ V323: CALENDARIO - NOTAS, LEMBRETES E CONTAS ══════════════
+// Nota: privada por login (uid = dono). Lembrete: so leitura, vem do modulo Lembretes.
+// Delegado: o que EU mandei para outra pessoa - acompanhamento, nao tarefa minha.
+// Conta: vencimento em aberto, so para nivel 3 (mesma restricao da tela de Gastos).
+const _meuId=(user&&user.id!=null)?Number(user.id):null;// V323
+const _hjV323=today();// V323
+const _nomeUserV323=function(id){var u=(users||[]).find(function(x){return Number(x.id)===Number(id);});return u?String(u.name||"usuário"):"usuário";};// V323
+const notasDoDia=function(ds){return (notas||[]).filter(function(n){return n&&Number(n.uid)===_meuId&&n.date===ds;}).sort(function(a,b){return String(a.hora||"~~").localeCompare(String(b.hora||"~~"));});};// V323
+const remsDoDia=function(ds){return (rems||[]).filter(function(r){return r&&!r.done&&r.date===ds&&(Number(r.assignedUserId)===_meuId||!r.assignedUserId);});};// V323
+const delegDoDia=function(ds){return (rems||[]).filter(function(r){return r&&r.date===ds&&r.criadoPorId!=null&&Number(r.criadoPorId)===_meuId&&r.assignedUserId&&Number(r.assignedUserId)!==_meuId;});};// V323
+const contasDoDia=function(ds){return (user.level>=3)?vencemNoDia_V323(gastos,ds):[];};// V323
+const calPend=(notas||[]).filter(function(n){return n&&Number(n.uid)===_meuId&&!n.done&&n.date<=_hjV323;}).length
+  +(rems||[]).filter(function(r){return r&&!r.done&&r.date<=_hjV323&&(Number(r.assignedUserId)===_meuId||!r.assignedUserId);}).length;// V323
+const calCobrar=(rems||[]).filter(function(r){return r&&!r.done&&r.date<=_hjV323&&r.criadoPorId!=null&&Number(r.criadoPorId)===_meuId&&r.assignedUserId&&Number(r.assignedUserId)!==_meuId;});// V323
+const calContasHoje=(user.level>=3)?vencemNoDia_V323(gastos,_hjV323):[];// V323
+const calAlerta=(calPend>0||calContasHoje.length>0);// V323: vermelho no card da lateral
+const addNota=function(_t,_h){_t=String(_t||"").trim();if(!_t)return;
+  setNotas(function(p){return (p||[]).concat([{id:nid(),uid:_meuId,date:calSel,hora:String(_h||""),txt:_t,done:false,_ts:Date.now(),_cr:Date.now()}]);});};// V323
+const togNota=function(id){setNotas(function(p){return (p||[]).map(function(n){return n.id===id?Object.assign({},n,{done:!n.done,_ts:Date.now()}):n;});});};// V323
+const rmNota=function(id){if(!window.confirm("Excluir esta nota?"))return;setNotas(function(p){return (p||[]).filter(function(n){return n.id!==id;});});};// V323
+
 const remBadge=(user.level===1)
 ?rems.filter(r=>!r.done&&(r.assignedUserId===user.id||!r.assignedUserId)&&r.date<=today()).length
 :rems.filter(r=>!r.done&&r.date<=today()).length+autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user);
@@ -16603,14 +16666,18 @@ return <>
     </div>
     {/* V322: calendario rapido - card com a data de hoje, fixo no topo da lateral */}
     <div style={{flexShrink:0,margin:"-6px 0 8px"}}>
-      <button onClick={function(){setSideOpen(false);var _n=new Date();setCalVY(_n.getFullYear());setCalVM(_n.getMonth());setCalOpen(function(v){return !v;});}} title="Calendário" style={{width:"100%",border:"none",background:"var(--surface)",boxShadow:calOpen?"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px var(--nm-light)":"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",borderRadius:13,padding:"9px 11px",cursor:"pointer",display:"flex",alignItems:"center",gap:11,textAlign:"left",transition:"box-shadow .15s"}}>
-        <span style={{fontFamily:"'Cormorant Garamond'",fontSize:27,fontWeight:700,color:"var(--primary)",lineHeight:1,flexShrink:0}}>{new Date().getDate()}</span>
+      <button onClick={function(){setSideOpen(false);var _n=new Date();setCalVY(_n.getFullYear());setCalVM(_n.getMonth());setCalSel(today());setCalOpen(function(v){return !v;});}} title="Calendário" style={{width:"100%",border:"none",background:calAlerta?"var(--red-soft)":"var(--surface)",boxShadow:calOpen?"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px var(--nm-light)":"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",borderRadius:13,padding:"9px 11px",cursor:"pointer",display:"flex",alignItems:"center",gap:11,textAlign:"left",transition:"box-shadow .15s"}}>
+        <span style={{fontFamily:"'Cormorant Garamond'",fontSize:27,fontWeight:700,color:calAlerta?G.red:"var(--primary)",lineHeight:1,flexShrink:0}}>{new Date().getDate()}</span>
         <span style={{minWidth:0}}>
-          <span style={{display:"block",fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:"var(--text)"}}>{DSEM_V322[new Date().getDay()]}</span>
+          <span style={{display:"block",fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",color:calAlerta?G.red:"var(--text)"}}>{DSEM_V322[new Date().getDay()]}</span>
           <span style={{display:"block",fontSize:10,color:"var(--muted)",fontWeight:600,marginTop:1}}>{MONTHS_PT[new Date().getMonth()]+" "+new Date().getFullYear()}</span>
         </span>
-        <i className={(calOpen?"ph-fill ":"ph-light ")+"ph-calendar-dots"} style={{marginLeft:"auto",fontSize:15,color:calOpen?"var(--primary)":"var(--muted)",flexShrink:0}}></i>
+        <i className={calAlerta?"ph-fill ph-warning-circle":((calOpen?"ph-fill ":"ph-light ")+"ph-calendar-dots")} style={{marginLeft:"auto",fontSize:15,color:calAlerta?G.red:(calOpen?"var(--primary)":"var(--muted)"),flexShrink:0}}></i>
       </button>
+      {/* V323: linhas de aviso do card - vermelho e coisa minha, ambar e cobranca */}
+      {calPend>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:G.red,padding:"5px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.red,flexShrink:0}}></span>{calPend+(calPend>1?" compromissos":" compromisso")+" para hoje"}</div>}
+      {calContasHoje.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:G.red,padding:"3px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.red,flexShrink:0}}></span>{cur(calContasHoje.reduce(function(s,c){return s+c.value;},0))+" a pagar hoje"}</div>}
+      {calCobrar.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:"#9C7418",padding:"3px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.gold,flexShrink:0}}></span>{calCobrar.length+(calCobrar.length>1?" pendentes com ":" pendente com ")+Array.from(new Set(calCobrar.map(function(r){return _nomeUserV323(r.assignedUserId).split(" ")[0];}))).join(", ")}</div>}
       <div style={{height:1,background:"var(--border)",marginTop:9}}></div>
     </div>
     <div className="sidebar-scroll" style={{flex:1,overflowY:"auto",minHeight:0,display:"flex",flexDirection:"column",gap:2}}>
@@ -16708,17 +16775,58 @@ return <>
       {Array.from({length:_dim}).map(function(_,i){
         var ds=calVY+"-"+String(calVM+1).padStart(2,"0")+"-"+String(i+1).padStart(2,"0");
         var isSel=ds===calSel,isTd=ds===_td,q=_cnt(ds);
+        // V323: pontinhos - verde consultas, ambar/vermelho nota, azul lembrete, cinza delegado, roxo conta
+        var _pt=[];
+        if(q>0)_pt.push(isSel?"rgba(255,255,255,.8)":"var(--primary)");
+        if(notasDoDia(ds).filter(function(n){return !n.done;}).length>0)_pt.push(ds<=_td?G.red:G.gold);
+        if(remsDoDia(ds).length>0)_pt.push(G.blue);
+        if(delegDoDia(ds).filter(function(r){return !r.done;}).length>0)_pt.push("var(--muted)");
+        if(contasDoDia(ds).length>0)_pt.push(G.purple);
         return <div key={ds} onClick={function(){setCalSel(ds);}} style={{borderRadius:7,padding:"3.5px 2px 2px",textAlign:"center",cursor:"pointer",background:isSel?"var(--primary)":"transparent",border:"1.5px solid "+((isTd&&!isSel)?"var(--primary)":"transparent")}}>
           <div style={{fontSize:11.5,fontWeight:700,color:isSel?"#fff":"var(--text)"}}>{i+1}</div>
-          <div style={{width:4,height:4,borderRadius:"50%",margin:"1px auto 0",background:q>0?(isSel?"rgba(255,255,255,.75)":"var(--primary)"):"transparent"}}></div>
+          <div style={{display:"flex",gap:1.5,justifyContent:"center",height:5,marginTop:1}}>{_pt.slice(0,4).map(function(c,ci){return <span key={ci} style={{width:3.5,height:3.5,borderRadius:"50%",background:c}}></span>;})}</div>
         </div>;
       })}
       {Array.from({length:(7-((_fd+_dim)%7))%7}).map(function(_,i){return <div key={"n"+i} style={{textAlign:"center",padding:"5px 2px 3px",fontSize:11.5,fontWeight:700,color:"var(--muted)",opacity:.35}}>{i+1}</div>;})}
     </div>
-    <div style={{marginTop:9,paddingTop:9,borderTop:"1px solid var(--border)"}}>
+    {/* V323: lista do dia - notas, lembretes, delegados e contas */}
+    <div style={{marginTop:9,paddingTop:9,borderTop:"1px solid var(--border)",maxHeight:210,overflowY:"auto"}}>
       <div style={{fontSize:12,fontWeight:700,lineHeight:1.3}}>{DSEM_V322[_sd.getDay()]+(_sd.getDay()===0||_sd.getDay()===6?"":"-feira")+", "+_sd.getDate()+" de "+MONTHS_PT[_sd.getMonth()].toLowerCase()}</div>
       <div style={{fontSize:10.5,color:"var(--muted)",marginTop:2}}>{_rel+" \u00b7 "+(_q>0?(_q+" consulta"+(_q>1?"s":"")):"sem consultas")}</div>
+      {notasDoDia(calSel).map(function(n){
+        var _atr=!n.done&&n.date<=_td;
+        return <div key={"nt"+n.id} style={{display:"flex",alignItems:"flex-start",gap:7,padding:"7px 8px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,background:_atr?"var(--red-soft)":"var(--amber-soft)",border:"1px solid "+(_atr?G.red:G.gold)+"55"}}>
+          <i className="ph-fill ph-note-pencil" style={{fontSize:13,marginTop:1,flexShrink:0,color:_atr?G.red:G.gold}}></i>
+          <span style={{flex:1,minWidth:0,textDecoration:n.done?"line-through":"none",opacity:n.done?.5:1}}>{n.hora?<b style={{color:"var(--primary)"}}>{n.hora+" "}</b>:null}{n.txt}</span>
+          <button onClick={function(){togNota(n.id);}} title="Concluir" style={{border:"none",background:"transparent",cursor:"pointer",fontSize:13,color:n.done?G.primary:"var(--muted)",padding:"0 2px"}}><i className="ph-bold ph-check"></i></button>
+          <button onClick={function(){rmNota(n.id);}} title="Excluir" style={{border:"none",background:"transparent",cursor:"pointer",fontSize:13,color:"var(--muted)",padding:"0 2px"}}><i className="ph-bold ph-x"></i></button>
+        </div>;
+      })}
+      {remsDoDia(calSel).map(function(r){
+        return <div key={"lm"+r.id} style={{display:"flex",alignItems:"flex-start",gap:7,padding:"7px 8px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,background:"var(--accent)",border:"1px solid var(--border)"}}>
+          <i className="ph-fill ph-bell" style={{fontSize:13,marginTop:1,flexShrink:0,color:G.blue}}></i>
+          <span style={{flex:1,minWidth:0}}>{r.title}<span style={{display:"block",fontSize:9.5,color:"var(--muted)",fontWeight:700,marginTop:2}}>{r.assignedUserId?"Lembrete seu":"Lembrete geral"}{" \u00b7 conclua em Lembretes"}</span></span>
+        </div>;
+      })}
+      {delegDoDia(calSel).map(function(r){
+        var _atr=!r.done&&r.date<=_td;
+        return <div key={"dg"+r.id} style={{display:"flex",alignItems:"flex-start",gap:7,padding:"7px 8px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,background:_atr?"var(--amber-soft)":"var(--bg)",border:"1px dashed "+(_atr?G.gold:"var(--border)")}}>
+          <i className="ph-fill ph-paper-plane-tilt" style={{fontSize:13,marginTop:1,flexShrink:0,color:_atr?G.gold:"var(--muted)"}}></i>
+          <span style={{flex:1,minWidth:0,textDecoration:r.done?"line-through":"none",opacity:r.done?.55:1}}>{r.title}<span style={{display:"block",fontSize:9.5,color:"var(--muted)",fontWeight:700,marginTop:2}}>{"Enviei para "+_nomeUserV323(r.assignedUserId).split(" ")[0]+" \u00b7 "+(r.done?("feito"+(r.doneBy?" por "+String(r.doneBy).split(" ")[0]:"")):(_atr?"ainda não concluído":"aguardando"))}</span></span>
+          {r.done&&<i className="ph-bold ph-check" style={{color:G.primary,fontSize:13,marginTop:1}}></i>}
+        </div>;
+      })}
+      {contasDoDia(calSel).map(function(c){
+        return <div key={"gs"+c.tab+c.id} style={{display:"flex",alignItems:"flex-start",gap:7,padding:"7px 8px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,background:"var(--purple-soft)",border:"1px solid "+G.purple+"55"}}>
+          <i className="ph-fill ph-receipt" style={{fontSize:13,marginTop:1,flexShrink:0,color:G.purple}}></i>
+          <span style={{flex:1,minWidth:0}}>{c.desc}<span style={{display:"block",fontSize:9.5,color:"var(--muted)",fontWeight:700,marginTop:2}}>{(c.tab==="pessoal"?"Pessoal":"Clínica")+(c.cat?" \u00b7 "+c.cat:"")+" \u00b7 dê baixa em Gastos"}</span></span>
+          <b style={{color:G.purple,fontSize:11,whiteSpace:"nowrap"}}>{cur(c.value)}</b>
+        </div>;
+      })}
+      {(notasDoDia(calSel).length+remsDoDia(calSel).length+delegDoDia(calSel).length+contasDoDia(calSel).length)===0&&<div style={{fontSize:11,color:"var(--muted)",marginTop:8,textAlign:"center",padding:"6px 0"}}>{"Nada anotado neste dia"}</div>}
     </div>
+    {/* V323: escrever nota no dia selecionado */}
+    <NotaInputV323 onAdd={addNota}/>
     <div style={{display:"flex",gap:6,marginTop:9}}>
       <button onClick={function(){var _n=new Date();setCalSel(_td);setCalVY(_n.getFullYear());setCalVM(_n.getMonth());}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 6px",fontSize:11,fontWeight:700,cursor:"pointer",background:"var(--accent)",color:"var(--primary)",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}><i className="ph-light ph-arrow-counter-clockwise"></i>Hoje</button>
       <button onClick={function(){setAgendaSelDate(calSel);setCalOpen(false);go("agenda");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 6px",fontSize:11,fontWeight:700,cursor:"pointer",background:"var(--primary)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}><i className="ph-fill ph-calendar-blank"></i>Abrir na agenda</button>
