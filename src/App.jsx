@@ -481,6 +481,34 @@ const SLOTS_ORTO=(()=>{const s=[];for(let h=8;h<=19;h++){for(let m=0;m<60;m+=20)
 s.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);}}return s;})();
 const MONTHS_PT=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const DSEM_V322=["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];// V322: calendario rapido da lateral
+// V327: dias em que o sistema cobra o backup (0=dom ... 6=sab). Hoje: segunda, quarta e sexta.
+const DIAS_BKP_V327=[1,3,5];
+const ehDiaBkp_V327=function(ds){
+  if(!ds)return false;
+  var d=new Date(String(ds)+"T12:00");
+  if(isNaN(d.getTime()))return false;
+  return DIAS_BKP_V327.indexOf(d.getDay())>=0;
+};
+const bkpDoDia_V327=function(log,ds){
+  var l=(log||[]).filter(function(b){return b&&b.date===ds;});
+  return l.length?l[l.length-1]:null;
+};
+// Dias de backup ja vencidos e sem backup, contados a partir do ultimo backup feito.
+// Um backup feito hoje limpa os dias esquecidos: nao faz sentido cobrar tres no mesmo dia.
+const bkpAtrasados_V327=function(log,hj){
+  var out=[];
+  if(!hj)return out;
+  var ult="";
+  (log||[]).forEach(function(b){if(b&&b.date&&b.date>ult)ult=b.date;});
+  var d=new Date(String(hj)+"T12:00");
+  d.setDate(d.getDate()-21);
+  for(var i=0;i<22;i++){
+    var ds=_ld(d);
+    if(ds<=hj&&ehDiaBkp_V327(ds)&&!bkpDoDia_V327(log,ds)&&(!ult||ds>ult))out.push(ds);
+    d.setDate(d.getDate()+1);
+  }
+  return out;
+};
 // V323: contas em aberto que vencem num dia. Mesma regra da tela de Gastos:
 // avulso vence na "date"; recorrente vence todo mes no "diaVenc"; parcelado vence
 // no mesmo dia do mes enquanto houver parcela ativa. Pago sai da lista (paid ou pagoMeses[ym]).
@@ -10362,7 +10390,7 @@ function ConfigAcesso({acessoCfg,setAcessoCfg}){
     </div>
   </div>;
 }
-function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog,acessoCfg,setAcessoCfg}){
+function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog,acessoCfg,setAcessoCfg,bkpLog,setBkpLog}){
 const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
 const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
 const TIPO_L_LOG={all:"Todos",agenda:"Agenda",paciente:"Paciente",financeiro:"Financeiro",estoque:"Estoque",protese:"Protese",lembrete:"Lembrete",remarcar:"Remarcar",admin:"Admin"};
@@ -10677,11 +10705,32 @@ return(
         if(navigator.clipboard){navigator.clipboard.writeText(json);}
         else{var w=window.open("","_blank");if(w){w.document.write("<pre>"+json+"</pre>");w.document.close();}}
       }
+      // V327: registra o backup para o calendario saber que foi feito
+      try{
+        var _agora=new Date();
+        var _hh=String(_agora.getHours()).padStart(2,"0")+":"+String(_agora.getMinutes()).padStart(2,"0");
+        var _reg={id:nid(),date:_ld(_agora),at:_hh,by:String((user&&user.name)||""),pats:(bkp.pats||[]).length,_ts:Date.now(),_cr:Date.now()};
+        if(typeof setBkpLog==="function")setBkpLog(function(p){var l=(p||[]).concat([_reg]);return l.length>120?l.slice(-120):l;});
+      }catch(e){}
       setBkpDone((bkp.pats||[]).length);
     }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
       {"⬇️ Baixar Backup JSON"}
     </button>
     {bkpDone!==false&&<div style={{background:"var(--green-soft)",border:"1.5px solid #A5D6A7",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#2E7D32",textAlign:"center"}}>{"✅ Backup gerado com "+bkpDone+" paciente(s)! Arquivo salvo na pasta Downloads."}</div>}
+    {/* V327: historico dos backups. Alimenta o lembrete de seg/qua/sex do calendario. */}
+    <div style={{background:"var(--surface)",borderRadius:12,padding:"12px 14px",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px var(--nm-light)"}}>
+      <div style={{fontWeight:800,fontSize:11,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>{"Últimos backups"}</div>
+      {(!bkpLog||!bkpLog.length)?<div style={{fontSize:12.5,color:G.muted}}>{"Nenhum backup registrado ainda. O primeiro que você gerar já entra aqui e no calendário."}</div>
+      :(bkpLog||[]).slice(-8).reverse().map(function(b,i){
+        var _d=new Date(String(b.date)+"T12:00");
+        return <div key={"bk"+(b.id||i)} style={{display:"flex",gap:9,alignItems:"center",padding:"6px 0",borderBottom:i<Math.min(8,bkpLog.length)-1?"1px solid var(--border)":"none",fontSize:12.5}}>
+          <i className="ph-fill ph-check-circle" style={{color:"#2E7D32",fontSize:15,flexShrink:0}}></i>
+          <b style={{minWidth:52}}>{String(_d.getDate()).padStart(2,"0")+"/"+String(_d.getMonth()+1).padStart(2,"0")}</b>
+          <span style={{color:G.muted,minWidth:62}}>{DSEM_V322[_d.getDay()]}</span>
+          <span style={{flex:1,textAlign:"right",color:G.muted,fontSize:11.5}}>{String(b.at||"")+(b.by?" · "+String(b.by).split(" ").slice(-1)[0]:"")+(b.pats?" · "+b.pats+" pac.":"")}</span>
+        </div>;
+      })}
+    </div>
   </div>
 
   <div style={{background:"var(--surface)",border:"1.5px solid "+G.border,borderRadius:12,padding:"14px 16px",display:"flex",flexDirection:"column",gap:10}}>
@@ -15304,6 +15353,7 @@ const [calVY,setCalVY]=useState(new Date().getFullYear());// V322
 const [calVM,setCalVM]=useState(new Date().getMonth());// V322
 const [calSel,setCalSel]=useState(today());// V322
 const [notas,setNotas]=useState([]);// V323: notas pessoais do calendario (uid = dono)
+const [bkpLog,setBkpLog]=useState([]);// V327: registro dos backups feitos (data, hora, quem)
 // V323: o texto da nota vive dentro de NotaInputV323, nao aqui (evita re-render do app a cada tecla)
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
 const [waTemplates,setWaTemplates]=useState({});
@@ -15564,6 +15614,7 @@ setTreats(treatsmig);
 if(data.pros?.length)setPros(data.pros);
 if(data.rems?.length)setRems(data.rems);
 if(data.notas?.length)setNotas(data.notas);// V323
+if(data.bkpLog?.length)setBkpLog(data.bkpLog);// V327
 if(data.budgets?.length)setBudgets(data.budgets);
 if(data.users?.length)setUsers(data.users);
 if(data.dents?.length)setDents(data.dents);
@@ -15967,6 +16018,7 @@ useEffect(function(){
           mergeArr(pros,sd.pros,setPros,"pros");
           mergeArr(rems,sd.rems,setRems,"rems");
           mergeArr(notas,sd.notas,setNotas,"notas");// V323
+          mergeArr(bkpLog,sd.bkpLog,setBkpLog,"bkpLog");// V327
           mergeArr(logs,sd.logs,setLogs);
           mergeArr(implMov,sd.implMov,setImplMov,"implMov");
           mergeArr(implCat,sd.implCat,setImplCat,"implCat");
@@ -15998,7 +16050,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,notas,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
+    const payload={appts,recs,treats,pros,rems,notas,bkpLog,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
     if(!patTableOk.current)payload.pats=pats;
     // V313: assinatura ANTES do carimbo _vers (o _vers muda a cada save e mascararia a comparacao).
     var _sigNow=null;try{_sigNow=JSON.stringify(payload);}catch(e){_sigNow=null;}
@@ -16630,7 +16682,9 @@ const calPend=(notas||[]).filter(function(n){return n&&Number(n.uid)===_meuId&&!
   +(rems||[]).filter(function(r){return r&&!r.done&&r.date<=_hjV323&&(Number(r.assignedUserId)===_meuId||!r.assignedUserId);}).length;// V323
 const calCobrar=(rems||[]).filter(function(r){return r&&!r.done&&r.date<=_hjV323&&r.criadoPorId!=null&&Number(r.criadoPorId)===_meuId&&r.assignedUserId&&Number(r.assignedUserId)!==_meuId;});// V323
 const calContasHoje=(user.level>=3)?vencemNoDia_V323(gastos,_hjV323):[];// V323
-const calAlerta=(calPend>0||calContasHoje.length>0);// V323: vermelho no card da lateral
+// V327: backup so e cobrado do nivel 3 (a tela de Backup e nivel 3)
+const calBkpAtras=(user.level>=3)?bkpAtrasados_V327(bkpLog,_hjV323):[];// V327
+const calAlerta=(calPend>0||calContasHoje.length>0||calBkpAtras.length>0);// V323 // V327: backup tambem acende
 const addNota=function(_t,_h){_t=String(_t||"").trim();if(!_t)return;
   setNotas(function(p){return (p||[]).concat([{id:nid(),uid:_meuId,date:calSel,hora:String(_h||""),txt:_t,done:false,_ts:Date.now(),_cr:Date.now()}]);});};// V323
 const togNota=function(id){setNotas(function(p){return (p||[]).map(function(n){return n.id===id?Object.assign({},n,{done:!n.done,_ts:Date.now()}):n;});});};// V323
@@ -16706,6 +16760,7 @@ return <>
       {/* V323: linhas de aviso do card - vermelho e coisa minha, ambar e cobranca */}
       {calPend>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:G.red,padding:"5px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.red,flexShrink:0}}></span>{calPend+(calPend>1?" compromissos":" compromisso")+" para hoje"}</div>}
       {calContasHoje.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:G.red,padding:"3px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.red,flexShrink:0}}></span>{cur(calContasHoje.reduce(function(s,c){return s+c.value;},0))+" a pagar hoje"}</div>}
+      {calBkpAtras.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:G.red,padding:"3px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.red,flexShrink:0}}></span>{(calBkpAtras.length===1&&calBkpAtras[0]===_hjV323)?"Backup do sistema hoje":("Backup atrasado desde "+DSEM_V322[new Date(calBkpAtras[0]+"T12:00").getDay()].toLowerCase())}</div>}
       {calCobrar.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:"#9C7418",padding:"3px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.gold,flexShrink:0}}></span>{calCobrar.length+(calCobrar.length>1?" pendentes com ":" pendente com ")+Array.from(new Set(calCobrar.map(function(r){return _nomeUserV323(r.assignedUserId).split(" ")[0];}))).join(", ")}</div>}
       <div style={{height:1,background:"var(--border)",marginTop:9}}></div>
     </div>
@@ -16761,7 +16816,7 @@ return <>
     {view==="holerite"&&user.level>=3&&<Holerites hol={hol} setHol={setHol} users={users} user={user}/>}{/* V300 */}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientDirtyRef.current=true;setOrientacoes(v);}} user={user}/>}
     {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} setRecs={setRecs} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
-    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog} acessoCfg={acessoCfg} setAcessoCfg={setAcessoCfg}/>}
+    {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog} acessoCfg={acessoCfg} setAcessoCfg={setAcessoCfg} bkpLog={bkpLog} setBkpLog={setBkpLog}/>}
     </div>
   </div>
 </div>
@@ -16811,6 +16866,7 @@ return <>
         if(remsDoDia(ds).length>0)_pt.push(G.blue);
         if(delegDoDia(ds).filter(function(r){return !r.done;}).length>0)_pt.push("var(--muted)");
         if(contasDoDia(ds).length>0)_pt.push(G.purple);
+        if(user.level>=3&&ehDiaBkp_V327(ds))_pt.push(bkpDoDia_V327(bkpLog,ds)?"#2E7D32":(ds<=_td?G.red:"var(--muted)"));// V327
         return <div key={ds} onClick={function(){setCalSel(ds);}} style={{borderRadius:7,padding:"3.5px 2px 2px",textAlign:"center",cursor:"pointer",background:isSel?"var(--primary)":"transparent",border:"1.5px solid "+((isTd&&!isSel)?"var(--primary)":"transparent")}}>
           <div style={{fontSize:11.5,fontWeight:700,color:isSel?"#fff":"var(--text)"}}>{i+1}</div>
           <div style={{display:"flex",gap:1.5,justifyContent:"center",height:5,marginTop:1}}>{_pt.slice(0,4).map(function(c,ci){return <span key={ci} style={{width:3.5,height:3.5,borderRadius:"50%",background:c}}></span>;})}</div>
@@ -16853,7 +16909,18 @@ return <>
           <b style={{color:G.purple,fontSize:11,whiteSpace:"nowrap"}}>{cur(c.value)}</b>
         </div>;
       })}
-      {(notasDoDia(calSel).length+remsDoDia(calSel).length+delegDoDia(calSel).length+contasDoDia(calSel).length)===0&&<div style={{fontSize:11,color:"var(--muted)",marginTop:8,textAlign:"center",padding:"6px 0"}}>{"Nada anotado neste dia"}</div>}
+      {/* V327: backup do sistema - marca sozinho quando o arquivo e gerado */}
+      {user.level>=3&&ehDiaBkp_V327(calSel)&&(function(){
+        var _b=bkpDoDia_V327(bkpLog,calSel);
+        var _venc=!_b&&calSel<=_td;
+        return <div style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 9px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,background:_b?"var(--green-soft)":(_venc?"var(--red-soft)":"var(--bg)"),border:"1px solid "+(_b?"#A5D6A7":(_venc?G.red+"55":"var(--border)"))}}>
+          <i className={_b?"ph-fill ph-check-square":"ph-fill ph-floppy-disk"} style={{fontSize:15,flexShrink:0,color:_b?"#2E7D32":(_venc?G.red:"var(--muted)")}}></i>
+          <span style={{flex:1,minWidth:0,textDecoration:_b?"line-through":"none",opacity:_b?.6:1}}>{"Backup do sistema"}
+            <span style={{display:"block",fontSize:9.5,color:"var(--muted)",fontWeight:700,marginTop:2,textDecoration:"none"}}>{_b?("feito às "+String(_b.at||"")+(_b.by?" por "+String(_b.by).split(" ").slice(-1)[0]:"")):(_venc?"ainda não feito · Administrativo › Backup":"programado")}</span>
+          </span>
+        </div>;
+      })()}
+      {(notasDoDia(calSel).length+remsDoDia(calSel).length+delegDoDia(calSel).length+contasDoDia(calSel).length)===0&&!(user.level>=3&&ehDiaBkp_V327(calSel))&&<div style={{fontSize:11,color:"var(--muted)",marginTop:8,textAlign:"center",padding:"6px 0"}}>{"Nada anotado neste dia"}</div>}
     </div>
     {/* V323: escrever nota no dia selecionado */}
     <NotaInputV323 onAdd={addNota}/>
