@@ -6155,8 +6155,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
     <div style={{borderRadius:12,padding:"12px 14px",background:"var(--surface)",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px var(--nm-light)"}}><div style={{fontSize:10,color:G.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:".4px"}}>Saídas do mês</div><div style={{fontSize:19,fontWeight:800,marginTop:5,color:G.red}}>{cur(mesOut)}</div></div>
   </div>
   <div style={{display:"flex",gap:10}}>
-    <button onClick={function(){abrir("out");}} style={{flex:1,border:"none",borderRadius:12,padding:"13px 10px",fontSize:13.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:7,cursor:"pointer",background:G.red,color:"#fff",boxShadow:"4px 4px 11px rgba(150,40,30,.32),-3px -3px 8px var(--nm-light)"}}><i className="ph-bold ph-minus-circle"></i> Registrar saída</button>
-    {isAdmin&&<button onClick={function(){abrir("in");}} style={{flex:1,border:"none",borderRadius:12,padding:"13px 10px",fontSize:13.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:7,cursor:"pointer",background:G.primary,color:"#ead9b6",boxShadow:"4px 4px 11px rgba(34,70,52,.40),-3px -3px 8px var(--nm-light)"}}><i className="ph-bold ph-plus-circle"></i> Adicionar valor</button>}
+    <button onClick={function(){abrir("out");}} style={{flex:1,border:"none",borderRadius:12,padding:"13px 10px",fontSize:13.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:7,cursor:"pointer",background:G.red,color:"#fff",boxShadow:"4px 4px 11px rgba(150,40,30,.32),-3px -3px 8px var(--nm-light)"}}><i className="ph-fill ph-minus-circle"></i> Registrar saída</button>
+    {isAdmin&&<button onClick={function(){abrir("in");}} style={{flex:1,border:"none",borderRadius:12,padding:"13px 10px",fontSize:13.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:7,cursor:"pointer",background:G.primary,color:"#ead9b6",boxShadow:"4px 4px 11px rgba(34,70,52,.40),-3px -3px 8px var(--nm-light)"}}><i className="ph-fill ph-plus-circle"></i> Adicionar valor</button>}
   </div>
   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
     <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>Movimentações</h3>
@@ -15085,7 +15085,7 @@ return (<button key={ch[0]} onClick={function(){setFiltroTipo(atv?null:ch[0]);}}
 {g.resolvido&&g.resTick&&<div style={{fontSize:10,color:G.muted,marginTop:3,fontStyle:"italic"}}>{"por "+(g.resTick.by||"\u2014")+(g.resTick.date?(" \u00b7 "+g.resTick.date):"")}</div>}
 </div>
 {/* V267: botao marcar como resolvido / desfazer */}
-{(!g.resolvido&&g.tipo&&(g.tipo.k==="responder"||g.tipo.k==="orcamento"))&&<button title="Marcar como resolvido" onClick={function(e){e.stopPropagation();marcarResolvido(g);}} style={{flexShrink:0,width:36,height:36,borderRadius:"50%",border:"1.5px solid rgba(47,143,95,.45)",background:"rgba(47,143,95,.10)",color:G.success,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}><i className="ph-bold ph-check"></i></button>}
+{(!g.resolvido&&g.tipo&&(g.tipo.k==="responder"||g.tipo.k==="orcamento"))&&<button title="Marcar como resolvido" onClick={function(e){e.stopPropagation();marcarResolvido(g);}} style={{flexShrink:0,width:36,height:36,borderRadius:"50%",border:"1.5px solid rgba(47,143,95,.45)",background:"rgba(47,143,95,.10)",color:G.success,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}><i className="ph-fill ph-check"></i></button>}
 {g.resolvido&&<button onClick={function(e){e.stopPropagation();desfazerResolvido(g);}} style={{flexShrink:0,border:"none",background:"transparent",color:G.muted,fontSize:11,fontWeight:700,cursor:"pointer",textDecoration:"underline",padding:4,fontFamily:"'Manrope'"}}>{"desfazer"}</button>}
 </div>
 );})}
@@ -16730,7 +16730,7 @@ return <>
   <div className="main-content" style={{flex:1,overflowY:"auto",minWidth:0,background:"var(--bg)"}}>
     {/* Mobile top bar */}
     <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:"var(--surface)",position:"sticky",top:0,zIndex:100,boxShadow:"0 7px 14px -9px var(--nm-dark),inset 0 -1px 0 var(--border)"}} className="mobile-topbar">
-      <button onClick={()=>setSideOpen(true)} style={{border:"none",background:"var(--accent)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",borderRadius:9,color:"var(--primary)",fontSize:18,cursor:"pointer",padding:"7px 11px",lineHeight:1,flexShrink:0}}><i className="ph-bold ph-list"></i></button>
+      <button onClick={()=>setSideOpen(true)} style={{border:"none",background:"var(--accent)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",borderRadius:9,color:"var(--primary)",fontSize:18,cursor:"pointer",padding:"7px 11px",lineHeight:1,flexShrink:0}}><i className="ph-fill ph-list"></i></button>
       <div style={{flex:1,fontFamily:"'Cormorant Garamond'",fontSize:17,color:"var(--text)",fontWeight:700}}>
         {NAV.find(n=>n.id===view)?.l||"Visão Geral"}
       </div>
@@ -16824,11 +16824,12 @@ return <>
       <div style={{fontSize:10.5,color:"var(--muted)",marginTop:2}}>{_rel+" \u00b7 "+(_q>0?(_q+" consulta"+(_q>1?"s":"")):"sem consultas")}</div>
       {notasDoDia(calSel).map(function(n){
         var _atr=!n.done&&n.date<=_td;
-        return <div key={"nt"+n.id} style={{display:"flex",alignItems:"flex-start",gap:7,padding:"7px 8px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,background:_atr?"var(--red-soft)":"var(--amber-soft)",border:"1px solid "+(_atr?G.red:G.gold)+"55"}}>
-          <i className="ph-fill ph-note-pencil" style={{fontSize:13,marginTop:1,flexShrink:0,color:_atr?G.red:G.gold}}></i>
-          <span style={{flex:1,minWidth:0,textDecoration:n.done?"line-through":"none",opacity:n.done?.5:1}}>{n.hora?<b style={{color:"var(--primary)"}}>{n.hora+" "}</b>:null}{n.txt}</span>
-          <button onClick={function(){togNota(n.id);}} title="Concluir" style={{border:"none",background:"transparent",cursor:"pointer",fontSize:13,color:n.done?G.primary:"var(--muted)",padding:"0 2px"}}><i className="ph-bold ph-check"></i></button>
-          <button onClick={function(){rmNota(n.id);}} title="Excluir" style={{border:"none",background:"transparent",cursor:"pointer",fontSize:13,color:"var(--muted)",padding:"0 2px"}}><i className="ph-bold ph-x"></i></button>
+        // V326: a linha inteira marca e desmarca. O X so aparece quando ja esta feita,
+        // para nao apagar sem querer o que voce so queria concluir.
+        return <div key={"nt"+n.id} onClick={function(){togNota(n.id);}} title={n.done?"Clique para desmarcar":"Clique para marcar como feita"} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 9px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,cursor:"pointer",background:n.done?"var(--bg)":(_atr?"var(--red-soft)":"var(--amber-soft)"),border:"1px solid "+(n.done?"var(--border)":(_atr?G.red:G.gold)+"55")}}>
+          <i className={n.done?"ph-fill ph-check-square":"ph ph-square"} style={{fontSize:15,marginTop:0,flexShrink:0,color:n.done?G.primary:(_atr?G.red:G.gold)}}></i>
+          <span style={{flex:1,minWidth:0,textDecoration:n.done?"line-through":"none",opacity:n.done?.5:1}}>{n.hora?<b style={{color:n.done?"var(--muted)":"var(--primary)"}}>{n.hora+" "}</b>:null}{n.txt}</span>
+          {n.done&&<button onClick={function(e){e.stopPropagation();rmNota(n.id);}} title="Excluir nota" style={{border:"none",background:"transparent",cursor:"pointer",fontSize:13,color:"var(--muted)",padding:"0 2px",flexShrink:0}}><i className="ph-fill ph-trash"></i></button>}
         </div>;
       })}
       {remsDoDia(calSel).map(function(r){
@@ -16842,7 +16843,7 @@ return <>
         return <div key={"dg"+r.id} style={{display:"flex",alignItems:"flex-start",gap:7,padding:"7px 8px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,background:_atr?"var(--amber-soft)":"var(--bg)",border:"1px dashed "+(_atr?G.gold:"var(--border)")}}>
           <i className="ph-fill ph-paper-plane-tilt" style={{fontSize:13,marginTop:1,flexShrink:0,color:_atr?G.gold:"var(--muted)"}}></i>
           <span style={{flex:1,minWidth:0,textDecoration:r.done?"line-through":"none",opacity:r.done?.55:1}}>{r.title}<span style={{display:"block",fontSize:9.5,color:"var(--muted)",fontWeight:700,marginTop:2}}>{"Enviei para "+_nomeUserV323(r.assignedUserId).split(" ")[0]+" \u00b7 "+(r.done?("feito"+(r.doneBy?" por "+String(r.doneBy).split(" ")[0]:"")):(_atr?"ainda não concluído":"aguardando"))}</span></span>
-          {r.done&&<i className="ph-bold ph-check" style={{color:G.primary,fontSize:13,marginTop:1}}></i>}
+          {r.done&&<i className="ph-fill ph-check" style={{color:G.primary,fontSize:13,marginTop:1}}></i>}
         </div>;
       })}
       {contasDoDia(calSel).map(function(c){
