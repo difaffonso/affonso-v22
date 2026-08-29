@@ -471,6 +471,7 @@ const SCN_IC={confirmed:"ph-check-circle",pending:"ph-clock",waiting:"ph-circle"
 const GRAD={confirmed:"linear-gradient(145deg,#5a9fd4,#2566a8)",pending:"linear-gradient(145deg,#ecbf5e,#c6941f)",waiting:"linear-gradient(145deg,#ec9f4f,#cf6b2a)",done:"linear-gradient(145deg,#57bd88,var(--green))",cancelled:"linear-gradient(145deg,#db8f7d,#b8443a)",missed:"linear-gradient(145deg,#b39ac6,#8a5fb0)",rescheduled:"linear-gradient(145deg,#9aa8b0,#6b7c84)",blocked:"linear-gradient(145deg,#db8f7d,#b8443a)"};
 const GLOW={confirmed:"rgba(40,110,180,.5)",pending:"rgba(200,150,40,.5)",waiting:"rgba(200,110,40,.55)",done:"rgba(50,150,100,.5)",cancelled:"rgba(180,70,55,.45)",missed:"rgba(140,95,175,.45)",rescheduled:"rgba(107,124,132,.4)",blocked:"rgba(180,70,55,.45)"};
 const PROS_T=["Coroa Metalocerâmica","Coroa Zircônia","Coroa Porcelana","PPR","PPF","Prótese Total","Faceta","Inlay/Onlay","Implante (coroa)","Protocolo","Outro"];
+const PROS_ESC=["Vita Clássica","Vita 3D-Master","Chromascop (Ivoclar)","Trilux / VIPI","Biolux / VIPI Dent","Bleach (BL)","Outra"]; // V324: escalas de cor
 const PROS_SL={waiting:"Aguardando",returned:"Retornou",placed:"Instalada",remake:"Refazer"};
 const PROS_SC={waiting:G.yellow,returned:G.blue,placed:G.success,remake:G.red};
 const IMPL_ST=["Extração","Enxerto","Implante","Prótese","Controle"];
@@ -5464,7 +5465,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // PRÓTESES - with editable proc types
 // ══════════════════════════════════════════════════════════
-function Proteses({pros,setPros,pats,dents,labs,prosProcs,setProsProcs,user,logs,addLog}){
+function Proteses({pros,setPros,pats,dents,labs,prosProcs,setProsProcs,user,logs,addLog,appts=[]}){// V325: appts p/ puxar da agenda
 const [filt,setFilt]=useState("today");const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);const [srch,setSrch]=useState("");// V212 busca paciente
 const [procModal,setProcModal]=useState(false);const [procForm,setProcForm]=useState({name:"",price:""});const [editProc,setEditProc]=useState(null);
 // V278: detetive de proteses -- quem cadastrou / deu baixa / instalou
@@ -5475,7 +5476,7 @@ const fmtTsP=iso=>{if(!iso)return "";const x=new Date(iso);if(isNaN(x))return ""
 const logP=(desc,patName)=>{try{if(typeof addLog==="function")addLog("protese",desc,patName||"");}catch(e){}};
 const patNm=id=>{const q=pats.find(x=>x.id===id);return (q&&q.name)||"";};
 const descP=q=>q.type+((q.qty||1)>1?" \u00d7"+q.qty:"")+(q.proc?" -- "+q.proc:"");
-const b0={patientId:"",dentistId:1,labId:"",type:PROS_T[0],proc:"",tooth:"",sent:today(),due:"",returned:"",status:"waiting",notes:"",price:"",qty:"1"};
+const b0={patientId:"",dentistId:1,labId:"",type:PROS_T[0],proc:"",tooth:"",sent:today(),due:"",returned:"",status:"waiting",notes:"",price:"",qty:"1",cor:"",escala:"",pdata:"",phora:""};// V324 cor/escala + V325 data do paciente
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const t=today();
 // Atrasadas: aguardando com previsão anterior a hoje (mais antiga = mais atrasada vem primeiro)
@@ -5536,6 +5537,8 @@ return <div key={p.id} style={late?{background:G.red+"10",borderRadius:12,paddin
 <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}><span style={{fontWeight:700,fontSize:13,color:late?G.red:G.text}}>{pat?.name}</span><span style={{fontSize:11,color:G.muted}}>P.{pat?.folder}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/>{late&&<Bdg l="⚠ ATRASADO" col={G.red} sm/>}{isT&&!late&&<Bdg l="📅 HOJE" col={G.orange} sm/>}{/* V278: detetive -- quem mexeu neste trabalho (nivel 3) */}{user.level>=3&&<button onClick={e=>{e.stopPropagation();setDetPros(p);}} title="Quem deu a baixa?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:26,height:26,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}</div>
 <div style={{fontSize:12}}>🦷 <strong>{p.type}</strong>{(p.qty||1)>1?" ×"+p.qty:""} -- {p.proc}</div>
 <div style={{fontSize:11,color:G.muted,marginTop:2}}>Dente: {p.tooth||"--"} · 🏥 {lab?.name} · Enviado: {fmt(p.sent)} · Previsão: {fmt(p.due)}{p.returned?` · Retornou: ${fmt(p.returned)}`:""}</div>
+{(p.cor||p.escala)&&<div style={{fontSize:11,color:G.primary,fontWeight:700}}>{"\ud83c\udfa8 Cor: "}<b>{p.cor||"--"}</b>{p.escala?<span style={{color:G.muted,fontWeight:600}}>{" \u00b7 "+p.escala}</span>:null}</div>}{/* V324 */}
+{p.pdata&&<div style={{fontSize:11,fontWeight:700,color:(p.due&&p.due>p.pdata)?G.red:G.primary}}>{((p.due&&p.due>p.pdata)?"⚠️ ":"📅 ")+"Paciente marcado: "+fmt(p.pdata)+(p.phora?" às "+p.phora:"")}</div>}{/* V325 */}
 <div style={{fontSize:11,color:den.color}}>👨‍⚕️ {den.name}</div>
 <div style={{fontSize:11,color:G.primary,fontWeight:700}}>💰 Custo Lab: {cur((p.price||0)*(p.qty||1))}{(p.qty||1)>1?" ("+p.qty+" × "+cur(p.price)+")":""}</div>
 {p.notes&&<div style={{fontSize:10,color:G.muted,fontStyle:"italic"}}>{p.notes}</div>}
@@ -5543,7 +5546,7 @@ return <div key={p.id} style={late?{background:G.red+"10",borderRadius:12,paddin
 <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}>
 {p.status==="waiting"&&<Btn ch="📦 Chegou!" sm onClick={()=>{setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"returned",returned:t,_recBy:uName,_recTs:new Date().toISOString(),_ts:Date.now()}:x));logP("Deu baixa na pr\u00f3tese ("+descP(p)+")",pat?.name||"");}}/>}
 {p.status==="returned"&&<Btn ch="✓ Instalada" v="y" sm onClick={()=>{setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"placed",_instBy:uName,_instTs:new Date().toISOString(),_ts:Date.now()}:x));logP("Marcou como instalada a pr\u00f3tese ("+descP(p)+")",pat?.name||"");}}/>}
-{lab?.phone&&<Btn ch="📱 Lab" v="w" sm onClick={()=>wa(lab.phone,`Olá ${lab.name}! Verificando ${p.type} paciente ${pat?.name}, dente ${p.tooth}. Enviada ${fmt(p.sent)}, previsão ${fmt(p.due)}.`)}/>}
+{lab?.phone&&<Btn ch="📱 Lab" v="w" sm onClick={()=>wa(lab.phone,`Olá ${lab.name}! Verificando ${p.type} paciente ${pat?.name}, dente ${p.tooth}${p.cor?", cor "+p.cor+(p.escala?" ("+p.escala+")":""):""}. Enviada ${fmt(p.sent)}, previsão ${fmt(p.due)}.${p.pdata?" O paciente está marcado para "+fmt(p.pdata)+(p.phora?" às "+p.phora:"")+".":""}`)}/>}
 <Btn ch="Editar" v="g" sm onClick={()=>{setEdit(p);setF({...p,patientId:String(p.patientId),dentistId:String(p.dentistId),labId:String(p.labId),price:String(p.price||""),qty:String(p.qty||1)});setModal(true);}}/>
 <Btn ch="✕ Excluir" v="r" sm onClick={()=>{setPros(prev=>prev.filter(x=>x.id!==p.id));logP("Excluiu pr\u00f3tese ("+descP(p)+")"+(p.price?", custo lab "+cur((p.price||0)*(p.qty||1)):""),pat?.name||"");}}/>
 </div>
@@ -5627,6 +5630,17 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 </div>
 <div style={{display:"grid",gridTemplateColumns:"0.55fr 1fr",gap:8}}><Inp lb="Qtd" val={f.qty} set={v=>setF(p=>({...p,qty:v}))} type="number" ph="1"/><Inp lb="💰 Custo Lab cada (R$)" val={f.price} set={v=>setF(p=>({...p,price:v}))} type="number" ph="0,00"/></div>
 </div>
+{/* V324: cor e escala de cor */}
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+<Inp lb="🎨 Cor" val={f.cor||""} set={v=>setF(p=>({...p,cor:v}))} ph="Ex: A3,5 · 661 · 62 · BL2"/>
+<div style={{display:"flex",flexDirection:"column",gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Escala de cor</label>
+<select value={f.escala||""} onChange={e=>setF(p=>({...p,escala:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--surface)"}}>
+<option value="">Selecione a escala...</option>
+{PROS_ESC.map(x=><option key={x} value={x}>{x}</option>)}
+</select>
+</div>
+</div>
 <div style={{display:"flex",flexDirection:"column",gap:4}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Procedimento a Realizar</label>
 <select value={prosProcs.find(p=>p.name===f.proc)?f.proc:(f.proc?"__custom__":"")} onChange={e=>{const v=e.target.value;if(v==="__custom__"){setF(p=>({...p,proc:""}));}else if(v===""){setF(p=>({...p,proc:""}));}else{const selP=prosProcs.find(pp=>pp.name===v);setF(p=>({...p,proc:v,price:(selP&&selP.price>0)?String(selP.price):p.price}));}}} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--surface)"}}>
@@ -5639,6 +5653,21 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
 <Inp lb="Data de Envio" val={f.sent} set={v=>setF(p=>({...p,sent:v}))} type="date"/>
 <Inp lb="Previsão de Retorno" val={f.due} set={v=>setF(p=>({...p,due:v}))} type="date"/>
+</div>
+{/* V325: data e horario da consulta do paciente */}
+<div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 0.62fr auto",gap:9,alignItems:"end"}}>
+<Inp lb="📅 Paciente marcado em" val={f.pdata||""} set={v=>setF(p=>({...p,pdata:v}))} type="date"/>
+<Inp lb="Horário" val={f.phora||""} set={v=>setF(p=>({...p,phora:v}))} type="time"/>
+<button onClick={()=>{
+if(!f.patientId)return alert("Selecione o paciente primeiro.");
+const hj=today();
+const prox=appts.filter(a=>a.patientId===f.patientId&&a.date>=hj&&!a.blocked&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed").sort((a,b)=>a.date===b.date?String(a.time||"").localeCompare(String(b.time||"")):a.date.localeCompare(b.date))[0];
+if(!prox)return alert("Nenhuma consulta futura encontrada na agenda para este paciente.");
+setF(p=>({...p,pdata:prox.date,phora:prox.time||""}));
+}} style={{border:`1.5px solid ${G.border}`,background:G.card,color:G.primary,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",height:38}}>📅 Puxar da agenda</button>
+</div>
+{f.pdata&&f.due&&f.due>f.pdata&&<div style={{background:"var(--amber-soft)",border:`1.5px solid ${G.yellow}`,borderRadius:9,padding:"8px 12px",fontSize:12,color:G.yellow,fontWeight:600,marginTop:7,lineHeight:1.5}}>{"⚠️ A previsão de retorno do laboratório ("+fmt(f.due)+") é depois da consulta do paciente ("+fmt(f.pdata)+(f.phora?" às "+f.phora:"")+"). Não dá tempo."}</div>}
 </div>
 {edit&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
 <Inp lb="Data Retorno Real" val={f.returned} set={v=>setF(p=>({...p,returned:v}))} type="date"/>
@@ -16714,7 +16743,7 @@ return <>
       {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
       {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
-      {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog}/>}
+      {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog} appts={appts}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts} abrirFicha={abrirFicha}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
       {view==="remarcar"&&<RemarcarView appts={appts} setAppts={setAppts} pats={pats} dents={dents} remarcar={remarcar} setRemarcar={setRemarcar} abrirFicha={abrirFicha} treats={treats}/>}
