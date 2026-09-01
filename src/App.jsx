@@ -2123,7 +2123,7 @@ setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",n
 };
 const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets),_by:(budgEdit&&budgEdit._by)||(user&&user.name)||""};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
-const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["odonto3d","🦷 3D"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],["termo","📋 Termo"],["docs","📑 Documentos"],...(!isDentUser?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];
+const TABS=[["ficha","📋 Ficha"],["anamnese","🩺 Anamnese"],["tratamento","🦷 Tratamento"],["odonto3d","🦷 3D"],["evolucao","📝 Evolução"],["imagens","📷 Imagens"],["historico","📅 Histórico"],["atestado","📄 Atestado"],["termo","📋 Termo"],["docs","📑 Documentos"],...((!isDentUser&&!ehAux_V329(user))?[["financeiro","💰 Financeiro"],["nf","🧾 Nota Fiscal"]]:[])];// V329
 // NF (Nota Fiscal) state
 const [nfModal,setNfModal]=useState(false);
 const [showAtestado,setShowAtestado]=useState(false);
@@ -5400,7 +5400,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <Btn ch="📋 Prontuário" sm onClick={()=>setOpenFolder(p)}/>
 {user.level>=2&&<Btn ch="✏️" v="g" sm onClick={()=>{setEp(p);setPf({...p});setPm(true);}}/>}
 {p.phone&&user.level>=2&&<Btn ch="📱" v="w" sm onClick={()=>wa(p.phone,`Olá ${p.name}! 😊`)}/>}
-{user.level>=2&&<Btn ch="🗑️" v="r" sm onClick={()=>{const td=appts.some(a=>a.patientId===p.id)||recs.some(r=>r.patientId===p.id);setDelModal({pat:p,temDados:td});}}/>}
+{user.level>=2&&!ehAux_V329(user)&&<Btn ch="🗑️" v="r" sm onClick={()=>{const td=appts.some(a=>a.patientId===p.id)||recs.some(r=>r.patientId===p.id);setDelModal({pat:p,temDados:td});}}/>}{/* V329 */}
 </div>
 </div>)}
 
@@ -8105,7 +8105,7 @@ return <div key={l.k} style={{background:G.bg,borderRadius:12,padding:"11px 13px
 </div>;
 }
 function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha,setRecs=function(){},waSent={},orcResp={},setOrcResp=function(){}}){
-const [tab,setTab]=useState("dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [orcFilter,setOrcFilter]=useState(null);const [openOrto,setOpenOrto]=useState({});const [openDent,setOpenDent]=useState({});const [openProt,setOpenProt]=useState({});
+const [tab,setTab]=useState(ehAux_V329(user)?"prot":"dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [orcFilter,setOrcFilter]=useState(null);const [openOrto,setOpenOrto]=useState({});const [openDent,setOpenDent]=useState({});const [openProt,setOpenProt]=useState({});
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
 const [allSelMsg,setAllSelMsg]=useState(false);
@@ -8183,7 +8183,7 @@ const isPagoG=e=>(e.recorrente||e.parcelado)?!!(e.pagoMeses&&e.pagoMeses[mo]):!!
 const clinicaG=gastoMes(gastos&&gastos.clinica);
 const pessoalG=gastoMes(gastos&&gastos.pessoal);
 
-const TABS=[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["buscar","🔎 Buscar"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];
+const TABS=ehAux_V329(user)?[["prot","Protéticos"]]:[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["buscar","🔎 Buscar"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];// V329
 if(user.level>=3)TABS.push(["gastos","💸 Gastos"]);
 if(user.level>=3)TABS.push(["nf","🧾 Notas"]);
 const TABS_R=(user&&user.level>=3)?TABS.concat([["respOrc","💬 Respostas Orç."]]):TABS; // V232: aba exclusiva do admin (V235: movido para depois dos push de Gastos/Notas)
@@ -10426,7 +10426,7 @@ const [um,setUm]=useState(false);const [pm,setPm]=useState(false);const [lm,setL
 const [bkpDone,setBkpDone]=useState(false);
 const [restoreDone,setRestoreDone]=useState("");
 const [eu,setEu]=useState(null);const [ep,setEp]=useState(null);const [el,setEl]=useState(null);const [ed,setEd]=useState(null);
-const b0={name:"",role:"Recepcionista",level:2,login:"",pass:"",dentistId:"",color:UCOLS[0],active:true,criaDentista:false};
+const b0={name:"",role:"Recepcionista",level:2,aux:false,login:"",pass:"",dentistId:"",color:UCOLS[0],active:true,criaDentista:false};// V329
 const bp={name:"",price:0};const bl={name:"",contact:"",phone:""};
 const bd={name:"",specialty:"Clinico Geral",commission:40,cro:"",color:UCOLS[0],dias:[1,2,3,4,5],entrada:"08:00",saida:"18:00",almoco:{ini:"12:00",fim:"13:00"}};
 const [uf,setUf]=useState(b0);const [pf,setPf]=useState(bp);const [lf,setLf]=useState(bl);const [df,setDf]=useState(bd);
@@ -10477,7 +10477,7 @@ return <div key={u.id} style={{background:G.card,borderRadius:11,padding:"11px 1
 <div style={{width:34,height:34,borderRadius:"50%",background:u.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>{u.name[0]}</div>
 <div style={{flex:1,minWidth:0}}>
 <div style={{fontWeight:700,fontSize:13}}>{u.name}</div>
-<div style={{fontSize:11,color:G.muted}}>{u.role} - {u.login} - Nivel {["","Basico","Intermediario","Total"][u.level]}</div>
+<div style={{fontSize:11,color:G.muted}}>{u.role} - {u.login} - Nivel {ehAux_V329(u)?"Auxiliar (reduzido)":["","Basico","Intermediario","Total"][u.level]}</div>{/* V329 */}
 {linkedDent&&<div style={{fontSize:10,color:linkedDent.color,fontWeight:700,marginTop:2}}>Dentista: {linkedDent.name}</div>}
 </div>
 <Bdg l={u.active?"Ativo":"Inativo"} col={u.active?G.success:G.red} sm/>
@@ -10812,7 +10812,8 @@ return(
 <Modal open={um} close={()=>setUm(false)} title={eu?"Editar Usuário":"Novo Usuário"} wide ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
 <Inp lb="Nome completo" val={uf.name} set={fu("name")}/>
 <R2 a={<Inp lb="Login" val={uf.login} set={fu("login")}/>} b={<Inp lb="Senha" type="password" val={uf.pass} set={fu("pass")}/>}/>
-<R2 a={<Sel lb="Função" val={uf.role} set={fu("role")} opts={["Administrador","Dentista","Recepcionista","Assistente"]}/>} b={<Sel lb="Nível" val={String(uf.level)} set={v=>fu("level")(Number(v))} opts={[{v:1,l:"1 - Básico (Dentista)"},{v:2,l:"2 - Intermediário (Recepção)"},{v:3,l:"3 - Total (Admin)"}]}/>}/>
+<R2 a={<Sel lb="Função" val={uf.role} set={fu("role")} opts={["Administrador","Dentista","Recepcionista","Auxiliar","Assistente"]}/>} b={<Sel lb="Nível" val={uf.aux?"2aux":String(uf.level)} set={v=>setUf(function(p){return v==="2aux"?Object.assign({},p,{level:2,aux:true,role:"Auxiliar"}):Object.assign({},p,{level:Number(v),aux:false});})} opts={[{v:1,l:"1 - Básico (Dentista)"},{v:2,l:"2 - Intermediário (Recepção)"},{v:"2aux",l:"2 - Auxiliar (acesso reduzido)"},{v:3,l:"3 - Total (Admin)"}]}/>}/>
+{uf.aux&&<div style={{background:G.accent,borderRadius:9,padding:"9px 12px",fontSize:11.5,color:G.primary,lineHeight:1.5}}>{"Auxiliar vê: Visão Geral, Agenda, Pacientes, Lembretes, Receituário, Orientações, Ponto, Próteses, Estoque e o relatório de Protéticos. Não vê financeiro, caixa, gastos, conversas, remarcar, satisfação nem administrativo. No estoque só lança entrada e saída, e não pode excluir paciente."}</div>}{/* V329 */}
 <Sel lb="Dentista vinculado" val={String(uf.dentistId)} set={fu("dentistId")} opts={[{v:"",l:"Nenhum"},...dents.map(d=>({v:d.id,l:d.name}))]}/>
 
   <div><div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Cor</div>
@@ -12129,6 +12130,9 @@ function EspelhoMensal({pontos,pontoCfg,users,afast}){
    ============================================================= */
 
 // ---- catalogo de blocos ----
+// V329: perfil Auxiliar -- roda como nivel 2 porem so enxerga as telas desta lista branca
+const AUX_OK_V329={dash:1,agenda:1,pacs:1,lems:1,rec:1,orient:1,ponto:1,pros:1,stk:1,rel:1};
+function ehAux_V329(u){return !!(u&&u.aux&&Number(u.level||0)===2);}
 const PNL_CAT=[
   {k:"ponto",      e:"⏱",  t:"Seu ponto de ontem",            cor:"primary", lv:2, tipo:"pontoMe", tela:"ponto", d:"Como fechou o seu dia anterior"},
   {k:"pontoEquipe",e:"⏱",  t:"Ponto da equipe — ontem",       cor:"primary", lv:3, tipo:"pontoEq", tela:"ponto", d:"Quem bateu, quem esqueceu", porDia:true, na:"Já ajustei"},
@@ -12167,6 +12171,7 @@ const PNL_DUP=["aniversarios","estoque","proteses","espera"];
 function pnlDisp(u){
   return PNL_CAT.filter(function(b){
     if(b.lv>Number((u&&u.level)||1))return false;
+    if(ehAux_V329(u)&&!AUX_OK_V329[b.tela])return false;// V329
     if(Number((u&&u.level)||1)>=3&&PNL_DUP.indexOf(b.k)>=0)return false;
     return true;
   });
@@ -12632,7 +12637,7 @@ function pnlAbertura(u){
     var kD="pnl_dia_"+u.id;
     if(localStorage.getItem(kD)!==today()){localStorage.setItem(kD,today());return "dash";}
     var last=localStorage.getItem("pnl_view_"+u.id);
-    if(last&&(PNL_LV[last]||1)<=Number(u.level||1))return last;
+    if(last&&(PNL_LV[last]||1)<=Number(u.level||1)&&(!ehAux_V329(u)||AUX_OK_V329[last]))return last;// V329
   }catch(e){}
   return u.level>=3?"dash":"agenda";
 }
@@ -16743,10 +16748,12 @@ const ALL_NAV=[
 // Gestão
 {id:"rel",l:"Relatórios",ic:"ph-chart-bar",lv:2,grp:"Gestão"},{id:"audit",l:"Auditoria",ic:"ph-magnifying-glass",lv:3,grp:"Gestão"},{id:"adm",l:"Administrativo",ic:"ph-gear",lv:3,grp:"Gestão"},
 ];
-const NAV=ALL_NAV.filter(n=>n.lv<=user.level);
+const _isAuxV329=ehAux_V329(user);// V329
+const NAV=ALL_NAV.filter(n=>n.lv<=user.level&&(!_isAuxV329||AUX_OK_V329[n.id]));
 const go=v=>{
 const n=ALL_NAV.find(x=>x.id===v)||{lv:1};
 if(n.lv>user.level){alert("Acesso não autorizado.");return;}
+if(_isAuxV329&&!AUX_OK_V329[v]){alert("Acesso não autorizado.");return;}// V329
 try{localStorage.setItem("pnl_view_"+user.id,v);}catch(e){} // V290: lembra a ultima tela
 setView(v);
 setSideOpen(false); // close menu on mobile after navigation
@@ -16754,7 +16761,9 @@ setSideOpen(false); // close menu on mobile after navigation
 const cp={pats,dents,procs,user,espera:espera,waEvent:waEvent,docsEmitidos,setDocsEmitidos,addLog:function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}};// V320: docsEmitidos
 
 // Bottom nav shortcuts (most used)
-const BOTTOM_NAV=user.level>=3
+const BOTTOM_NAV=_isAuxV329
+?[{id:"dash",icon:"ph-house"},{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"pros",icon:"ph-first-aid-kit"},{id:"ponto",icon:"ph-clock"}]
+:user.level>=3
 ?[{id:"dash",icon:"ph-house"},{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"pixdent",icon:"ph-hand-coins"},{id:"adm",icon:"ph-gear"},{id:"ponto",icon:"ph-clock"}]
 :user.level===2
 ?[{id:"dash",icon:"ph-house"},{id:"agenda",icon:"ph-calendar-blank"},{id:"pacs",icon:"ph-users"},{id:"lems",icon:"ph-bell",b:remBadge},{id:"rel",icon:"ph-chart-bar"},{id:"ponto",icon:"ph-clock"}]
