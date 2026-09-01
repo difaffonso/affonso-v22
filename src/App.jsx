@@ -537,11 +537,12 @@ function vencemNoDia_V323(gastos,ds){
 // V328: recebimentos lancados fora do dia, agrupados pelo dia em que foram DIGITADOS.
 // Mesma regra da auditoria V250 da Visao Geral: compara r.date (data do recebimento)
 // com o dia real da digitacao (r.ts). Sai da lista quando alguem marca _revRetro.
-function retroNoDia_V328(recs,ds){
+function retroNoDia_V328(recs,ds,incRev){
   var out=[];
   if(!ds||!recs)return out;
   (recs||[]).forEach(function(r){
-    if(!r||!r.ts||r._revRetro)return;
+    if(!r||!r.ts)return;
+    if(r._revRetro&&!incRev)return;// V330: com incRev o resolvido continua na lista, so que em cinza
     if(typeof r.date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))return;
     var _dt=new Date(r.ts);
     var dig=isNaN(_dt)?String(r.ts).split("T")[0]:(_dt.getFullYear()+"-"+String(_dt.getMonth()+1).padStart(2,"0")+"-"+String(_dt.getDate()).padStart(2,"0"));
@@ -549,9 +550,9 @@ function retroNoDia_V328(recs,ds){
     if(dig<=r.date)return;
     var dias=Math.round((new Date(dig+"T12:00")-new Date(r.date+"T12:00"))/86400000);
     var mesDif=dig.slice(0,7)!==r.date.slice(0,7);
-    out.push({r:r,dias:dias,dig:dig,mesDif:mesDif,grave:mesDif||dias>3});
+    out.push({r:r,dias:dias,dig:dig,mesDif:mesDif,grave:mesDif||dias>3,rev:!!r._revRetro});// V330
   });
-  out.sort(function(a,b){return b.dias-a.dias;});
+  out.sort(function(a,b){return (a.rev?1:0)-(b.rev?1:0)||b.dias-a.dias;});// V330: pendente primeiro
   return out;
 }
 const EXPENSE_CATS=["Aluguel","Água","Luz","Internet","Telefone","Salários","Material","Equipamento","Manutenção","Contabilidade","Outros"];
@@ -16118,7 +16119,7 @@ useEffect(function(){
           lastSavedSigRef.current=_sigNow; // V313: so marca depois do save confirmado. Save que falhou continua sendo retentado.
           {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
           lastSavedGastosKeys.current=_gKeys(gastos);
-          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes,stock:stock});// V289 stock
+          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
           // Atualizar timestamp do servidor para o nosso
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
@@ -16384,6 +16385,7 @@ useEffect(function(){
       setTreats(function(prev){var _a=mergeTreats(prev,sd.treats,_diSetP);return JSON.stringify(_a)===JSON.stringify(prev)?prev:_a;});
       addArr(sd.pros,setPros,"pros");
       addArr(sd.rems,setRems,"rems");
+      addArr(sd.notas,setNotas,"notas");// V330: notas nao entrava no poll -- aparelho aberto ficava com lista velha
       addArr(sd.logs,setLogs);
       addArr(sd.pontos,setPontos);
       addArr(sd.caixa,setCaixa); // V190: caixa agora sincroniza no poll
@@ -16720,7 +16722,8 @@ const calPend=(notas||[]).filter(function(n){return n&&Number(n.uid)===_meuId&&!
 const calCobrar=(rems||[]).filter(function(r){return r&&!r.done&&r.date<=_hjV323&&r.criadoPorId!=null&&Number(r.criadoPorId)===_meuId&&r.assignedUserId&&Number(r.assignedUserId)!==_meuId;});// V323
 const calContasHoje=(user.level>=3)?vencemNoDia_V323(gastos,_hjV323):[];// V323
 // V328: recebimento lancado com data retroativa acende no dia em que foi digitado
-const retroDoDia=function(ds){return (user.level>=3)?retroNoDia_V328(recs,ds):[];};// V328
+const retroDoDia=function(ds){return (user.level>=3)?retroNoDia_V328(recs,ds,true):[];};// V328 // V330: inclui os ja resolvidos
+const marcarRetroCal=function(id,undo){if(!setRecs)return;setRecs(function(p){return (p||[]).map(function(x){return x.id!==id?x:Object.assign({},x,{_revRetro:undo?null:{by:(user&&user.name)||"",at:new Date().toISOString()},_ts:Date.now()});});});};// V330: mesmo campo da Visao Geral, nenhum array novo
 const calRetroHoje=(user.level>=3)?retroNoDia_V328(recs,_hjV323):[];// V328
 // V327: backup so e cobrado do nivel 3 (a tela de Backup e nivel 3)
 const calBkpAtras=(user.level>=3)?bkpAtrasados_V327(bkpLog,_hjV323):[];// V327
@@ -16728,7 +16731,9 @@ const calAlerta=(calPend>0||calContasHoje.length>0||calBkpAtras.length>0||calRet
 const addNota=function(_t,_h){_t=String(_t||"").trim();if(!_t)return;
   setNotas(function(p){return (p||[]).concat([{id:nid(),uid:_meuId,date:calSel,hora:String(_h||""),txt:_t,done:false,_ts:Date.now(),_cr:Date.now()}]);});};// V323
 const togNota=function(id){setNotas(function(p){return (p||[]).map(function(n){return n.id===id?Object.assign({},n,{done:!n.done,_ts:Date.now()}):n;});});};// V323
-const rmNota=function(id){if(!window.confirm("Excluir esta nota?"))return;setNotas(function(p){return (p||[]).filter(function(n){return n.id!==id;});});};// V323
+const rmNota=function(id){if(!window.confirm("Excluir esta nota?"))return;
+  try{var _dn=delItemsRef.current||[];if(_dn.indexOf("notas:"+id)<0)_dn.push("notas:"+id);delItemsRef.current=_dn.length>5000?_dn.slice(-5000):_dn;}catch(e){}// V330: lapide na hora, senao o poll de 15s trazia a nota de volta antes do save
+  setNotas(function(p){return (p||[]).filter(function(n){return n.id!==id;});});};// V323
 
 const remBadge=(user.level===1)
 ?rems.filter(r=>!r.done&&(r.assignedUserId===user.id||!r.assignedUserId)&&r.date<=today()).length
@@ -16958,10 +16963,17 @@ return <>
       {/* V328: recebimento lancado fora do dia - aparece no dia em que foi digitado */}
       {retroDoDia(calSel).map(function(x){
         var _p=(pats||[]).find(function(q){return String(q.id)===String(x.r.patientId);});
-        return <div key={"rt"+x.r.id} onClick={function(){setCalOpen(false);go("dash");}} title="Abrir a Visão Geral para revisar" style={{display:"flex",alignItems:"flex-start",gap:7,padding:"7px 8px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,cursor:"pointer",background:"var(--red-soft)",border:"1px solid "+G.red+"55"}}>
-          <i className="ph-fill ph-clock-counter-clockwise" style={{fontSize:13,marginTop:1,flexShrink:0,color:G.red}}></i>
-          <span style={{flex:1,minWidth:0}}>{(_p&&_p.name)||("Paciente #"+x.r.patientId)}<span style={{display:"block",fontSize:9.5,color:"var(--muted)",fontWeight:700,marginTop:2}}>{"Recebimento de "+fmt(x.r.date)+" · "+x.dias+(x.dias===1?" dia depois":" dias depois")+(x.mesDif?", mês diferente":"")+(x.r._by?" · por "+String(x.r._by).split(" ")[0]:"")}</span></span>
-          <b style={{color:G.red,fontSize:11,whiteSpace:"nowrap"}}>{cur(x.r.paid)}</b>
+        // V330: resolvido nao some mais - fica em cinza com autor e hora, e sai do contador vermelho da lateral
+        var _rv=x.rev,_ra=(x.r._revRetro&&x.r._revRetro.at)?new Date(x.r._revRetro.at):null;
+        var _rds=(_ra&&!isNaN(_ra))?(_ra.getFullYear()+"-"+String(_ra.getMonth()+1).padStart(2,"0")+"-"+String(_ra.getDate()).padStart(2,"0")):"";
+        var _rlab=(_ra&&!isNaN(_ra))?((_rds===_td?"hoje":fmt(_rds))+" "+String(_ra.getHours()).padStart(2,"0")+":"+String(_ra.getMinutes()).padStart(2,"0")):"";
+        return <div key={"rt"+x.r.id} onClick={function(){setCalOpen(false);go("dash");}} title="Abrir a Visão Geral" style={{display:"flex",alignItems:"flex-start",gap:7,padding:"7px 8px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,cursor:"pointer",background:_rv?"var(--bg)":"var(--red-soft)",border:"1px solid "+(_rv?"var(--border)":G.red+"55")}}>
+          <i className={_rv?"ph-fill ph-check-circle":"ph-fill ph-clock-counter-clockwise"} style={{fontSize:13,marginTop:1,flexShrink:0,color:_rv?G.primary:G.red}}></i>
+          <span style={{flex:1,minWidth:0}}><span style={{textDecoration:_rv?"line-through":"none",opacity:_rv?.55:1}}>{(_p&&_p.name)||("Paciente #"+x.r.patientId)}</span><span style={{display:"block",fontSize:9.5,color:_rv?G.primary:"var(--muted)",fontWeight:700,marginTop:2}}>{_rv?("Resolvido"+((x.r._revRetro&&x.r._revRetro.by)?" por "+String(x.r._revRetro.by).split(" ")[0]:"")+(_rlab?" · "+_rlab:"")):("Recebimento de "+fmt(x.r.date)+" · "+x.dias+(x.dias===1?" dia depois":" dias depois")+(x.mesDif?", mês diferente":"")+(x.r._by?" · por "+String(x.r._by).split(" ")[0]:""))}</span></span>
+          <span style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
+            <b style={{color:_rv?"var(--muted)":G.red,fontSize:11,whiteSpace:"nowrap"}}>{cur(x.r.paid)}</b>
+            <button onClick={function(e){e.stopPropagation();marcarRetroCal(x.r.id,_rv);}} title={_rv?"Desfazer":"Marcar como resolvido"} style={{border:_rv?"none":"1px solid "+G.red+"77",background:"transparent",borderRadius:6,padding:_rv?"0 2px":"2px 6px",cursor:"pointer",fontSize:12,lineHeight:1,color:_rv?"var(--muted)":G.red}}><i className={_rv?"ph-fill ph-arrow-counter-clockwise":"ph-fill ph-check"}></i></button>
+          </span>
         </div>;
       })}
       {/* V327: backup do sistema - marca sozinho quando o arquivo e gerado */}
