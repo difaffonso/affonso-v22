@@ -534,6 +534,26 @@ function vencemNoDia_V323(gastos,ds){
   });
   return out;
 }
+// V328: recebimentos lancados fora do dia, agrupados pelo dia em que foram DIGITADOS.
+// Mesma regra da auditoria V250 da Visao Geral: compara r.date (data do recebimento)
+// com o dia real da digitacao (r.ts). Sai da lista quando alguem marca _revRetro.
+function retroNoDia_V328(recs,ds){
+  var out=[];
+  if(!ds||!recs)return out;
+  (recs||[]).forEach(function(r){
+    if(!r||!r.ts||r._revRetro)return;
+    if(typeof r.date!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))return;
+    var _dt=new Date(r.ts);
+    var dig=isNaN(_dt)?String(r.ts).split("T")[0]:(_dt.getFullYear()+"-"+String(_dt.getMonth()+1).padStart(2,"0")+"-"+String(_dt.getDate()).padStart(2,"0"));
+    if(dig!==ds)return;
+    if(dig<=r.date)return;
+    var dias=Math.round((new Date(dig+"T12:00")-new Date(r.date+"T12:00"))/86400000);
+    var mesDif=dig.slice(0,7)!==r.date.slice(0,7);
+    out.push({r:r,dias:dias,dig:dig,mesDif:mesDif,grave:mesDif||dias>3});
+  });
+  out.sort(function(a,b){return b.dias-a.dias;});
+  return out;
+}
 const EXPENSE_CATS=["Aluguel","Água","Luz","Internet","Telefone","Salários","Material","Equipamento","Manutenção","Contabilidade","Outros"];
 
 // ── Seeds ──────────────────────────────────────────────────
@@ -12777,6 +12797,18 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
   <i className="ph-light ph-caret-right" style={{fontSize:17,color:G.red}}></i>
   </div>;})()}
 
+  {/* V328: recebimento lancado fora do dia sobe para o topo - o bloco detalhado continua abaixo */}
+  {pnlLegOn(user,"retro")&&retroPend.length>0&&(function(){
+  var _gv=retroPend.filter(function(x){return x.grave;}).length;
+  return <div onClick={function(){setORetro(true);}} style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borderRadius:14,padding:"13px 15px",display:"flex",gap:11,alignItems:"center",cursor:"pointer"}}>
+  <span style={{fontSize:19,lineHeight:1}}>{"\u26a0"}</span>
+  <div style={{flex:1,minWidth:0}}>
+  <div style={{fontWeight:800,fontSize:13.5,color:G.red}}>{retroPend.length+(retroPend.length>1?" recebimentos lançados fora do dia":" recebimento lançado fora do dia")}</div>
+  <div style={{fontSize:11.5,color:G.muted,marginTop:2}}>{cur(retroTot)+(_gv>0?(" · "+_gv+(_gv>1?" graves":" grave")):"")+" · toque para revisar abaixo"}</div>
+  </div>
+  <i className="ph-light ph-caret-right" style={{fontSize:17,color:G.red}}></i>
+  </div>;})()}
+
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9}}>
     {[["👥",pats.length,"Pacientes",G.primary,"cardPacientes"],["📅",todayCount,"Hoje",G.blue,"cardHoje"],["💰",cur(rev),"Receita mês",G.success,"cardReceita"]].filter(function(c){return pnlLegOn(user,c[4]);}).map(function(c){return <div key={c[2]} style={{background:G.card,borderRadius:12,padding:"11px 12px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+c[3]}}><div style={{fontSize:17}}>{c[0]}</div><div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,color:c[3]}}>{c[1]}</div><div style={{fontSize:10,color:G.muted,fontWeight:600}}>{c[2]}</div></div>;})}
   </div>
@@ -16682,9 +16714,12 @@ const calPend=(notas||[]).filter(function(n){return n&&Number(n.uid)===_meuId&&!
   +(rems||[]).filter(function(r){return r&&!r.done&&r.date<=_hjV323&&(Number(r.assignedUserId)===_meuId||!r.assignedUserId);}).length;// V323
 const calCobrar=(rems||[]).filter(function(r){return r&&!r.done&&r.date<=_hjV323&&r.criadoPorId!=null&&Number(r.criadoPorId)===_meuId&&r.assignedUserId&&Number(r.assignedUserId)!==_meuId;});// V323
 const calContasHoje=(user.level>=3)?vencemNoDia_V323(gastos,_hjV323):[];// V323
+// V328: recebimento lancado com data retroativa acende no dia em que foi digitado
+const retroDoDia=function(ds){return (user.level>=3)?retroNoDia_V328(recs,ds):[];};// V328
+const calRetroHoje=(user.level>=3)?retroNoDia_V328(recs,_hjV323):[];// V328
 // V327: backup so e cobrado do nivel 3 (a tela de Backup e nivel 3)
 const calBkpAtras=(user.level>=3)?bkpAtrasados_V327(bkpLog,_hjV323):[];// V327
-const calAlerta=(calPend>0||calContasHoje.length>0||calBkpAtras.length>0);// V323 // V327: backup tambem acende
+const calAlerta=(calPend>0||calContasHoje.length>0||calBkpAtras.length>0||calRetroHoje.length>0);// V323 // V327: backup tambem acende // V328: recebimento fora do dia
 const addNota=function(_t,_h){_t=String(_t||"").trim();if(!_t)return;
   setNotas(function(p){return (p||[]).concat([{id:nid(),uid:_meuId,date:calSel,hora:String(_h||""),txt:_t,done:false,_ts:Date.now(),_cr:Date.now()}]);});};// V323
 const togNota=function(id){setNotas(function(p){return (p||[]).map(function(n){return n.id===id?Object.assign({},n,{done:!n.done,_ts:Date.now()}):n;});});};// V323
@@ -16761,6 +16796,7 @@ return <>
       {calPend>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:G.red,padding:"5px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.red,flexShrink:0}}></span>{calPend+(calPend>1?" compromissos":" compromisso")+" para hoje"}</div>}
       {calContasHoje.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:G.red,padding:"3px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.red,flexShrink:0}}></span>{cur(calContasHoje.reduce(function(s,c){return s+c.value;},0))+" a pagar hoje"}</div>}
       {calBkpAtras.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:G.red,padding:"3px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.red,flexShrink:0}}></span>{(calBkpAtras.length===1&&calBkpAtras[0]===_hjV323)?"Backup do sistema hoje":("Backup atrasado desde "+DSEM_V322[new Date(calBkpAtras[0]+"T12:00").getDay()].toLowerCase())}</div>}
+      {calRetroHoje.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:G.red,padding:"3px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.red,flexShrink:0}}></span>{calRetroHoje.length+(calRetroHoje.length>1?" recebimentos lançados fora do dia":" recebimento lançado fora do dia")}</div>}
       {calCobrar.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,fontSize:10,fontWeight:800,color:"#9C7418",padding:"3px 4px 0"}}><span style={{width:6,height:6,borderRadius:"50%",background:G.gold,flexShrink:0}}></span>{calCobrar.length+(calCobrar.length>1?" pendentes com ":" pendente com ")+Array.from(new Set(calCobrar.map(function(r){return _nomeUserV323(r.assignedUserId).split(" ")[0];}))).join(", ")}</div>}
       <div style={{height:1,background:"var(--border)",marginTop:9}}></div>
     </div>
@@ -16866,6 +16902,7 @@ return <>
         if(remsDoDia(ds).length>0)_pt.push(G.blue);
         if(delegDoDia(ds).filter(function(r){return !r.done;}).length>0)_pt.push("var(--muted)");
         if(contasDoDia(ds).length>0)_pt.push(G.purple);
+        if(retroDoDia(ds).length>0)_pt.push(G.red);// V328
         if(user.level>=3&&ehDiaBkp_V327(ds))_pt.push(bkpDoDia_V327(bkpLog,ds)?"#2E7D32":(ds<=_td?G.red:"var(--muted)"));// V327
         return <div key={ds} onClick={function(){setCalSel(ds);}} style={{borderRadius:7,padding:"3.5px 2px 2px",textAlign:"center",cursor:"pointer",background:isSel?"var(--primary)":"transparent",border:"1.5px solid "+((isTd&&!isSel)?"var(--primary)":"transparent")}}>
           <div style={{fontSize:11.5,fontWeight:700,color:isSel?"#fff":"var(--text)"}}>{i+1}</div>
@@ -16909,6 +16946,15 @@ return <>
           <b style={{color:G.purple,fontSize:11,whiteSpace:"nowrap"}}>{cur(c.value)}</b>
         </div>;
       })}
+      {/* V328: recebimento lancado fora do dia - aparece no dia em que foi digitado */}
+      {retroDoDia(calSel).map(function(x){
+        var _p=(pats||[]).find(function(q){return String(q.id)===String(x.r.patientId);});
+        return <div key={"rt"+x.r.id} onClick={function(){setCalOpen(false);go("dash");}} title="Abrir a Visão Geral para revisar" style={{display:"flex",alignItems:"flex-start",gap:7,padding:"7px 8px",borderRadius:9,marginTop:6,fontSize:11.5,lineHeight:1.35,cursor:"pointer",background:"var(--red-soft)",border:"1px solid "+G.red+"55"}}>
+          <i className="ph-fill ph-clock-counter-clockwise" style={{fontSize:13,marginTop:1,flexShrink:0,color:G.red}}></i>
+          <span style={{flex:1,minWidth:0}}>{(_p&&_p.name)||("Paciente #"+x.r.patientId)}<span style={{display:"block",fontSize:9.5,color:"var(--muted)",fontWeight:700,marginTop:2}}>{"Recebimento de "+fmt(x.r.date)+" · "+x.dias+(x.dias===1?" dia depois":" dias depois")+(x.mesDif?", mês diferente":"")+(x.r._by?" · por "+String(x.r._by).split(" ")[0]:"")}</span></span>
+          <b style={{color:G.red,fontSize:11,whiteSpace:"nowrap"}}>{cur(x.r.paid)}</b>
+        </div>;
+      })}
       {/* V327: backup do sistema - marca sozinho quando o arquivo e gerado */}
       {user.level>=3&&ehDiaBkp_V327(calSel)&&(function(){
         var _b=bkpDoDia_V327(bkpLog,calSel);
@@ -16920,7 +16966,7 @@ return <>
           </span>
         </div>;
       })()}
-      {(notasDoDia(calSel).length+remsDoDia(calSel).length+delegDoDia(calSel).length+contasDoDia(calSel).length)===0&&!(user.level>=3&&ehDiaBkp_V327(calSel))&&<div style={{fontSize:11,color:"var(--muted)",marginTop:8,textAlign:"center",padding:"6px 0"}}>{"Nada anotado neste dia"}</div>}
+      {(notasDoDia(calSel).length+remsDoDia(calSel).length+delegDoDia(calSel).length+contasDoDia(calSel).length+retroDoDia(calSel).length)===0&&!(user.level>=3&&ehDiaBkp_V327(calSel))&&<div style={{fontSize:11,color:"var(--muted)",marginTop:8,textAlign:"center",padding:"6px 0"}}>{"Nada anotado neste dia"}</div>}
     </div>
     {/* V323: escrever nota no dia selecionado */}
     <NotaInputV323 onAdd={addNota}/>
