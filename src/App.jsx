@@ -9260,7 +9260,7 @@ function cpCalc(s,ini,nMes,usarAj,meses,folga){
   var cf=(man!=null)?["Você definiu",G.primary]:(nOut>=3?["Confiança alta",G.success]:(nOut>=1?["Confiança média",G.gold]:(ajn>0?["Só contagem",G.red]:["Sem dados","#9aa39c"])));
   return {s:s,cons:cons,qtd:qtd,dd:dd,sug:sug,cf:cf,nOut:nOut,ajn:ajn,man:man,sem:(cons<=0)};
 }
-function Estoque({cotExtra,setCotExtra,stock,setStock,implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user,gastos,setGastos,auditDismiss,setAuditDismiss}){
+function Estoque({cotExtra,setCotExtra,stock,setStock,implCat,setImplCat,implMov,setImplMov,implFech,setImplFech,pats,dents,addLog,user,gastos,setGastos,auditDismiss,setAuditDismiss}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
 const [relSub,setRelSub]=useState("resumo");// V268 sub-abas do relatorio (resumo/in/out/aj)
@@ -9385,7 +9385,7 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 <button onClick={function(){setStkTab("material");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="material"?"var(--card)":G.bg,color:stkTab==="material"?G.primary:G.muted,boxShadow:stkTab==="material"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"📦 Material"}</button>
 <button onClick={function(){setStkTab("implantes");}} style={{flex:1,border:"none",borderRadius:9,padding:"9px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:stkTab==="implantes"?"var(--card)":G.bg,color:stkTab==="implantes"?G.primary:G.muted,boxShadow:stkTab==="implantes"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"🦷 Implantes"}</button>
 </div>
-{stkTab==="implantes"&&<ImplantesConsig implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={addLog} user={user}/>}
+{stkTab==="implantes"&&<ImplantesConsig implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} implFech={implFech} setImplFech={setImplFech} pats={pats} dents={dents} addLog={addLog} user={user}/>}
 {stkTab==="material"&&<>
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
 <button onClick={function(){setMatTab("itens");}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 4px",fontSize:12,fontWeight:700,cursor:"pointer",background:matTab==="itens"?"var(--card)":G.bg,color:matTab==="itens"?G.primary:G.muted,boxShadow:matTab==="itens"?"0 1px 4px rgba(0,0,0,.1)":"none"}}>{"Itens"}</button>
@@ -13978,7 +13978,7 @@ disabled={!canSave} style={{background:canSave?"#7B1FA2":"var(--muted)",color:"#
 );
 }
 
-function ImplantesConsig({implCat,setImplCat,implMov,setImplMov,pats,dents,addLog,user}){
+function ImplantesConsig({implCat,setImplCat,implMov,setImplMov,implFech,setImplFech,pats,dents,addLog,user}){
 var t=today();
 var [aba,setAba]=useState("estoque");
 var [showCat,setShowCat]=useState(false);
@@ -13987,6 +13987,15 @@ var [editCat,setEditCat]=useState(null);
 var [catF,setCatF]=useState({tipo:"Implante",marca:"Titaniofix",desc:"",codigo:"",estoque_min:2,preco:"",qtdIni:""});
 var [movF,setMovF]=useState({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
 var [filtMes,setFiltMes]=useState(t.slice(0,7));
+// V333: ciclos de comodato
+var [fechPasso,setFechPasso]=useState(0);// 0=lista, 1=conferencia, 2=reposicao, 3=confirmar
+var [fechNome,setFechNome]=useState("");
+var [fechData,setFechData]=useState(t);
+var [fechQtds,setFechQtds]=useState({});
+var [fechFiltro,setFechFiltro]=useState("todos");
+var [verFech,setVerFech]=useState(null);
+var [showFnovo,setShowFnovo]=useState(false);
+var [fnF,setFnF]=useState({tipo:"Implante",codigo:"",desc:"",preco:"",qty:""});
 var TIPOS_ITEM=["Implante","Componente","UCLA","Cicatrizador","Pilar","Coping","Outro"];
 // V244: ordenacao unica por codigo (106 implantes -> 206 componentes -> 406 pilares); sem codigo no fim
 var implKeyOrd=function(it){
@@ -14045,11 +14054,92 @@ setImplMov(function(prev){return[...prev,entry];});
 if(addLog){if(movF.tipo==="saida")addLog("estoque","Saida: "+entry.itemName+" paciente "+entry.patName+" dente "+movF.dente,entry.patName);else addLog("estoque","Entrada: "+entry.qty+"x "+(item&&item.desc)+" Titaniofix","");}
 setShowMov(false);setMovF({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dentId:"",obs:"",date:t});
 };
+// ══ V333: CICLOS DE COMODATO ══════════════════════════════
+var MESES_PT=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+var nomeAuto=function(d){var p=String(d||t).split("-");return (MESES_PT[Number(p[1])-1]||"")+"/"+p[0];};
+var fechOrd=(implFech||[]).slice().sort(function(a,b){return String((b&&b.dataFim)||"").localeCompare(String((a&&a.dataFim)||""));});
+var ultFech=fechOrd[0]||null;
+var cicloIni=(ultFech&&ultFech.dataFim)||"";
+// saidas reais do ciclo aberto (exclui ajustes e as saidas de fechamento)
+var movsCiclo=(implMov||[]).filter(function(m){return m&&m.tipo==="saida"&&!m.ajuste&&!m.fech&&(!cicloIni||String(m.date||"")>cicloIni);});
+var cicloQtd=movsCiclo.reduce(function(s,m){return s+Number(m.qty||0);},0);
+var precoDe=function(id){var it=(implCat||[]).find(function(x){return String(x.id)===String(id);});return it?Number(it.preco||0):0;};
+var cicloVal=movsCiclo.reduce(function(s,m){return s+precoDe(m.itemId)*Number(m.qty||0);},0);
+var cicloDias=(function(){try{var ini=cicloIni||(movsCiclo.length?movsCiclo.map(function(m){return m.date;}).sort()[0]:t);return Math.max(0,Math.round((new Date(t+"T12:00")-new Date(ini+"T12:00"))/86400000));}catch(e){return 0;}})();
+// agrupamento por item do ciclo aberto
+var cicloPorItem=(function(){
+var mp={};
+movsCiclo.forEach(function(m){
+var k=String(m.itemId);
+if(!mp[k])mp[k]={itemId:m.itemId,qty:0,det:[]};
+mp[k].qty+=Number(m.qty||0);
+mp[k].det.push({date:m.date,patName:m.patName||"",dente:m.dente||"",dentName:m.dentName||"",qty:Number(m.qty||0)});
+});
+var out=Object.keys(mp).map(function(k){
+var it=(implCat||[]).find(function(x){return String(x.id)===String(k);});
+var p=precoDe(k);
+return {itemId:mp[k].itemId,codigo:(it&&it.codigo)||"",desc:(it&&it.desc)||"(item removido)",qty:mp[k].qty,preco:p,total:p*mp[k].qty,det:mp[k].det};
+});
+return out.sort(function(a,b){return implSortOrd({codigo:a.codigo,desc:a.desc},{codigo:b.codigo,desc:b.desc});});
+})();
+var repoTot=(function(){var q=0,v=0;(implCat||[]).forEach(function(it){var n=Number(fechQtds[it.id]||0);if(n>0){q+=n;v+=n*Number(it.preco||0);}});return{q:q,v:v};})();
+var devolTot=(implCat||[]).reduce(function(s,it){var q=Number(stockMap[it.id]||0);return s+(q>0?q:0);},0);
+var listaRepo=implCatAtivos.filter(function(it){
+if(fechFiltro==="preench")return Number(fechQtds[it.id]||0)>0;
+if(fechFiltro==="sobra")return Number(stockMap[it.id]||0)>0;
+return true;
+});
+var setQ=function(id,v){setFechQtds(function(p){var n=Object.assign({},p);if(String(v).trim()==="")delete n[id];else n[id]=v;return n;});};
+var abrirFech=function(){setFechData(t);setFechNome(nomeAuto(t));setFechQtds({});setFechFiltro("todos");setFechPasso(1);};
+var addFnovo=function(){
+if(!fnF.desc.trim()){alert("Informe a descrição do item");return;}
+var newId=nid();
+setImplCat(function(prev){return[...(prev||[]),{tipo:fnF.tipo,marca:"Titaniofix",desc:fnF.desc.trim(),codigo:fnF.codigo.trim(),estoque_min:2,preco:pmoney(fnF.preco),id:newId,_ts:Date.now()}];});
+var q=String(fnF.qty||"").trim();
+if(q!==""&&Number(q)>0)setQ(newId,q);
+if(addLog)addLog("estoque","Item cadastrado no fechamento: "+fnF.desc.trim(),"");
+setShowFnovo(false);setFnF({tipo:"Implante",codigo:"",desc:"",preco:"",qty:""});
+};
+var confirmarFech=function(){
+var fid=nid(),ts=Date.now(),movsNovas=[],devol=[],repo=[];
+(implCat||[]).forEach(function(it){
+var q=Number(stockMap[it.id]||0);
+if(q>0){
+devol.push({itemId:it.id,codigo:it.codigo||"",desc:it.desc,qty:q});
+movsNovas.push({id:nid(),_ts:ts,tipo:"saida",itemId:it.id,qty:q,patId:null,dentId:null,obs:"Devolução no fechamento do ciclo",date:fechData,itemName:it.desc,patName:"Devolução (fechamento)",dente:"-",ajuste:true,fech:true,fechId:fid});
+}else if(q<0){
+movsNovas.push({id:nid(),_ts:ts,tipo:"entrada",itemId:it.id,qty:-q,patId:null,dentId:null,obs:"Correção de saldo no fechamento",date:fechData,itemName:it.desc,ajuste:true,fech:true,fechId:fid});
+}
+});
+(implCat||[]).forEach(function(it){
+var n=Number(fechQtds[it.id]||0);
+if(n>0){
+repo.push({itemId:it.id,codigo:it.codigo||"",desc:it.desc,qty:n,preco:Number(it.preco||0)});
+movsNovas.push({id:nid(),_ts:ts,tipo:"entrada",itemId:it.id,qty:n,patId:null,dentId:null,obs:"Reposição de comodato",date:fechData,itemName:it.desc,fech:true,fechId:fid});
+}
+});
+var reg={id:fid,_ts:ts,nome:(fechNome||nomeAuto(fechData)).trim(),dataIni:cicloIni||"",dataFim:fechData,dias:cicloDias,
+qtdUsada:cicloQtd,valorUsado:cicloVal,itens:cicloPorItem,
+devolvido:devol,qtdDevol:devol.reduce(function(s,d){return s+d.qty;},0),
+reposicao:repo,qtdRepo:repo.reduce(function(s,r){return s+r.qty;},0),valorRepo:repo.reduce(function(s,r){return s+r.qty*r.preco;},0),
+user:(user&&user.name)||""};
+setImplFech(function(prev){return[...(prev||[]),reg];});
+if(movsNovas.length)setImplMov(function(prev){return (prev||[]).concat(movsNovas);});
+if(addLog)addLog("estoque","Ciclo "+reg.nome+" fechado: "+cicloQtd+" peças usadas ("+cur(cicloVal)+"), "+reg.qtdRepo+" peças repostas","");
+setFechPasso(0);setFechQtds({});setFechNome("");setVerFech(null);
+};
+var reabrirFech=function(f){
+if(!window.confirm("Reabrir o ciclo "+f.nome+"?\n\nAs movimentações de devolução e reposição geradas por este fechamento serão desfeitas e o período volta a ficar aberto.\n\nO histórico de uso dos pacientes NÃO é afetado."))return;
+setImplMov(function(prev){return (prev||[]).filter(function(m){return !(m&&m.fechId===f.id);});});
+setImplFech(function(prev){return (prev||[]).filter(function(x){return x.id!==f.id;});});
+if(addLog)addLog("estoque","Ciclo reaberto: "+f.nome,"");
+setVerFech(null);
+};
 return(
 
 <div style={{display:"flex",flexDirection:"column",gap:12}}>
 <div style={{display:"flex",gap:4,background:G.bg,borderRadius:12,padding:4}}>
-{[["estoque","📦 Estoque"],["movs","Movimentacoes"],["relatorio","Relatorio"]].map(function(tb){return(
+{[["estoque","📦 Estoque"],["movs","Movimentacoes"],["relatorio","Relatorio"],["ciclos","🔄 Ciclos"]].map(function(tb){return(
 <button key={tb[0]} onClick={function(){setAba(tb[0]);}} style={{flex:1,border:"none",borderRadius:9,padding:"8px 2px",fontSize:11,fontWeight:700,cursor:"pointer",background:aba===tb[0]?"var(--card)":G.bg,color:aba===tb[0]?G.primary:G.muted,boxShadow:aba===tb[0]?"0 1px 4px rgba(0,0,0,.1)":"none"}}>
 {tb[1]}
 </button>
@@ -14143,6 +14233,225 @@ return(
 </div>
 );
 })}
+</div>}
+{/* ══ V333: ABA CICLOS DE COMODATO ══ */}
+{aba==="ciclos"&&fechPasso===0&&!verFech&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
+<div style={{background:G.card,borderRadius:12,padding:"13px 15px",borderLeft:"4px solid #E9A23B"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:9}}>
+<div>
+<span style={{fontSize:10,background:"#fff4e0",color:"#a76b00",borderRadius:5,padding:"2px 7px",fontWeight:700}}>{"CICLO ABERTO"}</span>
+<div style={{fontSize:18,fontWeight:800,color:G.primary,marginTop:5}}>{nomeAuto(t)}</div>
+<div style={{fontSize:11,color:G.muted}}>{(cicloIni?"Desde "+fmt(cicloIni):"Desde o início")+" · "+cicloDias+" dias"}</div>
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontSize:24,fontWeight:800,color:G.primary}}>{cicloQtd}</div>
+<div style={{fontSize:10,color:G.muted}}>{"peças usadas"}</div>
+</div>
+</div>
+<div style={{background:"var(--green-soft)",borderRadius:10,padding:"9px 12px",textAlign:"center",marginBottom:10}}>
+<div style={{fontSize:10,color:"#1E7D45"}}>{"Valor a pagar até agora"}</div>
+<div style={{fontSize:20,fontWeight:800,color:"#1E7D45"}}>{cur(cicloVal)}</div>
+</div>
+{user&&user.level>=3?<button onClick={abrirFech} style={{width:"100%",background:G.primary,color:"#fff",border:"none",borderRadius:11,padding:"12px",fontSize:13.5,fontWeight:700,cursor:"pointer"}}>{"Fechar ciclo e repor"}</button>
+:<div style={{textAlign:"center",fontSize:11,color:G.muted}}>{"Somente o administrador pode fechar o ciclo."}</div>}
+</div>
+{fechOrd.length>0&&<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginTop:6}}>{"Ciclos fechados"}</div>}
+{fechOrd.map(function(f){return(
+<div key={f.id} onClick={function(){setVerFech(f);}} style={{background:G.card,borderRadius:12,padding:"12px 14px",cursor:"pointer"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+<div style={{flex:1}}>
+<span style={{fontSize:10,background:"var(--green-soft)",color:"#1E7D45",borderRadius:5,padding:"2px 7px",fontWeight:700}}>{"FECHADO"}</span>
+<div style={{fontWeight:800,fontSize:14,marginTop:4}}>{f.nome}</div>
+<div style={{fontSize:11,color:G.muted}}>{(f.dataIni?fmt(f.dataIni)+" a ":"até ")+fmt(f.dataFim)+" · "+(f.dias||0)+" dias · "+(f.qtdUsada||0)+" peças"}</div>
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontSize:15,fontWeight:800,color:G.primary}}>{cur(f.valorUsado||0)}</div>
+<div style={{fontSize:10,color:G.muted}}>{"ver detalhe ›"}</div>
+</div>
+</div>
+</div>
+);})}
+{fechOrd.length===0&&<div style={{textAlign:"center",padding:20,color:G.muted,fontSize:12,background:G.card,borderRadius:12}}>{"Nenhum ciclo fechado ainda. Ao fechar o primeiro, o histórico começa a ser guardado aqui."}</div>}
+{fechOrd.length>1&&<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginBottom:7}}>{"Comparativo"}</div>
+{fechOrd.slice(0,6).slice().reverse().map(function(f){return(
+<div key={f.id} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}>
+<span style={{color:G.muted}}>{f.nome}</span><b>{cur(f.valorUsado||0)}</b>
+</div>
+);})}
+<div style={{display:"flex",justifyContent:"space-between",padding:"7px 0 0",fontSize:12.5}}>
+<b>{"Média por ciclo"}</b><b style={{color:G.primary}}>{cur(fechOrd.reduce(function(s,f){return s+Number(f.valorUsado||0);},0)/fechOrd.length)}</b>
+</div>
+</div>}
+</div>}
+{/* ── detalhe de ciclo fechado ── */}
+{aba==="ciclos"&&fechPasso===0&&verFech&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
+<div style={{background:G.card,borderRadius:12,padding:"13px 15px"}}>
+<span style={{fontSize:10,background:"var(--green-soft)",color:"#1E7D45",borderRadius:5,padding:"2px 7px",fontWeight:700}}>{"FECHADO"}</span>
+<div style={{fontSize:18,fontWeight:800,color:G.primary,marginTop:5}}>{verFech.nome}</div>
+<div style={{fontSize:11,color:G.muted,marginBottom:8}}>{(verFech.dataIni?fmt(verFech.dataIni)+" a ":"até ")+fmt(verFech.dataFim)+" · "+(verFech.dias||0)+" dias"+(verFech.user?" · "+verFech.user:"")}</div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Peças usadas"}</span><b>{verFech.qtdUsada||0}</b></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Pago à Titaniofix"}</span><b style={{color:G.red}}>{cur(verFech.valorUsado||0)}</b></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Devolvidas no fechamento"}</span><b>{verFech.qtdDevol||0}</b></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:12}}><span>{"Recebidas no novo comodato"}</span><b>{verFech.qtdRepo||0}</b></div>
+</div>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginBottom:7}}>{"Peças usadas neste ciclo"}</div>
+{(verFech.itens||[]).length===0&&<div style={{fontSize:12,color:G.muted}}>{"Nenhuma peça usada."}</div>}
+{(verFech.itens||[]).map(function(it,ix){return(
+<div key={ix} style={{padding:"7px 0",borderBottom:"1px solid "+G.border}}>
+<div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+<div style={{flex:1}}>
+{it.codigo&&<span style={{fontSize:10,background:G.primary+"20",color:G.primary,borderRadius:5,padding:"1px 6px",fontWeight:700}}>{it.codigo}</span>}
+<div style={{fontSize:11.5,fontWeight:700,marginTop:2}}>{it.desc}</div>
+{(it.det||[]).map(function(d,di){return <div key={di} style={{fontSize:10,color:G.muted,marginTop:2}}>{fmt(d.date)+" · "+d.patName+" · dente "+d.dente+(d.dentName?" · "+d.dentName:"")+(d.qty>1?" ("+d.qty+")":"")}</div>;})}
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontWeight:800,color:G.red,fontSize:13}}>{it.qty+"x"}</div>
+<div style={{fontSize:10,fontWeight:700,color:G.primary}}>{cur(it.total||0)}</div>
+</div>
+</div>
+</div>
+);})}
+</div>
+{(verFech.reposicao||[]).length>0&&<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginBottom:7}}>{"Comodato recebido · "+cur(verFech.valorRepo||0)}</div>
+{(verFech.reposicao||[]).map(function(r,ix){return(
+<div key={ix} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:11}}>
+<span style={{flex:1}}>{(r.codigo?r.codigo+" · ":"")+r.desc}</span><b style={{flexShrink:0}}>{r.qty+"x"}</b>
+</div>
+);})}
+</div>}
+{(verFech.devolvido||[]).length>0&&<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:.4,marginBottom:7}}>{"Devolvido ao representante"}</div>
+{(verFech.devolvido||[]).map(function(r,ix){return(
+<div key={ix} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:11}}>
+<span style={{flex:1}}>{(r.codigo?r.codigo+" · ":"")+r.desc}</span><b style={{flexShrink:0}}>{r.qty+"x"}</b>
+</div>
+);})}
+</div>}
+<button onClick={function(){setVerFech(null);}} style={{width:"100%",background:G.bg,border:"1px solid "+G.border,color:G.muted,borderRadius:11,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"‹ Voltar aos ciclos"}</button>
+{user&&user.level>=3&&<button onClick={function(){reabrirFech(verFech);}} style={{width:"100%",background:"var(--surface)",border:"1px solid "+G.red,color:G.red,borderRadius:11,padding:"10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"Reabrir este ciclo"}</button>}
+</div>}
+{/* ── assistente de fechamento ── */}
+{aba==="ciclos"&&fechPasso>0&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
+<div style={{display:"flex",gap:5}}>
+{[[1,"1 · Conferência"],[2,"2 · Reposição"],[3,"3 · Confirmar"]].map(function(sp){return(
+<div key={sp[0]} style={{flex:1,textAlign:"center",fontSize:10,fontWeight:800,padding:"7px 2px",borderRadius:8,background:fechPasso===sp[0]?G.primary:G.bg,color:fechPasso===sp[0]?"#fff":G.muted}}>{sp[1]}</div>
+);})}
+</div>
+{fechPasso===1&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
+<div style={{background:G.primary+"12",borderLeft:"3px solid "+G.primary,borderRadius:"0 9px 9px 0",padding:"9px 11px",fontSize:11,color:"#3a4a42",lineHeight:1.5}}>{"Esta é a conta a acertar com o representante. Confira item por item antes de continuar."}</div>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px",display:"flex",gap:8}}>
+<div style={{flex:1}}><Inp lb="Nome do ciclo" val={fechNome} set={function(v){setFechNome(v);}} ph="Setembro/2026"/></div>
+<div style={{width:130}}><Inp lb="Data" val={fechData} set={function(v){setFechData(v);if(!fechNome||fechNome===nomeAuto(fechData))setFechNome(nomeAuto(v));}} type="date"/></div>
+</div>
+<div style={{background:"var(--green-soft)",border:"2px solid #A5D6A7",borderRadius:12,padding:"12px 16px",textAlign:"center"}}>
+<div style={{fontSize:11,color:G.muted}}>{"Total do ciclo"+(cicloIni?" · desde "+fmt(cicloIni):"")}</div>
+<div style={{fontSize:26,fontWeight:800,color:"#2E7D32"}}>{cicloQtd+" peças"}</div>
+<div style={{fontSize:19,fontWeight:800,color:"#2E7D32",borderTop:"1px solid #A5D6A7",paddingTop:6,marginTop:5}}>{cur(cicloVal)}</div>
+</div>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginBottom:7}}>{"Detalhe por item"}</div>
+{cicloPorItem.length===0&&<div style={{fontSize:12,color:G.muted}}>{"Nenhuma peça usada neste ciclo."}</div>}
+{cicloPorItem.map(function(it,ix){return(
+<div key={ix} style={{padding:"7px 0",borderBottom:"1px solid "+G.border}}>
+<div style={{display:"flex",justifyContent:"space-between",gap:8}}>
+<div style={{flex:1}}>
+{it.codigo&&<span style={{fontSize:10,background:G.primary+"20",color:G.primary,borderRadius:5,padding:"1px 6px",fontWeight:700}}>{it.codigo}</span>}
+<div style={{fontSize:11.5,fontWeight:700,marginTop:2}}>{it.desc}</div>
+{(it.det||[]).map(function(d,di){return <div key={di} style={{fontSize:10,color:G.muted,marginTop:2}}>{fmt(d.date)+" · "+d.patName+" · dente "+d.dente+(d.dentName?" · "+d.dentName:"")+(d.qty>1?" ("+d.qty+")":"")}</div>;})}
+</div>
+<div style={{textAlign:"right",flexShrink:0}}>
+<div style={{fontWeight:800,color:G.red,fontSize:13}}>{it.qty+"x"}</div>
+<div style={{fontSize:10,fontWeight:700,color:G.primary}}>{cur(it.total)}</div>
+</div>
+</div>
+</div>
+);})}
+</div>
+<button onClick={function(){setFechPasso(2);}} style={{width:"100%",background:G.primary,color:"#fff",border:"none",borderRadius:11,padding:"12px",fontSize:13.5,fontWeight:700,cursor:"pointer"}}>{"Continuar para reposição ›"}</button>
+<button onClick={function(){setFechPasso(0);}} style={{width:"100%",background:G.bg,border:"1px solid "+G.border,color:G.muted,borderRadius:11,padding:"10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"Cancelar"}</button>
+</div>}
+{fechPasso===2&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
+<div style={{background:G.primary+"12",borderLeft:"3px solid "+G.primary,borderRadius:"0 9px 9px 0",padding:"9px 11px",fontSize:11,color:"#3a4a42",lineHeight:1.5}}>{"Tudo começa zerado. Digite só a quantidade do que o representante deixou — os itens em branco ficam com zero. A lista segue a mesma sequência de códigos do estoque."}</div>
+<div style={{display:"flex",gap:5}}>
+{[["todos","Todos ("+implCatAtivos.length+")"],["preench","Preenchidos"],["sobra","Tinha sobra"]].map(function(fl){return(
+<button key={fl[0]} onClick={function(){setFechFiltro(fl[0]);}} style={{flex:1,border:"none",borderRadius:8,padding:"7px 2px",fontSize:10,fontWeight:800,cursor:"pointer",background:fechFiltro===fl[0]?G.primary:G.bg,color:fechFiltro===fl[0]?"#fff":G.muted}}>{fl[1]}</button>
+);})}
+</div>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4}}>{"Reposição"}</div>
+<button onClick={function(){setShowFnovo(true);}} style={{background:"#27AE60",color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{"+ Novo item"}</button>
+</div>
+<div style={{fontSize:10,color:G.muted,marginBottom:7}}>{"\"dev.\" = o que sobrou e o representante leva de volta."}</div>
+{listaRepo.length===0&&<div style={{textAlign:"center",padding:16,color:G.muted,fontSize:12}}>{"Nenhum item neste filtro."}</div>}
+{listaRepo.map(function(item){var pre=Number(fechQtds[item.id]||0)>0;return(
+<div key={item.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid "+G.border,background:pre?"rgba(39,174,96,.05)":"transparent"}}>
+<div style={{fontSize:10,fontWeight:800,color:G.primary,width:56,flexShrink:0}}>{item.codigo||"—"}</div>
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontSize:10.5,lineHeight:1.35}}>{item.desc}</div>
+<div style={{fontSize:9.5,color:G.muted,fontWeight:700}}>{cur(item.preco||0)+" / un · dev. "+(stockMap[item.id]||0)}</div>
+</div>
+<input type="number" min="0" placeholder="0" value={fechQtds[item.id]!=null?fechQtds[item.id]:""} onChange={function(e){setQ(item.id,e.target.value);}} style={{width:52,flexShrink:0,border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 3px",fontSize:14,fontWeight:800,textAlign:"center",outline:"none"}}/>
+</div>
+);})}
+</div>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:9}}>
+<div><div style={{fontSize:10,color:G.muted}}>{"Peças recebidas"}</div><div style={{fontSize:19,fontWeight:800,color:G.primary}}>{repoTot.q}</div></div>
+<div style={{textAlign:"right"}}><div style={{fontSize:10,color:G.muted}}>{"Valor do novo comodato"}</div><div style={{fontSize:19,fontWeight:800,color:G.primary}}>{cur(repoTot.v)}</div></div>
+</div>
+<button onClick={function(){setFechPasso(3);}} style={{width:"100%",background:G.primary,color:"#fff",border:"none",borderRadius:11,padding:"12px",fontSize:13.5,fontWeight:700,cursor:"pointer"}}>{"Revisar e confirmar ›"}</button>
+<button onClick={function(){setFechPasso(1);}} style={{width:"100%",background:G.bg,border:"1px solid "+G.border,color:G.muted,borderRadius:11,padding:"10px",fontSize:12,fontWeight:700,cursor:"pointer",marginTop:6}}>{"‹ Voltar"}</button>
+</div>
+</div>}
+{fechPasso===3&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
+<div style={{background:G.primary+"12",borderLeft:"3px solid "+G.primary,borderRadius:"0 9px 9px 0",padding:"9px 11px",fontSize:11,color:"#3a4a42",lineHeight:1.5}}>{"Confira antes de confirmar. O ciclo fica salvo com os valores desta data — e o administrador pode reabrir depois, porque nada é apagado."}</div>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginBottom:7}}>{"Vai acontecer isto"}</div>
+{["1 · Ciclo \""+(fechNome||nomeAuto(fechData))+"\" é salvo e fechado","2 · "+devolTot+" peças em estoque são devolvidas (saída de fechamento)","3 · "+repoTot.q+" peças novas entram no estoque","4 · Novo ciclo abre automaticamente em "+fmt(fechData)].map(function(li,ix){return(
+<div key={ix} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"6px 0",borderBottom:"1px solid "+G.border,fontSize:11.5}}>
+<span style={{flex:1}}>{li}</span><span style={{color:"#27AE60",fontWeight:800,flexShrink:0}}>{"✓"}</span>
+</div>
+);})}
+</div>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginBottom:7}}>{"Resumo"}</div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Peças usadas no ciclo"}</span><b>{cicloQtd}</b></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Valor a pagar à Titaniofix"}</span><b style={{color:G.red}}>{cur(cicloVal)}</b></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Peças devolvidas"}</span><b>{devolTot}</b></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Peças recebidas"}</span><b>{repoTot.q}</b></div>
+<div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:12}}><span>{"Valor do novo comodato"}</span><b>{cur(repoTot.v)}</b></div>
+</div>
+<div style={{background:"var(--red-soft)",borderRadius:12,padding:"11px 13px",fontSize:11,color:"#8c2f24",lineHeight:1.5}}>{"Nada é excluído. A devolução entra como movimentação marcada \"fechamento\", fora da conta de pagamento. Todo o histórico de paciente e dente continua consultável."}</div>
+<button onClick={confirmarFech} style={{width:"100%",background:"#27AE60",color:"#fff",border:"none",borderRadius:11,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Confirmar fechamento"}</button>
+<button onClick={function(){setFechPasso(2);}} style={{width:"100%",background:G.bg,border:"1px solid "+G.border,color:G.muted,borderRadius:11,padding:"10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"‹ Voltar"}</button>
+</div>}
+</div>}
+{/* ── modal: item novo direto no fechamento ── */}
+{showFnovo&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:"var(--surface)",borderRadius:18,width:"100%",maxWidth:390,maxHeight:"90vh",overflowY:"auto"}}>
+<div style={{background:G.primary,borderRadius:"18px 18px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
+<div style={{flex:1,color:"#fff",fontWeight:700,fontSize:14}}>{"Novo item no catálogo"}</div>
+<button onClick={function(){setShowFnovo(false);}} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px"}}>{"X"}</button>
+</div>
+<div style={{padding:20,display:"flex",flexDirection:"column",gap:10}}>
+<div style={{fontSize:11,color:G.muted,lineHeight:1.5}}>{"Use quando o representante mandar algo que ainda não está cadastrado. O item fica no catálogo para os próximos ciclos."}</div>
+<div>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",display:"block",marginBottom:4}}>{"Tipo"}</label>
+<select value={fnF.tipo} onChange={function(e){setFnF(function(p){return{...p,tipo:e.target.value};});}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 10px",fontSize:13,outline:"none"}}>
+{TIPOS_ITEM.map(function(x){return <option key={x} value={x}>{x}</option>;})}
+</select>
+</div>
+<Inp lb="Codigo" val={fnF.codigo} set={function(v){setFnF(function(p){return{...p,codigo:v};});}} ph="Ex: 406.335"/>
+<Inp lb="Descricao" val={fnF.desc} set={function(v){setFnF(function(p){return{...p,desc:v};});}} ph="Ex: PILAR MICROUNIT 4.5MM"/>
+<Inp lb="Preco unitario (R$)" val={fnF.preco} set={function(v){setFnF(function(p){return{...p,preco:v};});}} type="number" ph="0,00"/>
+<Inp lb="Quantidade recebida" val={fnF.qty} set={function(v){setFnF(function(p){return{...p,qty:v};});}} type="number" ph="0"/>
+<button onClick={addFnovo} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,cursor:"pointer"}}>{"Adicionar ao ciclo"}</button>
+</div>
+</div>
 </div>}
 {showCat&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"var(--surface)",borderRadius:18,width:"100%",maxWidth:400}}>
@@ -15494,7 +15803,7 @@ const [pros,setPros]=useState(PROS0);const [rems,setRems]=useState(REMS0);
 const [budgets,setBudgets]=useState(BUDGETS0);
 const [users,setUsers]=useState(USERS0);const [dents,setDents]=useState(DENTS0);const [perms,setPerms]=useState(PERMS0);
 const [labs,setLabs]=useState(LABS0);const [procs,setProcs]=useState(PROCS0);
-const [stock,setStock]=useState(STOCK0);const [impl,setImpl]=useState(IMPL_DATA_SEED);const [implCat,setImplCat]=useState([]);const [implMov,setImplMov]=useState([]);
+const [stock,setStock]=useState(STOCK0);const [impl,setImpl]=useState(IMPL_DATA_SEED);const [implCat,setImplCat]=useState([]);const [implMov,setImplMov]=useState([]);const [implFech,setImplFech]=useState([]);// V333: ciclos de comodato fechados
 const [prosProcs,setProsProcs]=useState(PROS_PROCS0);
 const [expenses,setExpenses]=useState(EXPENSES0);
 const [gastos,setGastos]=useState({clinica:[],pessoal:[]});
@@ -15720,7 +16029,7 @@ try{ // V199: base para comparacao de carimbos por chave
 }catch(e){lastSavedKeyJsonRef.current={};}
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
-lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,impl:data.impl,orientacoes:data.orientacoes,stock:data.stock,notas:data.notas});// V289 stock // V323 notas
+lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,implFech:data.implFech,impl:data.impl,orientacoes:data.orientacoes,stock:data.stock,notas:data.notas});// V289 stock // V323 notas
 delItemsRef.current=data.delItems||[];
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
@@ -15775,6 +16084,7 @@ if(data.espera?.length)setEspera(data.espera);
 if(data.prosProcs?.length)setProsProcs(data.prosProcs);
 if(data.implCat?.length)setImplCat(data.implCat);
 if(data.implMov?.length)setImplMov(data.implMov);
+if(data.implFech?.length)setImplFech(data.implFech);// V333
 lastSaved.current=JSON.stringify(data);
 // V234: rascunho anti-perda - reaplica edicoes que ficaram sem salvar (ex.: iPhone fechou no meio do "Salvando...")
 try{idb.get("draft_v1").then(function(_dft){
@@ -16098,7 +16408,7 @@ useEffect(function(){
     }
     // detectar exclusoes de planos/registros desde a ultima sincronizacao
     if(lastSavedItemKeys.current){
-      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V323 notas
+      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V323 notas
       var _di=delItemsRef.current||[];
       Object.keys(lastSavedItemKeys.current).forEach(function(k){if(!_ik[k]&&_di.indexOf(k)<0)_di.push(k);});
       _di=_di.filter(function(k){return !_ik[k];});
@@ -16147,6 +16457,7 @@ useEffect(function(){
           mergeArr(logs,sd.logs,setLogs);
           mergeArr(implMov,sd.implMov,setImplMov,"implMov");
           mergeArr(implCat,sd.implCat,setImplCat,"implCat");
+          mergeArr(implFech,sd.implFech,setImplFech,"implFech");// V333
           mergeArr(impl,sd.impl,setImpl,"impl");
           mergeArr(stock,sd.stock,setStock,"stock");// V289: estoque item-a-item + respeita exclusoes/fusoes
           mergeArr(pontos,sd.pontos,setPontos);
@@ -16175,7 +16486,7 @@ useEffect(function(){
         }
       }
     }catch(e){}}
-    const payload={appts,recs,treats,pros,rems,notas,bkpLog,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
+    const payload={appts,recs,treats,pros,rems,notas,bkpLog,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
     if(!patTableOk.current)payload.pats=pats;
     // V313: assinatura ANTES do carimbo _vers (o _vers muda a cada save e mascararia a comparacao).
     var _sigNow=null;try{_sigNow=JSON.stringify(payload);}catch(e){_sigNow=null;}
@@ -16206,7 +16517,7 @@ useEffect(function(){
           lastSavedSigRef.current=_sigNow; // V313: so marca depois do save confirmado. Save que falhou continua sendo retentado.
           {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
           lastSavedGastosKeys.current=_gKeys(gastos);
-          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
+          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
           // Atualizar timestamp do servidor para o nosso
           var newTs=await supabase.getTimestamp();
           if(newTs)lastServerTs.current=newTs;
@@ -16261,7 +16572,7 @@ useEffect(function(){
   };
   runSaveRef.current=runSave; // V210
   saveTimer.current=setTimeout(runSave,AUTOSAVE_MS); // V296: era 800ms fixo
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra,docsEmitidos]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra // V320: docsEmitidos
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra,docsEmitidos]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra // V320: docsEmitidos
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -16499,6 +16810,7 @@ useEffect(function(){
       if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
       if(sd.implCat)addArr(sd.implCat,setImplCat,"implCat");// V238 merge aditivo - nao sobrescreve mais
       if(sd.implMov)addArr(sd.implMov,setImplMov,"implMov");// V238 merge aditivo - nao sobrescreve mais
+      if(sd.implFech)addArr(sd.implFech,setImplFech,"implFech");// V333
       if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSetP);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, _ts mais novo vence
       if(sd.cotExtra)addArr(sd.cotExtra,setCotExtra,"cotExtra");// V310: poll dos itens avulsos
       if(sd.docsEmitidos)addArr(sd.docsEmitidos,setDocsEmitidos);// V320: poll dos documentos emitidos
@@ -16945,7 +17257,7 @@ return <>
       {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
-      {view==="stk"&&<Estoque cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
+      {view==="stk"&&<Estoque cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} implFech={implFech} setImplFech={setImplFech} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user} setDocsEmitidos={setDocsEmitidos}/>}
