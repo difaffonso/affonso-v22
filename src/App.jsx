@@ -5797,7 +5797,8 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 <button onClick={()=>{
 if(!f.patientId)return alert("Selecione o paciente primeiro.");
 const hj=today();
-const prox=appts.filter(a=>a.patientId===f.patientId&&a.date>=hj&&!a.blocked&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed").sort((a,b)=>a.date===b.date?String(a.time||"").localeCompare(String(b.time||"")):a.date.localeCompare(b.date))[0];
+const _pidF=Number(f.patientId);/* V332: PatSearch grava patientId como TEXTO e a agenda grava como NUMERO -- o === nunca batia e o botao sempre dizia que nao havia consulta */
+const prox=appts.filter(a=>Number(a.patientId)===_pidF&&a.date>=hj&&!a.blocked&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed").sort((a,b)=>a.date===b.date?String(a.time||"").localeCompare(String(b.time||"")):a.date.localeCompare(b.date))[0];
 if(!prox)return alert("Nenhuma consulta futura encontrada na agenda para este paciente.");
 setF(p=>({...p,pdata:prox.date,phora:prox.time||""}));
 }} style={{border:`1.5px solid ${G.border}`,background:G.card,color:G.primary,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",height:38}}>📅 Puxar da agenda</button>
