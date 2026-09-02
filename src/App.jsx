@@ -706,6 +706,72 @@ const R3=({a,b,c,gap=11})=><div style={{display:"grid",gridTemplateColumns:"1fr 
 const Div=({lb})=><div style={{display:"flex",alignItems:"center",gap:8,margin:"5px 0"}}>{lb&&<span style={{fontSize:10,fontWeight:700,color:G.muted,textTransform:"uppercase",whiteSpace:"nowrap"}}>{lb}</span>}<div style={{flex:1,height:1,background:G.border}}/></div>;
 const SC2=({save,cancel,lbl="Salvar"})=><div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:14,paddingTop:12,borderTop:`1px solid ${G.border}`}}><Btn ch="Cancelar" v="g" onClick={cancel}/><Btn ch={lbl} onClick={save}/></div>;
 
+// V331: lançamento de itens por DENTE (com face). "21M, 21D" = dois itens no mesmo dente.
+const FACES_V331={M:"mesial",D:"distal",O:"oclusal",V:"vestibular",L:"lingual",P:"palatina",I:"incisal",C:"cervical"};
+const FDI_V331=[[18,17,16,15,14,13,12,11],[21,22,23,24,25,26,27,28],[48,47,46,45,44,43,42,41],[31,32,33,34,35,36,37,38]];
+const DENTOK_V331=(function(){var o={};FDI_V331.forEach(function(q){q.forEach(function(n){o[n]=1;});});[51,52,53,54,55,61,62,63,64,65,71,72,73,74,75,81,82,83,84,85].forEach(function(n){o[n]=1;});return o;})();
+function faceLbl_V331(f){if(!f)return "";return f.split("").map(function(c){return FACES_V331[c]||c;}).join("/");}
+function parseDentes_V331(raw){
+  var toks=String(raw||"").split(/[\s,;.\/]+/).filter(Boolean);
+  var ok=[],bad=[],seen={};
+  toks.forEach(function(t){
+    var m=/^([0-9]{2})([a-zA-Z]*)$/.exec(String(t).trim());
+    if(!m){bad.push(t);return;}
+    var n=Number(m[1]),f=(m[2]||"").toUpperCase();
+    if(!DENTOK_V331[n]){bad.push(t);return;}
+    var okf=true;f.split("").forEach(function(c){if(!FACES_V331[c])okf=false;});
+    if(!okf){bad.push(t);return;}
+    var k=n+"|"+f;if(seen[k])return;seen[k]=1;
+    ok.push({n:n,f:f});
+  });
+  return {ok:ok,bad:bad};
+}
+function descDente_V331(base,t,det){return base+" \u2014 dente "+t.n+(t.f?" "+t.f:"")+(det?" ("+det+")":"");}
+const ERRO_DENTES_V331="Não entendi: ";
+const DICA_DENTES_V331="\nUse dois dígitos (11 a 48) e, se quiser, a face (M, D, O, V, L, P, I, C). Ex: 21M";
+// Bloco reutilizável: campo de dentes + odontograma + prévia dos itens que serão criados.
+const DentesBloco_V331=({val,set,base,det,valor})=>{
+  const [aberto,setAberto]=useState(false);
+  const pd=parseDentes_V331(val);
+  const sel={};pd.ok.forEach(function(t){sel[t.n]=(sel[t.n]||0)+1;});
+  const vNum=Number(String(valor||"0").replace(",","."))||0;
+  const togg=function(n){
+    var arr=pd.ok.slice();
+    if(sel[n])arr=arr.filter(function(t){return t.n!==n;});
+    else arr.push({n:n,f:""});
+    set(arr.map(function(t){return t.n+t.f;}).join(" "));
+  };
+  const tdBtn=function(n){
+    var on=!!sel[n];
+    return <button key={n} type="button" onClick={function(){togg(n);}} style={{width:30,height:30,borderRadius:7,border:"1.5px solid "+(on?G.primary:G.border),background:on?G.primary:"var(--surface)",color:on?"#fff":G.muted,fontSize:10.5,fontWeight:700,cursor:"pointer",padding:0,fontFamily:"inherit"}}>{sel[n]>1?(n+"\u00b7"+sel[n]):String(n)}</button>;
+  };
+  const arcada=function(lb,q1,q2){
+    return <div><div style={{fontSize:10,color:G.muted,textAlign:"center",fontWeight:700,letterSpacing:".4px",textTransform:"uppercase",marginBottom:3}}>{lb}</div>
+      <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:3}}>{q1.map(tdBtn)}</div>
+        <div style={{display:"flex",gap:3}}>{q2.map(tdBtn)}</div>
+      </div></div>;
+  };
+  return <div style={{background:G.bg,borderRadius:9,padding:"11px 12px",display:"flex",flexDirection:"column",gap:9}}>
+    <Inp lb={"\ud83e\uddb7 Dentes (opcional) \u2014 pode indicar a face: 21M, 21D, 36MO"} val={val} set={set} ph="Ex: 16 17 21M 21D 45"/>
+    <button type="button" onClick={function(){setAberto(!aberto);}} style={{background:"none",border:"none",color:G.primary,fontSize:12,fontWeight:700,cursor:"pointer",textDecoration:"underline",padding:0,alignSelf:"flex-start",fontFamily:"inherit"}}>{(aberto?"\u25be":"\u25b8")+" Ou clicar no odontograma"}</button>
+    {aberto&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {arcada("Arcada superior",FDI_V331[0],FDI_V331[1])}
+      {arcada("Arcada inferior",FDI_V331[2],FDI_V331[3])}
+      <div style={{fontSize:11,color:G.muted}}>{"Clicando você marca o dente inteiro. Para a face (M, D, O\u2026), digite no campo acima."}</div>
+    </div>}
+    {pd.bad.length>0&&<div style={{background:"var(--red-soft)",border:"1.5px solid "+G.red,color:G.red,borderRadius:8,padding:"7px 11px",fontSize:12,fontWeight:600}}>{"Não entendi: "+pd.bad.join(", ")+" \u2014 use dois dígitos (11 a 48) e, se quiser, a face (M, D, O, V, L, P, I, C). Ex: 21M"}</div>}
+    {pd.ok.length>0&&base?<div style={{background:"var(--surface)",border:"1.5px dashed "+G.primary,borderRadius:10,padding:"10px 12px"}}>
+      <div style={{fontSize:10.5,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:".4px",marginBottom:6}}>{"Serão lançados estes itens"}</div>
+      {pd.ok.map(function(t,i){return <div key={i} style={{display:"flex",justifyContent:"space-between",gap:8,fontSize:12.5,padding:"3px 0",borderBottom:"1px solid "+G.accent}}>
+        <span>{descDente_V331(base,t,det)}{t.f?<span style={{color:G.muted,fontSize:11}}>{" "+faceLbl_V331(t.f)}</span>:null}</span>
+        <b>{cur(vNum)}</b></div>;})}
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:12.5,fontWeight:800,color:G.primary,paddingTop:6}}>
+        <span>{pd.ok.length+" itens"}</span><span>{cur(vNum*pd.ok.length)}</span></div>
+    </div>:null}
+  </div>;
+};
+
 const Modal=({open,close,title,ch,wide,xl})=>{
 if(!open)return null;
 return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:12}}>
@@ -1845,7 +1911,7 @@ const [treatModal,setTreatModal]=useState(false);
 const [ortoModal,setOrtoModal]=useState(false);
 const [ortoForm,setOrtoForm]=useState({valor:"",ano:new Date().getFullYear(),dentistId:""});
 const [tf,setTf]=useState({name:"",start:today(),dentistId:user.dentistId||dents[0]?.id||1,items:[],payments:[]});
-const [tni,setTni]=useState({d:"",procId:"",v:"",qty:"",manual:""});
+const [tni,setTni]=useState({d:"",procId:"",v:"",qty:"",manual:"",teeth:""});// V331
 
 // Budget modal
 const [budgModal,setBudgModal]=useState(false);
@@ -2170,7 +2236,7 @@ setEvoModal(false);setEvoEdit(null);setEvoF(blankEvo);
 // Add procedure to existing plan
 const [addProcModal,setAddProcModal]=useState(null); // treatId
 const [editPlan,setEditPlan]=useState(null);
-const [addProcForm,setAddProcForm]=useState({procId:"",d:"",v:"",qty:"",manual:""});
+const [addProcForm,setAddProcForm]=useState({procId:"",d:"",v:"",qty:"",manual:"",teeth:""});// V331
 const saveAddProc=()=>{
 const manual=(addProcForm.manual||"").trim();
 const pr=procs.find(p=>String(p.id)===String(addProcForm.procId));
@@ -2178,8 +2244,15 @@ if(!manual&&!pr){alert("Selecione na lista ou escreva o procedimento");return;}
 const base=manual||pr.name;
 const det=(addProcForm.d||"").trim();
 const desc=det?`${base} -- ${det}`:base;
-const qtd=Math.max(1,Number(addProcForm.qty||1));
-const novos=Array.from({length:qtd},(_,i)=>({desc:qtd>1?`${desc} (${i+1}/${qtd})`:desc,value:Number(addProcForm.v)||0,paid:false}));
+const pdA=parseDentes_V331(addProcForm.teeth);// V331
+if(pdA.bad.length){alert(ERRO_DENTES_V331+pdA.bad.join(", ")+DICA_DENTES_V331);return;}
+let novos;
+if(pdA.ok.length){
+  novos=pdA.ok.map(function(t){return {desc:descDente_V331(base,t,det),value:Number(addProcForm.v)||0,paid:false,tooth:t.n,face:t.f||""};});
+}else{
+  const qtd=Math.max(1,Number(addProcForm.qty||1));
+  novos=Array.from({length:qtd},(_,i)=>({desc:qtd>1?`${desc} (${i+1}/${qtd})`:desc,value:Number(addProcForm.v)||0,paid:false}));
+}
 setTreats(prev=>prev.map(t=>t.id!==addProcModal?t:{...t,_ts:Date.now(),items:[...t.items,...novos]}));
 setAddProcModal(null);
 };
@@ -2327,7 +2400,7 @@ return <>
 </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
-            {!isDentUser&&<button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:"",qty:"",manual:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>}
+            {!isDentUser&&<button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:"",qty:"",manual:"",teeth:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>}
             {!isDentUser&&<button onClick={()=>setEditPlan({id:t.id,name:t.name||"",start:t.start||today()})} style={{background:G.accent,color:G.primary,border:"1.5px solid "+G.primary,borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏️ Editar</button>}
             <button onClick={()=>{setPdfBudget({items:t.items.map(function(it){return{d:it.desc,v:it.value};}),disc:0,dentistId:t.dentistId,date:t.start,_planName:t.name});setPayCfg(defPayCfg());setTreats(prev=>prev.map(x=>x.id===t.id?{...x,_ts:Date.now(),orcEnviado:true,orcEnviadoAt:today()}:x));}} style={{background:G.gold,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>📄 Orçamento</button>
                 { !t.finalizado
@@ -3013,10 +3086,13 @@ return <>
         <Inp lb="Detalhe (opcional)" val={addProcForm.d} set={v=>setAddProcForm(f=>({...f,d:v}))} ph="Ex: dente 36"/>
         <Inp lb="Valor (R$)" val={addProcForm.v} set={v=>setAddProcForm(f=>({...f,v:v}))} type="number" ph="0,00"/>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:11,alignItems:"center"}}>
+      <DentesBloco_V331 val={addProcForm.teeth||""} set={v=>setAddProcForm(f=>({...f,teeth:v}))} valor={addProcForm.v}
+        base={(function(){var m=(addProcForm.manual||"").trim();if(m)return m;var pr=procs.find(p=>String(p.id)===String(addProcForm.procId));return pr?pr.name:"";})()}
+        det={(addProcForm.d||"").trim()}/>
+      {parseDentes_V331(addProcForm.teeth).ok.length===0&&<div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:11,alignItems:"center"}}>
         <Inp lb="Quantidade" val={addProcForm.qty==null?"":String(addProcForm.qty)} set={v=>setAddProcForm(f=>({...f,qty:v===""?"":Number(v)}))} type="number" min="1" max="20" ph="1"/>
         {Number(addProcForm.qty||1)>1&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:12,color:G.primary,marginTop:18}}>{"✚ Serão adicionados "+addProcForm.qty+" itens"}</div>}
-      </div>
+      </div>}
       <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:`1px solid ${G.border}`}}>
         <button onClick={()=>setAddProcModal(null)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
         <button onClick={saveAddProc} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>➕ Adicionar</button>
@@ -3374,10 +3450,13 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
           <Inp lb="Detalhe (opcional)" val={tni.d} set={v=>setTni(p=>({...p,d:v}))} ph="Ex: dente 36"/>
           <Inp lb="Valor (R$)" val={tni.v} set={v=>setTni(p=>({...p,v:v}))} type="number" ph="0,00"/>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:9,alignItems:"center"}}>
+        <DentesBloco_V331 val={tni.teeth||""} set={v=>setTni(p=>({...p,teeth:v}))} valor={tni.v}
+          base={(function(){var m=(tni.manual||"").trim();if(m)return m;var pr=procs.find(p=>String(p.id)===String(tni.procId));return pr?pr.name:"";})()}
+          det={(tni.d||"").trim()}/>
+        {parseDentes_V331(tni.teeth).ok.length===0&&<div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:9,alignItems:"center"}}>
           <Inp lb="Quantidade" val={tni.qty==null?"":String(tni.qty)} set={v=>setTni(p=>({...p,qty:v===""?"":Number(v)}))} type="number" min="1" max="20" ph="1"/>
           {Number(tni.qty||1)>1&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:12,color:G.primary,marginTop:18}}>{"✚ Serão adicionados "+tni.qty+" itens individuais"}</div>}
-        </div>
+        </div>}
         <button
           onClick={()=>{
             const manual=(tni.manual||"").trim();
@@ -3386,10 +3465,17 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex
             const base=manual||pr.name;
             const det=(tni.d||"").trim();
             const nm=det?`${base} -- ${det}`:base;
-            const qtd=Math.max(1,Number(tni.qty||1));
-            const novos=Array.from({length:qtd},(_,i)=>({desc:qtd>1?`${nm} (${i+1}/${qtd})`:nm,value:Number(tni.v)||0,paid:false}));
+            const pdT=parseDentes_V331(tni.teeth);// V331
+            if(pdT.bad.length){alert(ERRO_DENTES_V331+pdT.bad.join(", ")+DICA_DENTES_V331);return;}
+            let novos;
+            if(pdT.ok.length){
+              novos=pdT.ok.map(function(t){return {desc:descDente_V331(base,t,det),value:Number(tni.v)||0,paid:false,tooth:t.n,face:t.f||""};});
+            }else{
+              const qtd=Math.max(1,Number(tni.qty||1));
+              novos=Array.from({length:qtd},(_,i)=>({desc:qtd>1?`${nm} (${i+1}/${qtd})`:nm,value:Number(tni.v)||0,paid:false}));
+            }
             setTf(prev=>({...prev,items:[...prev.items,...novos]}));
-            setTni({d:"",procId:"",v:"",qty:"",manual:""});
+            setTni({d:"",procId:"",v:"",qty:"",manual:"",teeth:""});// V331
           }}
           style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer",alignSelf:"flex-start"}}
         >➕ Adicionar ao Plano</button>
