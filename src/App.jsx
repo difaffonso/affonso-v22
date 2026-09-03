@@ -5797,9 +5797,16 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 <button onClick={()=>{
 if(!f.patientId)return alert("Selecione o paciente primeiro.");
 const hj=today();
-const _pidF=Number(f.patientId);/* V332: PatSearch grava patientId como TEXTO e a agenda grava como NUMERO -- o === nunca batia e o botao sempre dizia que nao havia consulta */
-const prox=appts.filter(a=>Number(a.patientId)===_pidF&&a.date>=hj&&!a.blocked&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed").sort((a,b)=>a.date===b.date?String(a.time||"").localeCompare(String(b.time||"")):a.date.localeCompare(b.date))[0];
-if(!prox)return alert("Nenhuma consulta futura encontrada na agenda para este paciente.");
+const _pidF=String(f.patientId);/* V332: PatSearch grava patientId como TEXTO e a agenda grava como NUMERO -- o === nunca batia */ /* V334: compara como texto dos dois lados, funciona com id numerico ou texto */
+const _doPac=(appts||[]).filter(a=>a&&!a.blocked&&a.patientId!=null&&String(a.patientId)===_pidF);
+const _vals=_doPac.filter(a=>a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed");
+const prox=_vals.filter(a=>a.date>=hj).sort((a,b)=>a.date===b.date?String(a.time||"").localeCompare(String(b.time||"")):a.date.localeCompare(b.date))[0];
+if(!prox){/* V334: mensagens separadas -- o proprio alerta ja diz onde parou */
+const _ult=_vals.filter(a=>a.date<hj).sort((a,b)=>b.date.localeCompare(a.date))[0];
+if(_ult)return alert("Este paciente n\u00e3o tem consulta futura na agenda. A \u00faltima foi em "+fmt(_ult.date)+".");
+if(_doPac.length)return alert("As "+_doPac.length+" consulta(s) deste paciente est\u00e3o canceladas, desmarcadas ou como falta.");
+return alert("Nenhuma consulta deste paciente encontrada na agenda. (agenda carregada: "+((appts||[]).length)+" registros)");
+}
 setF(p=>({...p,pdata:prox.date,phora:prox.time||""}));
 }} style={{border:`1.5px solid ${G.border}`,background:G.card,color:G.primary,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",height:38}}>📅 Puxar da agenda</button>
 </div>
