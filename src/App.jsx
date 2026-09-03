@@ -5800,10 +5800,12 @@ const hj=today();
 const _pidF=String(f.patientId);/* V332: PatSearch grava patientId como TEXTO e a agenda grava como NUMERO -- o === nunca batia */ /* V334: compara como texto dos dois lados, funciona com id numerico ou texto */
 const _doPac=(appts||[]).filter(a=>a&&!a.blocked&&a.patientId!=null&&String(a.patientId)===_pidF);
 const _vals=_doPac.filter(a=>a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed");
-const prox=_vals.filter(a=>a.date>=hj).sort((a,b)=>a.date===b.date?String(a.time||"").localeCompare(String(b.time||"")):a.date.localeCompare(b.date))[0];
+const _agora=(function(){var d=new Date();return zz2(d.getHours())+":"+zz2(d.getMinutes());})();/* V335 */
+const _pend=function(a){return a.status!=="done"&&(a.date>hj||(a.date===hj&&String(a.time||"23:59")>=_agora));};/* V335: consulta ja realizada, ou de hoje cujo horario ja passou, nao e a "proxima" */
+const prox=_vals.filter(_pend).sort((a,b)=>a.date===b.date?String(a.time||"").localeCompare(String(b.time||"")):a.date.localeCompare(b.date))[0];
 if(!prox){/* V334: mensagens separadas -- o proprio alerta ja diz onde parou */
-const _ult=_vals.filter(a=>a.date<hj).sort((a,b)=>b.date.localeCompare(a.date))[0];
-if(_ult)return alert("Este paciente n\u00e3o tem consulta futura na agenda. A \u00faltima foi em "+fmt(_ult.date)+".");
+const _ult=_vals.filter(a=>!_pend(a)).sort((a,b)=>b.date===a.date?String(b.time||"").localeCompare(String(a.time||"")):b.date.localeCompare(a.date))[0];
+if(_ult)return alert("Este paciente n\u00e3o tem pr\u00f3xima consulta na agenda. A \u00faltima foi em "+fmt(_ult.date)+(_ult.time?" \u00e0s "+_ult.time:"")+".");/* V335 */
 if(_doPac.length)return alert("As "+_doPac.length+" consulta(s) deste paciente est\u00e3o canceladas, desmarcadas ou como falta.");
 return alert("Nenhuma consulta deste paciente encontrada na agenda. (agenda carregada: "+((appts||[]).length)+" registros)");
 }
