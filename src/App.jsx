@@ -4293,6 +4293,10 @@ return(
 {p&&p._pre&&<span style={{fontSize:9.5,background:G.blue,color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}
 {p&&anamFalta(p)&&<span style={{fontSize:9.5,background:"#cf5a78",color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"⚠ ANAMNESE NÃO CADASTRADA"}</span>}
 </div>}
+{/* V338: selo TERMO PENDENTE tambem na visao NORMAL do dia (antes so aparecia na compacta) */}
+{termoSisoPend(a)&&<div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
+<span style={{fontSize:9.5,background:"#8B6914",color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"\ud83d\udccb TERMO PENDENTE"}</span>
+</div>}
 {flags.length>0&&<div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
 {flags.map(function(f,i){return <span key={i} style={{fontSize:10,background:"var(--surface)",color:"#9a7636",borderRadius:7,padding:"3px 9px",fontWeight:700,boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px var(--nm-light)"}}>{f}</span>;})}
 </div>}
@@ -12740,6 +12744,47 @@ function pnlAbertura(u){
 }
 
 // ---- painel da recepcao / dentista (nivel < 3) ----
+// V338: bloco da Visao Geral com os termos de siso ainda nao assinados do dia.
+function PnlTermoSisoV338({appts,pats,go}){
+  const [sisoOk,setSisoOk]=useState(null);
+  useEffect(function(){
+    var alive=true;
+    if(!SUPA_URL){setSisoOk({});return;}
+    contratoApi.listC("").then(function(r){
+      if(!alive)return;
+      var m={};
+      try{ if(r&&r.ok)(r.contratos||[]).forEach(function(c){ if(c&&c.payload&&c.payload.tipo===TERMO_SISO_TIPO&&c.status==="assinado"&&c.patient_id!=null)m[String(c.patient_id)]=true; }); }catch(e){}
+      setSisoOk(m);
+    }).catch(function(){ if(alive)setSisoOk({}); });
+    return function(){alive=false;};
+  },[]);
+  if(sisoOk===null)return null;
+  var t=today();
+  var lista=(appts||[]).filter(function(a){
+    if(!a||a.date!==t||a.blocked)return false;
+    if(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed")return false;
+    if(!a.patientId)return false;
+    if(!isExoSiso(a))return false;
+    return !sisoOk[String(a.patientId)];
+  }).sort(function(x,y){return String(x.time||"").localeCompare(String(y.time||""));});
+  if(!lista.length)return null;
+  return <div style={{background:G.card,borderRadius:13,padding:"12px 13px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid #8B6914"}}>
+    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:8}}>
+      <span style={{fontSize:15}}>{"\ud83d\udccb"}</span>
+      <span style={{fontSize:12.5,fontWeight:800,color:"#8B6914",letterSpacing:".3px"}}>{"TERMO DE SISO PENDENTE HOJE"}</span>
+      <span style={{marginLeft:"auto",fontSize:11,fontWeight:800,color:"#fff",background:"#8B6914",borderRadius:20,padding:"1px 8px"}}>{lista.length}</span>
+    </div>
+    {lista.map(function(a){
+      var p=(pats||[]).find(function(x){return String(x.id)===String(a.patientId);});
+      return <div key={"tsi"+a.id} onClick={function(){go&&go("agenda");}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 7px",borderRadius:9,cursor:"pointer",background:"var(--bg)",marginTop:5}}>
+        <span style={{fontSize:12,fontWeight:800,color:"#8B6914",minWidth:38}}>{a.time||"--:--"}</span>
+        <span style={{fontSize:12,fontWeight:700,color:G.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(p&&p.name)||a.patientName||"Paciente"}</span>
+        <span style={{fontSize:10,fontWeight:700,color:G.muted}}>{a.procedureCustom||a.procedure||""}</span>
+      </div>;
+    })}
+    <div style={{fontSize:10.5,color:G.muted,marginTop:7,lineHeight:1.4}}>{"Pedir a assinatura do termo antes do procedimento."}</div>
+  </div>;
+}
 function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,users,user,pacsTicks,setPacsTicks,remarcar,recs,budgets,impl,setView,abrirFicha}){
   const t=today();
   const D={appts:appts,pats:pats,pros:pros,dents:dents,labs:labs,stock:stock,espera:espera,pontos:pontos,users:users,remarcar:remarcar,recs:recs,budgets:budgets,impl:impl,ticks:pacsTicks};
@@ -12765,6 +12810,7 @@ function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,
       {cardMini("⏳",hoje.length-conf,"A confirmar",G.orange)}
     </div>
     <PnlLembretes rems={rems} setRems={setRems} users={users} user={user} pats={pats} go={setView}/>
+    <PnlTermoSisoV338 appts={appts} pats={pats} go={setView}/>{/* V338 */}
     {blocos.map(function(bk){
       return <PnlBloco key={bk} bk={bk} D={D} user={user} ticks={pacsTicks} setTicks={setPacsTicks} go={setView} abrirFicha={abrirFicha}/>;
     })}
