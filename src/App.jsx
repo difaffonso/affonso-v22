@@ -14254,7 +14254,7 @@ var qtdTotal=saidas.reduce(function(s,m){return s+Number(m.qty||0);},0);
 return(
 <div key={item.id} style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,alignItems:"center",gap:8}}>
-<div style={{fontWeight:700,fontSize:13,flex:1}}>{item.desc}</div>
+<div style={{flex:1}}>{item.codigo&&<span style={{fontSize:10,background:G.primary+"20",color:G.primary,borderRadius:5,padding:"1px 6px",fontWeight:700,marginRight:5}}>{item.codigo}</span>}<span style={{fontWeight:700,fontSize:13}}>{item.desc}</span></div>/* V337: codigo do produto no relatorio, para conferencia com a nota do fornecedor */
 <div style={{textAlign:"right"}}><div style={{fontWeight:800,color:G.red}}>{qtdTotal+"x"}</div>{Number(item.preco)>0&&<div style={{fontSize:11,color:G.primary,fontWeight:700}}>{cur(item.preco*qtdTotal)}</div>}</div>
 </div>
 {saidas.map(function(s){return(
