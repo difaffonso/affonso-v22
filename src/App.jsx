@@ -743,21 +743,26 @@ const DentesBloco_V331=({val,set,base,det,valor})=>{
   };
   const tdBtn=function(n){
     var on=!!sel[n];
-    return <button key={n} type="button" onClick={function(){togg(n);}} style={{width:30,height:30,borderRadius:7,border:"1.5px solid "+(on?G.primary:G.border),background:on?G.primary:"var(--surface)",color:on?"#fff":G.muted,fontSize:10.5,fontWeight:700,cursor:"pointer",padding:0,fontFamily:"inherit"}}>{sel[n]>1?(n+"\u00b7"+sel[n]):String(n)}</button>;
+    return <button key={n} type="button" onClick={function(){togg(n);}} style={{flex:1,minWidth:0,height:54,borderRadius:6,border:"1.5px solid "+(on?G.primary:G.border),background:on?G.primary:"var(--surface)",color:on?"#fff":G.muted,fontSize:12,fontWeight:700,cursor:"pointer",padding:0,fontFamily:"inherit"}}>{sel[n]>1?(n+"\u00b7"+sel[n]):String(n)}</button>;
   };
-  const arcada=function(lb,q1,q2){
-    return <div><div style={{fontSize:10,color:G.muted,textAlign:"center",fontWeight:700,letterSpacing:".4px",textTransform:"uppercase",marginBottom:3}}>{lb}</div>
-      <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
-        <div style={{display:"flex",gap:3}}>{q1.map(tdBtn)}</div>
-        <div style={{display:"flex",gap:3}}>{q2.map(tdBtn)}</div>
-      </div></div>;
+  const eixo_V339=function(lb){
+    return <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:G.muted,fontWeight:700,letterSpacing:".4px",textTransform:"uppercase"}}>
+      <span>{"D"}</span><span>{lb}</span><span>{"E"}</span></div>;
+  };
+  const arcada=function(lb,q1,q2,baixo){
+    var linha=<div style={{display:"flex",alignItems:"stretch",gap:4,margin:baixo?"0 0 3px":"3px 0 0"}}>
+      <div style={{display:"flex",gap:2,flex:1,minWidth:0}}>{q1.map(tdBtn)}</div>
+      <div style={{width:1,background:G.border}}/>
+      <div style={{display:"flex",gap:2,flex:1,minWidth:0}}>{q2.map(tdBtn)}</div>
+    </div>;
+    return <div>{baixo?null:eixo_V339(lb)}{linha}{baixo?eixo_V339(lb):null}</div>;
   };
   return <div style={{background:G.bg,borderRadius:9,padding:"11px 12px",display:"flex",flexDirection:"column",gap:9}}>
     <Inp lb={"\ud83e\uddb7 Dentes (opcional) \u2014 pode indicar a face: 21M, 21D, 36MO"} val={val} set={set} ph="Ex: 16 17 21M 21D 45"/>
     <button type="button" onClick={function(){setAberto(!aberto);}} style={{background:"none",border:"none",color:G.primary,fontSize:12,fontWeight:700,cursor:"pointer",textDecoration:"underline",padding:0,alignSelf:"flex-start",fontFamily:"inherit"}}>{(aberto?"\u25be":"\u25b8")+" Ou clicar no odontograma"}</button>
     {aberto&&<div style={{display:"flex",flexDirection:"column",gap:8}}>
       {arcada("Arcada superior",FDI_V331[0],FDI_V331[1])}
-      {arcada("Arcada inferior",FDI_V331[2],FDI_V331[3])}
+      {arcada("Arcada inferior",FDI_V331[2],FDI_V331[3],true)}
       <div style={{fontSize:11,color:G.muted}}>{"Clicando você marca o dente inteiro. Para a face (M, D, O\u2026), digite no campo acima."}</div>
     </div>}
     {pd.bad.length>0&&<div style={{background:"var(--red-soft)",border:"1.5px solid "+G.red,color:G.red,borderRadius:8,padding:"7px 11px",fontSize:12,fontWeight:600}}>{"Não entendi: "+pd.bad.join(", ")+" \u2014 use dois dígitos (11 a 48) e, se quiser, a face (M, D, O, V, L, P, I, C). Ex: 21M"}</div>}
