@@ -14004,6 +14004,8 @@ var [fechQtds,setFechQtds]=useState({});
 var [fechFiltro,setFechFiltro]=useState("todos");
 var [verFech,setVerFech]=useState(null);
 var [showFnovo,setShowFnovo]=useState(false);
+var [colaTxt,setColaTxt]=useState("");// V336: colar quantidades da nota
+var [colaMsg,setColaMsg]=useState(null);// V336
 var [fnF,setFnF]=useState({tipo:"Implante",codigo:"",desc:"",preco:"",qty:""});
 var TIPOS_ITEM=["Implante","Componente","UCLA","Cicatrizador","Pilar","Coping","Outro"];
 // V244: ordenacao unica por codigo (106 implantes -> 206 componentes -> 406 pilares); sem codigo no fim
@@ -14099,7 +14101,29 @@ if(fechFiltro==="sobra")return Number(stockMap[it.id]||0)>0;
 return true;
 });
 var setQ=function(id,v){setFechQtds(function(p){var n=Object.assign({},p);if(String(v).trim()==="")delete n[id];else n[id]=v;return n;});};
-var abrirFech=function(){setFechData(t);setFechNome(nomeAuto(t));setFechQtds({});setFechFiltro("todos");setFechPasso(1);};
+// V336: aplica um bloco "codigo quantidade" por linha nos campos da reposicao
+var normCod=function(s){return String(s||"").toUpperCase().replace(/[\s.\-\/]/g,"");};
+var aplicarCola=function(){
+var ok=0,naoAch=[],ambig=[],ignor=0,novos={};
+String(colaTxt||"").split("\n").forEach(function(ln){
+var s=String(ln||"").replace(/\t/g," ").trim();
+if(!s)return;
+var toks=s.split(/[\s;,|]+/).filter(function(x){return x!=="";});
+if(toks.length<2){ignor++;return;}
+var q=Number(String(toks[toks.length-1]).replace(",","."));
+if(!isFinite(q)||q<=0){ignor++;return;}
+var cod=toks.slice(0,toks.length-1).join(" ");
+var alvo=normCod(cod);
+if(!alvo){ignor++;return;}
+var achados=implCatAtivos.filter(function(it){return normCod(it.codigo)===alvo;});
+if(achados.length===0){naoAch.push(cod);return;}
+if(achados.length>1){ambig.push(cod);return;}
+novos[achados[0].id]=String(q);ok++;
+});
+if(ok)setFechQtds(function(p){return Object.assign({},p,novos);});
+setColaMsg({ok:ok,naoAch:naoAch,ambig:ambig,ignor:ignor});
+};
+var abrirFech=function(){setFechData(t);setColaTxt("");setColaMsg(null);setFechNome(nomeAuto(t));setFechQtds({});setFechFiltro("todos");setFechPasso(1);};
 var addFnovo=function(){
 if(!fnF.desc.trim()){alert("Informe a descrição do item");return;}
 var newId=nid();
@@ -14384,6 +14408,21 @@ return(
 </div>}
 {fechPasso===2&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
 <div style={{background:G.primary+"12",borderLeft:"3px solid "+G.primary,borderRadius:"0 9px 9px 0",padding:"9px 11px",fontSize:11,color:"#3a4a42",lineHeight:1.5}}>{"Tudo começa zerado. Digite só a quantidade do que o representante deixou — os itens em branco ficam com zero. A lista segue a mesma sequência de códigos do estoque."}</div>
+<div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
+<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginBottom:5}}>{"Colar quantidades da nota"}</div>
+<div style={{fontSize:10.5,color:G.muted,lineHeight:1.5,marginBottom:7}}>{"Uma linha por item, no formato: código e quantidade. Ex.: 106.325 5 — os preços do catálogo não são alterados."}</div>
+<textarea value={colaTxt} onChange={function(e){setColaTxt(e.target.value);}} rows={5} placeholder={"106.325 5\n406.316 10\nBF 4006 2"} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:9,padding:"9px 10px",fontSize:12.5,fontFamily:"monospace",outline:"none",resize:"vertical",boxSizing:"border-box"}}/>
+<div style={{display:"flex",gap:6,marginTop:7}}>
+<button onClick={aplicarCola} style={{flex:1,background:G.primary,color:"#fff",border:"none",borderRadius:9,padding:"10px",fontSize:12.5,fontWeight:700,cursor:"pointer"}}>{"Aplicar nos campos"}</button>
+<button onClick={function(){setColaTxt("");setColaMsg(null);}} style={{background:G.bg,border:"1px solid "+G.border,color:G.muted,borderRadius:9,padding:"10px 14px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"Limpar"}</button>
+</div>
+{colaMsg&&<div style={{marginTop:8,fontSize:11,lineHeight:1.6}}>
+<div style={{color:"#1E7D45",fontWeight:700}}>{colaMsg.ok+" item(ns) preenchido(s)."}</div>
+{colaMsg.naoAch.length>0&&<div style={{color:G.red,marginTop:3}}>{"Código não encontrado no catálogo: "+colaMsg.naoAch.join(", ")+". Cadastre em \"+ Novo item\" e cole de novo."}</div>}
+{colaMsg.ambig.length>0&&<div style={{color:"#a76b00",marginTop:3}}>{"Código repetido no catálogo (preencha à mão): "+colaMsg.ambig.join(", ")}</div>}
+{colaMsg.ignor>0&&<div style={{color:G.muted,marginTop:3}}>{colaMsg.ignor+" linha(s) sem quantidade válida, ignorada(s)."}</div>}
+</div>}
+</div>
 <div style={{display:"flex",gap:5}}>
 {[["todos","Todos ("+implCatAtivos.length+")"],["preench","Preenchidos"],["sobra","Tinha sobra"]].map(function(fl){return(
 <button key={fl[0]} onClick={function(){setFechFiltro(fl[0]);}} style={{flex:1,border:"none",borderRadius:8,padding:"7px 2px",fontSize:10,fontWeight:800,cursor:"pointer",background:fechFiltro===fl[0]?G.primary:G.bg,color:fechFiltro===fl[0]?"#fff":G.muted}}>{fl[1]}</button>
