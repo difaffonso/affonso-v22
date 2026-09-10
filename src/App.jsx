@@ -10516,6 +10516,42 @@ function ConfigAcesso({acessoCfg,setAcessoCfg}){
     </div>
   </div>;
 }
+// V340: guarda a pasta escolhida para o backup (handle fica no IndexedDB do navegador)
+function bkpDirDB_V340(){
+  return new Promise(function(res){
+    try{
+      var r=indexedDB.open("relevo-bkp-v340",1);
+      r.onupgradeneeded=function(){try{r.result.createObjectStore("h");}catch(e){}};
+      r.onerror=function(){res(null);};
+      r.onsuccess=function(){res(r.result);};
+    }catch(e){res(null);}
+  });
+}
+function bkpDirGet_V340(){
+  return bkpDirDB_V340().then(function(db){
+    if(!db)return null;
+    return new Promise(function(res){
+      try{
+        var q=db.transaction("h","readonly").objectStore("h").get("dir");
+        q.onsuccess=function(){res(q.result||null);};
+        q.onerror=function(){res(null);};
+      }catch(e){res(null);}
+    });
+  }).catch(function(){return null;});
+}
+function bkpDirSet_V340(h){
+  return bkpDirDB_V340().then(function(db){
+    if(!db)return false;
+    return new Promise(function(res){
+      try{
+        var q=db.transaction("h","readwrite").objectStore("h").put(h,"dir");
+        q.onsuccess=function(){try{localStorage.setItem("bkpPastaNome_V340",String((h&&h.name)||""));}catch(e){}res(true);};
+        q.onerror=function(){res(false);};
+      }catch(e){res(false);}
+    });
+  }).catch(function(){return false;});
+}
+
 function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog,acessoCfg,setAcessoCfg,bkpLog,setBkpLog}){
 const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
 const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
@@ -10530,6 +10566,8 @@ return true;
 const uniqueUsers=[...new Set((logs||[]).map(function(l){return l.user;}))];
 const [um,setUm]=useState(false);const [pm,setPm]=useState(false);const [lm,setLm]=useState(false);const [dm,setDm]=useState(false);
 const [bkpDone,setBkpDone]=useState(false);
+const [bkpPasta,setBkpPasta]=useState("");// V340: onde o ultimo backup foi salvo
+const [bkpPastaCfg,setBkpPastaCfg]=useState(function(){try{return localStorage.getItem("bkpPastaNome_V340")||"";}catch(e){return "";}});// V340
 const [restoreDone,setRestoreDone]=useState("");
 const [eu,setEu]=useState(null);const [ep,setEp]=useState(null);const [el,setEl]=useState(null);const [ed,setEd]=useState(null);
 const b0={name:"",role:"Recepcionista",level:2,aux:false,login:"",pass:"",dentistId:"",color:UCOLS[0],active:true,criaDentista:false};// V329
@@ -10810,10 +10848,23 @@ return(
 {tab==="backup"&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
   <div style={{background:G.accent,borderRadius:12,padding:"12px 16px",fontSize:13,color:G.primary,lineHeight:1.6}}>
     <strong>💾 Backup Manual</strong><br/>
-    Baixa um arquivo <code>{"backup-affonso-YYYY-MM-DD.json"}</code> com todos os dados da clínica. Guarde em local seguro como proteção extra.
+    Baixa um arquivo <code>{"backup-affonso-YYYY-MM-DD.json"}</code> com todos os dados da clínica. Guarde em local seguro como proteção extra.<br/><span style={{fontSize:12.5}}>{"Dica: escolha uma vez a pasta de destino no botão abaixo e o arquivo passa a ser salvo direto nela, sem passar pelo Downloads."}</span>
   </div>
   <div style={{display:"flex",flexDirection:"column",gap:10}}>
     <button onClick={async function(){
+      // V340: se ja existe pasta escolhida, pede permissao AGORA (antes dos awaits longos,
+      // senao o navegador perde o "gesto do usuario" e recusa o acesso a pasta).
+      var _dir=null;
+      try{
+        if(window.showDirectoryPicker){
+          _dir=await bkpDirGet_V340();
+          if(_dir){
+            var _perm=await _dir.queryPermission({mode:"readwrite"});
+            if(_perm!=="granted")_perm=await _dir.requestPermission({mode:"readwrite"});
+            if(_perm!=="granted")_dir=null;
+          }
+        }
+      }catch(e){_dir=null;}
       var full=null,patsDB=null;
       for(var _t=0;_t<4&&!full;_t++){full=await supabase.loadFull();if(!full)await new Promise(function(r){setTimeout(r,900);});}
       if(!full||!full.data||!Object.keys(full.data).length){alert("Nao consegui ler o banco agora (verifique a internet). Tente de novo em alguns segundos - o backup so e gerado quando le tudo do servidor.");return;}
@@ -10821,15 +10872,31 @@ return(
       var patsFinal=(patsDB&&patsDB.length)?patsDB:pats;
       var bkp=Object.assign({},full.data,{version:"V154",exportDate:new Date().toISOString(),pats:patsFinal});
       var json=JSON.stringify(bkp,null,2);
+      var _nome="backup-affonso-"+new Date().toISOString().slice(0,10)+".json";
+      // V340: grava direto na pasta escolhida, sem passar pelo Downloads
+      var _gravou=false;
       try{
-        var blob=new Blob([json],{type:"application/json"});
-        var url=URL.createObjectURL(blob);
-        var a=document.createElement("a");
-        a.href=url;a.download="backup-affonso-"+new Date().toISOString().slice(0,10)+".json";
-        document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-      }catch(e){
-        if(navigator.clipboard){navigator.clipboard.writeText(json);}
-        else{var w=window.open("","_blank");if(w){w.document.write("<pre>"+json+"</pre>");w.document.close();}}
+        if(_dir){
+          var _fh=await _dir.getFileHandle(_nome,{create:true});
+          var _ws=await _fh.createWritable();
+          await _ws.write(json);
+          await _ws.close();
+          _gravou=true;
+          setBkpPasta(String(_dir.name||"pasta escolhida"));
+        }
+      }catch(e){_gravou=false;}
+      if(!_gravou){
+        setBkpPasta("");
+        try{
+          var blob=new Blob([json],{type:"application/json"});
+          var url=URL.createObjectURL(blob);
+          var a=document.createElement("a");
+          a.href=url;a.download=_nome;
+          document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+        }catch(e){
+          if(navigator.clipboard){navigator.clipboard.writeText(json);}
+          else{var w=window.open("","_blank");if(w){w.document.write("<pre>"+json+"</pre>");w.document.close();}}
+        }
       }
       // V327: registra o backup para o calendario saber que foi feito
       try{
@@ -10842,7 +10909,19 @@ return(
     }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:12,padding:"16px",fontSize:15,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
       {"⬇️ Baixar Backup JSON"}
     </button>
-    {bkpDone!==false&&<div style={{background:"var(--green-soft)",border:"1.5px solid #A5D6A7",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#2E7D32",textAlign:"center"}}>{"✅ Backup gerado com "+bkpDone+" paciente(s)! Arquivo salvo na pasta Downloads."}</div>}
+    {/* V340: escolher uma vez a pasta de destino. Depois disso o backup vai direto pra la. */}
+    <button onClick={async function(){
+      if(!window.showDirectoryPicker){alert("Este navegador nao permite escolher a pasta. Use o Chrome ou o Edge no computador (no celular o backup continua indo para Downloads).");return;}
+      try{
+        var d=await window.showDirectoryPicker({mode:"readwrite",id:"bkpAffonsoV340",startIn:"documents"});
+        var ok=await bkpDirSet_V340(d);
+        setBkpPastaCfg(String(d.name||""));
+        alert(ok?("Pasta definida: "+(d.name||"")+"\n\nA partir de agora o backup vai direto para ela."):"Nao consegui guardar a pasta neste navegador. O backup continuara indo para Downloads.");
+      }catch(e){}
+    }} style={{background:"transparent",color:G.primary,border:"1.5px solid "+G.primary,borderRadius:12,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+      {bkpPastaCfg?("📁 Pasta do backup: "+bkpPastaCfg+" (trocar)"):"📁 Escolher pasta do backup"}
+    </button>
+    {bkpDone!==false&&<div style={{background:"var(--green-soft)",border:"1.5px solid #A5D6A7",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#2E7D32",textAlign:"center"}}>{"✅ Backup gerado com "+bkpDone+" paciente(s)! Arquivo salvo "+(bkpPasta?("na pasta "+bkpPasta):"na pasta Downloads")+"."}</div>}
     {/* V327: historico dos backups. Alimenta o lembrete de seg/qua/sex do calendario. */}
     <div style={{background:"var(--surface)",borderRadius:12,padding:"12px 14px",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px var(--nm-light)"}}>
       <div style={{fontWeight:800,fontSize:11,color:G.muted,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>{"Últimos backups"}</div>
