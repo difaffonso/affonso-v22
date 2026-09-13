@@ -13738,11 +13738,24 @@ var marcarPago=function(key,pago){
   var treatId=Number(parts[0]);
   var itemIdx=Number(parts[1]);
   var hoje=today();
+  var snapItem=items.find(function(x){return x.key===key;}); // V341
   setTreats(function(prev){return prev.map(function(t){
     if(t.id!==treatId)return t;
     return {...t,_ts:Date.now(),items:t.items.map(function(it,i){
       if(i!==itemIdx)return it;
-      return {...it,recebido:pago,recebidoDate:pago?hoje:""};
+      // V342: congela os valores no momento da baixa, para o relatorio nao mudar
+      // retroativamente se a comissao do dentista ou a taxa do cartao forem alteradas.
+      var snap=pago&&snapItem?{
+        bruto:snapItem.valor,
+        taxaEf:snapItem.taxaEf,
+        taxaValor:snapItem.taxaValor,
+        base:snapItem.baseComissao,
+        comm:COMM,
+        comissao:snapItem.comissao,
+        dentistId:Number(selDent),
+        baixaDate:snapItem.baixaDate
+      }:null;
+      return {...it,recebido:pago,recebidoDate:pago?hoje:"",recebidoSnap:snap};
     })};
   });});
 };
@@ -13840,6 +13853,140 @@ return(
 </div>
 );
 }
+// ══════════════════════════════════════════════════════════
+// V342: RELATORIO DE PAGAMENTOS AOS DENTISTAS
+// Agrupa pela data em que o ADMINISTRATIVO deu baixa (recebidoDate),
+// nao pela data em que o procedimento foi realizado (doneDate).
+// Responde "quanto pagamos ao dentista neste mes", nao "o que ele realizou".
+// Usa o snapshot gravado na baixa; so recalcula em registros antigos sem snapshot.
+// ══════════════════════════════════════════════════════════
+function RelPagDentistas({pats,dents,treats,user}){
+var isDent=user.level===1;
+var [mo,setMo]=useState(today().slice(0,7));
+
+var linhas=[];
+(treats||[]).forEach(function(treat){
+  var CR=null;
+  (treat.items||[]).forEach(function(it,idx){
+    if(!it.recebido)return;
+    var rd=it.recebidoDate||"";
+    if(rd.slice(0,7)!==mo)return;
+    var snap=it.recebidoSnap||null;
+    var dId=snap&&snap.dentistId!=null?Number(snap.dentistId):null;
+    if(dId==null){
+      if(it.doneByDentistId!=null)dId=Number(it.doneByDentistId);
+      else if(it.doneBy){var fd=dents.find(function(dd){return dd.name===it.doneBy;});if(fd)dId=fd.id;}
+      else if(treat.dentistId)dId=Number(treat.dentistId);
+    }
+    if(dId==null)return;
+    if(isDent&&dId!==user.dentistId)return;
+    var d=dents.find(function(x){return x.id===dId;});
+    var val=Number(it.value||0);
+    var taxaEf,taxaValor,base,comm,comissao;
+    if(snap){
+      taxaEf=snap.taxaEf;taxaValor=snap.taxaValor;base=snap.base;comm=snap.comm;comissao=snap.comissao;
+    }else{
+      if(!CR)CR=calcCreditoTreat(treat);
+      taxaEf=CR.txEf;base=val*(1-taxaEf);taxaValor=val-base;
+      comm=(d&&d.commission||40)/100;comissao=base*comm;
+    }
+    var pat=pats.find(function(x){return x.id===treat.patientId;});
+    linhas.push({
+      key:treat.id+"-"+idx,dentId:dId,dentName:d&&d.name||"—",
+      patName:pat&&pat.name||"—",proc:it.desc||treat.name||"Procedimento",
+      baixaDate:(snap&&snap.baixaDate)||it.doneDate||"",pagoDate:rd,
+      valor:val,taxaEf:taxaEf,taxaValor:taxaValor,base:base,comm:comm,comissao:comissao,
+      semSnap:!snap
+    });
+  });
+});
+
+linhas.sort(function(a,b){return (a.dentName||"").localeCompare(b.dentName||"","pt")||String(a.pagoDate).localeCompare(String(b.pagoDate));});
+
+var grupos={};
+linhas.forEach(function(l){if(!grupos[l.dentId])grupos[l.dentId]={nome:l.dentName,itens:[],total:0,bruto:0,taxa:0};
+  grupos[l.dentId].itens.push(l);grupos[l.dentId].total+=l.comissao;grupos[l.dentId].bruto+=l.valor;grupos[l.dentId].taxa+=l.taxaValor;});
+var gKeys=Object.keys(grupos);
+var totalGeral=linhas.reduce(function(s,l){return s+l.comissao;},0);
+var semSnapN=linhas.filter(function(l){return l.semSnap;}).length;
+
+var imprimir=function(dId){
+  var g=grupos[dId];if(!g)return;
+  var w=window.open("","_blank");if(!w){alert("Permita pop-ups para imprimir.");return;}
+  var rows=g.itens.map(function(l){
+    return "<tr><td>"+l.patName+"</td><td>"+l.proc+"</td><td>"+fmt(l.baixaDate)+"</td><td class='r'>"+cur(l.valor)+"</td><td class='r'>"+cur(l.taxaValor)+"</td><td class='r'><b>"+cur(l.comissao)+"</b></td></tr>";
+  }).join("");
+  w.document.write("<html><head><meta charset='utf-8'><title>Pagamento "+g.nome+"</title><style>"
+   +"body{font-family:Arial,sans-serif;padding:28px;color:#222}h1{font-size:19px;margin:0 0 2px}"
+   +"h2{font-size:13px;font-weight:400;color:#666;margin:0 0 18px}"
+   +"table{width:100%;border-collapse:collapse;font-size:12px}"
+   +"th{background:#f0f0f0;text-align:left;padding:7px;border-bottom:2px solid #ccc}"
+   +"td{padding:7px;border-bottom:1px solid #e5e5e5}.r{text-align:right}"
+   +".tot{margin-top:16px;font-size:16px;font-weight:700;text-align:right}"
+   +".ass{margin-top:60px;border-top:1px solid #333;width:280px;padding-top:6px;font-size:12px}"
+   +"</style></head><body>"
+   +"<h1>Pagamento ao Dentista — "+g.nome+"</h1>"
+   +"<h2>Competência "+mo+" · baixas lançadas pelo administrativo</h2>"
+   +"<table><thead><tr><th>Paciente</th><th>Procedimento</th><th>Realizado</th><th class='r'>Bruto</th><th class='r'>Taxa cartão</th><th class='r'>Comissão</th></tr></thead><tbody>"+rows+"</tbody></table>"
+   +"<div class='tot'>Total a pagar: "+cur(g.total)+"</div>"
+   +"<div class='ass'>"+g.nome+"</div>"
+   +"</body></html>");
+  w.document.close();
+};
+
+return(
+<div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+  <div>
+    <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"🧾 Pagamentos a Dentistas"}</h2>
+    <div style={{fontSize:12,color:G.muted,marginTop:2}}>{"Agrupado pela data da baixa do administrativo"}</div>
+  </div>
+
+  <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}}
+    style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:14,outline:"none"}}/>
+
+  <div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+    <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total pago em "+mo}</span>
+    <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{cur(totalGeral)}</span>
+  </div>
+
+  {semSnapN>0&&<div style={{background:G.orange+"18",borderRadius:10,padding:"9px 12px",fontSize:11,color:G.orange,fontWeight:600}}>
+    {"⚠ "+semSnapN+" registro(s) sem snapshot (baixa dada antes desta versão) — valores recalculados com a comissão e taxa atuais."}
+  </div>}
+
+  {gKeys.length===0&&<div style={{background:G.card,borderRadius:12,padding:30,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+    Nenhuma baixa lançada neste mês
+  </div>}
+
+  {gKeys.map(function(k){var g=grupos[k];return(
+  <div key={k} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",display:"flex",flexDirection:"column",gap:9}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+      <div>
+        <div style={{fontWeight:700,fontSize:15,color:G.text}}>{g.nome}</div>
+        <div style={{fontSize:11,color:G.muted}}>{g.itens.length+" procedimento(s) · bruto "+cur(g.bruto)+" · taxa "+cur(g.taxa)}</div>
+      </div>
+      <div style={{fontSize:19,fontWeight:700,color:G.primary}}>{cur(g.total)}</div>
+    </div>
+
+    <div style={{display:"flex",flexDirection:"column",gap:0}}>
+      {g.itens.map(function(l){return(
+      <div key={l.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"7px 0",borderTop:"1px solid "+G.border}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:13,fontWeight:600,color:G.text}}>{l.patName}</div>
+          <div style={{fontSize:11,color:G.muted}}>{l.proc+" · realizado "+fmt(l.baixaDate)+" · baixa "+fmt(l.pagoDate)}</div>
+        </div>
+        <div style={{textAlign:"right",flexShrink:0}}>
+          <div style={{fontSize:14,fontWeight:700,color:G.primary}}>{cur(l.comissao)}</div>
+          <div style={{fontSize:10,color:G.muted}}>{cur(l.valor)+" − "+(l.taxaEf*100).toFixed(2).replace(".",",")+"%"}</div>
+        </div>
+      </div>);})}
+    </div>
+
+    <button onClick={function(){imprimir(k);}} style={{border:"none",borderRadius:9,padding:"9px 12px",fontSize:12,fontWeight:700,cursor:"pointer",background:G.accent,color:G.primary}}>{"🖨️ Imprimir comprovante"}</button>
+  </div>);})}
+</div>
+);
+}
+
 function WAAnamneseModal({pat,onClose}){
 const [sent,setSent]=useState(false);
 const send=function(){
@@ -17421,7 +17568,7 @@ const ALL_NAV=[
 // Clínico
 {id:"pros",l:"Próteses",ic:"ph-first-aid-kit",lv:2,b:prosBadge,grp:"Clínico"},{id:"impl",l:"Implantes",ic:"ph-syringe",lv:2,grp:"Clínico"},{id:"stk",l:"Estoque",ic:"ph-package",lv:2,alerta:stkAlerta,grp:"Clínico"},
 // Financeiro
-{id:"caixa",l:"Caixa",ic:"ph-cash-register",lv:2,grp:"Financeiro"},{id:"fin",l:"Financeiro",ic:"ph-wallet",lv:3,grp:"Financeiro"},{id:"pixdent",l:"Pix Dentistas",ic:"ph-hand-coins",lv:1,grp:"Financeiro"},{id:"pdent",l:"Recebimentos",ic:"ph-currency-dollar",lv:1,grp:"Financeiro"},{id:"desp",l:"Gastos",ic:"ph-receipt",lv:3,grp:"Financeiro"},
+{id:"caixa",l:"Caixa",ic:"ph-cash-register",lv:2,grp:"Financeiro"},{id:"fin",l:"Financeiro",ic:"ph-wallet",lv:3,grp:"Financeiro"},{id:"pixdent",l:"Pix Dentistas",ic:"ph-hand-coins",lv:1,grp:"Financeiro"},{id:"pdent",l:"Recebimentos",ic:"ph-currency-dollar",lv:1,grp:"Financeiro"},{id:"pagdent",l:"Pagamentos Dentistas",ic:"ph-receipt-x",lv:1,grp:"Financeiro"},{id:"desp",l:"Gastos",ic:"ph-receipt",lv:3,grp:"Financeiro"},
 // Gestão
 {id:"rel",l:"Relatórios",ic:"ph-chart-bar",lv:2,grp:"Gestão"},{id:"audit",l:"Auditoria",ic:"ph-magnifying-glass",lv:3,grp:"Gestão"},{id:"adm",l:"Administrativo",ic:"ph-gear",lv:3,grp:"Gestão"},
 ];
@@ -17533,6 +17680,7 @@ return <>
       {view==="stk"&&<Estoque cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} implFech={implFech} setImplFech={setImplFech} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user} abrirFicha={abrirFicha}/>}
+      {view==="pagdent"&&<RelPagDentistas pats={pats} dents={dents} treats={treats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user} setDocsEmitidos={setDocsEmitidos}/>}
     {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users} afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo} ferPer={ferPer} setFerPer={setFerPer}/>}
     {view==="holerite"&&user.level>=3&&<Holerites hol={hol} setHol={setHol} users={users} user={user}/>}{/* V300 */}
