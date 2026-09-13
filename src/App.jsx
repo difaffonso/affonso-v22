@@ -13613,11 +13613,60 @@ return(
 // 5. Amortizacao: pagamentos alocados do maior pro menor procedimento
 //    ate cobrir 100% - so libera no mes em que o 100% e atingido
 // ══════════════════════════════════════════════════════════
-function PainelDentista({pats,dents,treats,user,setTreats}){
+// V341: taxa de maquininha por forma de pagamento
+var TX_CARTAO={credito:0.035,debito:0.02};
+function feeOf(method){
+  var s=String(method||"").toLowerCase();
+  if(s.indexOf("cr\u00e9dito")>=0||s.indexOf("credito")>=0)return TX_CARTAO.credito;
+  if(s.indexOf("d\u00e9bito")>=0||s.indexOf("debito")>=0)return TX_CARTAO.debito;
+  return 0;
+}
+// V341: ordem de consumo do credito. "data" = baixa mais antiga primeiro. "maior" = maior valor primeiro.
+var ORDEM_CREDITO="data";
+
+// V341: para cada plano, calcula quanto o paciente pagou (bruto e liquido),
+// a taxa efetiva da carteira dele, e aloca esse credito nos procedimentos
+// com baixa ate cobrir 100% do valor bruto de cada um.
+function calcCreditoTreat(treat){
+  var pays=(treat&&treat.payments)||[];
+  var brutoPago=0,liqPago=0,semMetodo=false;
+  pays.forEach(function(p){
+    var v=Number(p.value||0);if(!v)return;
+    brutoPago+=v;liqPago+=v*(1-feeOf(p.method));
+    if(!p.method)semMetodo=true;
+  });
+  // Fallback: plano antigo sem array de pagamentos, usa itens marcados como pagos
+  if(pays.length===0){
+    ((treat&&treat.items)||[]).forEach(function(it){
+      if(it.paid){var v=Number(it.value||0);brutoPago+=v;liqPago+=v;semMetodo=true;}
+    });
+  }
+  var txEf=brutoPago>0?(1-liqPago/brutoPago):0;
+
+  var fila=[];
+  ((treat&&treat.items)||[]).forEach(function(it,idx){
+    if(!(it.done||it.paid))return;
+    fila.push({idx:idx,valor:Number(it.value||0),date:it.doneDate||""});
+  });
+  if(ORDEM_CREDITO==="maior")fila.sort(function(a,b){return b.valor-a.valor;});
+  else fila.sort(function(a,b){return String(a.date).localeCompare(String(b.date));});
+
+  var consumido=0,mapa={};
+  fila.forEach(function(f){
+    var antes=brutoPago-consumido;
+    var liberavel=antes>=f.valor-0.005;
+    mapa[f.idx]={creditoAntes:antes,liberavel:liberavel,falta:liberavel?0:(f.valor-antes),sobra:liberavel?(antes-f.valor):0};
+    if(liberavel)consumido+=f.valor;
+  });
+  return {brutoPago:brutoPago,liqPago:liqPago,txEf:txEf,semMetodo:semMetodo,liberado:consumido,mapa:mapa};
+}
+
+function PainelDentista({pats,dents,treats,user,setTreats,abrirFicha}){
 var isDent=user.level===1;
 var myDents=isDent?dents.filter(function(d){return d.id===user.dentistId;}):dents;
 var [selDent,setSelDent]=useState(String(myDents[0]&&myDents[0].id||""));
 var [mo,setMo]=useState(today().slice(0,7));
+var [detOpen,setDetOpen]=useState(null); // V341: card expandido
 var dent=dents.find(function(d){return d.id===Number(selDent);})||dents[0];
 var COMM=(dent&&dent.commission||40)/100;
 
@@ -13625,6 +13674,7 @@ var COMM=(dent&&dent.commission||40)/100;
 var items=[];
 (treats||[]).forEach(function(treat){
   var dentId=Number(selDent);
+  var CR=calcCreditoTreat(treat); // V341
   (treat.items||[]).forEach(function(it,idx){
     if(!(it.done||it.paid))return;
     // Determinar de FORMA UNICA o dentista responsavel pela baixa
@@ -13647,14 +13697,27 @@ var items=[];
     if(baixaMo<mo&&recebido)return;   // mes anterior ja recebido: fica so no historico do mes dele
     var pat=pats.find(function(x){return x.id===treat.patientId;});
     var val=Number(it.value||0);
+    var cr=CR.mapa[idx]||{creditoAntes:0,liberavel:false,falta:val,sobra:0};
+    var baseComissao=val*(1-CR.txEf); // V341: taxa do cartao entra aqui
     items.push({
       key:treat.id+"-"+idx,
       treatId:treat.id,
       itemIdx:idx,
+      pat:pat,
       patName:pat&&pat.name||"—",
       proc:it.desc||treat.name||"Procedimento",
       valor:val,
-      comissao:val*COMM,
+      taxaEf:CR.txEf,
+      baseComissao:baseComissao,
+      taxaValor:val-baseComissao,
+      pagoPaciente:CR.brutoPago,
+      jaLiberado:CR.liberado,
+      creditoAntes:cr.creditoAntes,
+      liberavel:cr.liberavel,
+      falta:cr.falta,
+      sobra:cr.sobra,
+      semMetodo:CR.semMetodo,
+      comissao:baseComissao*COMM,
       baixaDate:baixaDate,
       baixaMo:baixaMo,
       atrasado:baixaMo<mo,
@@ -13718,12 +13781,18 @@ return(
       <div key={item.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:"4px solid "+(item.pago?G.success:item.atrasado?G.red:G.orange),opacity:item.pago?0.75:1}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           {/* Checkbox admin */}
-          {!isDent&&<div onClick={function(){marcarPago(item.key,!item.pago);}}
-            style={{width:26,height:26,borderRadius:6,border:"2px solid "+(item.pago?G.success:G.border),background:item.pago?G.success:"var(--card)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,transition:"all .15s"}}>
+          {!isDent&&<div onClick={function(){if(!item.pago&&!item.liberavel){alert("Paciente ainda não pagou o valor total deste procedimento.\n\nPago: "+cur(item.pagoPaciente)+"\nJá liberado: "+cur(item.jaLiberado)+"\nCrédito: "+cur(item.creditoAntes)+"\nFalta: "+cur(item.falta));return;}marcarPago(item.key,!item.pago);}}
+            title={!item.pago&&!item.liberavel?"Bloqueado: crédito insuficiente":"Marcar como pago"}
+            style={{width:26,height:26,borderRadius:6,border:"2px solid "+(item.pago?G.success:!item.liberavel?G.orange:G.border),background:item.pago?G.success:"var(--card)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,transition:"all .15s",opacity:!item.pago&&!item.liberavel?.5:1}}>
             {item.pago&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>✓</span>}
           </div>}
           <div style={{flex:1}}>
-            <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span style={{fontWeight:700,fontSize:14,color:G.text}}>{item.patName}</span>{item.atrasado&&<span style={{background:G.red+"20",color:G.red,borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"⚠ Mês anterior"}</span>}</div>
+            <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+              <span onClick={function(){if(item.pat&&abrirFicha)abrirFicha(item.pat);}} title="Abrir ficha clínica"
+                style={{fontWeight:700,fontSize:14,color:item.pat?G.primary:G.text,cursor:item.pat?"pointer":"default",textDecoration:item.pat?"underline":"none",textUnderlineOffset:2}}>{item.patName+(item.pat?" ↗":"")}</span>
+              {item.atrasado&&<span style={{background:G.red+"20",color:G.red,borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"⚠ Mês anterior"}</span>}
+              {!item.pago&&!item.liberavel&&<span style={{background:G.orange+"20",color:G.orange,borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"🔒 Falta "+cur(item.falta)}</span>}
+            </div>
             <div style={{fontSize:13,color:G.primary,fontWeight:600,marginTop:1}}>{item.proc}</div>
             <div style={{fontSize:11,color:item.atrasado?G.red:G.muted,marginTop:2,fontWeight:item.atrasado?700:400}}>{"Baixa: "+fmt(item.baixaDate)+(item.atrasado?" (pendente)":"")}</div>
             {item.pago&&item.pagoDate&&<div style={{fontSize:11,color:G.success,fontWeight:600,marginTop:2}}>{"✓ Pago em "+fmt(item.pagoDate)}</div>}
@@ -13731,9 +13800,35 @@ return(
           <div style={{textAlign:"right",flexShrink:0}}>
             <div style={{fontSize:11,color:G.muted}}>{"Valor: "+cur(item.valor)}</div>
             <div style={{fontSize:17,fontWeight:700,color:item.pago?G.success:G.primary}}>{cur(item.comissao)}</div>
-            <div style={{fontSize:10,color:G.muted}}>{"40% comissão"}</div>
+            <div style={{fontSize:10,color:G.muted}}>{Math.round(COMM*100)+"% comissão"}</div>
           </div>
         </div>
+
+        {/* V341: detalhe do credito do paciente */}
+        <div onClick={function(){setDetOpen(detOpen===item.key?null:item.key);}}
+          style={{marginTop:8,paddingTop:7,borderTop:"1px solid "+G.border,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",fontSize:11,color:G.muted,fontWeight:600}}>
+          <span>{"Crédito do paciente: "+cur(item.creditoAntes)}</span>
+          <span>{(detOpen===item.key?"▲ fechar":"▼ detalhe")}</span>
+        </div>
+
+        {detOpen===item.key&&<div style={{marginTop:8,background:"var(--surface)",borderRadius:10,padding:"10px 12px",display:"flex",flexDirection:"column",gap:5}}>
+          <div style={{fontSize:12,color:G.text,lineHeight:1.6}}>
+            {"Pago "}<b>{cur(item.pagoPaciente)}</b>{" − liberado "}<b>{cur(item.jaLiberado)}</b>{" = "}<b>{cur(item.creditoAntes)}</b><br/>
+            {"esta baixa "}<b>{cur(item.valor)}</b>{" → "}
+            <b style={{color:item.liberavel?G.success:G.orange}}>{item.liberavel?("sobra "+cur(item.sobra)):("falta "+cur(item.falta))}</b>
+          </div>
+          <div style={{height:1,background:G.border}}></div>
+          {[["Procedimento bruto",cur(item.valor),G.text],
+            ["Taxa cartão ("+(item.taxaEf*100).toFixed(2).replace(".",",")+"%)","− "+cur(item.taxaValor),G.red],
+            ["Base da comissão",cur(item.baseComissao),G.text],
+            ["Comissão "+Math.round(COMM*100)+"%",cur(item.comissao),G.primary]].map(function(r,i){return(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12}}>
+              <span style={{color:G.muted}}>{r[0]}</span><span style={{color:r[2],fontWeight:i===3?700:600}}>{r[1]}</span>
+            </div>);})}
+          {item.semMetodo&&<div style={{fontSize:10,color:G.orange,fontWeight:600,marginTop:2}}>{"⚠ Há pagamento sem forma registrada — taxa pode estar subestimada"}</div>}
+          {item.pat&&<button onClick={function(){abrirFicha&&abrirFicha(item.pat);}}
+            style={{marginTop:4,border:"none",borderRadius:9,padding:"8px 12px",fontSize:12,fontWeight:700,cursor:"pointer",background:G.accent,color:G.primary}}>{"📋 Abrir ficha do paciente"}</button>}
+        </div>}
       </div>
     );})}
   </div>
@@ -17437,7 +17532,7 @@ return <>
       {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
       {view==="stk"&&<Estoque cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} implFech={implFech} setImplFech={setImplFech} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
-      {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
+      {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user} abrirFicha={abrirFicha}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user} setDocsEmitidos={setDocsEmitidos}/>}
     {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users} afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo} ferPer={ferPer} setFerPer={setFerPer}/>}
     {view==="holerite"&&user.level>=3&&<Holerites hol={hol} setHol={setHol} users={users} user={user}/>}{/* V300 */}
