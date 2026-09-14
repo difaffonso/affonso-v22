@@ -13642,6 +13642,36 @@ function moLabel(mo){
   return (MESNOME[m-1]||"")+" de "+y;
 }
 
+// V346: no cartao de credito parcelado, so conta como credito a parcela que JA CAIU.
+// Parcelas caem 1 mes apos a data do pagamento, no mesmo dia (10/07 -> 1a em 10/08).
+// CREDITO_1X_ESPERA=true faz o credito a vista (1x) tambem esperar 30 dias.
+var CREDITO_1X_ESPERA=false;
+function _pad2(n){return (n<10?"0":"")+n;}
+function _addMes(dateStr,k){
+  var y=Number(String(dateStr).slice(0,4)),m=Number(String(dateStr).slice(5,7)),d=Number(String(dateStr).slice(8,10));
+  m+=k;while(m>12){m-=12;y+=1;}
+  var ultimo=new Date(y,m,0).getDate();
+  if(d>ultimo)d=ultimo;
+  return y+"-"+_pad2(m)+"-"+_pad2(d);
+}
+// Retorna quanto ja compensou de um pagamento, o que falta e a data da proxima parcela
+function compensado(p){
+  var v=Number(p&&p.value||0);
+  var s=String(p&&p.method||"").toLowerCase();
+  var ehCredito=(s.indexOf("cr\u00e9dito")>=0||s.indexOf("credito")>=0);
+  var n=Math.max(1,Number(p&&p.inst||1));
+  if(!ehCredito)return {caiu:v,pend:0,prox:"",n:1,parcelas:[]};
+  if(n<=1&&!CREDITO_1X_ESPERA)return {caiu:v,pend:0,prox:"",n:1,parcelas:[]};
+  var per=v/n,hoje=today(),caiu=0,prox="",lista=[];
+  for(var i=1;i<=n;i++){
+    var dt=_addMes(p.date||hoje,i);
+    var ok=dt<=hoje;
+    lista.push({n:i,date:dt,value:per,ok:ok});
+    if(ok)caiu+=per;else if(!prox)prox=dt;
+  }
+  return {caiu:caiu,pend:v-caiu,prox:prox,n:n,parcelas:lista};
+}
+
 // V341: taxa de maquininha por forma de pagamento
 var TX_CARTAO={credito:0.035,debito:0.02};
 function feeOf(method){
@@ -13658,10 +13688,13 @@ var ORDEM_CREDITO="data";
 // com baixa ate cobrir 100% do valor bruto de cada um.
 function calcCreditoTreat(treat){
   var pays=(treat&&treat.payments)||[];
-  var brutoPago=0,liqPago=0,semMetodo=false;
+  var brutoPago=0,liqPago=0,semMetodo=false,aCompensar=0,proxParc="";
   pays.forEach(function(p){
     var v=Number(p.value||0);if(!v)return;
-    brutoPago+=v;liqPago+=v*(1-feeOf(p.method));
+    var C=compensado(p); // V346: so o que ja caiu vira credito
+    brutoPago+=C.caiu;liqPago+=C.caiu*(1-feeOf(p.method));
+    aCompensar+=C.pend;
+    if(C.prox&&(!proxParc||C.prox<proxParc))proxParc=C.prox;
     if(!p.method)semMetodo=true;
   });
   // Fallback: plano antigo sem array de pagamentos, usa itens marcados como pagos
@@ -13687,7 +13720,7 @@ function calcCreditoTreat(treat){
     mapa[f.idx]={creditoAntes:antes,liberavel:liberavel,falta:liberavel?0:(f.valor-antes),sobra:liberavel?(antes-f.valor):0};
     if(liberavel)consumido+=f.valor;
   });
-  return {brutoPago:brutoPago,liqPago:liqPago,txEf:txEf,semMetodo:semMetodo,liberado:consumido,mapa:mapa};
+  return {brutoPago:brutoPago,liqPago:liqPago,txEf:txEf,semMetodo:semMetodo,liberado:consumido,mapa:mapa,aCompensar:aCompensar,proxParc:proxParc};
 }
 
 function PainelDentista({pats,dents,treats,user,setTreats,abrirFicha}){
@@ -13740,6 +13773,8 @@ var items=[];
       baseComissao:baseComissao,
       taxaValor:val-baseComissao,
       pagoPaciente:CR.brutoPago,
+      aCompensar:CR.aCompensar,
+      proxParc:CR.proxParc,
       jaLiberado:CR.liberado,
       creditoAntes:cr.creditoAntes,
       liberavel:cr.liberavel,
@@ -13823,7 +13858,7 @@ return(
       <div key={item.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:"4px solid "+(item.pago?G.success:item.atrasado?G.red:G.orange),opacity:item.pago?0.75:1}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           {/* Checkbox admin */}
-          {!isDent&&<div onClick={function(){if(!item.pago&&!item.liberavel){alert("Paciente ainda não pagou o valor total deste procedimento.\n\nPago: "+cur(item.pagoPaciente)+"\nJá liberado: "+cur(item.jaLiberado)+"\nCrédito: "+cur(item.creditoAntes)+"\nFalta: "+cur(item.falta));return;}marcarPago(item.key,!item.pago);}}
+          {!isDent&&<div onClick={function(){if(!item.pago&&!item.liberavel){alert("Paciente ainda não pagou o valor total deste procedimento.\n\nCompensado: "+cur(item.pagoPaciente)+"\nJá liberado: "+cur(item.jaLiberado)+"\nCrédito: "+cur(item.creditoAntes)+"\nFalta: "+cur(item.falta)+(item.aCompensar>0.005?("\n\nA compensar no cartão: "+cur(item.aCompensar)+(item.proxParc?(" (próxima em "+fmt(item.proxParc)+")"):"")):""));return;}marcarPago(item.key,!item.pago);}}
             title={!item.pago&&!item.liberavel?"Bloqueado: crédito insuficiente":"Marcar como pago"}
             style={{width:26,height:26,borderRadius:6,border:"2px solid "+(item.pago?G.success:!item.liberavel?G.orange:G.border),background:item.pago?G.success:"var(--card)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,transition:"all .15s",opacity:!item.pago&&!item.liberavel?.5:1}}>
             {item.pago&&<span style={{color:"#fff",fontSize:14,fontWeight:700}}>✓</span>}
@@ -13855,10 +13890,13 @@ return(
 
         {detOpen===item.key&&<div style={{marginTop:8,background:"var(--surface)",borderRadius:10,padding:"10px 12px",display:"flex",flexDirection:"column",gap:5}}>
           <div style={{fontSize:12,color:G.text,lineHeight:1.6}}>
-            {"Pago "}<b>{cur(item.pagoPaciente)}</b>{" − liberado "}<b>{cur(item.jaLiberado)}</b>{" = "}<b>{cur(item.creditoAntes)}</b><br/>
+            {"Compensado "}<b>{cur(item.pagoPaciente)}</b>{" − liberado "}<b>{cur(item.jaLiberado)}</b>{" = "}<b>{cur(item.creditoAntes)}</b><br/>
             {"esta baixa "}<b>{cur(item.valor)}</b>{" → "}
             <b style={{color:item.liberavel?G.success:G.orange}}>{item.liberavel?("sobra "+cur(item.sobra)):("falta "+cur(item.falta))}</b>
           </div>
+          {item.aCompensar>0.005&&<div style={{fontSize:11,color:G.blue,fontWeight:600}}>
+            {"💳 A compensar: "+cur(item.aCompensar)+(item.proxParc?(" · próxima parcela "+fmt(item.proxParc)):"")}
+          </div>}
           <div style={{height:1,background:G.border}}></div>
           {[["Procedimento bruto",cur(item.valor),G.text],
             ["Taxa cartão ("+(item.taxaEf*100).toFixed(2).replace(".",",")+"%)","− "+cur(item.taxaValor),G.red],
