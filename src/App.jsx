@@ -13613,6 +13613,35 @@ return(
 // 5. Amortizacao: pagamentos alocados do maior pro menor procedimento
 //    ate cobrir 100% - so libera no mes em que o 100% e atingido
 // ══════════════════════════════════════════════════════════
+// V343: competencia do fechamento.
+// Baixa ate o dia DIA_CORTE conta para o mes ANTERIOR; do dia seguinte em diante,
+// conta para o mes corrente. Ex: baixa em 20/09 -> competencia 2026-08; em 21/09 -> 2026-09.
+// V345: corte movido do dia 15 para o dia 20.
+// it.compManual sobrepoe a regra quando preenchido ("YYYY-MM").
+var DIA_CORTE=20;
+function compAuto(dateStr){
+  var s=String(dateStr||"");if(s.length<10)return "";
+  var y=Number(s.slice(0,4)),m=Number(s.slice(5,7)),d=Number(s.slice(8,10));
+  if(d<=DIA_CORTE){m-=1;if(m<1){m=12;y-=1;}}
+  return y+"-"+(m<10?"0":"")+m;
+}
+function compDe(it){
+  if(it&&it.compManual)return String(it.compManual);
+  return compAuto(it&&it.recebidoDate);
+}
+// Janela de baixas que cai numa competencia: dia 16 do proprio mes ate dia 15 do seguinte
+function janelaComp(mo){
+  var y=Number(String(mo).slice(0,4)),m=Number(String(mo).slice(5,7));
+  var y2=y,m2=m+1;if(m2>12){m2=1;y2+=1;}
+  var pad=function(n){return (n<10?"0":"")+n;};
+  return (DIA_CORTE+1)+"/"+pad(m)+"/"+y+" a "+DIA_CORTE+"/"+pad(m2)+"/"+y2;
+}
+var MESNOME=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+function moLabel(mo){
+  var y=String(mo).slice(0,4),m=Number(String(mo).slice(5,7));
+  return (MESNOME[m-1]||"")+" de "+y;
+}
+
 // V341: taxa de maquininha por forma de pagamento
 var TX_CARTAO={credito:0.035,debito:0.02};
 function feeOf(method){
@@ -13860,9 +13889,20 @@ return(
 // Responde "quanto pagamos ao dentista neste mes", nao "o que ele realizou".
 // Usa o snapshot gravado na baixa; so recalcula em registros antigos sem snapshot.
 // ══════════════════════════════════════════════════════════
-function RelPagDentistas({pats,dents,treats,user}){
+function RelPagDentistas({pats,dents,treats,user,setTreats}){
 var isDent=user.level===1;
-var [mo,setMo]=useState(today().slice(0,7));
+var [mo,setMo]=useState(compAuto(today())||today().slice(0,7));
+var [editComp,setEditComp]=useState(null); // V343
+var [selDent,setSelDent]=useState(isDent?String(user.dentistId||""):""); // V344: "" = todos
+
+var setComp=function(treatId,idx,val){
+  setTreats(function(prev){return prev.map(function(t){
+    if(t.id!==treatId)return t;
+    return {...t,_ts:Date.now(),items:t.items.map(function(it,i){
+      return i!==idx?it:{...it,compManual:val||""};
+    })};
+  });});
+};
 
 var linhas=[];
 (treats||[]).forEach(function(treat){
@@ -13870,7 +13910,7 @@ var linhas=[];
   (treat.items||[]).forEach(function(it,idx){
     if(!it.recebido)return;
     var rd=it.recebidoDate||"";
-    if(rd.slice(0,7)!==mo)return;
+    if(compDe(it)!==mo)return; // V343: filtra por competencia
     var snap=it.recebidoSnap||null;
     var dId=snap&&snap.dentistId!=null?Number(snap.dentistId):null;
     if(dId==null){
@@ -13892,7 +13932,8 @@ var linhas=[];
     }
     var pat=pats.find(function(x){return x.id===treat.patientId;});
     linhas.push({
-      key:treat.id+"-"+idx,dentId:dId,dentName:d&&d.name||"—",
+      key:treat.id+"-"+idx,treatId:treat.id,idx:idx,dentId:dId,dentName:d&&d.name||"—",
+      compManual:it.compManual||"",
       patName:pat&&pat.name||"—",proc:it.desc||treat.name||"Procedimento",
       baixaDate:(snap&&snap.baixaDate)||it.doneDate||"",pagoDate:rd,
       valor:val,taxaEf:taxaEf,taxaValor:taxaValor,base:base,comm:comm,comissao:comissao,
@@ -13907,6 +13948,8 @@ var grupos={};
 linhas.forEach(function(l){if(!grupos[l.dentId])grupos[l.dentId]={nome:l.dentName,itens:[],total:0,bruto:0,taxa:0};
   grupos[l.dentId].itens.push(l);grupos[l.dentId].total+=l.comissao;grupos[l.dentId].bruto+=l.valor;grupos[l.dentId].taxa+=l.taxaValor;});
 var gKeys=Object.keys(grupos);
+// V344: quando um dentista esta selecionado, so ele abre em detalhe
+var gVis=selDent?gKeys.filter(function(k){return String(k)===String(selDent);}):[];
 var totalGeral=linhas.reduce(function(s,l){return s+l.comissao;},0);
 var semSnapN=linhas.filter(function(l){return l.semSnap;}).length;
 
@@ -13926,7 +13969,7 @@ var imprimir=function(dId){
    +".ass{margin-top:60px;border-top:1px solid #333;width:280px;padding-top:6px;font-size:12px}"
    +"</style></head><body>"
    +"<h1>Pagamento ao Dentista — "+g.nome+"</h1>"
-   +"<h2>Competência "+mo+" · baixas lançadas pelo administrativo</h2>"
+   +"<h2>Competência "+moLabel(mo)+" · baixas de "+janelaComp(mo)+"</h2>"
    +"<table><thead><tr><th>Paciente</th><th>Procedimento</th><th>Realizado</th><th class='r'>Bruto</th><th class='r'>Taxa cartão</th><th class='r'>Comissão</th></tr></thead><tbody>"+rows+"</tbody></table>"
    +"<div class='tot'>Total a pagar: "+cur(g.total)+"</div>"
    +"<div class='ass'>"+g.nome+"</div>"
@@ -13938,26 +13981,52 @@ return(
 <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
   <div>
     <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"🧾 Pagamentos a Dentistas"}</h2>
-    <div style={{fontSize:12,color:G.muted,marginTop:2}}>{"Agrupado pela data da baixa do administrativo"}</div>
+    <div style={{fontSize:12,color:G.muted,marginTop:2}}>{"Competência — baixas do dia "+(DIA_CORTE+1)+" ao dia "+DIA_CORTE+" do mês seguinte"}</div>
   </div>
 
   <input type="month" value={mo} onChange={function(e){setMo(e.target.value);}}
     style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:14,outline:"none"}}/>
 
-  <div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-    <span style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Total pago em "+mo}</span>
+  <div style={{background:G.primary,borderRadius:12,padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+    <div>
+      <div style={{color:"#fff",fontWeight:700,fontSize:14}}>{"Competência "+moLabel(mo)}</div>
+      <div style={{color:"rgba(255,255,255,.75)",fontSize:11}}>{"baixas de "+janelaComp(mo)}</div>
+    </div>
     <span style={{color:"#fff",fontWeight:700,fontSize:20}}>{cur(totalGeral)}</span>
   </div>
+
+  {!isDent&&<select value={selDent} onChange={function(e){setSelDent(e.target.value);}}
+    style={{border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 12px",fontSize:14,outline:"none",background:"var(--surface)"}}>
+    <option value="">{"Todos os dentistas ("+gKeys.length+")"}</option>
+    {gKeys.map(function(k){return <option key={k} value={k}>{grupos[k].nome+" — "+cur(grupos[k].total)}</option>;})}
+  </select>}
 
   {semSnapN>0&&<div style={{background:G.orange+"18",borderRadius:10,padding:"9px 12px",fontSize:11,color:G.orange,fontWeight:600}}>
     {"⚠ "+semSnapN+" registro(s) sem snapshot (baixa dada antes desta versão) — valores recalculados com a comissão e taxa atuais."}
   </div>}
 
   {gKeys.length===0&&<div style={{background:G.card,borderRadius:12,padding:30,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
-    Nenhuma baixa lançada neste mês
+    Nenhuma baixa lançada nesta competência
   </div>}
 
-  {gKeys.map(function(k){var g=grupos[k];return(
+  {/* V344: resumo — um dentista por linha, toca para abrir */}
+  {!selDent&&gKeys.map(function(k){var g=grupos[k];return(
+    <div key={k} onClick={function(){setSelDent(String(k));}}
+      style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,cursor:"pointer"}}>
+      <div>
+        <div style={{fontWeight:700,fontSize:15,color:G.text}}>{g.nome}</div>
+        <div style={{fontSize:11,color:G.muted}}>{g.itens.length+" procedimento(s) · bruto "+cur(g.bruto)+" · taxa "+cur(g.taxa)}</div>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{fontSize:19,fontWeight:700,color:G.primary}}>{cur(g.total)}</div>
+        <span style={{color:G.muted,fontSize:16}}>{"›"}</span>
+      </div>
+    </div>);})}
+
+  {selDent&&!isDent&&<button onClick={function(){setSelDent("");}}
+    style={{alignSelf:"flex-start",border:"none",background:"none",color:G.primary,fontSize:12,fontWeight:700,cursor:"pointer",padding:0,textDecoration:"underline"}}>{"‹ voltar para todos"}</button>}
+
+  {gVis.map(function(k){var g=grupos[k];return(
   <div key={k} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",display:"flex",flexDirection:"column",gap:9}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
       <div>
@@ -13969,15 +14038,27 @@ return(
 
     <div style={{display:"flex",flexDirection:"column",gap:0}}>
       {g.itens.map(function(l){return(
-      <div key={l.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"7px 0",borderTop:"1px solid "+G.border}}>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:13,fontWeight:600,color:G.text}}>{l.patName}</div>
-          <div style={{fontSize:11,color:G.muted}}>{l.proc+" · realizado "+fmt(l.baixaDate)+" · baixa "+fmt(l.pagoDate)}</div>
+      <div key={l.key} style={{padding:"7px 0",borderTop:"1px solid "+G.border}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:600,color:G.text}}>{l.patName}</div>
+            <div style={{fontSize:11,color:G.muted}}>{l.proc+" · realizado "+fmt(l.baixaDate)+" · baixa "+fmt(l.pagoDate)}</div>
+          </div>
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <div style={{fontSize:14,fontWeight:700,color:G.primary}}>{cur(l.comissao)}</div>
+            <div style={{fontSize:10,color:G.muted}}>{cur(l.valor)+" − "+(l.taxaEf*100).toFixed(2).replace(".",",")+"%"}</div>
+          </div>
         </div>
-        <div style={{textAlign:"right",flexShrink:0}}>
-          <div style={{fontSize:14,fontWeight:700,color:G.primary}}>{cur(l.comissao)}</div>
-          <div style={{fontSize:10,color:G.muted}}>{cur(l.valor)+" − "+(l.taxaEf*100).toFixed(2).replace(".",",")+"%"}</div>
-        </div>
+        {!isDent&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:4,flexWrap:"wrap"}}>
+          {l.compManual&&<span style={{background:G.blue+"20",color:G.blue,borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"competência manual"}</span>}
+          {editComp===l.key
+            ?<><input type="month" defaultValue={l.compManual||mo}
+                onChange={function(e){setComp(l.treatId,l.idx,e.target.value);setEditComp(null);}}
+                style={{border:"1.5px solid "+G.border,borderRadius:7,padding:"3px 7px",fontSize:11,outline:"none"}}/>
+              <button onClick={function(){setEditComp(null);}} style={{border:"none",background:"none",color:G.muted,fontSize:10,fontWeight:700,cursor:"pointer"}}>{"cancelar"}</button></>
+            :<button onClick={function(){setEditComp(l.key);}} style={{border:"none",background:"none",color:G.muted,fontSize:10,fontWeight:700,cursor:"pointer",textDecoration:"underline",padding:0}}>{"↔ mudar competência"}</button>}
+          {l.compManual&&editComp!==l.key&&<button onClick={function(){setComp(l.treatId,l.idx,"");}} style={{border:"none",background:"none",color:G.red,fontSize:10,fontWeight:700,cursor:"pointer",padding:0}}>{"voltar ao automático"}</button>}
+        </div>}
       </div>);})}
     </div>
 
@@ -17680,7 +17761,7 @@ return <>
       {view==="stk"&&<Estoque cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} implFech={implFech} setImplFech={setImplFech} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user} abrirFicha={abrirFicha}/>}
-      {view==="pagdent"&&<RelPagDentistas pats={pats} dents={dents} treats={treats} user={user}/>}
+      {view==="pagdent"&&<RelPagDentistas pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user} setDocsEmitidos={setDocsEmitidos}/>}
     {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users} afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo} ferPer={ferPer} setFerPer={setFerPer}/>}
     {view==="holerite"&&user.level>=3&&<Holerites hol={hol} setHol={setHol} users={users} user={user}/>}{/* V300 */}
