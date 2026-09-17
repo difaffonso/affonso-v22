@@ -3786,6 +3786,383 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 // ══════════════════════════════════════════════════════════
 // AGENDA
 // ══════════════════════════════════════════════════════════
+/* ============================================================================
+   V347 — Impressao da agenda (A4 retrato, 4 formatos)
+   Segue o padrao ja usado no sistema: monta o HTML, abre em janela nova e
+   chama window.print() — de onde sai o "Salvar como PDF" do navegador.
+   Nao toca no blob, nao grava nada, nao mexe na sincronizacao.
+   ========================================================================== */
+var PRT_C_V347={ink:"#1a1a18",mut:"#63635e",line:"#c4c8c0",green:"#2f5d49",band:"#eef1ec"};
+var PRT_ST_V347={confirmed:"CONF.",pending:"PEND.",done:"ATEND.",cancelled:"CANC.",missed:"FALTOU",rescheduled:"REMARC."};
+var PRT_NEG_V347={cancelled:1,missed:1,rescheduled:1};       // riscados na folha
+var PRT_DIAS_V347=["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
+// altura util da folha A4 depois das margens (794x1123 px @96dpi)
+var PRT_UTIL_V347=1043;
+
+function prtEsc_V347(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+// Nome em caixa de titulo — as fichas antigas estao todas em CAIXA ALTA
+function prtNome_V347(s){
+  var mi={de:1,da:1,do:1,dos:1,das:1,e:1};
+  return String(s||"").trim().split(/\s+/).map(function(w,i){
+    var l=w.toLowerCase();
+    if(i>0&&mi[l])return l;
+    return l.charAt(0).toUpperCase()+l.slice(1);
+  }).join(" ");
+}
+
+function prtFone_V347(s){
+  var d=String(s||"").replace(/\D/g,"");
+  if(d.length===11)return d.slice(0,2)+" "+d.slice(2,7)+"-"+d.slice(7);
+  if(d.length===10)return d.slice(0,2)+" "+d.slice(2,6)+"-"+d.slice(6);
+  return String(s||"");
+}
+
+function prtPill_V347(st){
+  var C=PRT_C_V347,t=PRT_ST_V347[st]||"",b="display:inline-block;font-size:12px;font-weight:700;letter-spacing:.04em;line-height:1;white-space:nowrap;border-radius:3px;";
+  if(!t)return "";
+  if(st==="confirmed")return "<span style='"+b+"padding:4px 6px;background:"+C.green+";color:#fff'>"+t+"</span>";
+  if(st==="pending")return "<span style='"+b+"padding:2.5px 4.5px;border:1.5px solid "+C.mut+";color:"+C.ink+"'>"+t+"</span>";
+  return "<span style='"+b+"padding:3px 5px;background:"+C.band+";color:"+C.mut+";border:1px solid "+C.line+"'>"+t+"</span>";
+}
+
+function prtBox_V347(){return "<span style='display:block;width:15px;height:15px;border:1.5px solid "+PRT_C_V347.mut+";border-radius:3px'></span>";}
+
+function prtLinhas_V347(n,alt){
+  var o="";for(var i=0;i<n;i++)o+="<div style='border-bottom:1px solid "+PRT_C_V347.line+";height:"+alt+"px'></div>";return o;
+}
+
+// consultas de um dentista num dia, ja ordenadas e filtradas
+function prtDoDia_V347(ctx,dia,denId){
+  var L=(ctx.appts||[]).filter(function(a){
+    if(a.date!==dia)return false;
+    if(Number(a.dentistId)!==Number(denId))return false;
+    if(!ctx.incl.canc&&PRT_NEG_V347[a.status])return false;
+    return true;
+  });
+  L.sort(function(a,b){return String(a.time||"").localeCompare(String(b.time||""));});
+  return L.map(function(a){
+    var p=(ctx.pats||[]).find(function(x){return x.id===a.patientId;});
+    return {
+      hora:a.time||"",
+      bloq:!!a.blocked,
+      motivo:a.blockReason||"Bloqueado",
+      nome:a.blocked?"":prtNome_V347((p&&p.name)||a.patientName||"Paciente"),
+      fone:(p&&p.phone)?prtFone_V347(p.phone):"",
+      proc:String(a.procedureCustom||a.procedure||"").trim(),
+      obs:String(a.notes||"").trim(),
+      st:a.status||"pending",
+      dur:Number(a.duration||30)
+    };
+  });
+}
+
+function prtCabec_V347(ctx,dia,rotulo){
+  var C=PRT_C_V347,d=new Date(dia+"T12:00");
+  var dstr=String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
+  return "<div style='display:flex;align-items:flex-end;justify-content:space-between;border-bottom:2.5px solid "+C.green+";padding-bottom:10px'>"
+    +"<div><div style=\"font-family:'Cormorant Garamond',Georgia,serif;font-size:25px;font-weight:700;color:"+C.green+";line-height:1\">"+prtEsc_V347(ctx.clinica)+"</div>"
+    +"<div style='font-size:12px;font-weight:600;color:"+C.mut+";letter-spacing:.14em;text-transform:uppercase;margin-top:5px'>"+prtEsc_V347(rotulo)+"</div></div>"
+    +"<div style='text-align:right'>"
+    +"<div style='font-size:12px;font-weight:600;color:"+C.mut+";letter-spacing:.1em;text-transform:uppercase'>"+PRT_DIAS_V347[d.getDay()]+"</div>"
+    +"<div style='font-size:27px;font-weight:800;color:"+C.ink+";line-height:1.05;margin-top:2px'>"+dstr+"</div></div></div>";
+}
+
+function prtRodape_V347(ctx){
+  var C=PRT_C_V347;
+  return "<div style='display:flex;justify-content:space-between;align-items:center;border-top:1px solid "+C.line+";padding-top:8px;margin-top:auto;font-size:12px;color:"+C.mut+"'>"
+    +"<span>Impresso em "+prtEsc_V347(ctx.quando)+" — Relevo</span><span>__PG__</span></div>";
+}
+
+function prtResumo_V347(lista){
+  var c=0,p=0,n=0;
+  lista.forEach(function(x){if(x.bloq)return;if(x.st==="confirmed")c++;else if(x.st==="pending")p++;if(PRT_NEG_V347[x.st])n++;});
+  var t=lista.filter(function(x){return !x.bloq;}).length;
+  var o=t+" agendamento"+(t===1?"":"s");
+  if(c)o+=" · "+c+" confirmado"+(c===1?"":"s");
+  if(p)o+=" · "+p+" pendente"+(p===1?"":"s");
+  if(n)o+=" · "+n+" cancelado/falta"+(n===1?"":"s");
+  return o;
+}
+
+function prtFolha_V347(conteudo){
+  return "<section class='folha'>"+conteudo+"</section>";
+}
+
+/* -------------------------------------------------- A: uma folha por dentista */
+function prtFormatoA_V347(ctx,dia,dentes){
+  var C=PRT_C_V347,folhas=[],col=[26,62,244,176,82,124];
+  var cabTab="<div style='display:flex;align-items:center;background:"+C.band+";border-top:1px solid "+C.line+";border-bottom:1px solid "+C.line+";padding:7px 0'>"
+    +["","HORA","PACIENTE","PROCEDIMENTO","STATUS",ctx.incl.obs?"OBSERVAÇÃO":"ANOTAÇÃO"].map(function(t,i){
+      return "<div style='width:"+col[i]+"px;font-size:12px;font-weight:700;color:"+C.mut+";letter-spacing:.09em;padding-left:"+(i?6:0)+"px'>"+t+"</div>";
+    }).join("")+"</div>";
+
+  dentes.forEach(function(d){
+    var L=prtDoDia_V347(ctx,dia,d.id);
+    if(!L.length&&!ctx.incl.vazios)return;
+    var porFolha=13,n=Math.max(1,Math.ceil(L.length/porFolha));
+    for(var pg=0;pg<n;pg++){
+      var parte=L.slice(pg*porFolha,(pg+1)*porFolha);
+      var linhas=parte.map(function(x){
+        if(x.bloq)return "<div style='display:flex;align-items:center;min-height:34px;background:"+C.band+";border-bottom:1px solid "+C.line+"'>"
+          +"<div style='width:"+col[0]+"px'></div>"
+          +"<div style='width:"+col[1]+"px;padding-left:6px;font-size:14px;font-weight:700;color:"+C.mut+"'>"+prtEsc_V347(x.hora)+"</div>"
+          +"<div style='flex-grow:1;padding-left:6px;font-size:13px;font-weight:600;color:"+C.mut+";letter-spacing:.08em;text-transform:uppercase'>Bloqueado — "+prtEsc_V347(x.motivo)+"</div></div>";
+        var neg=PRT_NEG_V347[x.st],risco=neg?"text-decoration:line-through;":"",cn=neg?C.mut:C.ink;
+        return "<div style='display:flex;align-items:stretch;min-height:60px;border-bottom:1px solid "+C.line+"'>"
+          +"<div style='width:"+col[0]+"px;display:flex;align-items:flex-start;padding-top:15px'>"+prtBox_V347()+"</div>"
+          +"<div style='width:"+col[1]+"px;padding:11px 6px 0 6px'><div style='font-size:17px;font-weight:800;color:"+C.ink+";line-height:1'>"+prtEsc_V347(x.hora)+"</div>"
+          +"<div style='font-size:12px;color:"+C.mut+";margin-top:3px'>"+x.dur+" min</div></div>"
+          +"<div style='width:"+col[2]+"px;padding:11px 10px 8px 6px'><div style='font-size:14px;font-weight:700;color:"+cn+";line-height:1.2;"+risco+"'>"+prtEsc_V347(x.nome)+"</div>"
+          +(ctx.incl.fone&&x.fone?"<div style='font-size:12px;color:"+C.mut+";margin-top:3px'>"+prtEsc_V347(x.fone)+"</div>":"")+"</div>"
+          +"<div style='width:"+col[3]+"px;padding:12px 10px 8px 6px;font-size:13px;font-weight:500;color:"+(neg?C.mut:C.ink)+";line-height:1.3'>"+prtEsc_V347(x.proc)+"</div>"
+          +"<div style='width:"+col[4]+"px;padding:13px 6px 0 6px'>"+prtPill_V347(x.st)+"</div>"
+          +"<div style='width:"+col[5]+"px;padding:13px 0 0 6px'>"
+          +((ctx.incl.obs&&x.obs)?("<div style='font-size:12px;color:"+C.ink+";line-height:1.3'>"+prtEsc_V347(x.obs)+"</div>"):(ctx.incl.linhas?prtLinhas_V347(2,16):""))
+          +"</div></div>";
+      }).join("");
+
+      var barra="<div style='display:flex;align-items:center;justify-content:space-between;margin-top:14px;margin-bottom:12px'>"
+        +"<div style='display:flex;align-items:center;gap:9px'><span style='display:block;width:13px;height:13px;border-radius:50%;background:"+(d.color||C.green)+"'></span>"
+        +"<span style='font-size:20px;font-weight:800;color:"+C.ink+"'>"+prtEsc_V347(d.name)+"</span>"
+        +"<span style='font-size:13px;color:"+C.mut+";font-weight:600'>"+prtEsc_V347((d.cro?"CRO "+d.cro:"")+(d.specialty?(d.cro?" · ":"")+d.specialty:""))+"</span></div>"
+        +"<div style='font-size:13px;color:"+C.mut+";font-weight:600'>"+prtEsc_V347(prtResumo_V347(L))+"</div></div>";
+
+      var sobra=(ctx.incl.linhas&&pg===n-1&&parte.length<=9)
+        ?("<div style='margin-top:20px'><div style='font-size:12px;font-weight:700;color:"+C.mut+";letter-spacing:.09em;text-transform:uppercase;margin-bottom:9px'>Anotações do dia</div>"+prtLinhas_V347(4,25)+"</div>")
+        :"";
+
+      folhas.push(prtFolha_V347(prtCabec_V347(ctx,dia,"Agenda do dia")+barra+cabTab+linhas+sobra+prtRodape_V347(ctx)));
+    }
+  });
+  return folhas;
+}
+
+/* ----------------------------------------- B: dentistas em colunas na mesma folha */
+function prtColuna_V347(ctx,d,L){
+  var C=PRT_C_V347,col=[20,44,215,48];
+  var linhas=L.map(function(x){
+    if(x.bloq)return "<div style='display:flex;align-items:center;min-height:30px;background:"+C.band+";border-bottom:1px solid "+C.line+"'>"
+      +"<div style='width:"+(col[0]+col[1])+"px;padding-left:20px;font-size:13px;font-weight:700;color:"+C.mut+"'>"+prtEsc_V347(x.hora)+"</div>"
+      +"<div style='flex-grow:1;font-size:12px;font-weight:600;color:"+C.mut+";letter-spacing:.07em;text-transform:uppercase'>Bloqueado</div></div>";
+    var neg=PRT_NEG_V347[x.st],risco=neg?"text-decoration:line-through;":"",cn=neg?C.mut:C.ink;
+    return "<div style='display:flex;align-items:stretch;min-height:50px;border-bottom:1px solid "+C.line+"'>"
+      +"<div style='width:"+col[0]+"px;display:flex;align-items:flex-start;padding-top:12px'>"+prtBox_V347()+"</div>"
+      +"<div style='width:"+col[1]+"px;padding:10px 4px 0 4px;font-size:14px;font-weight:800;color:"+C.ink+";line-height:1'>"+prtEsc_V347(x.hora)+"</div>"
+      +"<div style='width:"+col[2]+"px;padding:9px 6px 7px 2px'>"
+      +"<div style='font-size:12.5px;font-weight:700;color:"+cn+";line-height:1.25;"+risco+"'>"+prtEsc_V347(x.nome)+"</div>"
+      +"<div style='font-size:12px;color:"+C.mut+";margin-top:2px'>"+prtEsc_V347(x.proc+((ctx.incl.fone&&x.fone)?(x.proc?" · ":"")+x.fone:""))+"</div></div>"
+      +"<div style='width:"+col[3]+"px;padding:11px 0 0 0'>"+prtPill_V347(x.st)+"</div></div>";
+  }).join("");
+  return "<div style='width:347px;display:flex;flex-direction:column'>"
+    +"<div style='display:flex;align-items:center;gap:7px;border-bottom:2px solid "+C.green+";padding-bottom:7px'>"
+    +"<span style='display:block;width:12px;height:12px;border-radius:50%;background:"+(d.color||C.green)+"'></span>"
+    +"<span style='font-size:15px;font-weight:800;color:"+C.ink+"'>"+prtEsc_V347(d.name)+"</span>"
+    +(d.cro?"<span style='font-size:12px;color:"+C.mut+";font-weight:600'>CRO "+prtEsc_V347(d.cro)+"</span>":"")
+    +"</div>"+(linhas||"<div style='font-size:12.5px;color:"+C.mut+";padding:12px 0'>Sem agendamentos neste dia</div>")+"</div>";
+}
+
+function prtFormatoB_V347(ctx,dia,dentes){
+  var C=PRT_C_V347,folhas=[],porFolha=15;
+  var ativos=dentes.filter(function(d){return ctx.incl.vazios||prtDoDia_V347(ctx,dia,d.id).length;});
+  if(!ativos.length)return folhas;
+  for(var i=0;i<ativos.length;i+=2){
+    var par=ativos.slice(i,i+2);
+    var listas=par.map(function(d){return prtDoDia_V347(ctx,dia,d.id);});
+    var nPag=Math.max(1,Math.ceil(Math.max.apply(null,listas.map(function(L){return L.length;}))/porFolha));
+    for(var pg=0;pg<nPag;pg++){
+      var cols=par.map(function(d,k){return prtColuna_V347(ctx,d,listas[k].slice(pg*porFolha,(pg+1)*porFolha));}).join("");
+      var tot=listas.reduce(function(s,L){return s+L.filter(function(x){return !x.bloq;}).length;},0);
+      var barra="<div style='display:flex;align-items:center;justify-content:space-between;margin-top:13px;margin-bottom:14px'>"
+        +"<span style='font-size:13px;font-weight:700;color:"+C.ink+"'>"+par.length+" dentista"+(par.length===1?"":"s")+" · "+tot+" agendamento"+(tot===1?"":"s")+"</span>"
+        +"<span style='font-size:12px;color:"+C.mut+";font-weight:600'>Riscado = cancelado, remarcado ou falta</span></div>";
+      var sobra=(ctx.incl.linhas&&pg===nPag-1)
+        ?("<div style='margin-top:22px'><div style='font-size:12px;font-weight:700;color:"+C.mut+";letter-spacing:.09em;text-transform:uppercase;margin-bottom:9px'>Anotações da recepção</div>"+prtLinhas_V347(3,24)+"</div>")
+        :"";
+      folhas.push(prtFolha_V347(prtCabec_V347(ctx,dia,"Agenda do dia")+barra
+        +"<div style='display:flex;gap:20px;align-items:flex-start'>"+cols+"</div>"+sobra+prtRodape_V347(ctx)));
+    }
+  }
+  return folhas;
+}
+
+/* ------------------------------------------------- C: grade por horario */
+function prtFormatoC_V347(ctx,dia,dentes){
+  var C=PRT_C_V347,folhas=[];
+  var ativos=dentes.filter(function(d){return ctx.incl.vazios||prtDoDia_V347(ctx,dia,d.id).length;});
+  if(!ativos.length)return folhas;
+  for(var g=0;g<ativos.length;g+=4){
+    var grupo=ativos.slice(g,g+4),colw=Math.floor(660/grupo.length),rail=54;
+    var dados=grupo.map(function(d){return prtDoDia_V347(ctx,dia,d.id);});
+    // distribui cada consulta na faixa de meia hora
+    var faixas={},ordem=[];
+    for(var h=8;h<=19;h++)for(var m=0;m<60;m+=30){
+      var k=String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");ordem.push(k);faixas[k]=grupo.map(function(){return [];});
+    }
+    dados.forEach(function(L,ci){
+      L.forEach(function(x){
+        var hh=Number(String(x.hora).slice(0,2)),mm=Number(String(x.hora).slice(3,5));
+        if(isNaN(hh))return;
+        var k=String(hh).padStart(2,"0")+":"+(mm<30?"00":"30");
+        if(faixas[k])faixas[k][ci].push(x);
+      });
+    });
+    var usadas=ordem.filter(function(k){return faixas[k].some(function(c){return c.length;});});
+    if(!usadas.length)continue;
+    var ini=ordem.indexOf(usadas[0]),fim=ordem.indexOf(usadas[usadas.length-1]);
+    var janela=ordem.slice(ini,fim+1);
+
+    var cabCols="<div style='width:"+rail+"px'></div>"+grupo.map(function(d,i){
+      return "<div style='width:"+colw+"px;"+(i?"border-left:1px solid "+C.line+";":"")+"display:flex;align-items:center;gap:6px;padding-left:5px'>"
+        +"<span style='display:block;width:10px;height:10px;border-radius:50%;background:"+(d.color||C.green)+"'></span>"
+        +"<span style='font-size:13px;font-weight:800;color:"+C.ink+"'>"+prtEsc_V347(d.name)+"</span></div>";
+    }).join("");
+
+    var buf=[],usado=0,orcado=PRT_UTIL_V347-150;
+    var fechar=function(){
+      if(!buf.length)return;
+      var tot=dados.reduce(function(s,L){return s+L.filter(function(x){return !x.bloq;}).length;},0);
+      var barra="<div style='display:flex;align-items:center;justify-content:space-between;margin-top:11px;margin-bottom:10px'>"
+        +"<span style='font-size:13px;font-weight:700;color:"+C.ink+"'>"+grupo.length+" dentistas · "+tot+" agendamentos</span>"
+        +"<span style='font-size:12px;color:"+C.mut+";font-weight:600'>Riscado = cancelado, remarcado ou falta</span></div>";
+      folhas.push(prtFolha_V347(prtCabec_V347(ctx,dia,"Grade do dia")+barra
+        +"<div style='display:flex;align-items:center;background:"+C.band+";border-top:1px solid "+C.line+";border-bottom:1px solid "+C.line+";padding:6px 0'>"+cabCols+"</div>"
+        +buf.join("")+prtRodape_V347(ctx)));
+      buf=[];usado=0;
+    };
+
+    janela.forEach(function(k){
+      var maxn=Math.max.apply(null,faixas[k].map(function(c){return c.length;}));
+      var alt=maxn<=1?24:6+maxn*20;
+      if(usado+alt>orcado)fechar();
+      var meia=k.slice(3)==="30";
+      var celulas=grupo.map(function(d,i){
+        var itens=faixas[k][i].map(function(x){
+          if(x.bloq)return "<div style='display:flex;align-items:center;gap:5px;height:18px;background:"+C.band+";padding:0 4px;margin-bottom:2px'>"
+            +"<span style='font-size:12px;font-weight:700;color:"+C.mut+"'>"+prtEsc_V347(x.hora)+"</span>"
+            +"<span style='font-size:12px;color:"+C.mut+";letter-spacing:.06em'>BLOQUEADO</span></div>";
+          var neg=PRT_NEG_V347[x.st],risco=neg?"text-decoration:line-through;":"";
+          return "<div style='display:flex;align-items:baseline;gap:5px;height:18px;padding:0 4px;margin-bottom:2px;overflow:hidden'>"
+            +"<span style='font-size:12px;font-weight:800;color:"+(neg?C.mut:C.ink)+";flex-shrink:0'>"+prtEsc_V347(x.hora)+"</span>"
+            +"<span style='font-size:12px;font-weight:"+(neg?600:700)+";color:"+(neg?C.mut:C.ink)+";"+risco+"white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+prtEsc_V347(x.nome)+"</span>"
+            +(x.proc?"<span style='font-size:12px;color:"+C.mut+";flex-shrink:0;white-space:nowrap'>· "+prtEsc_V347(x.proc)+"</span>":"")
+            +"</div>";
+        }).join("");
+        return "<div style='width:"+colw+"px;"+(i?"border-left:1px solid "+C.line+";":"")+"padding-top:4px'>"+itens+"</div>";
+      }).join("");
+      buf.push("<div style='display:flex;align-items:stretch;min-height:"+alt+"px;border-bottom:1px "+(meia?"dotted":"solid")+" "+C.line+"'>"
+        +"<div style='width:"+rail+"px;padding:4px 4px 0 4px;font-size:"+(meia?12:13)+"px;font-weight:"+(meia?600:800)+";color:"+(meia?C.mut:C.ink)+"'>"+k+"</div>"
+        +celulas+"</div>");
+      usado+=alt;
+    });
+    fechar();
+  }
+  return folhas;
+}
+
+/* ---------------------------------------------- D: lista da recepcao */
+function prtFormatoD_V347(ctx,dia,dentes){
+  var C=PRT_C_V347,folhas=[],col=[26,54,80,268,106,180],porFolha=22;
+  var L=[];
+  dentes.forEach(function(d){
+    prtDoDia_V347(ctx,dia,d.id).forEach(function(x){
+      if(x.bloq)return;                                   // bloqueio nao interessa no balcao
+      L.push(Object.assign({},x,{den:d}));
+    });
+  });
+  L.sort(function(a,b){return String(a.hora).localeCompare(String(b.hora));});
+  if(!L.length)return folhas;
+
+  var cabTab="<div style='display:flex;align-items:center;background:"+C.band+";border-top:1px solid "+C.line+";border-bottom:1px solid "+C.line+";padding:7px 0'>"
+    +["","HORA","DENTISTA","PACIENTE","TELEFONE","PROCEDIMENTO"].map(function(t,i){
+      if(i===4&&!ctx.incl.fone)return "";                 // a coluna some da linha tambem
+      return "<div style='width:"+col[i]+"px;font-size:12px;font-weight:700;color:"+C.mut+";letter-spacing:.09em;padding-left:"+(i?6:0)+"px'>"+t+"</div>";
+    }).join("")+"</div>";
+
+  var n=Math.ceil(L.length/porFolha);
+  for(var pg=0;pg<n;pg++){
+    var parte=L.slice(pg*porFolha,(pg+1)*porFolha),ant=null;
+    var linhas=parte.map(function(x){
+      var sep=(ant&&x.hora!==ant)?("border-top:1.5px solid "+C.line+";"):"";
+      ant=x.hora;
+      var neg=PRT_NEG_V347[x.st],risco=neg?"text-decoration:line-through;":"",cn=neg?C.mut:C.ink;
+      return "<div style='display:flex;align-items:center;min-height:37px;border-bottom:1px solid "+C.line+";"+sep+"'>"
+        +"<div style='width:"+col[0]+"px;display:flex;align-items:center'>"+prtBox_V347()+"</div>"
+        +"<div style='width:"+col[1]+"px;padding-left:6px;font-size:15px;font-weight:800;color:"+C.ink+"'>"+prtEsc_V347(x.hora)+"</div>"
+        +"<div style='width:"+col[2]+"px;padding-left:6px;display:flex;align-items:center;gap:5px'>"
+        +"<span style='display:block;width:9px;height:9px;border-radius:50%;background:"+(x.den.color||C.green)+";flex-shrink:0'></span>"
+        +"<span style='font-size:12.5px;font-weight:700;color:"+C.mut+"'>"+prtEsc_V347(String(x.den.name).replace(/^Dr[a]?\.?\s*/i,"").split(" ")[0])+"</span></div>"
+        +"<div style='width:"+col[3]+"px;padding-left:6px;font-size:13px;font-weight:700;color:"+cn+";"+risco+"white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+prtEsc_V347(x.nome)+"</div>"
+        +(ctx.incl.fone?"<div style='width:"+col[4]+"px;padding-left:6px;font-size:12.5px;color:"+C.mut+"'>"+prtEsc_V347(x.fone)+"</div>":"")
+        +"<div style='width:"+col[5]+"px;padding-left:6px;display:flex;align-items:center;justify-content:space-between;gap:6px'>"
+        +"<span style='font-size:12.5px;font-weight:500;color:"+(neg?C.mut:C.ink)+";white-space:nowrap;overflow:hidden;text-overflow:ellipsis'>"+prtEsc_V347(x.proc)+"</span>"
+        +prtPill_V347(x.st)+"</div></div>";
+    }).join("");
+    var sobra=(ctx.incl.linhas&&pg===n-1&&parte.length<=16)
+      ?("<div style='margin-top:20px'><div style='font-size:12px;font-weight:700;color:"+C.mut+";letter-spacing:.09em;text-transform:uppercase;margin-bottom:9px'>Encaixes e recados</div>"+prtLinhas_V347(4,24)+"</div>")
+      :"";
+    var barra="<div style='display:flex;align-items:center;justify-content:space-between;margin-top:12px;margin-bottom:12px'>"
+      +"<span style='font-size:13px;font-weight:700;color:"+C.ink+";white-space:nowrap;flex-shrink:0'>Todos os dentistas, em ordem de horário</span>"
+      +"<span style='font-size:13px;color:"+C.mut+";font-weight:600;text-align:right;padding-left:14px'>"+prtEsc_V347(prtResumo_V347(L))+"</span></div>";
+    folhas.push(prtFolha_V347(prtCabec_V347(ctx,dia,"Lista da recepção")+barra+cabTab+linhas+sobra+prtRodape_V347(ctx)));
+  }
+  return folhas;
+}
+
+/* ---------------------------------------------------------- abre a janela */
+function prtAbrirAgenda_V347(cfg){
+  var ctx={
+    appts:cfg.appts||[],pats:cfg.pats||[],incl:cfg.incl||{},
+    clinica:cfg.clinica||"Affonso Odontologia",
+    quando:(function(){var n=new Date();
+      return String(n.getDate()).padStart(2,"0")+"/"+String(n.getMonth()+1).padStart(2,"0")+"/"+n.getFullYear()
+        +" · "+String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");})()
+  };
+  var GER={A:prtFormatoA_V347,B:prtFormatoB_V347,C:prtFormatoC_V347,D:prtFormatoD_V347};
+  var ger=GER[cfg.formato]||prtFormatoB_V347;
+  var folhas=[];
+  (cfg.dias||[]).forEach(function(dia){folhas=folhas.concat(ger(ctx,dia,cfg.dentes||[]));});
+
+  if(!folhas.length){alert("Não há nada para imprimir com esses filtros.");return;}
+
+  var tot=folhas.length;
+  folhas=folhas.map(function(h,i){return h.replace("__PG__","Folha "+(i+1)+" de "+tot);});
+
+  var d0=new Date((cfg.dias&&cfg.dias[0]||"")+"T12:00");
+  var nomeArq="Agenda "+String(d0.getDate()).padStart(2,"0")+"-"+String(d0.getMonth()+1).padStart(2,"0")+"-"+d0.getFullYear()
+    +((cfg.dias||[]).length>1?" a "+(function(){var dz=new Date(cfg.dias[cfg.dias.length-1]+"T12:00");
+      return String(dz.getDate()).padStart(2,"0")+"-"+String(dz.getMonth()+1).padStart(2,"0")+"-"+dz.getFullYear();})():"")
+    +" — "+ctx.clinica;
+
+  var css="@page{size:A4 portrait;margin:0}"
+    +"*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+    +"html,body{margin:0;padding:0;background:#eceae4;font-family:'Manrope',system-ui,Arial,sans-serif;color:"+PRT_C_V347.ink+"}"
+    +".folha{width:794px;height:1123px;overflow:hidden;background:#fff;margin:0 auto 14px;padding:40px;display:flex;flex-direction:column;box-shadow:0 3px 16px rgba(0,0,0,.2)}"
+    +".np{position:sticky;top:0;z-index:9;background:#eceae4;padding:14px 0;text-align:center}"
+    +".np button{padding:11px 24px;font-size:14px;font-weight:700;font-family:inherit;background:"+PRT_C_V347.green+";color:#fff;border:none;border-radius:10px;cursor:pointer}"
+    +".np span{display:block;font-size:12px;color:"+PRT_C_V347.mut+";margin-top:7px}"
+    +"@media print{html,body{background:#fff}.np{display:none!important}"
+    +".folha{margin:0;box-shadow:none;page-break-after:always}.folha:last-child{page-break-after:auto}}";
+
+  var html="<!DOCTYPE html><html lang='pt-BR'><head><meta charset='utf-8'><title>"+prtEsc_V347(nomeArq)+"</title>"
+    +"<link rel='preconnect' href='https://fonts.googleapis.com'>"
+    +"<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
+    +"<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&family=Manrope:wght@400;500;600;700;800&display=swap'>"
+    +"<style>"+css+"</style></head><body>"
+    +"<div class='np'><button onclick='window.print()'>Imprimir / Salvar em PDF</button>"
+    +"<span>"+tot+" folha"+(tot===1?"":"s")+" A4 · no diálogo escolha <b>Salvar como PDF</b> e deixe a escala em <b>100%</b> (sem \"ajustar à página\")</span></div>"
+    +folhas.join("")
+    +"<script>window.onload=function(){var feito=false;var go=function(){if(feito)return;feito=true;"
+    +"setTimeout(function(){window.print();},250);};"
+    +"if(document.fonts&&document.fonts.ready){document.fonts.ready.then(go);setTimeout(go,2500);}else{go();}};<\/script>"
+    +"</body></html>";
+
+  var w=window.open("","_blank");
+  if(!w){alert("Permita pop-ups neste site para imprimir a agenda.");return;}
+  w.document.write(html);
+  w.document.close();
+}
+
 function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate}){
 // V321: quais pacientes ja tem termo de siso ASSINADO (para o alerta na linha da agenda).
 // Busca uma vez ao abrir a agenda; o alerta some sozinho quando o termo e assinado.
@@ -3821,6 +4198,12 @@ const [showCal,setShowCal]=useState(false);
 const [calY,setCalY]=useState(new Date().getFullYear());
 const [calM,setCalM]=useState(new Date().getMonth());
 const [denF,setDenF]=useState("all");
+// V347: impressao da agenda (A4). Nada disso e persistido no blob.
+const [prtOpen,setPrtOpen]=useState(false);
+const [prtFmt,setPrtFmt]=useState(function(){try{return localStorage.getItem("agenda_print_fmt")||"B";}catch(e){return "B";}});
+const [prtDen,setPrtDen]=useState([]);
+const [prtPer,setPrtPer]=useState("dia");
+const [prtIncl,setPrtIncl]=useState({fone:true,canc:true,obs:false,linhas:true,vazios:false});
 const [modal,setModal]=useState(false);
 const [viewA,setViewA]=useState(null);const [showCancel,setShowCancel]=useState(null);const [histTab,setHistTab]=useState("info");
 const [detetive,setDetetive]=useState(null); // V222: popup quem cancelou
@@ -4037,6 +4420,49 @@ if(!blockReason.trim()){alert("Informe o motivo do bloqueio");return;}
 setAppts(prev=>[...prev,{id:nid(prev),date,time,dentistId:Number(dentistId),blocked:true,blockReason,patientId:null,status:"blocked",procedure:"Bloqueado",value:0,payment:""}]);
 setBlockModal(null);setBlockReason("");
 };
+// V347 -------------------------------------------------- impressao da agenda
+// Abre o painel ja com o contexto da tela: o dia aberto, a visao (dia/semana)
+// e o filtro de dentista. Dentista logado so imprime a propria agenda.
+const prtAbrir=function(){
+  var ids;
+  if(isDent)ids=[user.dentistId];
+  else if(denF!=="all")ids=[Number(denF)];
+  else ids=dents.filter(function(d){return appts.some(function(a){return a.date===selDate&&Number(a.dentistId)===d.id;});}).map(function(d){return d.id;});
+  if(!ids.length)ids=vd.map(function(d){return d.id;});
+  setPrtDen(ids);
+  setPrtPer(agView==="semana"?"semana":"dia");
+  if(ids.length>4&&prtFmt==="C")setPrtFmt("B");
+  setPrtOpen(true);
+};
+const prtDias=function(){return prtPer==="semana"?week:[selDate];};
+// estimativa de folhas, so para o rodape do painel (a conta real e feita na hora)
+const prtFolhasEst=function(){
+  var sel=dents.filter(function(d){return prtDen.indexOf(d.id)>=0;}),tot=0;
+  prtDias().forEach(function(dia){
+    var conta=sel.map(function(d){
+      return appts.filter(function(a){
+        return a.date===dia&&Number(a.dentistId)===d.id&&(prtIncl.canc||!(a.status==="cancelled"||a.status==="missed"||a.status==="rescheduled"));
+      }).length;
+    });
+    var ativos=conta.filter(function(n){return n>0;});
+    if(!ativos.length)return;
+    if(prtFmt==="A")ativos.forEach(function(n){tot+=Math.ceil(n/13);});
+    else if(prtFmt==="B"){for(var i=0;i<ativos.length;i+=2){var par=ativos.slice(i,i+2);tot+=Math.ceil(Math.max.apply(null,par)/15);}}
+    else if(prtFmt==="C")tot+=Math.ceil(ativos.length/4);
+    else tot+=Math.ceil(ativos.reduce(function(s,n){return s+n;},0)/22);
+  });
+  return tot;
+};
+const prtIr=function(){
+  var sel=dents.filter(function(d){return prtDen.indexOf(d.id)>=0;});
+  if(!sel.length){alert("Escolha pelo menos um dentista.");return;}
+  try{localStorage.setItem("agenda_print_fmt",prtFmt);}catch(e){}
+  var dd=prtDias();
+  prtAbrirAgenda_V347({dias:dd,dentes:sel,appts:appts,pats:pats,formato:prtFmt,incl:prtIncl,clinica:"Affonso Odontologia"});
+  setPrtOpen(false);
+  if(addLog)addLog("agenda","Imprimiu a agenda ("+prtFmt+") de "+fmt(dd[0])+(dd.length>1?(" a "+fmt(dd[dd.length-1])):""),"");
+};
+
 const chSt=(id,st)=>{
 setAppts(prev=>prev.map(a=>a.id===id?{...a,status:st,statusTs:new Date().toISOString(),stBy:(user&&user.name)||""}:a));
 const a=appts.find(x=>x.id===id);const p=pats.find(x=>x.id===(a&&a.patientId));
@@ -4163,6 +4589,8 @@ return (
     {!isDent&&dents.filter(d=>(d.specialty||"").toLowerCase().indexOf("orto")>=0).map(d=><button key={d.id} onClick={()=>setDenF(String(d.id))} style={{border:"2px solid "+(denF===String(d.id)?d.color:G.border),background:denF===String(d.id)?d.color:"var(--card)",color:denF===String(d.id)?"#fff":d.color,borderRadius:20,padding:"5px 12px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{"🦷 "+d.name.replace(/Dr\.|Dra\./i,"").trim().split(" ")[0]}</button>)}
     <div style={{display:"flex",alignItems:"center",gap:1,background:G.bg,borderRadius:9,padding:"2px 5px"}} title="Zoom da agenda — diminua para ver o dia inteiro na tela"><span style={{fontSize:12,marginRight:2}}>🔍</span><button onClick={function(){setAgZoom(function(z){return Math.max(.5,Math.round((z-.1)*10)/10);});}} style={{border:"none",background:"transparent",borderRadius:7,width:24,height:24,fontSize:17,fontWeight:700,cursor:"pointer",color:G.muted,lineHeight:1,padding:0}} title="Diminuir">−</button><button onClick={function(){setAgZoom(1);}} style={{border:"none",background:"transparent",borderRadius:7,padding:"0 4px",minWidth:42,fontSize:11,fontWeight:700,cursor:"pointer",color:agZoom!==1?G.primary:G.muted}} title="Restaurar 100%">{Math.round(agZoom*100)+"%"}</button><button onClick={function(){setAgZoom(function(z){return Math.min(1.2,Math.round((z+.1)*10)/10);});}} style={{border:"none",background:"transparent",borderRadius:7,width:24,height:24,fontSize:16,fontWeight:700,cursor:"pointer",color:G.muted,lineHeight:1,padding:0}} title="Aumentar">+</button></div>
     <div style={{flex:1}}/>
+    {/* V347: impressao da agenda — sai em A4, e no dialogo do navegador vira PDF */}
+    <button onClick={prtAbrir} title="Imprimir a agenda (A4 / salvar em PDF)" style={{display:"flex",alignItems:"center",gap:6,background:"var(--surface)",border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 12px",cursor:"pointer",color:G.primary,fontWeight:700,fontSize:12}}><i className="ph-fill ph-printer" style={{fontSize:16}}></i>Imprimir</button>
   </div>
 
 {/* V255: barra da area de transferencia (copiar/colar consulta) */}
@@ -4739,6 +5167,80 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 </div>
 }/>
 {/* Modal de bloqueio de horário */}
+{/* V347: painel de opcoes da impressao */}
+{prtOpen&&(function(){
+var FMT=[
+["A","Uma folha por dentista","Cada dentista na sua folha, com telefone, duração e espaço para anotar."],
+["B","Colunas na mesma folha","Dois dentistas lado a lado. Economiza papel e ainda cabe telefone."],
+["C","Grade por horário","Uma linha por horário e uma coluna por dentista, como na tela. Até 4 por folha."],
+["D","Lista da recepção","Todos misturados em ordem de horário, com telefone. Feito para o balcão."]];
+var selDents=dents.filter(function(d){return prtDen.indexOf(d.id)>=0;});
+var temOrto=selDents.some(function(d){return isOrto(d);});
+var est=prtFolhasEst();
+var togDen=function(id){setPrtDen(function(p){return p.indexOf(id)>=0?p.filter(function(x){return x!==id;}):p.concat([id]);});};
+var togIncl=function(k){setPrtIncl(function(p){var o=Object.assign({},p);o[k]=!o[k];return o;});};
+var rotIncl=[["fone","Telefone do paciente",""],["canc","Cancelados e faltas","Aparecem riscados, não somem da folha"],["obs","Observações do agendamento",""],["linhas","Linhas para anotação",""],["vazios","Dentistas sem agendamento",""]];
+return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+<div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:600,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
+<span style={{fontFamily:"'Cormorant Garamond'",fontSize:21,display:"flex",alignItems:"center",gap:8}}><i className="ph-fill ph-printer" style={{fontSize:19,color:G.primary}}></i>Imprimir agenda</span>
+<button onClick={()=>setPrtOpen(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+</div>
+
+<div style={{padding:20,display:"flex",flexDirection:"column",gap:16,overflowY:"auto"}}>
+
+<div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.primary,fontWeight:700}}>{prtPer==="semana"?(fmt(week[0])+" a "+fmt(week[6])):fmt(selDate)}</div>
+<div style={{display:"flex",gap:2,background:G.bg,borderRadius:9,padding:3}}>
+{[["dia","Só este dia"],["semana","Semana toda"]].map(function(o){return <button key={o[0]} onClick={function(){setPrtPer(o[0]);}} style={{border:"none",borderRadius:7,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",background:prtPer===o[0]?G.primary:"transparent",color:prtPer===o[0]?"#fff":G.muted}}>{o[1]}</button>;})}
+</div>
+</div>
+
+<div style={{display:"flex",flexDirection:"column",gap:6}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".08em"}}>Formato</label>
+<div style={{display:"flex",flexDirection:"column",gap:7}}>
+{FMT.map(function(o){var on=prtFmt===o[0];
+return <button key={o[0]} onClick={function(){setPrtFmt(o[0]);}} style={{textAlign:"left",display:"flex",alignItems:"flex-start",gap:10,border:`2px solid ${on?G.primary:G.border}`,background:on?G.accent:"var(--card)",borderRadius:12,padding:"11px 13px",cursor:"pointer",fontFamily:"inherit"}}>
+<span style={{display:"block",width:15,height:15,borderRadius:"50%",border:`2px solid ${on?G.primary:G.border}`,background:on?G.primary:"transparent",flexShrink:0,marginTop:2}}></span>
+<span style={{display:"block"}}>
+<span style={{display:"block",fontSize:14,fontWeight:800,color:on?G.primary:"inherit"}}>{o[1]}</span>
+<span style={{display:"block",fontSize:12,color:G.muted,marginTop:3,lineHeight:1.35,fontWeight:500}}>{o[2]}</span>
+</span></button>;})}
+</div>
+{prtFmt==="C"&&temOrto&&<div style={{fontSize:11.5,color:G.muted,background:G.bg,borderRadius:8,padding:"8px 11px",lineHeight:1.45}}>Com agenda de orto (de 15 em 15 min) os nomes podem sair cortados na grade. Para ligar para o paciente, prefira a lista da recepção.</div>}
+</div>
+
+{!isDent&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".08em"}}>Dentistas</label>
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{dents.map(function(d){var on=prtDen.indexOf(d.id)>=0;
+return <button key={d.id} onClick={function(){togDen(d.id);}} style={{display:"flex",alignItems:"center",gap:6,border:`2px solid ${on?(d.color||G.primary):G.border}`,background:on?(d.color||G.primary):"var(--card)",color:on?"#fff":G.muted,borderRadius:20,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+<span style={{display:"block",width:9,height:9,borderRadius:"50%",background:on?"#fff":(d.color||G.muted)}}></span>{d.name}</button>;})}
+</div>
+</div>}
+
+<div style={{display:"flex",flexDirection:"column",gap:4}}>
+<label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".08em",marginBottom:2}}>Incluir</label>
+{rotIncl.map(function(o){return <label key={o[0]} htmlFor={"prt_"+o[0]} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"5px 0",cursor:"pointer"}}>
+<input type="checkbox" id={"prt_"+o[0]} checked={!!prtIncl[o[0]]} onChange={function(){togIncl(o[0]);}} style={{width:16,height:16,margin:"1px 0 0 0",accentColor:G.primary,flexShrink:0,cursor:"pointer"}}/>
+<span style={{display:"block"}}>
+<span style={{display:"block",fontSize:13.5,fontWeight:600}}>{o[1]}</span>
+{o[2]&&<span style={{display:"block",fontSize:11.5,color:G.muted,marginTop:1}}>{o[2]}</span>}
+</span></label>;})}
+</div>
+
+</div>
+
+<div style={{display:"flex",gap:9,justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderTop:`1px solid ${G.border}`}}>
+<span style={{fontSize:12.5,color:G.muted,fontWeight:600}}>A4 retrato · <b style={{color:est?G.primary:G.red}}>{est?(est+" folha"+(est===1?"":"s")):"nada para imprimir"}</b></span>
+<div style={{display:"flex",gap:9}}>
+<button onClick={()=>setPrtOpen(false)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>Cancelar</button>
+<button onClick={prtIr} disabled={!est} style={{background:est?G.primary:G.border,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:est?"pointer":"not-allowed",fontFamily:"inherit"}}>Imprimir</button>
+</div>
+</div>
+</div></div>;
+})()}
+
 {blockModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${G.border}`}}>
