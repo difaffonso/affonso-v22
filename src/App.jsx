@@ -4163,6 +4163,96 @@ function prtAbrirAgenda_V347(cfg){
   w.document.close();
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   V348 — Lista de compra em PDF (folha A4 para mandar na distribuidora)
+   Recebe o texto do modal "Lista para o fornecedor" JÁ EDITADO pelo usuário
+   e monta a folha a partir dele. Não grava nada, não toca no blob.
+   ══════════════════════════════════════════════════════════════════════════ */
+function cpPdf_V348(txt,clinica){
+  var C=PRT_C_V347;
+  var nome=clinica||"Affonso Odontologia";
+
+  // separa as linhas do texto: "• Item — 10 cx" vira item; o resto vira observação
+  var itens=[],notas=[];
+  String(txt||"").split("\n").forEach(function(ln){
+    var t=String(ln||"").trim();
+    if(!t)return;
+    if(t.charAt(0)==="*")return;                       // título — já vai no cabeçalho
+    if(t.charAt(0)==="•"){
+      var corpo=t.slice(1).trim();
+      var i=corpo.lastIndexOf(" — ");
+      if(i<0){itens.push({n:corpo,q:"",u:""});return;}
+      var resto=corpo.slice(i+3).trim();
+      var m=resto.match(/^([0-9]+(?:[.,][0-9]+)?)\s*(.*)$/);
+      itens.push({n:corpo.slice(0,i).trim(),q:m?m[1]:resto,u:m?(m[2]||""):""});
+      return;}
+    notas.push(t);});
+
+  var hoje=new Date().toLocaleDateString("pt-BR");
+  var esc=prtEsc_V347;
+
+  var linhas=itens.map(function(it,ix){
+    return "<tr>"
+      +"<td class='num'>"+(ix+1)+"</td>"
+      +"<td class='prod'>"+esc(it.n)+"</td>"
+      +"<td class='qtd'>"+esc(it.q)+" "+esc(it.u)+"</td>"
+      +"<td class='vaz'></td><td class='vaz'></td></tr>";}).join("");
+
+  var css="*{box-sizing:border-box}"
+    +"html,body{margin:0;padding:0;background:#eceae4}"
+    +"body{font-family:'Manrope',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:"+C.ink+"}"
+    +".folha{width:794px;min-height:1123px;background:#fff;margin:0 auto 14px;padding:44px 48px;box-shadow:0 3px 16px rgba(0,0,0,.2)}"
+    +".cab{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid "+C.green+";padding-bottom:12px;margin-bottom:20px}"
+    +".cab h1{font-family:'Cormorant Garamond',Georgia,serif;font-size:27px;font-weight:700;color:"+C.green+";margin:0 0 3px}"
+    +".cab .sub{font-size:12px;color:"+C.mut+"}"
+    +".cab .meta{text-align:right;font-size:12px;color:"+C.mut+";white-space:nowrap;line-height:1.6}"
+    +"table{width:100%;border-collapse:collapse;font-size:13px}"
+    +"th{background:"+C.band+";color:"+C.green+";text-align:left;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:9px 10px;border-bottom:1.5px solid "+C.line+"}"
+    +"td{padding:9px 10px;border-bottom:1px solid "+C.line+";vertical-align:top;line-height:1.45}"
+    +".num{width:28px;color:"+C.mut+";font-size:11px}"
+    +".prod{font-weight:600}"
+    +".qtd{width:86px;text-align:right;font-weight:800;white-space:nowrap;color:"+C.green+"}"
+    +".vaz{width:92px;border-left:1px solid "+C.line+"}"
+    +".obs{margin-top:22px;padding:13px 15px;background:"+C.band+";border-left:3px solid "+C.green+";font-size:12px;line-height:1.7}"
+    +".rod{margin-top:26px;padding-top:10px;border-top:1px solid "+C.line+";display:flex;justify-content:space-between;font-size:10.5px;color:"+C.mut+"}"
+    +".np{position:sticky;top:0;z-index:9;background:#eceae4;padding:14px 0;text-align:center}"
+    +".np button{padding:11px 24px;font-size:14px;font-weight:700;font-family:inherit;background:"+C.green+";color:#fff;border:none;border-radius:10px;cursor:pointer}"
+    +".np span{display:block;font-size:12px;color:"+C.mut+";margin-top:7px}"
+    +"@media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+    +".np{display:none!important}.folha{margin:0;padding:0;box-shadow:none;width:auto;min-height:0}"
+    +"@page{size:A4;margin:14mm 13mm}}";
+
+  var html="<!DOCTYPE html><html lang='pt-BR'><head><meta charset='utf-8'>"
+    +"<title>"+esc("Lista de compra — "+nome+" — "+hoje)+"</title>"
+    +"<link rel='preconnect' href='https://fonts.googleapis.com'>"
+    +"<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
+    +"<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&family=Manrope:wght@400;500;600;700;800&display=swap'>"
+    +"<style>"+css+"</style></head><body>"
+    +"<div class='np'><button onclick='window.print()'>Imprimir / Salvar em PDF</button>"
+    +"<span>no diálogo escolha <b>Salvar como PDF</b> — depois é só mandar no WhatsApp da distribuidora</span></div>"
+    +"<div class='folha'>"
+    +"<div class='cab'><div><h1>"+esc(nome)+"</h1>"
+    +"<div class='sub'>Lista de compra &mdash; solicita&ccedil;&atilde;o de cota&ccedil;&atilde;o</div></div>"
+    +"<div class='meta'>"+hoje+"<br>"+itens.length+(itens.length===1?" item":" itens")+"</div></div>"
+    +"<table><thead><tr><th class='num'></th><th>Produto</th>"
+    +"<th class='qtd' style='text-align:right'>Qtd.</th>"
+    +"<th class='vaz'>Valor unit.</th><th class='vaz'>Total</th></tr></thead>"
+    +"<tbody>"+linhas+"</tbody></table>"
+    +(notas.length?"<div class='obs'>"+notas.map(esc).join("<br>")+"</div>":"")
+    +"<div class='rod'><span>"+esc(nome)+"</span><span>Gerado em "+hoje+"</span></div>"
+    +"</div>"
+    +"<script>window.onload=function(){var feito=false;var go=function(){if(feito)return;feito=true;"
+    +"setTimeout(function(){window.print();},250);};"
+    +"if(document.fonts&&document.fonts.ready){document.fonts.ready.then(go);setTimeout(go,2500);}else{go();}};<\/script>"
+    +"</body></html>";
+
+  var w=window.open("","_blank");
+  if(!w){alert("Permita pop-ups neste site para gerar o PDF da lista.");return;}
+  w.document.write(html);
+  w.document.close();
+}
+
 function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate}){
 // V321: quais pacientes ja tem termo de siso ASSINADO (para o alerta na linha da agenda).
 // Busca uma vez ao abrir a agenda; o alerta some sozinho quando o termo e assinado.
@@ -10678,11 +10768,12 @@ return <div key={c.s.id} style={{background:G.card,borderRadius:12,padding:"10px
 {cpTxt!=null?<div onClick={function(e){if(e.target===e.currentTarget)setCpTxt(null);}} style={{position:"fixed",inset:0,background:"rgba(30,40,34,.5)",zIndex:60,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:G.card,borderRadius:18,padding:18,maxWidth:560,width:"100%",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
 <h3 style={{fontFamily:"'Cormorant Garamond'",fontSize:22,marginBottom:4}}>{"Lista para o fornecedor"}</h3>
-<div style={{fontSize:12,color:G.muted,marginBottom:10,lineHeight:1.5}}>{"Copie e mande no WhatsApp da distribuidora pedindo cotação."}</div>
-<textarea readOnly value={cpTxt} style={{width:"100%",height:210,fontFamily:"'Manrope'",fontSize:12,lineHeight:1.6,padding:12,border:"none",borderRadius:12,background:G.bg,color:G.text,boxShadow:"inset 2px 2px 6px var(--nm-dark),inset -2px -2px 6px #ffffff",resize:"vertical"}}/>
+<div style={{fontSize:12,color:G.muted,marginBottom:10,lineHeight:1.5}}>{"Pode editar aqui antes de enviar — tirar linha, mudar quantidade, acrescentar item. Depois copie para o WhatsApp ou gere o PDF."}</div>
+<textarea value={cpTxt} onChange={function(e){setCpTxt(e.target.value);}} spellCheck={false} style={{width:"100%",height:240,fontFamily:"'Manrope'",fontSize:12,lineHeight:1.6,padding:12,border:"none",borderRadius:12,background:G.bg,color:G.text,boxShadow:"inset 2px 2px 6px var(--nm-dark),inset -2px -2px 6px #ffffff",resize:"vertical"}}/>
 <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:12}}>
 <Btn ch="Fechar" v="g" onClick={function(){setCpTxt(null);}}/>
-<Btn ch="Copiar" onClick={function(){try{navigator.clipboard.writeText(cpTxt);}catch(e){}}}/>
+<Btn ch="Copiar" v="g" onClick={function(){try{if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(cpTxt);}else{var ta=document.createElement("textarea");ta.value=cpTxt;ta.style.position="fixed";ta.style.top="-1000px";document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,999999);document.execCommand("copy");document.body.removeChild(ta);}}catch(e){}}}/>
+<Btn ch="Gerar PDF" onClick={function(){cpPdf_V348(cpTxt,"Affonso Odontologia");}}/>
 </div>
 </div>
 </div>:null}
