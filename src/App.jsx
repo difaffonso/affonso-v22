@@ -14322,6 +14322,7 @@ var myDents=isDent?dents.filter(function(d){return d.id===user.dentistId;}):dent
 var [selDent,setSelDent]=useState(String(myDents[0]&&myDents[0].id||""));
 var [mo,setMo]=useState(today().slice(0,7));
 var [detOpen,setDetOpen]=useState(null); // V341: card expandido
+var [soLib,setSoLib]=useState(false); // V349: filtrar so os liberados para pagar
 var dent=dents.find(function(d){return d.id===Number(selDent);})||dents[0];
 var COMM=(dent&&dent.commission||40)/100;
 
@@ -14389,6 +14390,11 @@ items.sort(function(a,b){return (a.patName||"").localeCompare(b.patName||"","pt"
 var totalComissao=items.reduce(function(s,i){return s+i.comissao;},0);
 var totalPago=items.filter(function(i){return i.pago;}).reduce(function(s,i){return s+i.comissao;},0);
 var totalPendente=totalComissao-totalPago;
+// V349: do que esta pendente, quanto ja tem credito do paciente (liberado para pagar ao dentista hoje)
+var itensLib=items.filter(function(i){return !i.pago&&i.liberavel;});
+var totalLiberado=itensLib.reduce(function(s,i){return s+i.comissao;},0);
+var totalTravado=items.filter(function(i){return !i.pago&&!i.liberavel;}).reduce(function(s,i){return s+i.comissao;},0);
+var itensVis=(soLib&&itensLib.length)?itensLib:items;
 
 var marcarPago=function(key,pago){
   var parts=key.split("-");
@@ -14441,13 +14447,24 @@ return(
     );})}
   </div>
 
+  {/* V349: liberado para pagar agora */}
+  {totalPendente>0.005&&<div style={{background:G.card,borderRadius:12,padding:"12px 14px",borderLeft:"4px solid "+G.success,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",display:"flex",alignItems:"center",gap:12}}>
+    <div style={{fontSize:26,lineHeight:1}}>{"💰"}</div>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontSize:10,color:G.muted,fontWeight:800,textTransform:"uppercase",letterSpacing:".4px"}}>{"Liberado para pagar hoje"}</div>
+      <div style={{fontSize:20,fontWeight:800,color:G.success,lineHeight:1.2}}>{cur(totalLiberado)}</div>
+      <div style={{fontSize:11,color:G.muted,marginTop:2}}>{itensLib.length+" procedimento(s) com crédito"+(totalTravado>0.005?(" · 🔒 aguardando crédito: "+cur(totalTravado)):"")}</div>
+    </div>
+    {itensLib.length>0&&<button onClick={function(){setSoLib(!soLib);}} style={{border:"1.5px solid "+G.success,background:soLib?G.success:"transparent",color:soLib?"#fff":G.success,borderRadius:8,padding:"6px 10px",fontSize:11.5,fontWeight:700,cursor:"pointer",flexShrink:0}}>{soLib?"Ver todos":"Ver só estes"}</button>}
+  </div>}
+
   {/* Lista de procedimentos */}
   {items.length===0&&<div style={{background:G.card,borderRadius:12,padding:30,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
     Nenhum procedimento realizado neste mês
   </div>}
 
   <div style={{display:"flex",flexDirection:"column",gap:8}}>
-    {items.map(function(item){return(
+    {itensVis.map(function(item){return(
       <div key={item.key} style={{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:"4px solid "+(item.pago?G.success:item.atrasado?G.red:G.orange),opacity:item.pago?0.75:1}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           {/* Checkbox admin */}
@@ -14462,6 +14479,7 @@ return(
                 style={{fontWeight:700,fontSize:14,color:item.pat?G.primary:G.text,cursor:item.pat?"pointer":"default",textDecoration:item.pat?"underline":"none",textUnderlineOffset:2}}>{item.patName+(item.pat?" ↗":"")}</span>
               {item.atrasado&&<span style={{background:G.red+"20",color:G.red,borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"⚠ Mês anterior"}</span>}
               {!item.pago&&!item.liberavel&&<span style={{background:G.orange+"20",color:G.orange,borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"🔒 Falta "+cur(item.falta)}</span>}
+              {!item.pago&&item.liberavel&&<span style={{background:"var(--green-soft)",color:G.success,borderRadius:6,padding:"1px 7px",fontSize:10,fontWeight:700}}>{"💰 Liberado"}</span>}
             </div>
             <div style={{fontSize:13,color:G.primary,fontWeight:600,marginTop:1}}>{item.proc}</div>
             <div style={{fontSize:11,color:item.atrasado?G.red:G.muted,marginTop:2,fontWeight:item.atrasado?700:400}}>{"Baixa: "+fmt(item.baixaDate)+(item.atrasado?" (pendente)":"")}</div>
