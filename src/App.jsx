@@ -17425,7 +17425,7 @@ function mergeGastos(local,server,delSet){
   local=local||{};server=server||{};delSet=delSet||{};
   return {clinica:_mgList(local.clinica,server.clinica,"clinica",delSet),pessoal:_mgList(local.pessoal,server.pessoal,"pessoal",delSet)};
 }
-function _itemKeys(map){var o={};if(map){Object.keys(map).forEach(function(t){(map[t]||[]).forEach(function(e){if(e&&e.id!=null)o[t+":"+e.id]=true;});});}return o;}
+function _itemKeys(map){var o={};if(map){Object.keys(map).forEach(function(t){(map[t]||[]).forEach(function(e){if(e&&e.id!=null)o[t+":"+e.id]=true;if(t==="treats"&&e&&e.payments)e.payments.forEach(function(pp){if(pp&&pp.id!=null)o["tpay:"+pp.id]=true;});});});}return o;}// V351: cada pagamento de plano vira chave "tpay:id" -> exclusao de pagamento gera tombstone em delItems
 function _waTs(a){if(!a)return "";var c=a.confirmadoWAts||"";var x=a.canceladoWAts||"";return c>x?c:x;}
 // Merge de consultas SEGURO: mantem o local (nao reverte mudancas manuais), adiciona consultas novas do servidor,
 // e adota o status do servidor SO quando ha confirmacao/cancelamento do WhatsApp mais recente (webhook) -> nao perde confirmacao nem reverte.
@@ -17487,7 +17487,11 @@ function mergeOrient(localArr,serverArr,delSet){
 }
 // ── MERGE de PLANOS item-a-item: baixa (done) nunca se perde; pagamentos unidos por id ──
 function _treatItemDone(it){return !!(it&&(it.done||it.paid));}
-function _mergeOneTreat(local,server){
+// V351: pagamentos do plano agora sao UNIDOS entre as duas versoes (antes vinha so a lista da versao mais nova,
+// e um aparelho com copia velha que mexesse no plano -- status, Orcamento, item -- apagava o pagamento lancado em outro).
+// Um pagamento so sai se tiver tombstone "tpay:id" em delItems (exclusao de proposito).
+function _mergeOneTreat(local,server,delSet){
+delSet=delSet||{};
 if(!local)return server;
 if(!server)return local;
 var lt=local._ts||0,st=server._ts||0;
@@ -17511,13 +17515,16 @@ items=(newer.items||[]).slice();
 out.items=items;
 var itemPmt={};
 la.concat(sa).forEach(function(it){if(it&&it.pmtId!=null)itemPmt[it.pmtId]=true;});
-var pById={};
-(local.payments||[]).forEach(function(p){if(p&&p.id!=null&&!pById[p.id])pById[p.id]=p;});
-(server.payments||[]).forEach(function(p){if(p&&p.id!=null&&!pById[p.id])pById[p.id]=p;});
 var newerPays=(st>lt?server:local).payments||[];
+var olderPays=(st>lt?local:server).payments||[];
+var pById={};
+newerPays.concat(olderPays).forEach(function(p){if(p&&p.id!=null&&!pById[p.id])pById[p.id]=p;});// V351: versao do plano mais novo tem prioridade
 var pays=[],used={};
 items.forEach(function(it){if(it&&_treatItemDone(it)&&it.pmtId!=null&&pById[it.pmtId]&&!used[it.pmtId]){pays.push(pById[it.pmtId]);used[it.pmtId]=true;}});
-newerPays.forEach(function(p){if(!p||p.id==null||used[p.id])return;if(p._b||itemPmt[p.id])return;pays.push(p);used[p.id]=true;});
+newerPays.forEach(function(p){if(!p||p.id==null||used[p.id])return;if(p._b||itemPmt[p.id])return;if(delSet["tpay:"+p.id])return;pays.push(p);used[p.id]=true;});
+var _addOld=false;
+olderPays.forEach(function(p){if(!p||p.id==null||used[p.id])return;if(p._b||itemPmt[p.id])return;if(delSet["tpay:"+p.id])return;pays.push(p);used[p.id]=true;_addOld=true;});// V351
+if(_addOld){var _nb=pays.filter(function(p){return !(p._b||itemPmt[p.id]);}),_ib=pays.filter(function(p){return p._b||itemPmt[p.id];});_nb.sort(function(a,b){var da=a.date||"",db=b.date||"";if(da!==db)return da<db?-1:1;return (Number(a.id)||0)-(Number(b.id)||0);});pays=_ib.concat(_nb);}
 if(local.payments||server.payments)out.payments=pays;
 return out;
 }
@@ -17527,7 +17534,7 @@ var byId={};
 localArr.forEach(function(t){if(t&&t.id!=null)byId[t.id]={local:t,server:null};});
 serverArr.forEach(function(t){if(t&&t.id!=null){if(byId[t.id])byId[t.id].server=t;else byId[t.id]={local:null,server:t};}});
 var out=[],seen={};
-localArr.forEach(function(t){if(!t||t.id==null||seen[t.id])return;if(delSet["treats:"+t.id])return;var e=byId[t.id];out.push(_mergeOneTreat(e.local,e.server));seen[t.id]=true;});
+localArr.forEach(function(t){if(!t||t.id==null||seen[t.id])return;if(delSet["treats:"+t.id])return;var e=byId[t.id];out.push(_mergeOneTreat(e.local,e.server,delSet));seen[t.id]=true;});
 serverArr.forEach(function(t){if(!t||t.id==null||seen[t.id])return;if(delSet["treats:"+t.id])return;out.push(t);seen[t.id]=true;});
 return out;
 }
