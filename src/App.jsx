@@ -11943,6 +11943,8 @@ function afSaldoFerias(ferSaldo,afast,uid){
   return {atual:Number(base.dias)+acum-gasto,informado:Number(base.dias),ref:base.ref,acum:acum,gasto:gasto,obs:base.obs||"",hist:base.hist||[]};
 }
 
+// V352: batida cancelada pelo admin continua guardada (auditoria), mas sai de todos os calculos
+function pontoAtivo(p){return !!p&&!p._cancel;}
 function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,afast,setAfast,ferSaldo,setFerSaldo,ferPer,setFerPer}){
   const isAdmin=user.level>=3;
   const [aba,setAba]=useState("reg");
@@ -11960,7 +11962,7 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,afast,setAfast,
   const meuId=user.id;
   // V294: a lista mostra tambem as batidas que ainda estao na fila, marcadas com relogio
   const meusHoje=(function(){
-    var base=pontos.filter(function(p){return String(p.uid)===String(meuId)&&p.data===hoje;});
+    var base=pontos.filter(function(p){return pontoAtivo(p)&&String(p.uid)===String(meuId)&&p.data===hoje;});// V352: sem canceladas
     var tem={};base.forEach(function(p){if(p&&p.id!=null)tem[String(p.id)]=true;});
     var extra=(pend||[]).filter(function(p){return p&&String(p.uid)===String(meuId)&&p.data===hoje&&!tem[String(p.id)];});
     return base.concat(extra).sort(function(a,b){return a.ts<b.ts?-1:1;});
@@ -12043,15 +12045,71 @@ function Ponto({pontos,setPontos,pontoCfg,setPontoCfg,user,users,afast,setAfast,
       </div>
     </div>}
 
-    {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos} pontoCfg={pontoCfg} users={users} afast={afast}/>}{/* V300: afast */}
-    {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos} pontoCfg={pontoCfg} users={users} afast={afast}/>}{/* V300: afast */}
+    {aba==="rel"&&isAdmin&&<RelatorioPonto pontos={pontos.filter(pontoAtivo)} todos={pontos} setPontos={setPontos} user={user} pontoCfg={pontoCfg} users={users} afast={afast}/>}{/* V300: afast */}
+    {aba==="mes"&&isAdmin&&<EspelhoMensal pontos={pontos.filter(pontoAtivo)} pontoCfg={pontoCfg} users={users} afast={afast}/>}{/* V300: afast */}
     {aba==="afa"&&isAdmin&&<Afastamentos afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo} ferPer={ferPer} setFerPer={setFerPer} users={users} user={user}/>}{/* V303 */}
     {aba==="cfg"&&isAdmin&&<ConfigPonto pontoCfg={pontoCfg} setPontoCfg={setPontoCfg}/>}
   </div>;
 }
 
-function RelatorioPonto({pontos,pontoCfg,users,afast}){
+function RelatorioPonto({pontos,todos,setPontos,user,pontoCfg,users,afast}){
   const z=function(n){return ("0"+n).slice(-2);};
+  // V352: correcao de batidas (admin). Nada e apagado: editar troca o horario, cancelar marca _cancel.
+  const [edK,setEdK]=useState(null);      // "uid|data" em edicao
+  const [edL,setEdL]=useState([]);        // linhas do editor
+  const [edMot,setEdMot]=useState("");
+  const [edMsg,setEdMsg]=useState(null);
+  const [edBusy,setEdBusy]=useState(false);
+  var PT_TIPOS=[["ent","Entrada","entrada",null],["almS","Saída p/ almoço","saida","almoco"],["almV","Volta do almoço","entrada","almoco"],["sai","Saída","saida",null]];
+  function ptKey(p){return p.sub==="almoco"?(p.tipo==="saida"?"almS":"almV"):(p.tipo==="entrada"?"ent":"sai");}
+  function ptTipo(k){for(var i=0;i<PT_TIPOS.length;i++)if(PT_TIPOS[i][0]===k)return PT_TIPOS[i];return PT_TIPOS[0];}
+  function abrirEd(l){
+    var regs=(todos||pontos).filter(function(p){return pontoAtivo(p)&&String(p.uid)===String(l.uid)&&p.data===l.data;})
+      .sort(function(a,b){return (a.hora||"")<(b.hora||"")?-1:1;});
+    setEdL(regs.map(function(p){return {id:p.id,orig:p,k:ptKey(p),hora:p.hora||"",cancel:false};}));
+    setEdK(l.uid+"|"+l.data);setEdMot("");setEdMsg(null);
+  }
+  function addLinha(){setEdL(function(a){return a.concat([{id:null,orig:null,k:"almV",hora:"",cancel:false}]);});}
+  function setLinha(i,campo,v){setEdL(function(a){var n=a.slice();n[i]=Object.assign({},n[i]);n[i][campo]=v;return n;});}
+  function salvarEd(l){
+    if(edBusy)return;
+    var mot=(edMot||"").trim();
+    if(!mot){setEdMsg({ok:false,txt:"Escreva o motivo da correção."});return;}
+    var agora=Date.now(),quemFez=(user&&(user.name||user.login))||"admin",mud=[],seq=0;
+    for(var i=0;i<edL.length;i++){
+      var r=edL[i],t=ptTipo(r.k);
+      if(!r.cancel&&!/^\d{2}:\d{2}$/.test(r.hora||"")){setEdMsg({ok:false,txt:"Preencha todos os horários (HH:MM) ou cancele a batida."});return;}
+      var tsIso;try{tsIso=new Date(l.data+"T"+r.hora+":00").toISOString();}catch(_e){tsIso=new Date().toISOString();}
+      if(r.orig){
+        var o=r.orig;
+        var mudou=r.cancel||r.hora!==o.hora||t[2]!==o.tipo||(t[3]||null)!==(o.sub||null);
+        if(!mudou)continue;
+        var aud={por:quemFez,em:new Date(agora).toISOString(),motivo:mot,de:(ptTipo(ptKey(o))[1])+" "+(o.hora||"")};
+        var nv=Object.assign({},o,{_ts:agora,_corr:(o._corr||[]).concat([Object.assign(aud,r.cancel?{acao:"cancelou"}:{acao:"alterou",para:t[1]+" "+r.hora})])});
+        if(r.cancel)nv._cancel=true;
+        else{nv.tipo=t[2];nv.sub=t[3];nv.hora=r.hora;nv.ts=tsIso;}
+        mud.push(nv);
+      }else if(!r.cancel){
+        mud.push({id:agora+(seq++),uid:l.uid,nome:l.nome,tipo:t[2],sub:t[3],data:l.data,hora:r.hora,ts:tsIso,_manual:true,_ts:agora,
+          _corr:[{por:quemFez,em:new Date(agora).toISOString(),motivo:mot,acao:"incluiu",para:t[1]+" "+r.hora}]});
+      }
+    }
+    if(!mud.length){setEdMsg({ok:false,txt:"Nada foi alterado."});return;}
+    var byId={};mud.forEach(function(p){byId[String(p.id)]=p;});
+    setPontos(function(prev){
+      prev=prev||[];var tem={};
+      var base=prev.map(function(p){if(p&&p.id!=null&&byId[String(p.id)]){tem[String(p.id)]=true;return byId[String(p.id)];}return p;});
+      mud.forEach(function(p){if(!tem[String(p.id)])base.push(p);});
+      return base;
+    });
+    setEdBusy(true);setEdMsg({ok:true,txt:"⏳ Salvando no servidor…"});
+    supabase.upsertPontos(mud).then(function(rt){
+      setEdBusy(false);
+      if(rt&&rt.ok){setEdMsg(null);setEdK(null);}
+      else setEdMsg({ok:false,txt:"⚠️ Ficou salvo neste aparelho, mas o servidor não confirmou ("+((rt&&rt.msg)||"sem conexão")+"). Tente salvar de novo."});
+    }).catch(function(){setEdBusy(false);setEdMsg({ok:false,txt:"⚠️ Sem conexão com o servidor. Tente salvar de novo."});});
+  }
+  function corrigidoDia(l){return (todos||pontos).some(function(p){return p&&String(p.uid)===String(l.uid)&&p.data===l.data&&p._corr&&p._corr.length;});}
   var d0=new Date();
   const [de,setDe]=useState(d0.getFullYear()+"-"+z(d0.getMonth()+1)+"-01");
   const [ate,setAte]=useState(today());
@@ -12129,7 +12187,11 @@ function RelatorioPonto({pontos,pontoCfg,users,afast}){
                 return <span style={{flexShrink:0,display:"inline-flex",alignItems:"center",gap:4,background:"var("+_t.soft+")",color:G[_t.cor]||G.primary,borderRadius:8,padding:"3px 9px",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}><i className={"ph-fill "+_t.ic}/>{_t.nome}</span>;
               })()}
             </div>
-            <span style={{flexShrink:0,background:G.card,boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px var(--nm-light)",borderRadius:9,padding:"6px 13px",fontSize:14,fontWeight:800,color:mins==null?G.muted:G.primary}}>{fmtH(mins)}</span>
+            <div style={{display:"flex",alignItems:"center",gap:7,flexShrink:0}}>{/* V352 */}
+              {corrigidoDia(l)&&<span title="Dia com correção" style={{color:G.orange,fontWeight:800,fontSize:12}}>{"✱ corrigido"}</span>}
+              {setPontos&&edK!==(l.uid+"|"+l.data)&&<button onClick={function(){abrirEd(l);}} style={{border:"none",background:G.accent,color:G.primary,borderRadius:9,padding:"6px 10px",fontSize:12,fontWeight:800,cursor:"pointer"}}>{"✏️ Corrigir"}</button>}
+              <span style={{flexShrink:0,background:G.card,boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px var(--nm-light)",borderRadius:9,padding:"6px 13px",fontSize:14,fontWeight:800,color:mins==null?G.muted:G.primary}}>{fmtH(mins)}</span>
+            </div>
           </div>
           <div style={{display:"flex",alignItems:"center",flexWrap:"wrap",gap:"6px 4px"}}>
             <span style={chip}><span style={Object.assign({},dotS,{background:G.success})}/><span style={lblS}>Entr</span><span style={atraso?{color:G.red}:undefined}>{(l.ent||"—")+(atraso?" ⚠️":"")}</span></span>
@@ -12143,6 +12205,33 @@ function RelatorioPonto({pontos,pontoCfg,users,afast}){
               <span style={chip}><span style={Object.assign({},dotS,{background:G.orange})}/><span style={lblS}>Saída</span><span style={antecip?{color:G.red}:undefined}>{l.sai+(antecip?" ⚠️":"")}</span></span>
               :<span style={missS}>{"⚠️ falta a saída"}</span>}
           </div>
+          {edK===(l.uid+"|"+l.data)&&<div style={{marginTop:12,background:"var(--surface-2)",border:"1.5px solid "+G.border,borderRadius:12,padding:"12px 12px 10px"}}>{/* V352: editor */}
+            <div style={{fontSize:12,fontWeight:800,color:G.primary,marginBottom:8}}>{"Corrigir batidas de "+l.nome+" — "+fmtD(l.data)}</div>
+            {edL.length===0&&<div style={{fontSize:12,color:G.muted,marginBottom:8}}>Nenhuma batida. Use "+ Adicionar batida".</div>}
+            {edL.map(function(r,i){
+              return <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:7,opacity:r.cancel?.45:1}}>
+                <select value={r.k} disabled={r.cancel} onChange={function(e){setLinha(i,"k",e.target.value);}} style={Object.assign({},inp,{flex:1,minWidth:0,padding:"8px 7px",fontSize:12.5,textDecoration:r.cancel?"line-through":"none"})}>
+                  {PT_TIPOS.map(function(t){return <option key={t[0]} value={t[0]}>{t[1]}</option>;})}
+                </select>
+                <input type="time" value={r.hora} disabled={r.cancel} onChange={function(e){setLinha(i,"hora",e.target.value);}} style={Object.assign({},inp,{width:92,padding:"8px 7px",fontSize:13,textDecoration:r.cancel?"line-through":"none"})}/>
+                {r.orig?<button onClick={function(){setLinha(i,"cancel",!r.cancel);}} style={{border:"none",borderRadius:8,padding:"8px 9px",fontSize:11.5,fontWeight:800,cursor:"pointer",background:r.cancel?G.accent:"var(--red-soft)",color:r.cancel?G.primary:G.red,whiteSpace:"nowrap"}}>{r.cancel?"↩ Manter":"✕ Cancelar"}</button>
+                  :<button onClick={function(){setEdL(function(a){return a.filter(function(_x,j){return j!==i;});});}} style={{border:"none",borderRadius:8,padding:"8px 9px",fontSize:11.5,fontWeight:800,cursor:"pointer",background:"var(--red-soft)",color:G.red}}>{"✕"}</button>}
+              </div>;
+            })}
+            <button onClick={addLinha} style={{border:"1.5px dashed "+G.border,background:"none",borderRadius:9,padding:"7px 11px",fontSize:12,fontWeight:800,color:G.primary,cursor:"pointer",marginBottom:9}}>{"+ Adicionar batida"}</button>
+            <input value={edMot} onChange={function(e){setEdMot(e.target.value);}} placeholder="Motivo (obrigatório) — ex.: bateu no celular errado" style={Object.assign({},inp,{width:"100%",boxSizing:"border-box",marginBottom:9})}/>
+            {edMsg&&<div style={{fontSize:12,fontWeight:700,color:edMsg.ok?G.success:G.red,marginBottom:8}}>{edMsg.txt}</div>}
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <button onClick={function(){setEdK(null);setEdMsg(null);}} style={{border:"1.5px solid "+G.border,background:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:700,color:G.muted,cursor:"pointer"}}>Fechar</button>
+              <button onClick={function(){salvarEd(l);}} disabled={edBusy} style={{border:"none",background:G.primary,color:"#fff",borderRadius:9,padding:"8px 16px",fontSize:13,fontWeight:800,cursor:"pointer",opacity:edBusy?.6:1}}>{"💾 Salvar correção"}</button>
+            </div>
+            {(function(){var h=[];(todos||pontos).forEach(function(p){if(p&&String(p.uid)===String(l.uid)&&p.data===l.data&&p._corr)p._corr.forEach(function(c){h.push(c);});});
+              if(!h.length)return null;h.sort(function(a,b){return a.em<b.em?-1:1;});
+              return <div style={{marginTop:10,borderTop:"1px solid "+G.border,paddingTop:8,fontSize:11,color:G.muted,lineHeight:1.55}}>
+                <div style={{fontWeight:800,marginBottom:3}}>Histórico de correções</div>
+                {h.map(function(c,j){var dt=new Date(c.em);return <div key={j}>{z(dt.getDate())+"/"+z(dt.getMonth()+1)+" "+z(dt.getHours())+":"+z(dt.getMinutes())+" · "+c.por+" "+(c.acao||"alterou")+": "+(c.de||"")+(c.para?(c.de?" → ":"")+c.para:"")+(c.motivo?" — "+c.motivo:"")}</div>;})}
+              </div>;})()}
+          </div>}
         </div>;
       })}
     </div>}
@@ -12975,7 +13064,7 @@ function pnlBaixa(ticks,bk,itemId,porDia,reset){
 
 // ---- ponto: resumo de um dia ----
 function pnlPontoDia(pontos,uid,ds){
-  var regs=(pontos||[]).filter(function(p){return String(p.uid)===String(uid)&&p.data===ds;})
+  var regs=(pontos||[]).filter(function(p){return pontoAtivo(p)&&String(p.uid)===String(uid)&&p.data===ds;})// V352
     .sort(function(a,b){return String(a.ts)<String(b.ts)?-1:1;});
   if(!regs.length)return null;
   var ent=null,sai=null,almI=null,almF=null;
@@ -12995,7 +13084,7 @@ function pnlUltimoDia(pontos,uid){
   for(var i=1;i<=14;i++){
     d.setDate(d.getDate()-1);
     var ds=_ld(d);
-    var tem=(pontos||[]).some(function(p){return p.data===ds&&(uid==null||String(p.uid)===String(uid));});
+    var tem=(pontos||[]).some(function(p){return pontoAtivo(p)&&p.data===ds&&(uid==null||String(p.uid)===String(uid));});// V352
     if(tem)return ds;
   }
   return yest();
