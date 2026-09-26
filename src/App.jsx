@@ -4253,7 +4253,135 @@ function cpPdf_V348(txt,clinica){
   w.document.close();
 }
 
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate}){
+// ══════════════ V353: RECADOS NA AGENDA ══════════════
+// Faixa "Seus recados" no topo do dia (Agenda > Dia). E a mesma lista do calendario rapido
+// (V323): notas pessoais, lembretes, o que eu deleguei, contas do dia, recebimento lancado
+// fora do dia e backup. So aparece para quem tem "Recados na Agenda" marcado em
+// Administrativo > Usuarios -- quem nao tem (as secretarias) continua vendo so a agenda.
+// Nao cria array novo no blob: usa as notas (V323) e um campo no cadastro do usuario.
+// Aberta/recolhida fica so no aparelho (localStorage), como o modo Normal/Compacta.
+function recAgendaLigado_V353(u){
+  if(!u)return false;
+  if(typeof u.recAgenda==="boolean")return u.recAgenda;
+  return String(u.id)==="5";// padrao inicial: so o Dr. Diego. Depois de salvo no cadastro, vale o que estiver marcado.
+}
+// hh:mm a partir do que foi digitado ("930" -> "09:30", "14" -> "14:00"). Hora invalida vira nota sem hora.
+function horaNota_V353(v){
+  var d=String(v||"").replace(/\D/g,"");
+  if(!d)return "";
+  var h,m;
+  if(d.length<=2){h=Number(d);m=0;}
+  else if(d.length===3){h=Number(d.slice(0,1));m=Number(d.slice(1,3));}
+  else{h=Number(d.slice(0,2));m=Number(d.slice(2,4));}
+  if(!(h>=0&&h<=23&&m>=0&&m<=59))return "";
+  return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0");
+}
+function FaixaRecados_V353({ds,hoje,notas,rems,deleg,contas,retro,bkp,nomeUser,onTogNota,onRmNota,onAddNota,onRetro}){
+  const [recolhida,setRecolhida]=useState(function(){try{return localStorage.getItem("agenda_recados_recolhida")==="1";}catch(e){return false;}});
+  const [anotando,setAnotando]=useState(false);
+  const [tx,setTx]=useState("");
+  const [hr,setHr]=useState("");
+  notas=notas||[];rems=rems||[];deleg=deleg||[];contas=contas||[];retro=retro||[];
+  var dm=function(d){return String(d||"").slice(8,10)+"/"+String(d||"").slice(5,7);};
+  var nomeCurto=function(id){try{return String((nomeUser&&nomeUser(id))||"").trim().split(" ")[0];}catch(e){return "";}};
+  var recolher=function(v){setRecolhida(v);try{localStorage.setItem("agenda_recados_recolhida",v?"1":"0");}catch(e){}};
+  var salvar=function(){
+    var t=String(tx||"").trim();if(!t)return;
+    onAddNota(t,horaNota_V353(hr));
+    setTx("");setHr("");setAnotando(false);
+    if(recolhida)recolher(false);
+  };
+  var nPend=notas.filter(function(n){return !n.done;}).length+rems.length+deleg.filter(function(r){return !r.done;}).length+contas.length+retro.filter(function(x){return !x.rev;}).length+((bkp&&!bkp.feito)?1:0);
+  var nTotal=notas.length+rems.length+deleg.length+contas.length+retro.length+(bkp?1:0);
+  var cores=[];
+  if(notas.some(function(n){return !n.done;}))cores.push(G.gold);
+  if(rems.length)cores.push(G.blue);
+  if(contas.length)cores.push(G.purple);
+  if(retro.some(function(x){return !x.rev;}))cores.push(G.red);
+  if(deleg.some(function(r){return !r.done;})||(bkp&&!bkp.feito))cores.push("var(--muted)");
+  var btnIc={width:40,height:40,border:"none",borderRadius:12,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",padding:0,cursor:"pointer",flexShrink:0};
+  var linha={display:"flex",alignItems:"center",gap:10,minHeight:46,boxSizing:"border-box",padding:"7px 12px",borderRadius:11,fontSize:14,lineHeight:1.35,color:"var(--text)"};
+  var sub={display:"block",fontSize:10.5,fontWeight:700,color:"var(--muted)",marginTop:2};
+  var campo={height:42,boxSizing:"border-box",border:"1px solid var(--border)",borderRadius:10,background:"var(--surface)",color:"var(--text)",fontSize:16,outline:"none",fontFamily:"inherit"};
+  var bordaCor=function(v,p){return "1px solid color-mix(in srgb, "+v+" "+p+"%, transparent)";};
+  return <section aria-label="Seus recados" style={{borderRadius:16,background:"var(--surface-2)",border:"1px solid var(--border)",boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px var(--nm-light)",padding:"2px 4px 2px 12px"}}>
+    <div style={{display:"flex",alignItems:"center",gap:9,minHeight:50}}>
+      <i className="ph ph-note" style={{fontSize:21,color:G.gold,flexShrink:0}}></i>
+      <div style={{display:"flex",flexDirection:"column",gap:2,minWidth:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:7}}>
+          <span style={{fontSize:14.5,fontWeight:800,color:"var(--text)",whiteSpace:"nowrap"}}>{"Seus recados"}</span>
+          {nPend>0&&<span style={{minWidth:20,height:20,padding:"0 6px",boxSizing:"border-box",borderRadius:10,background:"var(--primary)",color:"#fff",fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{nPend}</span>}
+          {recolhida&&cores.length>0&&<span style={{display:"flex",alignItems:"center",gap:3}}>{cores.map(function(c,i){return <span key={i} style={{width:7,height:7,borderRadius:"50%",background:c}}></span>;})}</span>}
+        </div>
+        <span style={{display:"flex",alignItems:"center",gap:4,fontSize:10.5,fontWeight:700,color:"var(--muted)",whiteSpace:"nowrap"}}><i className="ph-fill ph-lock-simple" style={{fontSize:10}}></i>{nTotal===0?"só você vê · nada neste dia":"só você vê"}</span>
+      </div>
+      <div style={{flex:1}}></div>
+      <button onClick={function(){setAnotando(!anotando);}} title={anotando?"Cancelar":"Anotar neste dia"} aria-label={anotando?"Cancelar":"Anotar neste dia"} style={Object.assign({},btnIc,{color:"var(--primary)"})}><i className={anotando?"ph ph-x":"ph ph-plus"} style={{fontSize:21}}></i></button>
+      {nTotal>0&&<button onClick={function(){recolher(!recolhida);}} title={recolhida?"Mostrar recados":"Recolher recados"} aria-label={recolhida?"Mostrar recados":"Recolher recados"} style={Object.assign({},btnIc,{color:"var(--muted)"})}><i className={recolhida?"ph ph-caret-down":"ph ph-caret-up"} style={{fontSize:20}}></i></button>}
+    </div>
+    {anotando&&<div style={{display:"flex",gap:6,padding:"2px 8px 10px 0"}}>
+      <input value={hr} onChange={function(e){setHr(String(e.target.value||"").replace(/[^0-9:]/g,"").slice(0,5));}} placeholder="hh:mm" inputMode="numeric" aria-label="Hora (opcional)" style={Object.assign({},campo,{width:72,padding:"0 6px",textAlign:"center"})}/>
+      <input value={tx} autoFocus onChange={function(e){setTx(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")salvar();}} placeholder="Anotar neste dia..." aria-label="Novo recado" style={Object.assign({},campo,{flex:1,minWidth:0,padding:"0 12px"})}/>
+      <button onClick={salvar} title="Adicionar" aria-label="Adicionar recado" style={{width:46,height:42,border:"none",borderRadius:10,background:"var(--primary)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",padding:0,cursor:"pointer",flexShrink:0}}><i className="ph ph-plus" style={{fontSize:20}}></i></button>
+    </div>}
+    {!recolhida&&nTotal>0&&<div style={{display:"flex",flexDirection:"column",gap:6,padding:"0 8px 10px 0"}}>
+      {notas.map(function(n){
+        var verm=!n.done&&n.date<=hoje;
+        var atrasada=!n.done&&n.date<hoje;
+        return <div key={"nt"+n.id} style={{display:"flex",alignItems:"center",borderRadius:11,background:n.done?"var(--bg)":(verm?"var(--red-soft)":"var(--amber-soft)"),border:n.done?"1px solid var(--border)":bordaCor(verm?"var(--red)":"var(--gold)",verm?35:40)}}>
+          <button onClick={function(){onTogNota(n.id);}} title={n.done?"Toque para desmarcar":"Toque para marcar como feita"} style={Object.assign({},linha,{flex:1,minWidth:0,border:"none",background:"transparent",textAlign:"left",cursor:"pointer",fontFamily:"inherit"})}>
+            <i className={n.done?"ph-fill ph-check-square":"ph ph-square"} style={{fontSize:21,flexShrink:0,color:n.done?G.primary:(verm?G.red:G.gold)}}></i>
+            <span style={{flex:1,minWidth:0}}>
+              <span style={{textDecoration:n.done?"line-through":"none",opacity:n.done?.55:1}}>{n.hora?<b style={{color:n.done?"var(--muted)":"var(--primary)",marginRight:6}}>{n.hora}</b>:null}{n.txt}</span>
+              {atrasada&&<span style={Object.assign({},sub,{color:G.red})}>{"atrasada · era para "+dm(n.date)}</span>}
+            </span>
+          </button>
+          {n.done&&<button onClick={function(){onRmNota(n.id);}} title="Excluir nota" aria-label="Excluir nota" style={Object.assign({},btnIc,{color:"var(--muted)"})}><i className="ph-fill ph-trash" style={{fontSize:16}}></i></button>}
+        </div>;
+      })}
+      {rems.map(function(r){
+        var atr=r.date<hoje;
+        return <div key={"lm"+r.id} style={Object.assign({},linha,{background:"var(--accent)",border:"1px solid var(--border)"})}>
+          <i className="ph-fill ph-bell" style={{fontSize:19,flexShrink:0,color:G.blue}}></i>
+          <span style={{flex:1,minWidth:0}}>{r.title}<span style={atr?Object.assign({},sub,{color:G.red}):sub}>{(r.assignedUserId?"Lembrete seu":"Lembrete geral")+(atr?" · atrasado desde "+dm(r.date):"")+" · conclua em Lembretes"}</span></span>
+        </div>;
+      })}
+      {deleg.map(function(r){
+        var atr=!r.done&&r.date<=hoje;
+        return <div key={"dg"+r.id} style={Object.assign({},linha,{background:atr?"var(--amber-soft)":"var(--bg)",border:"1px dashed "+(atr?G.gold:"var(--border)")})}>
+          <i className="ph-fill ph-paper-plane-tilt" style={{fontSize:18,flexShrink:0,color:atr?G.gold:"var(--muted)"}}></i>
+          <span style={{flex:1,minWidth:0,opacity:r.done?.6:1}}><span style={{textDecoration:r.done?"line-through":"none"}}>{r.title}</span><span style={sub}>{"Enviei para "+nomeCurto(r.assignedUserId)+" · "+(r.done?("feito"+(r.doneBy?" por "+String(r.doneBy).trim().split(" ")[0]:"")):(atr?"ainda não concluído":"aguardando"))+((!r.done&&r.date<hoje)?" · desde "+dm(r.date):"")}</span></span>
+          {r.done&&<i className="ph-fill ph-check" style={{color:G.primary,fontSize:15,flexShrink:0}}></i>}
+        </div>;
+      })}
+      {contas.map(function(c){
+        return <div key={"gs"+c.tab+c.id} style={Object.assign({},linha,{background:"var(--purple-soft)",border:bordaCor("var(--purple)",30)})}>
+          <i className="ph ph-receipt" style={{fontSize:20,flexShrink:0,color:G.purple}}></i>
+          <span style={{flex:1,minWidth:0}}>{c.desc}<span style={Object.assign({},sub,{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"})}>{(c.tab==="pessoal"?"Pessoal":"Clínica")+(c.cat?" · "+c.cat:"")+" · dê baixa em Gastos"}</span></span>
+          <b style={{color:G.purple,fontSize:13.5,whiteSpace:"nowrap"}}>{cur(c.value)}</b>
+        </div>;
+      })}
+      {retro.map(function(x){
+        var rv=x.rev;
+        return <div key={"rt"+x.r.id} style={Object.assign({},linha,{paddingRight:4,background:rv?"var(--bg)":"var(--red-soft)",border:rv?"1px solid var(--border)":bordaCor("var(--red)",35)})}>
+          <i className={rv?"ph-fill ph-check-circle":"ph-fill ph-clock-counter-clockwise"} style={{fontSize:18,flexShrink:0,color:rv?G.primary:G.red}}></i>
+          <span style={{flex:1,minWidth:0}}><span style={{textDecoration:rv?"line-through":"none",opacity:rv?.55:1}}>{x._nome}</span><span style={sub}>{rv?"Resolvido":("Recebimento de "+dm(x.r.date)+" · "+x.dias+(x.dias===1?" dia depois":" dias depois")+(x.mesDif?", mês diferente":"")+(x.r._by?" · por "+String(x.r._by).trim().split(" ")[0]:""))}</span></span>
+          <b style={{color:rv?"var(--muted)":G.red,fontSize:13,whiteSpace:"nowrap"}}>{cur(x.r.paid)}</b>
+          <button onClick={function(){onRetro(x.r.id,rv);}} title={rv?"Desfazer":"Marcar como resolvido"} aria-label={rv?"Desfazer":"Marcar como resolvido"} style={Object.assign({},btnIc,{width:36,height:36,color:rv?"var(--muted)":G.red})}><i className={rv?"ph-fill ph-arrow-counter-clockwise":"ph-fill ph-check"} style={{fontSize:16}}></i></button>
+        </div>;
+      })}
+      {bkp&&(function(){
+        var b=bkp.feito,venc=!b&&ds<=hoje;
+        return <div style={Object.assign({},linha,{background:b?"var(--green-soft)":(venc?"var(--red-soft)":"var(--bg)"),border:b?bordaCor("var(--green)",35):(venc?bordaCor("var(--red)",35):"1px solid var(--border)")})}>
+          <i className={b?"ph-fill ph-check-square":"ph ph-floppy-disk"} style={{fontSize:20,flexShrink:0,color:b?G.success:(venc?G.red:"var(--muted)")}}></i>
+          <span style={{flex:1,minWidth:0}}><span style={{textDecoration:b?"line-through":"none",opacity:b?.6:1}}>{"Backup do sistema"}</span><span style={sub}>{b?("feito às "+String(b.at||"")+(b.by?" por "+String(b.by).trim().split(" ").slice(-1)[0]:"")):(venc?"ainda não feito · Administrativo › Backup":"programado")}</span></span>
+        </div>;
+      })()}
+    </div>}
+  </section>;
+}
+
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate,faixaRecados}){
 // V321: quais pacientes ja tem termo de siso ASSINADO (para o alerta na linha da agenda).
 // Busca uma vez ao abrir a agenda; o alerta some sozinho quando o termo e assinado.
 const [sisoOk,setSisoOk]=useState({});
@@ -4709,6 +4837,9 @@ return (
       );
     })}
   </div>}
+
+{/* V353: recados de quem esta logado, no topo do dia (so com "Recados na Agenda" ligado no cadastro) */}
+{agView==="dia"&&typeof faixaRecados==="function"&&faixaRecados(selDate)}
 
 {agView==="dia"&&hiddenToday.length>0&&<div onClick={function(){var od=dents.find(function(d){return d.id===hiddenToday[0].dentistId;});if(od)setDenF(String(od.id));}} style={{background:"var(--amber-soft)",border:"1.5px solid #FFB300",borderRadius:10,padding:"9px 13px",fontSize:12,fontWeight:700,color:"#E65100",cursor:"pointer",display:"flex",alignItems:"center",gap:6,margin:"2px 0"}}>{"⚠ "+hiddenToday.length+" consulta(s) de Ortodontia neste dia não aparecem aqui. Toque para ver →"}</div>}
 
@@ -11597,6 +11728,8 @@ return(
   <div><div style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",marginBottom:6}}>Cor</div>
   <div style={{display:"flex",gap:7}}>{UCOLS.map(c=><button key={c} onClick={()=>fu("color")(c)} style={{width:26,height:26,borderRadius:"50%",background:c,border:`3px solid ${uf.color===c?"var(--text)":"transparent"}`,cursor:"pointer"}}/>)}</div></div>
   <label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={uf.active} onChange={e=>fu("active")(e.target.checked)} style={{accentColor:G.primary}}/> Usuário ativo</label>
+  {/* V353: recados do calendario tambem no topo da Agenda -- cada pessoa so ve os dela */}
+  <label style={{display:"flex",gap:8,alignItems:"flex-start",fontSize:13,cursor:"pointer",background:recAgendaLigado_V353(uf)?G.accent:"var(--surface-2)",borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(recAgendaLigado_V353(uf)?G.primary:G.border)}}><input type="checkbox" checked={recAgendaLigado_V353(uf)} onChange={e=>fu("recAgenda")(e.target.checked)} style={{accentColor:G.primary,width:15,height:15,marginTop:2,flex:"none"}}/><span><strong>Recados na Agenda</strong><br/><span style={{fontSize:11,color:G.muted}}>{"Mostra no topo da Agenda os recados do calendário desta pessoa (notas, lembretes e, no nível 3, contas e backup). Só ela vê."}</span></span></label>
   {!eu&&Number(uf.level)===1&&<label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer",background:uf.criaDentista?G.accent:"var(--surface-2)",borderRadius:8,padding:"9px 12px",border:"1.5px solid "+(uf.criaDentista?G.primary:G.border)}}><input type="checkbox" checked={!!uf.criaDentista} onChange={e=>fu("criaDentista")(e.target.checked)} style={{accentColor:G.primary,width:15,height:15}}/><span><strong>Criar dentista automaticamente</strong><br/><span style={{fontSize:11,color:G.muted}}>Aparecera na agenda e nos horarios</span></span></label>}
 {/* V290: blocos do painel de abertura deste usuario */}
   <div>
@@ -17818,7 +17951,7 @@ useEffect(function(){
   };
   runSaveRef.current=runSave; // V210
   saveTimer.current=setTimeout(runSave,AUTOSAVE_MS); // V296: era 800ms fixo
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra,docsEmitidos]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra // V320: docsEmitidos
+},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra,docsEmitidos,notas,bkpLog]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra // V320: docsEmitidos // V353: notas e bkpLog tambem nao disparavam -- nota escrita no celular so salvava de carona em outra mudanca
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -18380,6 +18513,25 @@ const rmNota=function(id){if(!window.confirm("Excluir esta nota?"))return;
   try{var _dn=delItemsRef.current||[];if(_dn.indexOf("notas:"+id)<0)_dn.push("notas:"+id);delItemsRef.current=_dn.length>5000?_dn.slice(-5000):_dn;}catch(e){}// V330: lapide na hora, senao o poll de 15s trazia a nota de volta antes do save
   setNotas(function(p){return (p||[]).filter(function(n){return n.id!==id;});});};// V323
 
+// V353: RECADOS NA AGENDA -- a lista do calendario tambem no topo do dia da Agenda.
+// Le a opcao no cadastro atual (o user do login e uma copia feita na entrada).
+const _uRecAg_V353=(users||[]).find(function(x){return x&&String(x.id)===String(user.id);})||user;
+const addNotaEm_V353=function(ds,_t,_h){_t=String(_t||"").trim();if(!_t||!ds)return;
+  setNotas(function(p){return (p||[]).concat([{id:nid(),uid:_meuId,date:ds,hora:String(_h||""),txt:_t,done:false,_ts:Date.now(),_cr:Date.now()}]);});};// V353: mesma nota do calendario, no dia aberto na Agenda
+const faixaRecados_V353=recAgendaLigado_V353(_uRecAg_V353)?function(ds){
+  var _td=_hjV323,_ehHoje=(ds===_td);
+  // No dia de hoje entram tambem os atrasados (mesma regra do aviso vermelho do card da lateral).
+  var _nAtr=_ehHoje?(notas||[]).filter(function(n){return n&&Number(n.uid)===_meuId&&!n.done&&n.date<_td;}).sort(function(a,b){return String(a.date).localeCompare(String(b.date));}):[];
+  var _rAtr=_ehHoje?(rems||[]).filter(function(r){return r&&!r.done&&r.date<_td&&(Number(r.assignedUserId)===_meuId||!r.assignedUserId);}):[];
+  var _dAtr=_ehHoje?(rems||[]).filter(function(r){return r&&!r.done&&r.date<_td&&r.criadoPorId!=null&&Number(r.criadoPorId)===_meuId&&r.assignedUserId&&Number(r.assignedUserId)!==_meuId;}):[];
+  var _rt=retroDoDia(ds).map(function(x){var _p=(pats||[]).find(function(q){return String(q.id)===String(x.r.patientId);});return Object.assign({},x,{_nome:(_p&&_p.name)||("Paciente #"+x.r.patientId)});});
+  return <FaixaRecados_V353 key={"frec"+ds} ds={ds} hoje={_td}
+    notas={_nAtr.concat(notasDoDia(ds))} rems={_rAtr.concat(remsDoDia(ds))} deleg={_dAtr.concat(delegDoDia(ds))}
+    contas={contasDoDia(ds)} retro={_rt} bkp={(user.level>=3&&ehDiaBkp_V327(ds))?{feito:bkpDoDia_V327(bkpLog,ds)}:null}
+    nomeUser={_nomeUserV323} onTogNota={togNota} onRmNota={rmNota} onRetro={marcarRetroCal}
+    onAddNota={function(t,h){addNotaEm_V353(ds,t,h);}}/>;
+}:null;
+
 const remBadge=(user.level===1)
 ?rems.filter(r=>!r.done&&(r.assignedUserId===user.id||!r.assignedUserId)&&r.date<=today()).length
 :rems.filter(r=>!r.done&&r.date<=today()).length+autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user);
@@ -18491,7 +18643,7 @@ return <>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha} setRems={setRems} users={users} pontos={pontos} remarcar={remarcar} budgets={budgets} impl={impl}/>}
       {/* V290: painel do dia para recepcao e dentistas */}
       {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
-      {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate}/>}
+      {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate} faixaRecados={faixaRecados_V353}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog} appts={appts}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts} abrirFicha={abrirFicha}/>}
