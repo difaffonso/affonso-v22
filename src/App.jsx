@@ -4264,6 +4264,175 @@ function cpPdf_V348(txt,clinica){
   w.document.close();
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   V355 — Relatório de Protéticos impresso (folha A4 para conferência)
+   Uma folha por laboratório, com o MESMO critério da tela: trabalhos com
+   data de RETORNO no mês (p.returned). Coluna "Conf." vazia para ticar à
+   mão contra a nota do protético. Não grava nada, não toca no blob.
+   rows = itens do "lr" do Relatórios: {l,ps,tot,done,wait,cost}
+   ══════════════════════════════════════════════════════════════════════════ */
+function protPdf_V355(rows,mo,pats,dents){
+  var C=PRT_C_V347,esc=prtEsc_V347;
+  var clin=(CLINICA_INFO&&CLINICA_INFO.nome)||"Affonso Odontologia";
+  var MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+  var mesTxt=(MESES[Number(String(mo||"").slice(5,7))-1]||"")+" de "+String(mo||"").slice(0,4);
+  var agora=new Date();
+  var geradoEm=agora.toLocaleDateString("pt-BR")+" às "+agora.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  var dd=function(s){return s?String(s).slice(8,10)+"/"+String(s).slice(5,7):"";};
+  pats=pats||[];dents=dents||[];
+
+  var lista=(rows||[]).filter(function(r){return r&&r.ps&&r.ps.length;});
+  if(!lista.length){alert("Nenhuma prótese com retorno neste mês para imprimir.");return;}
+
+  var folhas=lista.map(function(r){
+    var l=r.l||{};
+    var nomePac=function(p){var x=pats.find(function(pp){return pp.id===p.patientId;});return x?x.name:"";};
+    var ps=r.ps.slice().sort(function(a,b){
+      var da=a.returned||a.sent||"",db=b.returned||b.sent||"";
+      if(da!==db)return da<db?-1:1;
+      return nomePac(a).localeCompare(nomePac(b),"pt-BR");});
+
+    var pecas=0,total=0,porDent={},ordemDent=[];
+    var linhas=ps.map(function(p,ix){
+      var den=dents.find(function(x){return x.id===p.dentistId;})||dents[0]||{name:""};
+      var dNome=String(den.name||"").split(" ")[0];
+      var q=Number(p.qty)||1,u=Number(p.price)||0,t=q*u;
+      pecas+=q;total+=t;
+      if(!porDent[dNome]){porDent[dNome]={n:0,v:0};ordemDent.push(dNome);}
+      porDent[dNome].n++;porDent[dNome].v+=t;
+      var proc=String(p.proc||"").trim(),tipo=String(p.type||"").trim(),dente=String(p.tooth||"").trim();
+      var sub=[];
+      if(proc&&tipo&&proc.toLowerCase()!==tipo.toLowerCase())sub.push(tipo);
+      if(dente)sub.push("D. "+dente);
+      if(p.status&&p.status!=="returned"&&PROS_SL[p.status])sub.push(PROS_SL[p.status]); // "Retornou" é o padrão do mês — só destaca Instalada/Refazer/Aguardando
+      var obs=String(p.notes||"").trim();
+      var tituloTrab=proc||tipo||"Prótese";
+      return "<tr>"
+        +"<td class='num'>"+(ix+1)+"</td>"
+        +"<td class='dt'><b>"+esc(fmt(p.returned||p.sent))+"</b>"+(p.sent&&p.returned?"<small>env. "+esc(dd(p.sent))+"</small>":"")+"</td>"
+        +"<td class='pac'>"+esc(prtNome_V347(nomePac(p))||"—")+"</td>"
+        +"<td class='trab'><b"+(tituloTrab.length>48?" class='lg'":"")+">"+esc(tituloTrab)+"</b>"
+          +(sub.length?"<small>"+esc(sub.join(" · "))+"</small>":"")
+          +(obs?"<small class='obs'>"+esc(obs)+"</small>":"")+"</td>"
+        +"<td class='den'>"+esc(dNome)+"</td>"
+        +"<td class='qt'>"+q+"</td>"
+        +"<td class='val'>"+(t>0?"<b>"+esc(cur(t))+"</b>"+(q>1?"<small>"+esc(cur(u))+" cada</small>":""):"<span class='zero'>sem custo</span>")+"</td>"
+        +"<td class='cf'><span class='box'></span></td>"
+        +"</tr>";}).join("");
+
+    var resumoDent=ordemDent.length>1?"<div class='pdent'>"+ordemDent.map(function(k){
+      return "<span><b>"+esc(k||"—")+"</b> "+porDent[k].n+" trab. · "+esc(cur(porDent[k].v))+"</span>";}).join("")+"</div>":"";
+
+    var fone=prtFone_V347(l.phone);
+    var contato=[String(l.contact||"").trim(),fone].filter(Boolean).join(" · ");
+
+    return "<div class='folha'>"
+      +"<div class='cab'><div><h1>"+esc(clin)+"</h1>"
+      +"<div class='sub'>Conferência de prótese &mdash; "+esc(mesTxt)+"</div></div>"
+      +"<div class='meta'>Gerado em "+esc(geradoEm)+"</div></div>"
+      +"<div class='lab'><div><div class='lbl'>Laboratório</div><div class='lnome'>"+esc(String(l.name||"").trim())+"</div>"
+      +(contato?"<div class='lcont'>"+esc(contato)+"</div>":"")+"</div>"
+      +"<div class='kpis'>"
+      +"<div><b>"+r.tot+"</b><span>Retornados</span></div>"
+      +"<div><b>"+pecas+"</b><span>Peças</span></div>"
+      +"<div><b>"+(r.done||0)+"</b><span>Instalados</span></div>"
+      +"<div><b>"+(r.wait||0)+"</b><span>Pendentes</span></div>"
+      +"<div class='kc'><b>"+esc(cur(total))+"</b><span>Custo total</span></div>"
+      +"</div></div>"
+      +"<div class='crit'>Trabalhos com <b>data de retorno</b> entre 01 e "+new Date(Number(String(mo).slice(0,4)),Number(String(mo).slice(5,7)),0).getDate()+" de "+esc(mesTxt)+", em ordem de retorno.</div>"
+      +"<table><thead><tr>"
+      +"<th class='num'>Nº</th><th class='dt'>Retorno</th><th class='pac'>Paciente</th><th class='trab'>Trabalho</th>"
+      +"<th class='den'>Dentista</th><th class='qt'>Qtd</th><th class='val'>Valor</th><th class='cf'>Conf.</th>"
+      +"</tr></thead><tbody>"+linhas+"</tbody>"
+      +"<tfoot><tr><td colspan='5' class='tl'>Total &mdash; "+ps.length+" trabalho"+(ps.length===1?"":"s")+"</td>"
+      +"<td class='qt'>"+pecas+"</td><td class='val'><b>"+esc(cur(total))+"</b></td><td class='cf'></td></tr></tfoot>"
+      +"</table>"
+      +resumoDent
+      +"<div class='ass'>"
+      +"<div><span class='ln'></span>Conferido por (clínica)</div>"
+      +"<div><span class='ln'></span>Laboratório</div>"
+      +"<div class='dta'><span class='ln'></span>Data</div>"
+      +"</div>"
+      +"<div class='rod'><span>"+esc(clin)+" · Relatório de protéticos</span><span>"+esc(String(l.name||"").trim())+" · "+esc(mesTxt)+"</span></div>"
+      +"</div>";});
+
+  var css="*{box-sizing:border-box}"
+    +"html,body{margin:0;padding:0;background:#eceae4}"
+    +"body{font-family:'Manrope',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:"+C.ink+"}"
+    +".folha{width:794px;min-height:1123px;background:#fff;margin:0 auto 14px;padding:40px 44px;box-shadow:0 3px 16px rgba(0,0,0,.2)}"
+    +".cab{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:2px solid "+C.green+";padding-bottom:10px;margin-bottom:16px}"
+    +".cab h1{font-family:'Cormorant Garamond',Georgia,serif;font-size:26px;font-weight:700;color:"+C.green+";margin:0 0 2px}"
+    +".cab .sub{font-size:12.5px;color:"+C.mut+";font-weight:600}"
+    +".cab .meta{text-align:right;font-size:11px;color:"+C.mut+";white-space:nowrap}"
+    +".lab{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:10px}"
+    +".lbl{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:"+C.mut+"}"
+    +".lnome{font-family:'Cormorant Garamond',Georgia,serif;font-size:24px;font-weight:700;line-height:1.1}"
+    +".lcont{font-size:11.5px;color:"+C.mut+";margin-top:2px}"
+    +".kpis{display:flex;gap:6px}"
+    +".kpis div{background:"+C.band+";border-radius:7px;padding:6px 10px;text-align:center;min-width:62px}"
+    +".kpis b{display:block;font-size:15px;font-weight:800;color:"+C.green+";white-space:nowrap}"
+    +".kpis span{display:block;font-size:8.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:"+C.mut+";margin-top:1px}"
+    +".kpis .kc b{color:#a8322b}"
+    +".crit{font-size:10.5px;color:"+C.mut+";margin-bottom:8px}"
+    +"table{width:100%;border-collapse:collapse;font-size:11.5px}"
+    +"thead{display:table-header-group}tfoot{display:table-row-group}"
+    +"tr{page-break-inside:avoid;break-inside:avoid}"
+    +"th{background:"+C.band+";color:"+C.green+";text-align:left;font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:7px 6px;border-bottom:1.5px solid "+C.line+"}"
+    +"td{padding:6px 6px;border-bottom:1px solid "+C.line+";vertical-align:top;line-height:1.35}"
+    +"td small{display:block;font-size:9.5px;color:"+C.mut+";margin-top:1px}"
+    +"td small.obs{font-style:italic}"
+    +".num{width:24px;color:"+C.mut+";font-size:10px;text-align:right}"
+    +".dt{width:64px;white-space:nowrap}"
+    +".pac{width:28%;font-weight:600}"
+    +".den{width:58px}"
+    +".qt{width:34px;text-align:center}"
+    +".val{width:82px;text-align:right;white-space:nowrap}"
+    +".cf{width:44px;text-align:center}"
+    +".zero{font-size:10px;color:"+C.mut+";font-style:italic}"
+    +".trab b.lg{font-weight:500}"
+    +".box{display:inline-block;width:14px;height:14px;border:1.5px solid "+C.ink+";border-radius:3px;margin-top:1px}"
+    +"tfoot td{border-top:2px solid "+C.green+";border-bottom:none;font-weight:800;padding-top:8px;font-size:12px}"
+    +"tfoot .tl{text-align:right;color:"+C.green+";text-transform:uppercase;letter-spacing:.05em;font-size:10px;padding-top:10px}"
+    +"tfoot .val b{color:#a8322b;font-size:13px}"
+    +".pdent{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:11px;color:"+C.mut+"}"
+    +".pdent b{color:"+C.ink+"}"
+    +".ass{display:flex;gap:26px;margin-top:46px;font-size:10.5px;color:"+C.mut+";page-break-inside:avoid;break-inside:avoid}"
+    +".ass div{flex:1;text-align:center}.ass .dta{flex:.55}"
+    +".ass .ln{display:block;border-top:1px solid "+C.ink+";margin-bottom:5px}"
+    +".rod{margin-top:22px;padding-top:8px;border-top:1px solid "+C.line+";display:flex;justify-content:space-between;font-size:9.5px;color:"+C.mut+"}"
+    +".np{position:sticky;top:0;z-index:9;background:#eceae4;padding:14px 0;text-align:center}"
+    +".np button{padding:11px 24px;font-size:14px;font-weight:700;font-family:inherit;background:"+C.green+";color:#fff;border:none;border-radius:10px;cursor:pointer}"
+    +".np span{display:block;font-size:12px;color:"+C.mut+";margin-top:7px}"
+    +"@media print{html,body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+    +".np{display:none!important}.folha{margin:0;padding:0;box-shadow:none;width:auto;min-height:0}"
+    +".folha+.folha{page-break-before:always;break-before:page}"
+    +"@page{size:A4;margin:12mm 11mm}}";
+
+  var titulo=lista.length===1
+    ?"Protético "+String(lista[0].l&&lista[0].l.name||"").trim()+" — "+mesTxt
+    :"Protéticos — "+mesTxt;
+
+  var html="<!DOCTYPE html><html lang='pt-BR'><head><meta charset='utf-8'>"
+    +"<title>"+esc(titulo)+"</title>"
+    +"<link rel='preconnect' href='https://fonts.googleapis.com'>"
+    +"<link rel='preconnect' href='https://fonts.gstatic.com' crossorigin>"
+    +"<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&family=Manrope:wght@400;500;600;700;800&display=swap'>"
+    +"<style>"+css+"</style></head><body>"
+    +"<div class='np'><button onclick='window.print()'>Imprimir / Salvar em PDF</button>"
+    +"<span>"+lista.length+" laboratório"+(lista.length===1?"":"s")+" · cada um sai em folha própria</span></div>"
+    +folhas.join("")
+    +"<script>window.onload=function(){var feito=false;var go=function(){if(feito)return;feito=true;"
+    +"setTimeout(function(){window.print();},250);};"
+    +"if(document.fonts&&document.fonts.ready){document.fonts.ready.then(go);setTimeout(go,2500);}else{go();}};<\/script>"
+    +"</body></html>";
+
+  var w=window.open("","_blank");
+  if(!w){alert("Permita pop-ups neste site para imprimir o relatório.");return;}
+  w.document.write(html);
+  w.document.close();
+}
+
 // ══════════════ V353: RECADOS NA AGENDA ══════════════
 // Faixa "Seus recados" no topo do dia (Agenda > Dia). E a mesma lista do calendario rapido
 // (V323): notas pessoais, lembretes, o que eu deleguei, contas do dia, recebimento lancado
@@ -9137,11 +9306,15 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 </div>;})}
 </div>}
 {tab==="prot"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+{/* V355: imprimir todos os laboratórios com retorno no mês (um por folha) */}
+{lr.filter(x=>x.ps.length>0).length>1&&<div style={{display:"flex",justifyContent:"flex-end"}}><button onClick={()=>protPdf_V355(lr,mo,pats,dents)} style={{border:"none",background:G.card,borderRadius:10,padding:"9px 15px",cursor:"pointer",color:G.primary,fontFamily:"'Manrope'",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:7,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}><i className="ph-fill ph-printer" style={{fontSize:17}}></i>{"Imprimir todos ("+lr.filter(x=>x.ps.length>0).length+" laboratórios)"}</button></div>}
 {lr.map(({l,ps,tot,done,wait,cost})=>{const aberto=!!openProt[l.id];return <div key={l.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
 <div onClick={()=>setOpenProt(p=>Object.assign({},p,{[l.id]:!p[l.id]}))} style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:aberto?11:0,cursor:"pointer",alignItems:"center"}}>
 <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{fontSize:13,color:G.primary,transition:"transform .2s",transform:aberto?"rotate(90deg)":"none"}}>▶</span><div><div style={{fontWeight:700,fontSize:15}}>{l.name}</div><div style={{fontSize:11,color:G.muted}}>{l.contact} · {l.phone}{aberto?"":" · toque para abrir"}</div></div></div>
 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
 {[["Retornados",tot,G.primary],["Instalados",done,G.success],["Pendentes",wait,G.yellow],["Custo Total",cur(cost),G.red]].map(([lbl,v,c])=><div key={lbl} style={{textAlign:"center",background:G.bg,borderRadius:8,padding:"6px 11px"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{lbl}</div></div>)}
+{/* V355: imprimir este laboratório (folha A4 para conferência) */}
+{ps.length>0&&<button onClick={e=>{e.stopPropagation();protPdf_V355([{l,ps,tot,done,wait,cost}],mo,pats,dents);}} title="Imprimir para conferência" style={{border:"1.5px solid rgba(47,93,73,.35)",background:G.bg,borderRadius:8,padding:"6px 11px",cursor:"pointer",color:G.primary,fontFamily:"'Manrope'",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}><i className="ph-fill ph-printer" style={{fontSize:18}}></i><span style={{fontSize:10,fontWeight:700}}>Imprimir</span></button>}
 </div>
 </div>
 {aberto&&(ps.length>0?ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.returned||p.sent)}</span><span style={{flex:1}}>{pat?.name} -- {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{(p.qty||1)>1?p.qty+"× ":""}{cur((p.price||0)*(p.qty||1))}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;}):<div style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhuma prótese neste mês</div>)}
