@@ -881,6 +881,7 @@ const FALTA_C={
 1:{cor:"var(--orange)",soft:"var(--amber-soft)",ic:"\u26a0\ufe0f"},
 0:{cor:"var(--green)",soft:"var(--accent)",ic:"\ud83d\udfe2"}
 };
+const FALTA_PESO_AVISO=0.5; // V354: peso de "desmarcou com aviso" na taxa de perda (falta = 1)
 function faltaIdx(appts){
 var m={};
 (appts||[]).forEach(function(a){
@@ -905,17 +906,22 @@ var ev=hist.map(function(a){
 var k="C";
 if(a.status==="missed")k="F";
 else if(a.status==="cancelled"||a.status==="rescheduled"){
-var ds="";
-if(a.statusTs){var x=new Date(a.statusTs);if(!isNaN(x))ds=_ld(x);}
-k=(ds&&ds===a.date)?"D":"A"; // sem statusTs (pre-V222) => trata como avisado
+// V354: o cancelamento pelo WhatsApp (servidor Railway) grava canceladoWAts e NAO statusTs.
+// Antes so olhava statusTs -> todo cancelamento pelo WhatsApp caia como "avisado", mesmo
+// quando o paciente desmarcou no proprio dia. Agora vale o carimbo mais recente dos dois.
+var ds="",ms=0;
+[a.statusTs,a.canceladoWAts].forEach(function(v){if(!v)return;var x=new Date(v);if(!isNaN(x)&&x.getTime()>ms){ms=x.getTime();ds=_ld(x);}});
+k=(ds&&ds===a.date)?"D":"A"; // sem carimbo nenhum (pre-V222) => trata como avisado
 }
 return {a:a,k:k,w:0};
 });
-// peso: F=1,0 ; D=0,5 na 1a de cada sequencia e 1,0 nas seguintes
+// peso: F=1,0 ; D=0,5 na 1a de cada sequencia e 1,0 nas seguintes ; A=0,5 (V354)
+// V354: desmarcar com aviso tambem conta -- antes pesava 0 e nem aparecia no texto,
+// e a tarja dizia "1 falta + 1 desmarcada" de quem veio 2 vezes em 7 agendamentos.
 var runD=0;
 ev.forEach(function(e){
 if(e.k==="D"){runD++;e.w=(runD===1)?0.5:1;}
-else{if(e.k!=="A")runD=0;e.w=(e.k==="F")?1:0;}
+else{if(e.k!=="A")runD=0;e.w=(e.k==="F")?1:(e.k==="A"?FALTA_PESO_AVISO:0);}
 });
 // escopo da TAXA: plano de tratamento ativo (mesma regra da ficha)
 var act=(treats||[]).filter(function(tt){
@@ -923,14 +929,15 @@ return Number(tt.patientId)===pid&&(tt.items||[]).some(function(it){return !(it.
 }).sort(function(a,b){return (b.start||"").localeCompare(a.start||"");})[0];
 var since=act?act.start:null;
 var sc=since?ev.filter(function(e){return e.a.date>=since;}):ev;
-var compareceu=0,faltas=0,noDia=0,perda=0;
+var compareceu=0,faltas=0,noDia=0,aviso=0,perda=0;
 sc.forEach(function(e){
 if(e.k==="C")compareceu++;
 else if(e.k==="F")faltas++;
 else if(e.k==="D")noDia++;
+else if(e.k==="A")aviso++;
 perda+=e.w||0;
 });
-var base=compareceu+faltas+noDia;
+var base=compareceu+faltas+noDia+aviso;
 var taxa=base>0?(perda/base):0;
 // SEQUENCIAS: sempre sobre o historico completo (nao zeram a cada plano novo)
 var seqF=0,recup=0,i;
@@ -962,15 +969,16 @@ if(nivel===0&&lvTaxa===0&&recup>=6)return null;
 var ult=null;
 for(i=ev.length-1;i>=0;i--){if(ev[i].k==="F"||ev[i].k==="D"){ult=ev[i];break;}}
 return {nivel:nivel,bruto:bruto,recuperando:deg>0,
-faltas:faltas,noDia:noDia,compareceu:compareceu,base:base,perda:perda,
+faltas:faltas,noDia:noDia,aviso:aviso,compareceu:compareceu,base:base,perda:perda,
 taxa:Math.round(taxa*100),seqF:seqF,recup:recup,
 ultima:ult?ult.a.date:"",ultimaTipo:ult?ult.k:"",escopo:since,
-lista:ev.filter(function(e){return e.k==="F"||e.k==="D";}).slice(-14).reverse()};
+lista:ev.filter(function(e){return e.k!=="C";}).slice(-14).reverse()};
 }
 function faltaTxt(s){
 var p=[];
 if(s.faltas)p.push(s.faltas+(s.faltas>1?" faltas":" falta"));
 if(s.noDia)p.push(s.noDia+(s.noDia>1?" desmarcadas":" desmarcada")+" no dia");
+if(s.aviso)p.push(s.aviso+(s.aviso>1?" desmarcadas":" desmarcada")+" com aviso");
 return p.join(" + ")||"sem aus\u00eancias";
 }
 function FaltaDetalhe({s,close}){
@@ -987,13 +995,15 @@ return (
 </div>
 <div style={{padding:16,display:"flex",flexDirection:"column",gap:7,maxHeight:340,overflowY:"auto"}}>
 {s.lista.map(function(e,i){
-var isF=e.k==="F";
+var isF=e.k==="F",isA=e.k==="A";
+var txt=isF?"n\u00e3o compareceu":(isA?"desmarcou com aviso":"desmarcou no dia");
+if(!isF&&e.a.canceladoWAts)txt+=" \u00b7 pelo WhatsApp";
 return (
-<div key={i} style={{display:"flex",alignItems:"center",gap:9,background:"var(--card)",borderRadius:10,padding:"9px 12px",borderLeft:"3px solid "+(isF?"var(--red)":"var(--orange)")}}>
-<span style={{fontSize:15}}>{isF?"\ud83d\udeab":"\ud83d\udd04"}</span>
+<div key={i} style={{display:"flex",alignItems:"center",gap:9,background:"var(--card)",borderRadius:10,padding:"9px 12px",borderLeft:"3px solid "+(isF?"var(--red)":(isA?"var(--muted)":"var(--orange)"))}}>
+<span style={{fontSize:15}}>{isF?"\ud83d\udeab":(isA?"\ud83d\udcc5":"\ud83d\udd04")}</span>
 <div style={{flex:1}}>
 <div style={{fontSize:13,fontWeight:700}}>{fmt(e.a.date)+(e.a.time?" \u00e0s "+e.a.time:"")}</div>
-<div style={{fontSize:11,color:G.muted}}>{(e.a.procedureCustom||e.a.procedure||"Consulta")+" \u00b7 "+(isF?"n\u00e3o compareceu":"desmarcou no dia")}</div>
+<div style={{fontSize:11,color:G.muted}}>{(e.a.procedureCustom||e.a.procedure||"Consulta")+" \u00b7 "+txt}</div>
 </div>
 </div>
 );
@@ -1002,6 +1012,7 @@ return (
 {s.escopo
 ?("Taxa calculada a partir do plano de tratamento iniciado em "+fmt(s.escopo)+". Sequ\u00eancias consideram todo o hist\u00f3rico.")
 :"Sem plano de tratamento ativo \u2014 taxa calculada sobre todo o hist\u00f3rico."}
+{" Peso na perda: falta 100%, desmarcada no dia 50% (100% se repetir em seguida), desmarcada com aviso 50%."}
 </div>
 </div>
 </div>
@@ -1045,7 +1056,7 @@ return (
 <div style={{flex:1}}>
 <div style={{fontSize:13,fontWeight:800,lineHeight:1.25,color:c.cor}}>{tit}</div>
 <div style={{fontSize:11.5,color:G.muted,marginTop:3,lineHeight:1.45}}>
-{faltaTxt(s)+" de "+s.base+" consultas \u00b7 "+s.taxa+"% de perda"}
+{(tit===faltaTxt(s)?"":faltaTxt(s)+" \u00b7 ")+"veio a "+s.compareceu+" de "+s.base+" consultas \u00b7 "+s.taxa+"% de perda"}
 {s.ultima?<br/>:null}
 {s.ultima?("\u00faltima "+(s.ultimaTipo==="F"?"falta":"desmarca\u00e7\u00e3o no dia")+" em "+fmt(s.ultima)):""}
 </div>
