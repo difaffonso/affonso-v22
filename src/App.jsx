@@ -981,6 +981,12 @@ if(s.noDia)p.push(s.noDia+(s.noDia>1?" desmarcadas":" desmarcada")+" no dia");
 if(s.aviso)p.push(s.aviso+(s.aviso>1?" desmarcadas":" desmarcada")+" com aviso");
 return p.join(" + ")||"sem aus\u00eancias";
 }
+// V356: a porcentagem mostrada e a de COMPARECIMENTO, sem peso (veio 2 de 7 = 29%).
+// A taxa ponderada (s.taxa) continua so por tras, decidindo a cor do alerta.
+function veioTxt(s){
+if(!s.base)return "sem consultas no plano atual";
+return "veio a "+s.compareceu+" de "+s.base+" consultas ("+Math.round(s.compareceu*100/s.base)+"%)";
+}
 function FaltaDetalhe({s,close}){
 return (
 <div onClick={close} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:10001,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -989,7 +995,7 @@ return (
 <span style={{fontSize:20}}>{"\ud83d\udd75\ufe0f"}</span>
 <div style={{flex:1,color:"#fff"}}>
 <div style={{fontWeight:700,fontSize:14}}>{"Hist\u00f3rico de aus\u00eancias"}</div>
-<div style={{fontSize:11,opacity:.85}}>{faltaTxt(s)+" \u00b7 "+s.taxa+"% de perda"}</div>
+<div style={{fontSize:11,opacity:.85}}>{faltaTxt(s)+" \u00b7 "+veioTxt(s)}</div>
 </div>
 <button onClick={close} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",cursor:"pointer",padding:"5px 10px",fontWeight:700}}>{"X"}</button>
 </div>
@@ -1012,7 +1018,7 @@ return (
 {s.escopo
 ?("Taxa calculada a partir do plano de tratamento iniciado em "+fmt(s.escopo)+". Sequ\u00eancias consideram todo o hist\u00f3rico.")
 :"Sem plano de tratamento ativo \u2014 taxa calculada sobre todo o hist\u00f3rico."}
-{" Peso na perda: falta 100%, desmarcada no dia 50% (100% se repetir em seguida), desmarcada com aviso 50%."}
+{" A porcentagem \u00e9 de comparecimento. Para a cor do alerta, a falta pesa 100%, a desmarcada no dia 50% (100% se repetir em seguida) e a desmarcada com aviso 50%."}
 </div>
 </div>
 </div>
@@ -1030,7 +1036,7 @@ return (
 <Fragment>
 <span
 onMouseDown={clicavel?function(e){e.stopPropagation();e.preventDefault();setDet(true);}:null}
-title={faltaTxt(s)+" \u00b7 "+s.taxa+"% de perda"}
+title={faltaTxt(s)+" \u00b7 "+veioTxt(s)}
 style={{display:"inline-flex",alignItems:"center",gap:3,background:c.cor,color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:10,fontWeight:800,marginLeft:6,verticalAlign:"middle",cursor:clicavel?"pointer":"default"}}>
 {c.ic+" "+lbl}
 </span>
@@ -1056,7 +1062,7 @@ return (
 <div style={{flex:1}}>
 <div style={{fontSize:13,fontWeight:800,lineHeight:1.25,color:c.cor}}>{tit}</div>
 <div style={{fontSize:11.5,color:G.muted,marginTop:3,lineHeight:1.45}}>
-{(tit===faltaTxt(s)?"":faltaTxt(s)+" \u00b7 ")+"veio a "+s.compareceu+" de "+s.base+" consultas \u00b7 "+s.taxa+"% de perda"}
+{(tit===faltaTxt(s)?"":faltaTxt(s)+" \u00b7 ")+veioTxt(s)}
 {s.ultima?<br/>:null}
 {s.ultima?("\u00faltima "+(s.ultimaTipo==="F"?"falta":"desmarca\u00e7\u00e3o no dia")+" em "+fmt(s.ultima)):""}
 </div>
