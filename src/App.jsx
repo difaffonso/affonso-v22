@@ -15582,19 +15582,13 @@ setShowMov(false);setMovF({tipo:"entrada",itemId:"",qty:1,patId:"",dente:"",dent
 // ══ V333: CICLOS DE COMODATO ══════════════════════════════
 var MESES_PT=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 var nomeAuto=function(d){var p=String(d||t).split("-");return (MESES_PT[Number(p[1])-1]||"")+"/"+p[0];};
-var fechOrd=(implFech||[]).slice().sort(function(a,b){return String((b&&b.dataFim)||"").localeCompare(String((a&&a.dataFim)||""));});
-var ultFech=fechOrd[0]||null;
-var cicloIni=(ultFech&&ultFech.dataFim)||"";
-// saidas reais do ciclo aberto (exclui ajustes e as saidas de fechamento)
-var movsCiclo=(implMov||[]).filter(function(m){return m&&m.tipo==="saida"&&!m.ajuste&&!m.fech&&(!cicloIni||String(m.date||"")>cicloIni);});
-var cicloQtd=movsCiclo.reduce(function(s,m){return s+Number(m.qty||0);},0);
 var precoDe=function(id){var it=(implCat||[]).find(function(x){return String(x.id)===String(id);});return it?Number(it.preco||0):0;};
-var cicloVal=movsCiclo.reduce(function(s,m){return s+precoDe(m.itemId)*Number(m.qty||0);},0);
-var cicloDias=(function(){try{var ini=cicloIni||(movsCiclo.length?movsCiclo.map(function(m){return m.date;}).sort()[0]:t);return Math.max(0,Math.round((new Date(t+"T12:00")-new Date(ini+"T12:00"))/86400000));}catch(e){return 0;}})();
-// agrupamento por item do ciclo aberto
-var cicloPorItem=(function(){
+// saidas reais de uso (exclui ajustes e as saidas de fechamento) depois de "ini" e ate "fim" (vazio = sem limite)
+var usoEntre=function(ini,fim){return (implMov||[]).filter(function(m){var d=String((m&&m.date)||"");return m&&m.tipo==="saida"&&!m.ajuste&&!m.fech&&(!ini||d>ini)&&(!fim||d<=fim);});};
+// agrupamento por item
+var agruparUso=function(movs){
 var mp={};
-movsCiclo.forEach(function(m){
+movs.forEach(function(m){
 var k=String(m.itemId);
 if(!mp[k])mp[k]={itemId:m.itemId,qty:0,det:[]};
 mp[k].qty+=Number(m.qty||0);
@@ -15606,7 +15600,52 @@ var p=precoDe(k);
 return {itemId:mp[k].itemId,codigo:(it&&it.codigo)||"",desc:(it&&it.desc)||"(item removido)",qty:mp[k].qty,preco:p,total:p*mp[k].qty,det:mp[k].det};
 });
 return out.sort(function(a,b){return implSortOrd({codigo:a.codigo,desc:a.desc},{codigo:b.codigo,desc:b.desc});});
+};
+var diasEntre=function(a,b){try{return Math.max(0,Math.round((new Date(b+"T12:00")-new Date(a+"T12:00"))/86400000));}catch(e){return 0;}};
+// V358: caso real (30/09) -- um aparelho com versao antiga gravou o banco sem implFech, o ciclo fechado em 04/09
+// sumiu e o ciclo aberto voltou a contar desde junho (43 pecas / R$ 3.141,85 em vez de 6 / R$ 606).
+// As movimentacoes do fechamento (fech + fechId) continuam no estoque: se o registro de um ciclo fechado
+// faltar, o resumo e remontado a partir delas -- so para exibir e para o ciclo aberto comecar no lugar certo.
+// Nao grava nada.
+var fechTodos=(function(){
+var reais={},grp={};
+(implFech||[]).forEach(function(f){if(f&&f.id!=null)reais[String(f.id)]=true;});
+(implMov||[]).forEach(function(m){
+if(!m||!m.fech||m.fechId==null||reais[String(m.fechId)])return;
+var k=String(m.fechId);
+if(!grp[k])grp[k]={id:m.fechId,dataFim:String(m.date||""),_movs:[]};
+grp[k]._movs.push(m);
+});
+var lista=(implFech||[]).filter(Boolean).concat(Object.keys(grp).map(function(k){return grp[k];}));
+lista.sort(function(a,b){return String(a.dataFim||"").localeCompare(String(b.dataFim||""));});
+var dsc=function(id){var it=(implCat||[]).find(function(x){return String(x.id)===String(id);});return it?{codigo:it.codigo||"",desc:it.desc}:{codigo:"",desc:"(item removido)"};};
+var antFim="";
+return lista.map(function(f){
+var r=f;
+if(f._movs){
+var us=usoEntre(antFim,f.dataFim),its=agruparUso(us);
+var devol=f._movs.filter(function(m){return m.tipo==="saida";}).map(function(m){var c=dsc(m.itemId);return {itemId:m.itemId,codigo:c.codigo,desc:c.desc,qty:Number(m.qty||0)};});
+var repo=f._movs.filter(function(m){return m.tipo==="entrada"&&!m.ajuste;}).map(function(m){var c=dsc(m.itemId);return {itemId:m.itemId,codigo:c.codigo,desc:c.desc,qty:Number(m.qty||0),preco:precoDe(m.itemId)};});
+r={id:f.id,_remontado:true,nome:nomeAuto(f.dataFim),dataIni:antFim,dataFim:f.dataFim,
+dias:diasEntre(antFim||(us.length?us.map(function(m){return String(m.date||"");}).sort()[0]:f.dataFim),f.dataFim),
+qtdUsada:us.reduce(function(s,m){return s+Number(m.qty||0);},0),valorUsado:its.reduce(function(s,i){return s+i.total;},0),itens:its,
+devolvido:devol,qtdDevol:devol.reduce(function(s,d){return s+d.qty;},0),
+reposicao:repo,qtdRepo:repo.reduce(function(s,x){return s+x.qty;},0),valorRepo:repo.reduce(function(s,x){return s+x.qty*x.preco;},0),user:""};
+}
+if(String(r.dataFim||"")>antFim)antFim=String(r.dataFim||"");
+return r;
+});
 })();
+var fechOrd=fechTodos.slice().sort(function(a,b){return String((b&&b.dataFim)||"").localeCompare(String((a&&a.dataFim)||""));});
+var ultFech=fechOrd[0]||null;
+var cicloIni=(ultFech&&ultFech.dataFim)||"";
+// saidas reais do ciclo aberto (exclui ajustes e as saidas de fechamento)
+var movsCiclo=usoEntre(cicloIni,"");
+var cicloQtd=movsCiclo.reduce(function(s,m){return s+Number(m.qty||0);},0);
+var cicloVal=movsCiclo.reduce(function(s,m){return s+precoDe(m.itemId)*Number(m.qty||0);},0);
+var cicloDias=diasEntre(cicloIni||(movsCiclo.length?movsCiclo.map(function(m){return m.date;}).sort()[0]:t),t);
+// agrupamento por item do ciclo aberto
+var cicloPorItem=agruparUso(movsCiclo);
 var repoTot=(function(){var q=0,v=0;(implCat||[]).forEach(function(it){var n=Number(fechQtds[it.id]||0);if(n>0){q+=n;v+=n*Number(it.preco||0);}});return{q:q,v:v};})();
 var devolTot=(implCat||[]).reduce(function(s,it){var q=Number(stockMap[it.id]||0);return s+(q>0?q:0);},0);
 var listaRepo=implCatAtivos.filter(function(it){
@@ -15768,7 +15807,7 @@ var qtdTotal=saidas.reduce(function(s,m){return s+Number(m.qty||0);},0);
 return(
 <div key={item.id} style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6,alignItems:"center",gap:8}}>
-<div style={{flex:1}}>{item.codigo&&<span style={{fontSize:10,background:G.primary+"20",color:G.primary,borderRadius:5,padding:"1px 6px",fontWeight:700,marginRight:5}}>{item.codigo}</span>}<span style={{fontWeight:700,fontSize:13}}>{item.desc}</span></div>/* V337: codigo do produto no relatorio, para conferencia com a nota do fornecedor */
+<div style={{flex:1}}>{item.codigo&&<span style={{fontSize:10,background:G.primary+"20",color:G.primary,borderRadius:5,padding:"1px 6px",fontWeight:700,marginRight:5}}>{item.codigo}</span>}<span style={{fontWeight:700,fontSize:13}}>{item.desc}</span></div>{/* V337: codigo do produto no relatorio, para conferencia com a nota do fornecedor // V358: comentario estava fora das chaves e aparecia como texto na tela */}
 <div style={{textAlign:"right"}}><div style={{fontWeight:800,color:G.red}}>{qtdTotal+"x"}</div>{Number(item.preco)>0&&<div style={{fontSize:11,color:G.primary,fontWeight:700}}>{cur(item.preco*qtdTotal)}</div>}</div>
 </div>
 {saidas.map(function(s){return(
@@ -15808,6 +15847,7 @@ return(
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
 <div style={{flex:1}}>
 <span style={{fontSize:10,background:"var(--green-soft)",color:"#1E7D45",borderRadius:5,padding:"2px 7px",fontWeight:700}}>{"FECHADO"}</span>
+{f._remontado&&<span style={{fontSize:10,background:"#fff4e0",color:"#a76b00",borderRadius:5,padding:"2px 7px",fontWeight:700,marginLeft:4}}>{"REMONTADO"}</span>}
 <div style={{fontWeight:800,fontSize:14,marginTop:4}}>{f.nome}</div>
 <div style={{fontSize:11,color:G.muted}}>{(f.dataIni?fmt(f.dataIni)+" a ":"até ")+fmt(f.dataFim)+" · "+(f.dias||0)+" dias · "+(f.qtdUsada||0)+" peças"}</div>
 </div>
@@ -15837,6 +15877,7 @@ return(
 <span style={{fontSize:10,background:"var(--green-soft)",color:"#1E7D45",borderRadius:5,padding:"2px 7px",fontWeight:700}}>{"FECHADO"}</span>
 <div style={{fontSize:18,fontWeight:800,color:G.primary,marginTop:5}}>{verFech.nome}</div>
 <div style={{fontSize:11,color:G.muted,marginBottom:8}}>{(verFech.dataIni?fmt(verFech.dataIni)+" a ":"até ")+fmt(verFech.dataFim)+" · "+(verFech.dias||0)+" dias"+(verFech.user?" · "+verFech.user:"")}</div>
+{verFech._remontado&&<div style={{fontSize:10.5,color:"#a76b00",background:"#fff4e0",borderRadius:8,padding:"6px 9px",marginBottom:8,lineHeight:1.45}}>{"O registro original deste fechamento não está no banco. Resumo remontado a partir das movimentações de devolução e reposição, com os preços atuais do cadastro."}</div>}
 <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Peças usadas"}</span><b>{verFech.qtdUsada||0}</b></div>
 <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Pago à Titaniofix"}</span><b style={{color:G.red}}>{cur(verFech.valorUsado||0)}</b></div>
 <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Devolvidas no fechamento"}</span><b>{verFech.qtdDevol||0}</b></div>
@@ -18363,6 +18404,7 @@ useEffect(function(){
       addArr(sd.pros,setPros,"pros");
       addArr(sd.rems,setRems,"rems");
       addArr(sd.notas,setNotas,"notas");// V330: notas nao entrava no poll -- aparelho aberto ficava com lista velha
+      if(sd.bkpLog)addArr(sd.bkpLog,setBkpLog,"bkpLog");// V358: bkpLog tambem nao entrava no poll -- o aparelho aberto regravava a lista velha por cima
       addArr(sd.logs,setLogs);
       addArr(sd.pontos,setPontos);
       addArr(sd.caixa,setCaixa); // V190: caixa agora sincroniza no poll
