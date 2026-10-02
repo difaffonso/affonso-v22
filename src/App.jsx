@@ -17746,6 +17746,8 @@ const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
 const delItemsRef=useRef([]);
 const mergeLoopRef=useRef(0);
+const forceSaveRef=useRef(false); // V357: a PROXIMA tentativa de save grava sem anti-sobrescrita (so depois de varios merges seguidos)
+const mergeGenRef=useRef(0); // V357: conta os merges feitos pelo save; copia do estado anterior ao ultimo merge nao grava
 const lastSavedItemKeys=useRef(null);
 const lastSavedApptIds=useRef(null);
 const dirtyRef=useRef(false);
@@ -17955,9 +17957,14 @@ useEffect(function(){
   lastLocalChangeTs.current=Date.now();
   dirtyRef.current=true;
   draftStateRef.current={appts:appts,remarcar:remarcar,orientacoes:orientacoes}; // V234
+  var _genEfeito=mergeGenRef.current; // V357: geracao do estado que este save enxerga (muda a cada merge do save)
   if(saveTimer.current)clearTimeout(saveTimer.current);
   setSaveStatus("saving");
   var doSave=async function(force){
+    // V357: esta copia do estado e de ANTES do ultimo merge feito pelo save? Entao nao faz nada (nem detecta
+    // exclusoes nem grava): mandaria dados velhos por cima do que acabou de chegar do servidor. Quem grava e a
+    // copia do proximo render, que ja tem o merge.
+    if(_genEfeito!==mergeGenRef.current)return "merged";
     var _editAtStart=lastLocalChangeTs.current;
     // detectar exclusoes/recriacoes de agendamentos desde a ultima sincronizacao
     if(lastSavedApptIds.current){
@@ -18051,6 +18058,8 @@ useEffect(function(){
           lastServerTs.current=fresh.updated_at;
           if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
           // Cancelar este save - o useEffect vai disparar de novo com o estado mergeado
+          // V357: e o runSave NAO repete este doSave (ele so enxerga o estado de antes do merge)
+          mergeGenRef.current++;
           return "merged";
         }
       }
@@ -18105,23 +18114,31 @@ useEffect(function(){
   var runSave=async function runSave(){
     if(isSaving.current){ pendingSave.current=true; return; }
     isSaving.current=true;
-    var ok=await doSave(false);
-    var _mtry=0;
-    while(ok==="merged"&&_mtry<3){_mtry++;ok=await doSave(false);}
+    var _forcar=forceSaveRef.current===true;forceSaveRef.current=false; // V357
+    var ok=await doSave(_forcar);
     if(ok==="merged"){
+      // V357: o merge so vira estado no PROXIMO render; este doSave ainda enxerga a copia de ANTES dele.
+      // O laco antigo chamava este mesmo doSave de novo -> a copia velha ia para o servidor e apagava o que
+      // tinha acabado de chegar (caso real 01/10: a confirmacao do WhatsApp do Elias voltou para pendente).
+      // Agora quem grava e sempre a versao MAIS NOVA do save (runSaveRef), ja com o estado mergeado.
       mergeLoopRef.current++;
-      if(mergeLoopRef.current>=2){
-        // Servidor mudando sem parar (outro aparelho/aba aberto): forcar gravacao para nao travar
-        mergeLoopRef.current=0;
-        ok=await doSave(true);
-      }
-      if(ok==="merged"){
-        isSaving.current=false;
-        saveTimer.current=setTimeout(runSave,2500);
-        return;
-      }
+      if(mergeLoopRef.current>=4){mergeLoopRef.current=0;forceSaveRef.current=true;} // servidor mudando sem parar: a proxima tentativa (ja com o merge) grava direto
+      isSaving.current=false;
+      pendingSave.current=false;
+      if(saveTimer.current)clearTimeout(saveTimer.current);
+      var _esteSave=runSave,_t0=Date.now();
+      var _confere=function(){
+        saveTimer.current=null;
+        var _rs=runSaveRef.current;
+        if(_rs&&_rs!==_esteSave){_rs();return;} // ja existe um save mais novo: ele grava (se for de antes do merge, a checagem de geracao o segura)
+        if(Date.now()-_t0<2000){saveTimer.current=setTimeout(_confere,150);return;} // aguarda o render do merge (o efeito costuma re-agendar antes disto)
+        _genEfeito=mergeGenRef.current; // sem render novo = o merge nao mudou o estado: esta copia ja e a atual
+        _esteSave();
+      };
+      saveTimer.current=setTimeout(_confere,150);
+      return;
     }
-    if(ok!=="merged")mergeLoopRef.current=0;
+    mergeLoopRef.current=0;
     setSaveStatus(ok?"saved":"error");
     lastSaveFailed.current=!ok;
     setTimeout(function(){setSaveStatus("idle");},ok?2000:4000);
@@ -18129,14 +18146,7 @@ useEffect(function(){
     saveTimer.current=null;
     if(pendingSave.current){
       pendingSave.current=false;
-      isSaving.current=true;
-      var ok2=await doSave();
-      if(ok2!=="merged"){
-        lastSaveFailed.current=!ok2;
-        setSaveStatus(ok2?"saved":"error");
-        setTimeout(function(){setSaveStatus("idle");},ok2?2000:4000);
-      }
-      isSaving.current=false;
+      (runSaveRef.current||runSave)(); // V357: roda o save MAIS NOVO (estado atual); antes rodava este mesmo doSave, que enxerga o estado de quando foi agendado
     }
   };
   runSaveRef.current=runSave; // V210
