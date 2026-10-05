@@ -4572,8 +4572,10 @@ function FaixaRecados_V353({ds,hoje,notas,rems,deleg,contas,retro,bkp,nomeUser,o
 // Liga trabalho x consulta pelo PACIENTE: trabalho "Aguardando" (ou "Refazer") enviado ANTES do dia
 // da consulta -- ou com "Paciente marcado em" (pdata) nesse mesmo dia (o envio no dia da moldagem
 // nao marca a propria moldagem). So consulta de hoje em diante que ainda vai acontecer.
-// VERMELHO (critico): consulta e hoje, laboratorio atrasado, previsao do lab DEPOIS da consulta ou
-// trabalho para refazer. LARANJA: trabalho no laboratorio dentro do prazo.
+// VERMELHO/ROSA sempre que o trabalho nao chegou -- inclusive dentro do prazo (V360: o Dr. Diego quer
+// "bem marcante" enquanto o trabalho nao esta na clinica; na V359 o caso no prazo saia so com selo laranja).
+// O selo pisca quando a consulta e hoje. "critico" (hoje, lab atrasado, previsao DEPOIS da consulta ou
+// refazer) nao muda mais a cor: so o texto do motivo explica a urgencia.
 // Tudo calculado na hora a partir de pros + appts: nada novo e gravado no blob (zero risco de sync).
 function prosAberto_V359(p){return !!p&&(p.status==="waiting"||p.status==="remake");}
 function consultaViva_V359(a,hoje){
@@ -4639,43 +4641,44 @@ function prosResumo_V359(info,labs,a){
   var lab=prosLab_V359(labs,p);
   var s=(p.proc||p.type||"Prótese")+(lab&&lab.name?" · "+lab.name:"");
   var m=prosMotivo_V359(p,a);// vazio = no prazo (tem previsao e ela e ate o dia da consulta)
-  return s+" · "+(m||("previsão "+fmt(p.due)));
+  return s+" · "+(m||("previsão "+fmt(p.due)+" · dentro do prazo"));
 }
 // selo da agenda. tam: "c" compacta, "n" normal, "m" celula pequena (varios dentistas)
 // na compacta, em tela de celular fica so o icone (classe pr359-t some abaixo de 600px)
+// V360: sempre vermelho (no prazo ou nao); pisca quando a consulta e hoje
 function ProsSelo_V359({info,tam}){
   if(!info)return null;
-  var c=info.critico;
   var mini=tam==="m",norm=tam==="n";
-  return <span title={prosTitulo_V359(info)} style={{display:"inline-block",fontSize:mini?8:(norm?9.5:9),background:c?G.red:G.orange,color:"#fff",borderRadius:mini?3:(norm?6:5),padding:mini?"1px 5px":(norm?"3px 9px":"2px 7px"),fontWeight:800,whiteSpace:mini?"normal":"nowrap",flexShrink:0,letterSpacing:".3px",lineHeight:1.25,animation:(c&&info.hoje)?"prosAlarme359 1.6s ease-in-out infinite":"none"}}>
-    {c?"🚨":"📦"}<span className={tam==="c"?"pr359-t":""}>{c?" PRÓTESE NÃO CHEGOU":" PRÓTESE NO LAB"}</span>
+  return <span title={prosTitulo_V359(info)} style={{display:"inline-block",fontSize:mini?8:(norm?9.5:9),background:G.red,color:"#fff",borderRadius:mini?3:(norm?6:5),padding:mini?"1px 5px":(norm?"3px 9px":"2px 7px"),fontWeight:800,whiteSpace:mini?"normal":"nowrap",flexShrink:0,letterSpacing:".3px",lineHeight:1.25,animation:info.hoje?"prosAlarme359 1.6s ease-in-out infinite":"none"}}>
+    {"🚨"}<span className={tam==="c"?"pr359-t":""}>{" PRÓTESE NÃO CHEGOU"}</span>
   </span>;
 }
 // painel dentro da janela da consulta: o que falta, baixa ("Chegou!") e cobrar o laboratorio
 function ProsAviso_V359({info,a,patNome,labs,podeBaixa,onChegou}){
   if(!info||!info.lista||!info.lista.length)return null;
   var hj=today();
-  var crit=info.critico;
-  var cor=crit?G.red:G.orange;
+  var cor=G.red;// V360: sempre vermelho
   var n=info.lista.length;
-  var tit=crit
-    ?(info.hoje?"A prótese NÃO CHEGOU e a consulta é hoje":"A prótese ainda NÃO CHEGOU do laboratório")
-    :(n>1?"Trabalhos de prótese ainda no laboratório":"Trabalho de prótese ainda no laboratório");
-  return <div style={{borderRadius:12,padding:"11px 13px",background:crit?"var(--red-soft)":"var(--amber-soft)",border:"2px solid "+cor,display:"flex",flexDirection:"column",gap:8}}>
+  var tit=info.hoje
+    ?"A prótese NÃO CHEGOU e a consulta é hoje"
+    :(n>1?"Os trabalhos de prótese ainda NÃO CHEGARAM do laboratório":"A prótese ainda NÃO CHEGOU do laboratório");
+  return <div style={{borderRadius:12,padding:"11px 13px",background:"var(--red-soft)",border:"2px solid "+cor,display:"flex",flexDirection:"column",gap:8}}>
     <div style={{display:"flex",alignItems:"center",gap:8}}>
-      <span style={{fontSize:20,lineHeight:1,animation:(crit&&info.hoje)?"nmpulse 1.2s ease-in-out infinite":"none"}}>{crit?"🚨":"📦"}</span>
+      <span style={{fontSize:20,lineHeight:1,animation:info.hoje?"nmpulse 1.2s ease-in-out infinite":"none"}}>{"🚨"}</span>
       <div style={{fontSize:13.5,fontWeight:800,color:cor,lineHeight:1.3}}>{tit}</div>
     </div>
     {info.lista.map(function(p){
       var lab=prosLab_V359(labs,p);
       var m=prosMotivo_V359(p,a,hj);
+      var noPrazo=false;
       if(!m&&info.hoje)m=(p.due===hj?"previsto para chegar hoje — confirme com o laboratório":"a consulta é hoje — confirme com o laboratório");
+      else if(!m){m="ainda dentro do prazo do laboratório";noPrazo=true;}
       var msg="Olá "+((lab&&lab.name)||"")+"! Verificando "+(p.type||"o trabalho")+(p.proc?" ("+p.proc+")":"")+" paciente "+(patNome||"")+(p.tooth?", dente "+p.tooth:"")+(p.cor?", cor "+p.cor+(p.escala?" ("+p.escala+")":""):"")+". Enviada "+fmt(p.sent)+(p.due?", previsão "+fmt(p.due):"")+"."+(a&&a.date?" O paciente está marcado para "+fmt(a.date)+(a.time?" às "+a.time:"")+".":"");
       return <div key={p.id} style={{background:"var(--surface)",borderRadius:10,padding:"9px 11px",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:170}}>
           <div style={{fontSize:12.5,fontWeight:800,color:G.text,lineHeight:1.35}}>{"🦷 "+prosDesc_V359(p)}</div>
           <div style={{fontSize:11,color:G.muted,marginTop:2,lineHeight:1.45}}>{((lab&&lab.name)?lab.name+" · ":"")+"enviado "+fmt(p.sent)+(p.due?" · previsão "+fmt(p.due):"")}</div>
-          {m?<div style={{fontSize:11,fontWeight:800,color:cor,marginTop:2,lineHeight:1.4}}>{m.charAt(0).toUpperCase()+m.slice(1)}</div>:null}
+          {m?<div style={{fontSize:11,fontWeight:800,color:noPrazo?G.muted:cor,marginTop:2,lineHeight:1.4}}>{m.charAt(0).toUpperCase()+m.slice(1)}</div>:null}
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {podeBaixa&&<button onClick={function(){onChegou&&onChegou(p);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{"📦 Chegou!"}</button>}
@@ -4696,13 +4699,11 @@ function ProsTarja_V359({pid,pros,labs,appts}){
     if(!lista.some(function(p){return prosLiga_V359(p,a);}))return;
     if(!prox||a.date<prox.date||(a.date===prox.date&&t2m(a.time)<t2m(prox.time)))prox=a;
   });
-  var info=prox?prosPend_V359(prox,lista,hj):null;
-  var crit=info?info.critico:lista.some(function(p){return p.status==="remake"||(!!p.due&&p.due<hj);});
-  var cor=crit?G.red:G.orange;
-  return <div style={{borderRadius:11,padding:"10px 12px",marginTop:8,display:"flex",gap:10,alignItems:"flex-start",background:crit?"var(--red-soft)":"var(--amber-soft)",border:"1.5px solid "+cor}}>
-    <span style={{fontSize:17,lineHeight:1.1}}>{crit?"🚨":"📦"}</span>
+  var cor=G.red;// V360: sempre vermelho (no prazo ou nao)
+  return <div style={{borderRadius:11,padding:"10px 12px",marginTop:8,display:"flex",gap:10,alignItems:"flex-start",background:"var(--red-soft)",border:"1.5px solid "+cor}}>
+    <span style={{fontSize:17,lineHeight:1.1}}>{"🚨"}</span>
     <div style={{flex:1,minWidth:0}}>
-      <div style={{fontSize:13,fontWeight:800,lineHeight:1.25,color:cor}}>{crit?"Prótese ainda NÃO CHEGOU do laboratório":"Prótese no laboratório — ainda não chegou"}</div>
+      <div style={{fontSize:13,fontWeight:800,lineHeight:1.25,color:cor}}>{"Prótese ainda NÃO CHEGOU do laboratório"}</div>
       {lista.map(function(p){
         var lab=prosLab_V359(labs,p);
         var m=prosMotivo_V359(p,prox,hj);
@@ -4922,8 +4923,8 @@ const colarEm=function(dateStr,slot,dentId){
 };
 const espMatches=(user.level>=2)?esperaMatchDia(espera||[],appts,dents,selDate):[];
 const hiddenToday=denF==="all"?appts.filter(function(a){return a.date===selDate&&!vd.some(function(d){return d.id===a.dentistId;})&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed";}):[];
-// V359: faixa vermelha do topo do dia -- so os casos criticos (consulta hoje, lab atrasado, previsao depois da consulta)
-const prosDiaCrit_V359=(agView==="dia"&&prosAb_V359.length)?appts.filter(function(a){return a.date===selDate&&vd.some(function(d){return d.id===a.dentistId;});}).map(function(a){return {a:a,info:prosDe_V359(a)};}).filter(function(x){return x.info&&x.info.critico;}).sort(function(x,y){return t2m(x.a.time)-t2m(y.a.time);}):[];
+// V359/V360: faixa vermelha do topo do dia -- todo paciente do dia com trabalho que ainda nao chegou (no prazo ou nao)
+const prosDia_V359=(agView==="dia"&&prosAb_V359.length)?appts.filter(function(a){return a.date===selDate&&vd.some(function(d){return d.id===a.dentistId;});}).map(function(a){return {a:a,info:prosDe_V359(a)};}).filter(function(x){return !!x.info;}).sort(function(x,y){return t2m(x.a.time)-t2m(y.a.time);}):[];
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
@@ -5220,10 +5221,10 @@ return (
 {agView==="dia"&&hiddenToday.length>0&&<div onClick={function(){var od=dents.find(function(d){return d.id===hiddenToday[0].dentistId;});if(od)setDenF(String(od.id));}} style={{background:"var(--amber-soft)",border:"1.5px solid #FFB300",borderRadius:10,padding:"9px 13px",fontSize:12,fontWeight:700,color:"#E65100",cursor:"pointer",display:"flex",alignItems:"center",gap:6,margin:"2px 0"}}>{"⚠ "+hiddenToday.length+" consulta(s) de Ortodontia neste dia não aparecem aqui. Toque para ver →"}</div>}
 
 {/* V359: paciente deste dia com protese que nao chegou do laboratorio -- toque no nome abre a consulta */}
-{agView==="dia"&&prosDiaCrit_V359.length>0&&<div style={{background:"var(--red-soft)",border:"2px solid "+G.red,borderRadius:10,padding:"9px 13px",display:"flex",flexDirection:"column",gap:7,margin:"2px 0"}}>
-<div style={{fontSize:12.5,fontWeight:800,color:G.red,display:"flex",alignItems:"center",gap:7,lineHeight:1.35}}><span style={{fontSize:16,flexShrink:0,animation:selDate===td?"nmpulse 1.2s ease-in-out infinite":"none"}}>{"🚨"}</span><span>{(prosDiaCrit_V359.length===1?"1 paciente":prosDiaCrit_V359.length+" pacientes")+(selDate===td?" de hoje":" deste dia")+" com prótese que NÃO CHEGOU do laboratório"}</span></div>
+{agView==="dia"&&prosDia_V359.length>0&&<div style={{background:"var(--red-soft)",border:"2px solid "+G.red,borderRadius:10,padding:"9px 13px",display:"flex",flexDirection:"column",gap:7,margin:"2px 0"}}>
+<div style={{fontSize:12.5,fontWeight:800,color:G.red,display:"flex",alignItems:"center",gap:7,lineHeight:1.35}}><span style={{fontSize:16,flexShrink:0,animation:selDate===td?"nmpulse 1.2s ease-in-out infinite":"none"}}>{"🚨"}</span><span>{(prosDia_V359.length===1?"1 paciente":prosDia_V359.length+" pacientes")+(selDate===td?" de hoje":" deste dia")+" com prótese que ainda NÃO CHEGOU do laboratório"}</span></div>
 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-{prosDiaCrit_V359.map(function(x){var pp=pats.find(function(q){return q.id===x.a.patientId;});var nm=String((pp&&pp.name)||x.a.patientName||"Paciente").trim().split(/\s+/);return <button key={"pdc"+x.a.id} onClick={function(){setViewA(x.a);}} title={prosTitulo_V359(x.info)} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{(x.a.time||"")+" · "+nm[0]+(nm.length>1?" "+nm[nm.length-1]:"")}</button>;})}
+{prosDia_V359.map(function(x){var pp=pats.find(function(q){return q.id===x.a.patientId;});var nm=String((pp&&pp.name)||x.a.patientName||"Paciente").trim().split(/\s+/);return <button key={"pdc"+x.a.id} onClick={function(){setViewA(x.a);}} title={prosTitulo_V359(x.info)} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{(x.a.time||"")+" · "+nm[0]+(nm.length>1?" "+nm[nm.length-1]:"")}</button>;})}
 </div>
 </div>}
 
@@ -5316,7 +5317,7 @@ var isWaiting=a.status==="waiting";
 var stCol=isPartial?G.red:(SCN[a.status]||G.primary);
 var _prN=prosDe_V359(a);// V359
 return(
-<div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"stretch",gap:11,padding:"11px 13px",borderRadius:14,background:(_prN&&_prN.critico)?"var(--red-soft)":"var(--surface)",cursor:"pointer",boxShadow:(_prN?("0 0 0 "+(_prN.critico?"2px var(--red)":"1.5px var(--orange)")+","):"")+"7px 7px 18px #c5cdc2,-7px -7px 18px #ffffff"}}>
+<div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"stretch",gap:11,padding:"11px 13px",borderRadius:14,background:_prN?"var(--red-soft)":"var(--surface)",cursor:"pointer",boxShadow:(_prN?"0 0 0 2px var(--red),":"")+"7px 7px 18px #c5cdc2,-7px -7px 18px #ffffff"}}>
 <span style={{display:"flex",flexDirection:"column",justifyContent:"center",minWidth:52,lineHeight:1.05}}><span style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700,color:stCol}}>{slot}</span><span style={{fontSize:10,fontWeight:600,color:G.muted}}>{(a.duration||30)+" min"}</span></span>
 <div style={{width:isWaiting?9:7,borderRadius:7,flexShrink:0,alignSelf:"stretch",background:GRAD[a.status]||GRAD.confirmed,boxShadow:"inset 2px 2px 4px rgba(255,255,255,.45),inset -2px -2px 5px rgba(0,0,0,.18),3px 4px 13px "+(GLOW[a.status]||GLOW.confirmed)}}></div>
 <div style={{flex:1,minWidth:0}}>
@@ -5339,7 +5340,7 @@ return(
 {/* V359: protese que ainda nao chegou do laboratorio */}
 {_prN&&<div style={{display:"flex",gap:7,marginTop:5,flexWrap:"wrap",alignItems:"center"}}>
 <ProsSelo_V359 info={_prN} tam="n"/>
-<span style={{fontSize:10.5,fontWeight:700,color:_prN.critico?G.red:G.orange,lineHeight:1.35}}>{prosResumo_V359(_prN,labs,a)}</span>
+<span style={{fontSize:10.5,fontWeight:700,color:G.red,lineHeight:1.35}}>{prosResumo_V359(_prN,labs,a)}</span>
 </div>}
 {flags.length>0&&<div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
 {flags.map(function(f,i){return <span key={i} style={{fontSize:10,background:"var(--surface)",color:"#9a7636",borderRadius:7,padding:"3px 9px",fontWeight:700,boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px var(--nm-light)"}}>{f}</span>;})}
@@ -5385,9 +5386,9 @@ var _temAlertaC=(_flC.length>0||_noAnC||_semCadC||_preC||termoSisoPend(aC));// V
 var nmC=isPartC?aC.patientName:((pC&&pC.name)||"A confirmar");
 var stColC=isPartC?G.red:(SCN[aC.status]||G.primary);
 var _prC=prosDe_V359(aC);// V359
-var _prCrC=!!(_prC&&_prC.critico);
+var _prCrC=!!_prC;// V360: qualquer trabalho que nao chegou deixa a linha rosa (no prazo ou nao)
 _slotsCompact.push(
-<div key={"c"+slot} onClick={function(){setViewA(aC);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:10,background:_prCrC?"var(--red-soft)":"var(--surface)",boxShadow:(_prCrC?"0 0 0 1.5px var(--red),":"")+"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",marginBottom:5,cursor:"pointer",borderLeft:_prC?("4px solid "+(_prCrC?"var(--red)":"var(--orange)")):(hasAlertC?"3px solid var(--yellow)":"none")}}>
+<div key={"c"+slot} onClick={function(){setViewA(aC);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:10,background:_prCrC?"var(--red-soft)":"var(--surface)",boxShadow:(_prCrC?"0 0 0 1.5px var(--red),":"")+"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",marginBottom:5,cursor:"pointer",borderLeft:_prCrC?"4px solid var(--red)":(hasAlertC?"3px solid var(--yellow)":"none")}}>
 <span style={{fontFamily:"'Cormorant Garamond'",fontSize:multi?15:16,fontWeight:700,color:stColC,minWidth:multi?96:46,lineHeight:1,whiteSpace:"nowrap"}}>{lbl}</span>
 <div style={{width:3.5,height:22,borderRadius:3,flexShrink:0,background:GRAD[aC.status]||GRAD.confirmed}}></div>
 <span style={{fontSize:12.5,fontWeight:800,color:isPartC?G.red:G.text,flex:"1 1 auto",minWidth:0,maxWidth:_temAlertaC?"46%":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:".2px"}}>{nmC}</span>
@@ -5592,8 +5593,8 @@ var nm=a.patientName||((pats.find(function(x){return x.id===a.patientId;})||{}).
 var extras=appts.filter(function(x){return x.date===ds&&x.time===slot&&wkDents.some(function(d){return d.id===x.dentistId;})&&x.status!=="cancelled"&&x.status!=="rescheduled"&&x.status!=="missed"&&!x.blocked;}).length;
 var den=dents.find(function(d){return d.id===a.dentistId;});
 var _prW=prosDe_V359(a);// V359
-return <div key={ds+slot} onClick={function(){setViewA(a);}} title={_prW?prosTitulo_V359(_prW):undefined} style={{background:(_prW&&_prW.critico)?"var(--red-soft)":(SC_BG[a.status]||"var(--card)"),borderLeft:"3px solid "+(_prW?(_prW.critico?G.red:G.orange):(SC[a.status]||G.primary)),borderRadius:5,minHeight:24,padding:"3px 5px",cursor:"pointer",overflow:"hidden"}}>
-<div style={{fontSize:10.5,fontWeight:700,color:G.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{_prW?<span style={{color:_prW.critico?G.red:G.orange}}>{_prW.critico?"🚨 ":"📦 "}</span>:null}{nomeCurto(nm)}</div>
+return <div key={ds+slot} onClick={function(){setViewA(a);}} title={_prW?prosTitulo_V359(_prW):undefined} style={{background:_prW?"var(--red-soft)":(SC_BG[a.status]||"var(--card)"),borderLeft:"3px solid "+(_prW?G.red:(SC[a.status]||G.primary)),borderRadius:5,minHeight:24,padding:"3px 5px",cursor:"pointer",overflow:"hidden"}}>
+<div style={{fontSize:10.5,fontWeight:700,color:G.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{_prW?<span style={{color:G.red}}>{"🚨 "}</span>:null}{nomeCurto(nm)}</div>
 {(a.treatment||a.procedure)&&<div style={{fontSize:8.5,color:G.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{a.treatment||a.procedure}</div>}
 {wkDents.length>1&&den&&<div style={{fontSize:8,color:den.color,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{den.name.replace(/Dr\.|Dra\./i,"").trim().split(" ")[0]}{extras>1?" +"+(extras-1):""}</div>}
 </div>;
