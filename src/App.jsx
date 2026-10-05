@@ -405,7 +405,7 @@ const indFila=function(msgs,pats,ticks,minDias){
 };
 const IMPL_DATA_SEED=[{"id": 1, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ALMIR ROGERIO DOS SANTOS", "cirurgia": "ENXERTO LADO DIREITO", "protese": "", "controle": "", "data": "2025-01-17", "obs": "JUNHO", "extra": "", "status": "pending"}, {"id": 2, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ELIZANGELA TORRES", "cirurgia": "IMPLANTE ( olhar comentario )", "protese": "", "controle": "", "data": "2024-11-12", "obs": "DIEGO", "extra": "MSG 27/01", "status": "pending"}, {"id": 3, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ZILDA MENDES DOS SANTOS", "cirurgia": "IMPLANTE $$$", "protese": "Pac ia fazer cirurgia nas vistas ligar após dia 10", "controle": "", "data": "", "obs": "DIEGO 21-11-24", "extra": "MSG 27/01 ligar", "status": "pending"}, {"id": 4, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "SIMONE DOS SANTOS BARBOSA", "cirurgia": "EXERTO LADO ESQUERDO", "protese": "não vai fazer agora", "controle": "", "data": "2024-11-22", "obs": "DIEGO", "extra": "MSG 13/02 , NÃO CONSEGUE AGENDAR AGORA", "status": "info"}, {"id": 5, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "FABIANA SILVA OLIVEIRA", "cirurgia": "IMPLANTE (OLHAR COMENTÁRIO)", "protese": "DOIDINHA , IA PAGAR VALOR TOTAL E DESISTIU", "controle": "", "data": "2024-11-26", "obs": "DIEGO 26-11-24", "extra": "PAC DA PPR QUE PEDIU PARA MOLDAR DEPOIS DESISTIU", "status": "pending"}, {"id": 6, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "LUCIANO OLIVEIRA MARTINS", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2024-11-26", "obs": "JUNHO", "extra": "", "status": "pending"}, {"id": 7, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ADELRIZIA DIAS DE SOUZA", "cirurgia": "ENXERTO SUP ESQUERDO", "protese": "", "controle": "", "data": "2025-01-17", "obs": "JUNHO", "extra": "", "status": "pending"}, {"id": 8, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "ROBERTO DIAS", "cirurgia": "", "protese": "REABERTURA$$", "controle": "CTTO FINAL DE JANEIRO PEDIR PAN", "data": "2024-12-03", "obs": "MARCIO", "extra": "", "status": "pending"}, {"id": 9, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "CASSIA RIZZI", "cirurgia": "IMPLANTE $$$", "protese": "PROTOCOLO$$$", "controle": "", "data": "2024-12-03", "obs": "MARCIO", "extra": "", "status": "pending"}, {"id": 10, "mes": "Jan/25", "mesKey": "JANEIRO 2025", "paciente": "MARIA JOSÉ SOARES DE OLIVEIRA", "cirurgia": "IMPLANTE INF $$$", "protese": "", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 11, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "DOUGLAS BATISTA ALMENDRO", "cirurgia": "", "protese": "", "controle": "IMPLANTE", "data": "2024-08-08", "obs": "DR PEDIU RETORNO EM  6 MESES", "extra": "MSG 07/02", "status": "pending"}, {"id": 12, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "DEIVE", "cirurgia": "ENXERTO", "protese": "", "controle": "", "data": "", "obs": "JUNHO", "extra": "", "status": "pending"}, {"id": 13, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "MARISTELA ROSA DE CARVALHO", "cirurgia": "", "protese": "PROTESE $$$", "controle": "final de fevereiro", "data": "2024-10-24", "obs": "Dr Marcio está conversando com a paciente", "extra": "", "status": "pending"}, {"id": 14, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "TEREZINHA  AMORIM DA  COSTA", "cirurgia": "", "protese": "PROTESE PAGO", "controle": "", "data": "2024-10-29", "obs": "", "extra": "", "status": "pending"}, {"id": 15, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "MARIA JOSÉ SOARES DE OLIVEIRA", "cirurgia": "IMPLANTE SUP $$$", "protese": "", "controle": "", "data": "2024-10-11", "obs": "PEDIDO TOMO 22/01", "extra": "", "status": "pending"}, {"id": 16, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "ADELRIZIA DIAS DE SOUZA", "cirurgia": "IMPLANTE INF (PAGO)", "protese": "", "controle": "", "data": "2024-12-06", "obs": "LEVOU PEDIDO PAN 12/01", "extra": "", "status": "pending"}, {"id": 17, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "MARIA RODRIGUES DE MOURA", "cirurgia": "IMPLANTE $$$", "protese": "PEDIR TOMO", "controle": "", "data": "2024-12-12", "obs": "MSG 07/02 ( Está sem dinheiro ,vai retornar )", "extra": "", "status": "info"}, {"id": 18, "mes": "Fev/25", "mesKey": "FEVEREIRO 2025", "paciente": "KATIA APARECIDA CANDIDO", "cirurgia": "ENXERTO", "protese": "ia fazer em janeiro , mas deisou para fevereiro vai esta de ferias", "controle": "", "data": "", "obs": "ABRIL", "extra": "", "status": "pending"}, {"id": 19, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2024-09-06", "obs": "", "extra": "", "status": "pending"}, {"id": 20, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "KIMY TIAGO  LOPES", "cirurgia": "IMPLANTE", "protese": "A partir do dia 15/03", "controle": "", "data": "2025-01-10", "obs": "Levou pedido tomo 13/02", "extra": "msg para saber se fez 04/04", "status": "pending"}, {"id": 21, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "KATIA SILVA SANTOS", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-01-16", "obs": "JÁ LEVOU PEDIDO DE TOMO", "extra": "", "status": "pending"}, {"id": 22, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "ALMIR ROGERIO DOS SANTOS", "cirurgia": "IMPLANTE ESQUERDO SUPERIOR", "protese": "", "controle": "", "data": "2023-11-17", "obs": "DR MARCIO", "extra": "", "status": "pending"}, {"id": 23, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "PAULO HENRIQUE DA SILVA BARROS", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-02-25", "obs": "PEDIDO TOMO 25/02", "extra": "", "status": "pending"}, {"id": 24, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "EDNA TEIXEIRA", "cirurgia": "IMPLANTE INF", "protese": "", "controle": "", "data": "2024-08-09", "obs": "RET EM 6MESES COM A TOMO E DR ALEXANDRE REAVALIAR", "extra": "paciente levou pedido tomo", "status": "pending"}, {"id": 25, "mes": "Mar/25", "mesKey": "MARÇO 25", "paciente": "MARIA ISABEL SANTIAGO", "cirurgia": "IMPLANTE", "protese": "REPETIR IMPLANTE", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 26, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "EMERSON NOGUEIRA", "cirurgia": "", "protese": "PROTESE", "controle": "2025-01-01 00:00:00", "data": "2024-11-06", "obs": "msg para retirar pan 21/03", "extra": "ira repetir implante em maio", "status": "pending"}, {"id": 27, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "KATIA APARECIDA CANDIDO MOTA", "cirurgia": "IMPLANTE", "protese": "", "controle": "FINAL DE ABRIL", "data": "2025-02-05", "obs": "levou pedido tomo 18/02", "extra": "", "status": "info"}, {"id": 28, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "RENATA CORDEIRO MENDES", "cirurgia": "IMPLANTE", "protese": "", "controle": "FINAL DE ABRIL", "data": "", "obs": "msg p retirar tomo 30/04", "extra": "", "status": "pending"}, {"id": 29, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "DANIEL MAESTRELLO VIRGULINO", "cirurgia": "IMPLANTE", "protese": "", "controle": "FINAL DE ABRIL", "data": "", "obs": "msg p retirar tomo 30/04", "extra": "", "status": "pending"}, {"id": 30, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "VICENCIA  SOBRINHA DE SOUZA", "cirurgia": "IMPLANTE SUP", "protese": "", "controle": "", "data": "2024-09-06", "obs": "FALAR COM A JOANA", "extra": "", "status": "pending"}, {"id": 31, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "CESAR AUGUSTO BEZERRA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-01-29", "obs": "JÁ LEVOU PEDIDO DE TOMO", "extra": "2025-01-29 00:00:00", "status": "info"}, {"id": 32, "mes": "Abr/25", "mesKey": "ABRIL25", "paciente": "IZABEL CRISRINA MOREIRA", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "2024-12-13", "obs": "PEDIR PAN", "extra": "msg vir retirar pedido pan 30/04", "status": "pending"}, {"id": 33, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "SIMONE DOS SANTOS BARBOSA", "cirurgia": "IMPLANTE LADO DIREITO", "protese": "ESTA SEM DINHEIRO NO MOMENTO ( ENTRAR EM CTTO)", "controle": "", "data": "2024-11-22", "obs": "DIEGO", "extra": "msg para ret tomo 30/04", "status": "info"}, {"id": 34, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "ROSANGELA DA SILVA SANTANA", "cirurgia": "", "protese": "protese", "controle": "", "data": "", "obs": "ret maio", "extra": "msg para retirar pan  30/04", "status": "pending"}, {"id": 35, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "ADELRIZIA  DIAS DE SOUZA", "cirurgia": "IMPLANTE sup", "protese": "", "controle": "", "data": "2025-05-23", "obs": "PEDIR TOMO", "extra": "msg para retirar  tomo 30/04", "status": "pending"}, {"id": 36, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "MARIA JOSÉ SOARES DE OLIVEIRA", "cirurgia": "", "protese": "PROTESE( IMPLANTE INF )", "controle": "", "data": "2025-01-22", "obs": "", "extra": "msg para retirar pan  30/04", "status": "scheduled"}, {"id": 37, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "OSVALDO MARTINS MIRANDA", "cirurgia": "IMPALNTE  marcado 06-06", "protese": "", "controle": "", "data": "2025-03-07", "obs": "AVALIACAO DA JU", "extra": "", "status": "pending"}, {"id": 38, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "IMPLANTE INF", "protese": "final de maio", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 39, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "EDNA TEIXEIRA", "cirurgia": "ENXERTO SUP MARCADO DIA 30", "protese": "", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 40, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "EVELIN DA SILVA FERREIRA", "cirurgia": "ENXERTO SUP", "protese": "", "controle": "", "data": "2025-04-07", "obs": "LEVOU PEDIDO pAN 07/04 FAZER COMEÇO DE MAIO", "extra": "msg 30/04 para já fazer a pan", "status": "pending"}, {"id": 41, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "ARLETE LEITE CAMBOIM", "cirurgia": "IMPLANTE", "protese": "FINAL DE MAIO", "controle": "", "data": "2025-04-08", "obs": "", "extra": "", "status": "pending"}, {"id": 42, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "GABRIELLA BARROS SANTOS", "cirurgia": "IMPLANTE SUP", "protese": "", "controle": "", "data": "2025-04-09", "obs": "LEVOU TOMO LIGAR COMEÇO DE MAIO VÊ SE FEZ", "extra": "liguei ninguem atendeu 30/04 msg whtas 30/04", "status": "pending"}, {"id": 43, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "SANDRA REGINA ALVES", "protese": "SANDRA REGINA ALVES", "controle": "SANDRA REGINA ALVES", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 44, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "VILMA DOS SANTOS ANALFIO", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-04-11", "obs": "Pac estava marcada 11/04 p/ fazer a cirurgia, não veio ( Se confundio com o horario) vai viajar deixou p fazer em Junho ( CIRURGIA 30/05)", "extra": "fez a tomo", "status": "pending"}, {"id": 45, "mes": "Mai/25", "mesKey": "MAIO25", "paciente": "IZABEL CRISTINA MOREIRA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-05-20", "obs": "", "extra": "", "status": "pending"}, {"id": 46, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "LUCIANO OLIVEIRA MARTINS", "cirurgia": "", "protese": "protese", "controle": "", "data": "2024-01-22", "obs": "pedir Pan msg  26-05", "extra": "", "status": "pending"}, {"id": 47, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "ALMIR ROGERIO", "cirurgia": "IMPLANTE SUP", "protese": "", "controle": "", "data": "2025-01-17", "obs": "agendado 08/07 p/ conversar", "extra": "", "status": "pending"}, {"id": 48, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "MARIA JOSE SOARES DE OLIVIERA", "cirurgia": "", "protese": "PROTESE SUP", "controle": "", "data": "2025-02-26", "obs": "", "extra": "", "status": "pending"}, {"id": 49, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "EMERSON NOGUEIRA", "cirurgia": "", "protese": "implante inf", "controle": "", "data": "2025-06-06", "obs": "repetição", "extra": "", "status": "pending"}, {"id": 50, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "OSVALDO MARTINS DE MIRANDA", "cirurgia": "IMPLANTE INF", "protese": "", "controle": "", "data": "2025-06-06", "obs": "", "extra": "", "status": "pending"}, {"id": 51, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "HELENA CRISTINA RIBEIRO EPINDOLA", "cirurgia": "REMOÇÃO IMPLANTE", "protese": "", "controle": "", "data": "2025-06-23", "obs": "", "extra": "", "status": "pending"}, {"id": 52, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "DEIVISON SANGREGORIO", "cirurgia": "", "protese": "PROTESE PAGO", "controle": "", "data": "2024-11-29", "obs": "ENTRAR EM CTTO FINAL DE MARCÇO", "extra": "msg retirar pedido pan 21/03", "status": "pending"}, {"id": 53, "mes": "Jun/25", "mesKey": "JUNHO25", "paciente": "THAIS APARECIDA NERES", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "", "obs": "OLHAR COMENTARIO", "extra": "MSG 30/04 , VAI FAZER 02/05", "status": "pending"}, {"id": 54, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "ADELRIZIA  DIAS DE SOUZA", "cirurgia": "", "protese": "PROTESE INF", "controle": "", "data": "2025-03-12", "obs": "", "extra": "PEDIR PAN", "status": "pending"}, {"id": 55, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "MARIA ISABEL DELILA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-07-18", "obs": "", "extra": "JÁ FEZ TOMO", "status": "pending"}, {"id": 56, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "ZELIA IMACULADA DE OLIVEIRA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-05-23", "obs": "", "extra": "mandar msg 27/07 msg 06/08", "status": "pending"}, {"id": 57, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "DEIVE", "cirurgia": "IMPLANTE  $$$$", "protese": "", "controle": "", "data": "2025-02-07", "obs": "TOMO msg 26-05", "extra": "msg 24/07", "status": "pending"}, {"id": 58, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "MARIA GEISA DE ARAUJO LIMA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-07-01", "obs": "LEVOU PEDIDO TOMO", "extra": "MARCADO 31/07", "status": "pending"}, {"id": 59, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "PAULO HENRIQUE", "cirurgia": "implante", "protese": "", "controle": "", "data": "2025-07-04", "obs": "", "extra": "", "status": "pending"}, {"id": 60, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "ALMIR ROGERIO", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-07-12", "obs": "", "extra": "", "status": "pending"}, {"id": 61, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "ALBERTINA   OLIVEIRA DA SILVA", "cirurgia": "ENXERTO $$$$", "protese": "", "controle": "", "data": "2025-07-18", "obs": "", "extra": "", "status": "pending"}, {"id": 62, "mes": "Jul/25", "mesKey": "JULHO25", "paciente": "DANIEL LASAGNO", "cirurgia": "ENXERTO", "protese": "", "controle": "", "data": "2025-07-18", "obs": "LEVOU PEDIDO TOMO", "extra": "", "status": "pending"}, {"id": 63, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "MARILDA  DA CRUZ CARVALHO", "cirurgia": "", "protese": "", "controle": "controle", "data": "2025-02-17", "obs": "LEVOU PEDIDO PAN 22/08 ( passou 10/09)", "extra": "", "status": "pending"}, {"id": 64, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "SILEIDE QUERINO DE ARAUJO", "cirurgia": "ENXERTO + IMPLANTE SUP", "protese": "", "controle": "", "data": "", "obs": "JÁ FEZ A TOMO", "extra": "", "status": "pending"}, {"id": 65, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "MARIA PEREIRA DOS SANTOS", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-08-01", "obs": "", "extra": "", "status": "pending"}, {"id": 66, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "SOLANGE MARIA DA SILVA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "", "obs": "TOMO OK", "extra": "", "status": "pending"}, {"id": 67, "mes": "Ago/25", "mesKey": "AGOSTO25", "paciente": "LUCCAS RIBEIRO COSTA", "cirurgia": "EXO", "protese": "", "controle": "", "data": "18/08/", "obs": "", "extra": "", "status": "pending"}, {"id": 68, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "", "protese": "PROTOCOLO", "controle": "", "data": "2025-03-18", "obs": "", "extra": "", "status": "pending"}, {"id": 69, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "EDNA TEIXEIRA", "cirurgia": "", "protese": "PROTESE INF", "controle": "", "data": "2025-03-28", "obs": "LEVOU PEDIDO PAN 13-06  (((  MSG11/09)))", "extra": "", "status": "pending"}, {"id": 70, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "SANDRA REGINA ALVES", "cirurgia": "", "protese": "PROTESE INF", "controle": "", "data": "2025-05-10", "obs": "PEDIR PAN E AVALIAR", "extra": "", "status": "pending"}, {"id": 71, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "ADELRIZIA  DIAS DE SOUZA", "cirurgia": "", "protese": "PRÓTESE SUP", "controle": "", "data": "2025-05-23", "obs": "FINAL DO MES , NÃO PRECISA PAN", "extra": "", "status": "pending"}, {"id": 72, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "ROBERTA JECIRA B GIAGOMINI", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-08-22", "obs": "LEVOU PEDIDO TOMO  ((( FEZ A TOMO  DIA 10/09)) agendada 26/09", "extra": "", "status": "pending"}, {"id": 73, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "ROSENY GOMES", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 74, "mes": "Set/25", "mesKey": "SETEMBRO25", "paciente": "MARIA DA LUZ MARCELINO", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "", "obs": "AGENDADA 01/10", "extra": "", "status": "pending"}, {"id": 75, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "EMERSON NOGUEIRA", "cirurgia": "", "protese": "prótese", "controle": "", "data": "2025-06-06", "obs": "pedir pan  msg 01/10", "extra": "", "status": "pending"}, {"id": 76, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "OSVALDO MARTINS DE MIRANDA", "cirurgia": "", "protese": "PROTESE INF", "controle": "", "data": "2025-06-06", "obs": "pedir pan  msg 01/10 retirou pan 07/10", "extra": "", "status": "pending"}, {"id": 77, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "JULIO CESAR GOMES", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-07-29", "obs": "PEDIR TOMO DR VAI CONVERSAR 03/10", "extra": "", "status": "pending"}, {"id": 78, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "VILMA DOS SANTOS", "cirurgia": "", "protese": "SUP E INF", "controle": "", "data": "2025-05-30", "obs": "PEDIR PAN   ((( MSG 11/09) RETIROU PAN 30/09", "extra": "", "status": "pending"}, {"id": 79, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "ELISETE HIROMI MURAKAMI", "cirurgia": "ENXERTO $$", "protese": "", "controle": "", "data": "2025-10-10", "obs": "REALIZOU A TOMO 10/10", "extra": "", "status": "pending"}, {"id": 80, "mes": "Out/25", "mesKey": "OUTUBRO25", "paciente": "JOAO PAULO BERNARDO DE MOURA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-10-31", "obs": "", "extra": "", "status": "pending"}, {"id": 81, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "MARIA ISABEL DELILA", "cirurgia": "PROTESE", "protese": "", "controle": "", "data": "2025-07-18", "obs": "PEDIR PAN", "extra": "", "status": "scheduled"}, {"id": 82, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "PAULO HENRIQUE", "cirurgia": "PRÓTESE", "protese": "", "controle": "", "data": "2025-07-18", "obs": "PEDIR PAN  ( LEVOU PEDIDO PAN  08/10", "extra": "", "status": "scheduled"}, {"id": 83, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "MARIA GEYSA ( MARCIO)", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-07-31", "obs": "levou pedido tomo 07/01", "extra": "", "status": "pending"}, {"id": 84, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "ROSENY GOMES", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "2025-09-16", "obs": "FINAL DE NOV PEDIR PAN", "extra": "MSG 24/11", "status": "scheduled"}, {"id": 85, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "IZABEL CRISTINA MOREIRA", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "2025-05-20", "obs": "PEDIR PAN ((MSG 11/09))) Só vai fazer em Novembro", "extra": "", "status": "scheduled"}, {"id": 86, "mes": "Nov/25", "mesKey": "NOVEMBRO25", "paciente": "ZILDA MENDES DOS SANTOS", "cirurgia": "iMPLANTE", "protese": "", "controle": "", "data": "2025-10-27", "obs": "", "extra": "", "status": "pending"}, {"id": 87, "mes": "Dez/25", "mesKey": "DEZEMBRO25", "paciente": "MARIA PEREIRA DOS SANTOS", "cirurgia": "", "protese": "PRÓTESE", "controle": "", "data": "2025-08-08", "obs": "PEDIR PAN  ( OSSO MACIO TALVEZ 6 MESES) msg 02/12", "extra": "", "status": "scheduled"}, {"id": 88, "mes": "Dez/25", "mesKey": "DEZEMBRO25", "paciente": "SILEIDE QUERINO DE ARAUJO", "cirurgia": "", "protese": "PROTESE", "controle": "", "data": "", "obs": "PEDIR PAN  msg 02/12", "extra": "", "status": "scheduled"}, {"id": 89, "mes": "Dez/25", "mesKey": "DEZEMBRO25", "paciente": "IRINEIA DE AMORIM", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "ABRIL", "obs": "TOMO OK AGENDADA 03/12", "extra": "", "status": "pending"}, {"id": 90, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "KATIA AP CANDIDO MOTA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "JULHO", "obs": "NÃO FORMOU OSSO VAI RET NO BUCO QUE FEZ", "extra": "", "status": "info"}, {"id": 91, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "MARIA DA LUZ MARCELINO", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "2025-10-01", "obs": "PEDIR PAN  msg 05/01 msg 15/01", "extra": "", "status": "scheduled"}, {"id": 92, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "FABIO DE ALMEIDA LISBOA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "", "obs": "MARCAR CONSULTA C DR PARA REVALIAR O CASO", "extra": "DR CONVERSAR SOBRE A POSSIBIIDADE DE FAZER", "status": "pending"}, {"id": 93, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "SHIRLEY MOREIRA DA SILVA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-11-27", "obs": "PEDIR TOMO msg 05/01 msg  06/01", "extra": "", "status": "pending"}, {"id": 94, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "PAULO HENRIQUE", "cirurgia": "", "protese": "PROTESE/ CLAREAMENTO", "controle": "", "data": "2025-12-11", "obs": "APÓS REMOÇÃO APARELHO/ CLAREAMENTO", "extra": "", "status": "scheduled"}, {"id": 95, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "ALBERTINA DE OLIVEIRA DA SILVA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-07-18", "obs": "LEVOU PEDIDO TOMO", "extra": "já fez", "status": "pending"}, {"id": 96, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "MARINALVA SOARES DA SILVA", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "2025-09-17", "obs": "AGENDADA 16/01", "extra": "fez 24/11", "status": "pending"}, {"id": 97, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "DANIEL LASAGNO", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "2025-07-18", "obs": "FEZ TOMO msg 05/01 para agendar", "extra": "", "status": "pending"}, {"id": 98, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "CLEBER AUGUSTO DA SILVIERA", "cirurgia": "EXO + enxerto", "protese": "", "controle": "", "data": "2026-01-05", "obs": "LEVOU PEDIDO TOMO", "extra": "", "status": "pending"}, {"id": 99, "mes": "Jan/26", "mesKey": "JANEIRO 26", "paciente": "FERNANDO JUSTO DE SOUZA", "cirurgia": "EXO + OSSO", "protese": "", "controle": "", "data": "2026-01-12", "obs": "RETORNO 12/03 levou pedido tomo 22/01", "extra": "", "status": "pending"}, {"id": 100, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "PATRICIA COSTA SILVA", "cirurgia": "EXO P IMPLANTE", "protese": "", "controle": "", "data": "2025-11-06", "obs": "não me atende", "extra": "", "status": "pending"}, {"id": 101, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "LUCIANO OLIVEIRA MARTINS", "cirurgia": "", "protese": "", "controle": "CONTROLE", "data": "2025-11-27", "obs": "PEDIR PAN msg 25/03", "extra": "", "status": "pending"}, {"id": 102, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "PALOMA DE JESUS", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-09", "obs": "JA LEVOU O PEDIDO TOMO PERGUNTAR a partir  23/02 SE JA FEZ não quer fazer", "extra": "", "status": "info"}, {"id": 103, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "EDNA TEIXEIRA", "cirurgia": "IMPLANTE SUP", "protese": "", "controle": "", "data": "2025-05-30", "obs": "AGENDADA 16/01", "extra": "", "status": "pending"}, {"id": 104, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "RENATO RODRIGUES CORDEIRO", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-21", "obs": "LEVOU PEDIDO TOMO  msg 26/02", "extra": "", "status": "pending"}, {"id": 105, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "RENATO RODRIGUES CORDEIRO", "cirurgia": "", "protese": "", "controle": "", "data": "", "obs": "", "extra": "", "status": "pending"}, {"id": 106, "mes": "Fev/26", "mesKey": "FEVEREIRO 26", "paciente": "EDNA DE OLIVEIRA FERREIRA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2025-07-18", "obs": "2026-02-27 00:00:00", "extra": "ENTRAR EM CTTO 15/01 msg 15/01", "status": "pending"}, {"id": 107, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "ZILDA MENDES DOS SANTOS", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "2025-11-14", "obs": "PEDIR PAN", "extra": "msg 23/02", "status": "scheduled"}, {"id": 108, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "ALMIR ROGERIO", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "2025-11-19", "obs": "PEDIR PAN", "extra": "msg 24/03 , 25/3 n atende", "status": "pending"}, {"id": 109, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "LUCCAS RIBEIRO COSTA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2025-08-11", "obs": "LEVOU PEDIDO TOMO 03/10", "extra": "não atende", "status": "pending"}, {"id": 110, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "ROBETA JECIRA", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "SETEMBRO", "obs": "PEDIR PAN  msg 05/01", "extra": "vai fazr depois do clareamento", "status": "pending"}, {"id": 111, "mes": "Mar/26", "mesKey": "MARÇO", "paciente": "SOLANGE MARIA DA SILVA", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "", "obs": "ENVIEI PEDIDO PAN 02/02", "extra": "vai fazer final do mês não atende", "status": "pending"}, {"id": 112, "mes": "Abr/26", "mesKey": "ABRIL 26", "paciente": "IRINEIA DE AMORIM", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "2025-12-03", "obs": "PEDIR PAN msg 25/03", "extra": "ligação 02/04 , msg 07/04/ 29/04", "status": "pending"}, {"id": 113, "mes": "Abr/26", "mesKey": "ABRIL 26", "paciente": "MARIA ALICE PEREIRA  LOPES", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "28/01 FEZ EXO", "obs": "PEDIR TOMO", "extra": "ligação 02/04 msg 07/04 29/04", "status": "pending"}, {"id": 114, "mes": "Abr/26", "mesKey": "ABRIL 26", "paciente": "CLEBER AUGUSTO DA SILVIERA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-28", "obs": "levou pedido tomo 05/02", "extra": "marcado 17/06", "status": "pending"}, {"id": 115, "mes": "Abr/26", "mesKey": "ABRIL 26", "paciente": "ElIZABETE PEREIRA DA SILVA", "cirurgia": "IMPLANTE$$", "protese": "", "controle": "", "data": "15/04", "obs": "", "extra": "", "status": "pending"}, {"id": 116, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "MARINALVA SOARES DA SILVA", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "2026-01-16", "obs": "PEDIR PAN  ( entregar o termo )", "extra": "AGENDADA 20/05", "status": "pending"}, {"id": 117, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "DANIEL LASAGNO", "cirurgia": "", "protese": "PROTESE $$$", "controle": "", "data": "2026-01-21", "obs": "PEDIR PAN ( entregar o termo )", "extra": "enviado pedido pan 13/05", "status": "pending"}, {"id": 118, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "FERNANDO JUSTO DE SOUZA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-12", "obs": "PEDIR TOMO", "extra": "msg 23/02 levou pedido tomo pac com cancer irá fazer em maio", "status": "pending"}, {"id": 119, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "SANDRA REGINA ALVES", "cirurgia": "", "protese": "", "controle": "CONTROLE", "data": "2025-12-17", "obs": "LEVOU PAN MARCAR C A JU", "extra": "", "status": "pending"}, {"id": 120, "mes": "Mai/26", "mesKey": "MAIO 26", "paciente": "LUCIANA MARQUES FERREIRA", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "26/12", "obs": "msg 13/05", "extra": "MARCADO 28/05", "status": "scheduled"}, {"id": 121, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "ERONILDE APARECIDA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-01-29", "obs": "PEDIR TOMO", "extra": "", "status": "pending"}, {"id": 122, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "EDNA DE OLIVEIRA FERREIRA", "cirurgia": "", "protese": "protese", "controle": "", "data": "2026-02-27", "obs": "2026-02-27 00:00:00", "extra": "pedir pan  ( entregar o termo )", "status": "pending"}, {"id": 123, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "JOAO PAULO BERNARDO", "cirurgia": "", "protese": "PROTESE$$", "controle": "", "data": "2025-10-31", "obs": "levou pedido pan 06/03", "extra": "", "status": "pending"}, {"id": 124, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "ElIZABETE PEREIRA DA SILVA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "15/04", "obs": "não fez a cirurgia pedir tomo", "extra": "", "status": "pending"}, {"id": 125, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "FRANSUELDO ALVES", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "20/04", "obs": "LEVOU PED TOMO", "extra": "", "status": "pending"}, {"id": 126, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "ROSANIA JOSE DA SILVA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "24/04", "obs": "PEDIR TOMO", "extra": "", "status": "pending"}, {"id": 127, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "NEUSA MARIA DOS REIS SILVA", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "29/04", "obs": "PEDIR TOMO", "extra": "", "status": "pending"}, {"id": 128, "mes": "Jun/26", "mesKey": "JUNHO 26", "paciente": "ANDREA SILVESTRE DELA", "cirurgia": "IMPLANTE", "protese": "", "controle": "", "data": "2026-06-06", "obs": "PEDIR PAN", "extra": "", "status": "pending"}, {"id": 129, "mes": "Jul/26", "mesKey": "JULHO 26", "paciente": "EDNA TEIXEIRA", "cirurgia": "", "protese": "PROTESE", "controle": "", "data": "2026-02-06", "obs": "levou pan 20/02", "extra": "", "status": "pending"}, {"id": 130, "mes": "Jul/26", "mesKey": "JULHO 26", "paciente": "RENATO RODRIGUES CORDEIRO", "cirurgia": "", "protese": "PROTESE", "controle": "", "data": "28/03", "obs": "PEDIR PAN", "extra": "", "status": "pending"}, {"id": 131, "mes": "Jul/26", "mesKey": "JULHO 26", "paciente": "ANTONIA BATISTA DAS NEVES", "cirurgia": "IMPLANTE $$", "protese": "", "controle": "", "data": "20/04", "obs": "LEVOU PEDIDO TOMO", "extra": "", "status": "pending"}, {"id": 132, "mes": "Ago/26", "mesKey": "AGOSTO 26", "paciente": "ELIZETE NAKAMURA", "cirurgia": "IMPLANTE $$$", "protese": "", "controle": "", "data": "2026-07-11", "obs": "LEVOU PEDIDO TOMO E PAN 07/04", "extra": "msg 13/05", "status": "pending"}];
 
-const CSS=`@import url('https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css');@import url('https://unpkg.com/@phosphor-icons/web@2.1.1/src/light/style.css');@import url('https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css');@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;600;700;800&display=swap'); :root{color-scheme:light;--bg:#e8ece6;--card:#e8ece6;--surface:#e8ece6;--surface-2:#f2f5f2;--nm-light:#fbfff7;--nm-dark:#c8d0c5;--text:#23332b;--muted:#7c8a80;--border:#d8ded3;--primary:#2f5d49;--brand:#2f5d49;--accent:#e0e5dc;--red:#C0392B;--green:#2f8f5f;--yellow:#C0902E;--blue:#1A5276;--purple:#7a5a9e;--orange:#CA6F1E;--gold:#B7950B;--red-soft:#FFEBEE;--green-soft:#E8F5E9;--amber-soft:#FFF8E1;--blue-soft:#E3F2FD;--purple-soft:#F3E5F5;}html[data-theme="dark"]{color-scheme:dark;--bg:#252b29;--card:#252b29;--surface:#252b29;--surface-2:#2b322f;--nm-light:#2e3633;--nm-dark:#1a1f1d;--text:#e7ece7;--muted:#93a29a;--border:#333c37;--primary:#54a081;--brand:#54a081;--accent:#2e3633;--red:#e5776b;--green:#5cbd8e;--yellow:#d9b45f;--blue:#5c9fd6;--purple:#b18bd0;--orange:#e2954f;--gold:#d4bb57;--red-soft:#3a2725;--green-soft:#22332b;--amber-soft:#342e1f;--blue-soft:#1f2c38;--purple-soft:#2f2836;} *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'Manrope',sans-serif;background:${G.bg};color:${G.text};-webkit-font-smoothing:antialiased;font-variant-numeric:lining-nums;} ::-webkit-scrollbar{width:6px;height:6px;}::-webkit-scrollbar-thumb{background:var(--nm-dark);border-radius:4px;}::-webkit-scrollbar-track{background:transparent;} input,select,textarea,button{font-family:'Manrope',sans-serif;} input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select,textarea{background:var(--surface) !important;border:none !important;box-shadow:inset 3px 3px 7px var(--nm-dark), inset -3px -3px 7px var(--nm-light) !important;border-radius:12px !important;color:var(--text);outline:none;} input:focus,select:focus,textarea:focus{box-shadow:inset 4px 4px 8px var(--nm-dark), inset -4px -4px 8px var(--nm-light) !important;} input::placeholder,textarea::placeholder{color:var(--muted);} i[class^='ph-'],i[class*=' ph-']{line-height:1;vertical-align:-.125em;} .nm-raised{background:var(--surface);box-shadow:6px 6px 14px var(--nm-dark),-6px -6px 14px var(--nm-light);} .nm-inset{background:var(--surface);box-shadow:inset 5px 5px 11px var(--nm-dark),inset -5px -5px 11px var(--nm-light);} @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}} .fi{animation:fi .2s ease} @keyframes nmpulse{0%,100%{opacity:1}50%{opacity:.4}}html{background:var(--bg);}body{transition:background-color .35s ease,color .3s ease;}`;
+const CSS=`@import url('https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css');@import url('https://unpkg.com/@phosphor-icons/web@2.1.1/src/light/style.css');@import url('https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css');@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;600;700;800&display=swap'); :root{color-scheme:light;--bg:#e8ece6;--card:#e8ece6;--surface:#e8ece6;--surface-2:#f2f5f2;--nm-light:#fbfff7;--nm-dark:#c8d0c5;--text:#23332b;--muted:#7c8a80;--border:#d8ded3;--primary:#2f5d49;--brand:#2f5d49;--accent:#e0e5dc;--red:#C0392B;--green:#2f8f5f;--yellow:#C0902E;--blue:#1A5276;--purple:#7a5a9e;--orange:#CA6F1E;--gold:#B7950B;--red-soft:#FFEBEE;--green-soft:#E8F5E9;--amber-soft:#FFF8E1;--blue-soft:#E3F2FD;--purple-soft:#F3E5F5;}html[data-theme="dark"]{color-scheme:dark;--bg:#252b29;--card:#252b29;--surface:#252b29;--surface-2:#2b322f;--nm-light:#2e3633;--nm-dark:#1a1f1d;--text:#e7ece7;--muted:#93a29a;--border:#333c37;--primary:#54a081;--brand:#54a081;--accent:#2e3633;--red:#e5776b;--green:#5cbd8e;--yellow:#d9b45f;--blue:#5c9fd6;--purple:#b18bd0;--orange:#e2954f;--gold:#d4bb57;--red-soft:#3a2725;--green-soft:#22332b;--amber-soft:#342e1f;--blue-soft:#1f2c38;--purple-soft:#2f2836;} *{box-sizing:border-box;margin:0;padding:0;} body{font-family:'Manrope',sans-serif;background:${G.bg};color:${G.text};-webkit-font-smoothing:antialiased;font-variant-numeric:lining-nums;} ::-webkit-scrollbar{width:6px;height:6px;}::-webkit-scrollbar-thumb{background:var(--nm-dark);border-radius:4px;}::-webkit-scrollbar-track{background:transparent;} input,select,textarea,button{font-family:'Manrope',sans-serif;} input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),select,textarea{background:var(--surface) !important;border:none !important;box-shadow:inset 3px 3px 7px var(--nm-dark), inset -3px -3px 7px var(--nm-light) !important;border-radius:12px !important;color:var(--text);outline:none;} input:focus,select:focus,textarea:focus{box-shadow:inset 4px 4px 8px var(--nm-dark), inset -4px -4px 8px var(--nm-light) !important;} input::placeholder,textarea::placeholder{color:var(--muted);} i[class^='ph-'],i[class*=' ph-']{line-height:1;vertical-align:-.125em;} .nm-raised{background:var(--surface);box-shadow:6px 6px 14px var(--nm-dark),-6px -6px 14px var(--nm-light);} .nm-inset{background:var(--surface);box-shadow:inset 5px 5px 11px var(--nm-dark),inset -5px -5px 11px var(--nm-light);} @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}} .fi{animation:fi .2s ease} @keyframes nmpulse{0%,100%{opacity:1}50%{opacity:.4}} @keyframes prosAlarme359{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.55)}50%{box-shadow:0 0 0 5px rgba(192,57,43,0)}} @media (max-width:600px){.pr359-t{display:none}}html{background:var(--bg);}body{transition:background-color .35s ease,color .3s ease;}`;
 
 const PAY_BASE=["Dinheiro","PIX","Cartão Crédito","Cartão Débito","Convênio","Cheque"];
 const PAY=PAY_BASE; // backward compat
@@ -1901,7 +1901,7 @@ function AvisoObrig({lista,onVoltar,onSalvar}){
   </div>;
 }
 
-function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose,waTemplates,docsEmitidos=[],setDocsEmitidos=function(){}}){
+function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose,waTemplates,docsEmitidos=[],setDocsEmitidos=function(){},pros=[],labs=[]}){
 // Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
 const isDentUser=user&&user.level===1;
@@ -2294,7 +2294,7 @@ return <>
 </div>
 <button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",fontSize:18,cursor:"pointer",padding:"6px 12px",fontWeight:700}}>✕ Fechar</button>
 </div>
-<div style={{padding:"0 22px",background:"var(--surface)"}}><FaltaTarja pid={pat.id} appts={appts} treats={treats}/></div>
+<div style={{padding:"0 22px",background:"var(--surface)"}}><FaltaTarja pid={pat.id} appts={appts} treats={treats}/><ProsTarja_V359 pid={pat.id} pros={pros} labs={labs} appts={appts}/>{/* V359 */}</div>
 {/* Tabs */}
 <div style={{display:"flex",gap:6,padding:"14px 22px 0",borderBottom:`2px solid ${G.border}`,background:"var(--surface)",flexWrap:"wrap"}}>
 {TABS.map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:tab===k?G.primary:"var(--green-soft)",color:tab===k?"#fff":G.muted,borderRadius:"8px 8px 0 0",padding:"9px 16px",fontSize:12,fontWeight:700,cursor:"pointer",transition:"all .15s",marginBottom:-2,borderBottom:tab===k?`2px solid ${G.primary}`:"none"}}>{l}</button>)}
@@ -2866,7 +2866,7 @@ return <>
 
   {/* ── NOTA FISCAL ── */}
   {tab==="docs"&&<DocsContratos pat={pat}/>}
-  {tab==="termo"&&<TermoSiso pat={pat} dents={dents} user={user}/>}// V321
+  {tab==="termo"&&<TermoSiso pat={pat} dents={dents} user={user}/>}{/* V321 */}
   {tab==="odonto3d"&&<Odonto3DTab pat={pat} setPats={setPats} setPf={setPf}/>}
 
   {tab==="atestado"&&(function(){
@@ -3066,7 +3066,7 @@ return <>
 {gateF&&<GateAgrad pac={gateF.pac} ind={gateF.ind} pats={pats} waTemplates={waTemplates}
   onAgradecer={function(){var ind=gateF.ind;var txt=getWA(waTemplates,gateF.pac._pre?"indicacao_pre":"indicacao",{nome:String(ind.name||"").split(" ")[0],paciente:gateF.pac.name});wa(ind.phone,txt);_agStamp({indicAgrad:new Date().toISOString(),indicAgradBy:(user&&user.name)||""});setGateF(null);setEditMode(false);}}
   onPular={function(m,susp){_agStamp({indicAgradSkip:m,indicAgradSkipBy:(user&&user.name)||"",indicAgradSkipTs:new Date().toISOString(),indicAgradSusp:!!susp});setGateF(null);setEditMode(false);}}
-  onVoltar={function(){setGateF(null);}}/>}/* V319 */
+  onVoltar={function(){setGateF(null);}}/>}{/* V319 */}
 {missPF&&<AvisoObrig lista={missPF} onVoltar={function(){setMissPF(null);}} onSalvar={function(){var _m=missPF;setMissPF(null);savePatOk(_m);}}/* V281 *//>}
 {/* Add procedure to existing plan modal */}
 {confirmDesfazer&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -4567,7 +4567,183 @@ function FaixaRecados_V353({ds,hoje,notas,rems,deleg,contas,retro,bkp,nomeUser,o
   </section>;
 }
 
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate,faixaRecados}){
+// ══════════════ V359: PRÓTESE QUE NÃO CHEGOU — aviso na agenda, na consulta e na ficha ══════════════
+// Enquanto o trabalho de prótese não tem baixa ("📦 Chegou!"), a consulta do paciente fica marcada.
+// Liga trabalho x consulta pelo PACIENTE: trabalho "Aguardando" (ou "Refazer") enviado ANTES do dia
+// da consulta -- ou com "Paciente marcado em" (pdata) nesse mesmo dia (o envio no dia da moldagem
+// nao marca a propria moldagem). So consulta de hoje em diante que ainda vai acontecer.
+// VERMELHO (critico): consulta e hoje, laboratorio atrasado, previsao do lab DEPOIS da consulta ou
+// trabalho para refazer. LARANJA: trabalho no laboratorio dentro do prazo.
+// Tudo calculado na hora a partir de pros + appts: nada novo e gravado no blob (zero risco de sync).
+function prosAberto_V359(p){return !!p&&(p.status==="waiting"||p.status==="remake");}
+function consultaViva_V359(a,hoje){
+  if(!a||a.blocked||a.patientId==null||a.patientId==="")return false;
+  if(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed"||a.status==="done")return false;
+  var dt=String(a.date||"");
+  return !!dt&&dt>=(hoje||today());
+}
+function prosLiga_V359(p,a){
+  if(!p||!a||p.patientId==null||String(p.patientId)!==String(a.patientId))return false;
+  var dt=String(a.date||"");if(!dt)return false;
+  if(p.pdata&&String(p.pdata)===dt)return true;
+  var env=String(p.sent||"");
+  return !env||env<dt;
+}
+function prosDias_V359(de,ate){return Math.round((new Date(ate+"T12:00")-new Date(de+"T12:00"))/86400000);}
+function prosDesc_V359(p){return (p.type||"Prótese")+((Number(p.qty)||1)>1?" ×"+p.qty:"")+(p.proc?" -- "+p.proc:"");}// mesmo texto do log de Proteses (o detetive V278 acha)
+function prosLab_V359(labs,p){return (labs||[]).find(function(l){return l&&p&&String(l.id)===String(p.labId);})||null;}
+// trabalhos que ainda nao chegaram para ESTA consulta (null = nada pendente)
+function prosPend_V359(a,pros,hoje){
+  hoje=hoje||today();
+  if(!consultaViva_V359(a,hoje))return null;
+  var lista=(pros||[]).filter(function(p){return prosAberto_V359(p)&&prosLiga_V359(p,a);});
+  if(!lista.length)return null;
+  var dt=String(a.date);
+  var hj=dt===hoje;
+  var atras=lista.some(function(p){return !!p.due&&String(p.due)<hoje;});
+  var depois=lista.some(function(p){return !!p.due&&String(p.due)>dt;});
+  var refazer=lista.some(function(p){return p.status==="remake";});
+  return {lista:lista,hoje:hj,atras:atras,depois:depois,refazer:refazer,critico:hj||atras||depois||refazer};
+}
+// proxima consulta (de hoje em diante) ligada a este trabalho
+function prosConsulta_V359(p,appts,hoje){
+  hoje=hoje||today();
+  var l=(appts||[]).filter(function(a){return consultaViva_V359(a,hoje)&&prosLiga_V359(p,a);});
+  l.sort(function(x,y){return x.date===y.date?t2m(x.time)-t2m(y.time):String(x.date).localeCompare(String(y.date));});
+  return l[0]||null;
+}
+// o que falta / por que preocupa, por trabalho
+function prosMotivo_V359(p,a,hoje){
+  hoje=hoje||today();
+  if(p.status==="remake")return "trabalho para REFAZER";
+  if(p.due&&p.due<hoje){var d=prosDias_V359(p.due,hoje);return "laboratório atrasado "+d+(d===1?" dia":" dias");}
+  if(p.due&&a&&p.due>a.date)return "previsão do laboratório ("+fmt(p.due)+") é DEPOIS da consulta";
+  if(!p.due)return "sem previsão de retorno";
+  return "";
+}
+function prosTitulo_V359(info){
+  if(!info)return "";
+  return info.lista.map(function(p){
+    var s=prosDesc_V359(p)+(p.due?(" · previsão "+fmt(p.due)):"");
+    var m=prosMotivo_V359(p,null);
+    return s+(m?" · "+m:"");
+  }).join("\n");
+}
+function prosResumo_V359(info,labs,a){
+  if(!info||!info.lista.length)return "";
+  if(info.lista.length>1){
+    var ult=info.lista.map(function(p){return String(p.due||"");}).sort().pop();
+    return info.lista.length+" trabalhos no laboratório"+(ult?" · previsão até "+fmt(ult):"");
+  }
+  var p=info.lista[0];
+  var lab=prosLab_V359(labs,p);
+  var s=(p.proc||p.type||"Prótese")+(lab&&lab.name?" · "+lab.name:"");
+  var m=prosMotivo_V359(p,a);// vazio = no prazo (tem previsao e ela e ate o dia da consulta)
+  return s+" · "+(m||("previsão "+fmt(p.due)));
+}
+// selo da agenda. tam: "c" compacta, "n" normal, "m" celula pequena (varios dentistas)
+// na compacta, em tela de celular fica so o icone (classe pr359-t some abaixo de 600px)
+function ProsSelo_V359({info,tam}){
+  if(!info)return null;
+  var c=info.critico;
+  var mini=tam==="m",norm=tam==="n";
+  return <span title={prosTitulo_V359(info)} style={{display:"inline-block",fontSize:mini?8:(norm?9.5:9),background:c?G.red:G.orange,color:"#fff",borderRadius:mini?3:(norm?6:5),padding:mini?"1px 5px":(norm?"3px 9px":"2px 7px"),fontWeight:800,whiteSpace:mini?"normal":"nowrap",flexShrink:0,letterSpacing:".3px",lineHeight:1.25,animation:(c&&info.hoje)?"prosAlarme359 1.6s ease-in-out infinite":"none"}}>
+    {c?"🚨":"📦"}<span className={tam==="c"?"pr359-t":""}>{c?" PRÓTESE NÃO CHEGOU":" PRÓTESE NO LAB"}</span>
+  </span>;
+}
+// painel dentro da janela da consulta: o que falta, baixa ("Chegou!") e cobrar o laboratorio
+function ProsAviso_V359({info,a,patNome,labs,podeBaixa,onChegou}){
+  if(!info||!info.lista||!info.lista.length)return null;
+  var hj=today();
+  var crit=info.critico;
+  var cor=crit?G.red:G.orange;
+  var n=info.lista.length;
+  var tit=crit
+    ?(info.hoje?"A prótese NÃO CHEGOU e a consulta é hoje":"A prótese ainda NÃO CHEGOU do laboratório")
+    :(n>1?"Trabalhos de prótese ainda no laboratório":"Trabalho de prótese ainda no laboratório");
+  return <div style={{borderRadius:12,padding:"11px 13px",background:crit?"var(--red-soft)":"var(--amber-soft)",border:"2px solid "+cor,display:"flex",flexDirection:"column",gap:8}}>
+    <div style={{display:"flex",alignItems:"center",gap:8}}>
+      <span style={{fontSize:20,lineHeight:1,animation:(crit&&info.hoje)?"nmpulse 1.2s ease-in-out infinite":"none"}}>{crit?"🚨":"📦"}</span>
+      <div style={{fontSize:13.5,fontWeight:800,color:cor,lineHeight:1.3}}>{tit}</div>
+    </div>
+    {info.lista.map(function(p){
+      var lab=prosLab_V359(labs,p);
+      var m=prosMotivo_V359(p,a,hj);
+      if(!m&&info.hoje)m=(p.due===hj?"previsto para chegar hoje — confirme com o laboratório":"a consulta é hoje — confirme com o laboratório");
+      var msg="Olá "+((lab&&lab.name)||"")+"! Verificando "+(p.type||"o trabalho")+(p.proc?" ("+p.proc+")":"")+" paciente "+(patNome||"")+(p.tooth?", dente "+p.tooth:"")+(p.cor?", cor "+p.cor+(p.escala?" ("+p.escala+")":""):"")+". Enviada "+fmt(p.sent)+(p.due?", previsão "+fmt(p.due):"")+"."+(a&&a.date?" O paciente está marcado para "+fmt(a.date)+(a.time?" às "+a.time:"")+".":"");
+      return <div key={p.id} style={{background:"var(--surface)",borderRadius:10,padding:"9px 11px",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{flex:1,minWidth:170}}>
+          <div style={{fontSize:12.5,fontWeight:800,color:G.text,lineHeight:1.35}}>{"🦷 "+prosDesc_V359(p)}</div>
+          <div style={{fontSize:11,color:G.muted,marginTop:2,lineHeight:1.45}}>{((lab&&lab.name)?lab.name+" · ":"")+"enviado "+fmt(p.sent)+(p.due?" · previsão "+fmt(p.due):"")}</div>
+          {m?<div style={{fontSize:11,fontWeight:800,color:cor,marginTop:2,lineHeight:1.4}}>{m.charAt(0).toUpperCase()+m.slice(1)}</div>:null}
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {podeBaixa&&<button onClick={function(){onChegou&&onChegou(p);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{"📦 Chegou!"}</button>}
+          {lab&&lab.phone&&<button onClick={function(){wa(lab.phone,msg);}} style={{background:"#25D366",color:"#fff",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{"📱 Cobrar lab"}</button>}
+        </div>
+      </div>;
+    })}
+  </div>;
+}
+// tarja no topo da ficha (prontuario), em todas as abas
+function ProsTarja_V359({pid,pros,labs,appts}){
+  var hj=today();
+  var lista=(pros||[]).filter(function(p){return prosAberto_V359(p)&&String(p.patientId)===String(pid);});
+  if(!lista.length)return null;
+  var prox=null;
+  (appts||[]).forEach(function(a){
+    if(!a||String(a.patientId)!==String(pid)||!consultaViva_V359(a,hj))return;
+    if(!lista.some(function(p){return prosLiga_V359(p,a);}))return;
+    if(!prox||a.date<prox.date||(a.date===prox.date&&t2m(a.time)<t2m(prox.time)))prox=a;
+  });
+  var info=prox?prosPend_V359(prox,lista,hj):null;
+  var crit=info?info.critico:lista.some(function(p){return p.status==="remake"||(!!p.due&&p.due<hj);});
+  var cor=crit?G.red:G.orange;
+  return <div style={{borderRadius:11,padding:"10px 12px",marginTop:8,display:"flex",gap:10,alignItems:"flex-start",background:crit?"var(--red-soft)":"var(--amber-soft)",border:"1.5px solid "+cor}}>
+    <span style={{fontSize:17,lineHeight:1.1}}>{crit?"🚨":"📦"}</span>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontSize:13,fontWeight:800,lineHeight:1.25,color:cor}}>{crit?"Prótese ainda NÃO CHEGOU do laboratório":"Prótese no laboratório — ainda não chegou"}</div>
+      {lista.map(function(p){
+        var lab=prosLab_V359(labs,p);
+        var m=prosMotivo_V359(p,prox,hj);
+        return <div key={p.id} style={{fontSize:11.5,color:G.muted,marginTop:3,lineHeight:1.45}}>
+          <b style={{color:G.text}}>{prosDesc_V359(p)}</b>{" · "+((lab&&lab.name)?lab.name+" · ":"")+"enviado "+fmt(p.sent)+(p.due?" · previsão "+fmt(p.due):"")}{m?<b style={{color:cor}}>{" · "+m}</b>:null}
+        </div>;
+      })}
+      <div style={{fontSize:11.5,fontWeight:700,color:(prox&&prox.date===hj)?G.red:G.muted,marginTop:4,lineHeight:1.4}}>{prox?("📅 Consulta "+(prox.date===hj?"HOJE":fmt(prox.date))+(prox.time?" às "+prox.time:"")):"📅 Sem consulta marcada para receber o trabalho"}</div>
+    </div>
+  </div>;
+}
+// Visao Geral: pacientes de HOJE cujo trabalho ainda nao chegou (mesmo formato do V338)
+function PnlProsHoje_V359({appts,pros,pats,labs,go}){
+  var t=today();
+  var ab=(pros||[]).filter(prosAberto_V359);
+  if(!ab.length)return null;
+  var lista=(appts||[]).filter(function(a){return a&&a.date===t;}).map(function(a){return {a:a,info:prosPend_V359(a,ab,t)};}).filter(function(x){return !!x.info;})
+    .sort(function(x,y){return t2m(x.a.time)-t2m(y.a.time);});
+  if(!lista.length)return null;
+  return <div style={{background:"var(--red-soft)",borderRadius:13,padding:"12px 13px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",border:"1.5px solid "+G.red,borderLeft:"5px solid "+G.red}}>
+    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:6}}>
+      <span style={{fontSize:16,animation:"nmpulse 1.2s ease-in-out infinite"}}>{"🚨"}</span>
+      <span style={{fontSize:12.5,fontWeight:800,color:G.red,letterSpacing:".3px"}}>{"PRÓTESE NÃO CHEGOU — PACIENTE HOJE"}</span>
+      <span style={{marginLeft:"auto",fontSize:11,fontWeight:800,color:"#fff",background:G.red,borderRadius:20,padding:"1px 8px"}}>{lista.length}</span>
+    </div>
+    {lista.map(function(x){
+      var a=x.a;
+      var p=(pats||[]).find(function(q){return String(q.id)===String(a.patientId);});
+      return <div key={"psh"+a.id} onClick={function(){go&&go("agenda");}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 7px",borderRadius:9,cursor:"pointer",background:"var(--surface)",marginTop:5}}>
+        <span style={{fontSize:12,fontWeight:800,color:G.red,minWidth:38}}>{a.time||"--:--"}</span>
+        <span style={{flex:1,minWidth:0}}>
+          <span style={{display:"block",fontSize:12,fontWeight:700,color:G.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(p&&p.name)||a.patientName||"Paciente"}</span>
+          <span style={{display:"block",fontSize:10.5,fontWeight:600,color:G.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{prosResumo_V359(x.info,labs,a)}</span>
+        </span>
+      </div>;
+    })}
+    <div style={{fontSize:10.5,color:G.muted,marginTop:7,lineHeight:1.4}}>{"Ligar para o laboratório ou avisar o paciente antes do horário. Quando chegar, dê baixa em Próteses (ou na consulta, na agenda)."}</div>
+  </div>;
+}
+
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate,faixaRecados,pros=[],setPros,labs=[]}){
 // V321: quais pacientes ja tem termo de siso ASSINADO (para o alerta na linha da agenda).
 // Busca uma vez ao abrir a agenda; o alerta some sozinho quando o termo e assinado.
 const [sisoOk,setSisoOk]=useState({});
@@ -4661,6 +4837,18 @@ const agradecerPreAg=function(){
 };
 const isDent=user.level===1;
 const td=today();
+// V359: trabalhos de protese que ainda nao chegaram (Aguardando/Refazer), filtrados uma vez por render
+const prosAb_V359=(pros||[]).filter(prosAberto_V359);
+const prosDe_V359=function(a){return prosAb_V359.length?prosPend_V359(a,prosAb_V359,td):null;};
+// V359: baixa direto da janela da consulta -- grava igual ao botao "📦 Chegou!" da tela Proteses
+const prosChegou_V359=function(pr){
+  if(!pr||typeof setPros!=="function")return;
+  if(window.confirm&&!window.confirm("Confirmar que este trabalho CHEGOU do laboratório?\n\n"+prosDesc_V359(pr)))return;
+  var uN=(user&&user.name)||"Sistema";var hj=today();
+  setPros(function(prev){return (prev||[]).map(function(x){return x.id===pr.id?Object.assign({},x,{status:"returned",returned:hj,_recBy:uN,_recTs:new Date().toISOString(),_ts:Date.now()}):x;});});
+  var pt=(pats||[]).find(function(x){return String(x.id)===String(pr.patientId);});
+  if(addLog)addLog("protese","Deu baixa na prótese ("+prosDesc_V359(pr)+") pela agenda",(pt&&pt.name)||"");
+};
 const DAY=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 const MONTHS=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
@@ -4734,6 +4922,8 @@ const colarEm=function(dateStr,slot,dentId){
 };
 const espMatches=(user.level>=2)?esperaMatchDia(espera||[],appts,dents,selDate):[];
 const hiddenToday=denF==="all"?appts.filter(function(a){return a.date===selDate&&!vd.some(function(d){return d.id===a.dentistId;})&&a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed";}):[];
+// V359: faixa vermelha do topo do dia -- so os casos criticos (consulta hoje, lab atrasado, previsao depois da consulta)
+const prosDiaCrit_V359=(agView==="dia"&&prosAb_V359.length)?appts.filter(function(a){return a.date===selDate&&vd.some(function(d){return d.id===a.dentistId;});}).map(function(a){return {a:a,info:prosDe_V359(a)};}).filter(function(x){return x.info&&x.info.critico;}).sort(function(x,y){return t2m(x.a.time)-t2m(y.a.time);}):[];
 const dim=(y,m)=>new Date(y,m+1,0).getDate();
 const fd=(y,m)=>new Date(y,m,1).getDay();
 
@@ -5029,6 +5219,14 @@ return (
 
 {agView==="dia"&&hiddenToday.length>0&&<div onClick={function(){var od=dents.find(function(d){return d.id===hiddenToday[0].dentistId;});if(od)setDenF(String(od.id));}} style={{background:"var(--amber-soft)",border:"1.5px solid #FFB300",borderRadius:10,padding:"9px 13px",fontSize:12,fontWeight:700,color:"#E65100",cursor:"pointer",display:"flex",alignItems:"center",gap:6,margin:"2px 0"}}>{"⚠ "+hiddenToday.length+" consulta(s) de Ortodontia neste dia não aparecem aqui. Toque para ver →"}</div>}
 
+{/* V359: paciente deste dia com protese que nao chegou do laboratorio -- toque no nome abre a consulta */}
+{agView==="dia"&&prosDiaCrit_V359.length>0&&<div style={{background:"var(--red-soft)",border:"2px solid "+G.red,borderRadius:10,padding:"9px 13px",display:"flex",flexDirection:"column",gap:7,margin:"2px 0"}}>
+<div style={{fontSize:12.5,fontWeight:800,color:G.red,display:"flex",alignItems:"center",gap:7,lineHeight:1.35}}><span style={{fontSize:16,flexShrink:0,animation:selDate===td?"nmpulse 1.2s ease-in-out infinite":"none"}}>{"🚨"}</span><span>{(prosDiaCrit_V359.length===1?"1 paciente":prosDiaCrit_V359.length+" pacientes")+(selDate===td?" de hoje":" deste dia")+" com prótese que NÃO CHEGOU do laboratório"}</span></div>
+<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+{prosDiaCrit_V359.map(function(x){var pp=pats.find(function(q){return q.id===x.a.patientId;});var nm=String((pp&&pp.name)||x.a.patientName||"Paciente").trim().split(/\s+/);return <button key={"pdc"+x.a.id} onClick={function(){setViewA(x.a);}} title={prosTitulo_V359(x.info)} style={{background:G.red,color:"#fff",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11.5,fontWeight:800,cursor:"pointer",whiteSpace:"nowrap"}}>{(x.a.time||"")+" · "+nm[0]+(nm.length>1?" "+nm[nm.length-1]:"")}</button>;})}
+</div>
+</div>}
+
 {agView==="dia"&&denF==="all"&&!isDent&&vd.length===0&&<div style={{background:G.card,borderRadius:12,padding:24,textAlign:"center",color:G.muted,fontSize:13,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>{"Nenhum dentista clínico trabalhando neste dia. Selecione um dentista no filtro para agendar."}</div>}
 
 
@@ -5116,8 +5314,9 @@ ANAM_CONDS.forEach(function(c){if(anObj[c[0]])flags.push(c[1]);});
 var isPending=a.status==="pending";
 var isWaiting=a.status==="waiting";
 var stCol=isPartial?G.red:(SCN[a.status]||G.primary);
+var _prN=prosDe_V359(a);// V359
 return(
-<div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"stretch",gap:11,padding:"11px 13px",borderRadius:14,background:"var(--surface)",cursor:"pointer",boxShadow:"7px 7px 18px #c5cdc2,-7px -7px 18px #ffffff"}}>
+<div key={slot} onClick={function(){setViewA(a);}} style={{display:"flex",alignItems:"stretch",gap:11,padding:"11px 13px",borderRadius:14,background:(_prN&&_prN.critico)?"var(--red-soft)":"var(--surface)",cursor:"pointer",boxShadow:(_prN?("0 0 0 "+(_prN.critico?"2px var(--red)":"1.5px var(--orange)")+","):"")+"7px 7px 18px #c5cdc2,-7px -7px 18px #ffffff"}}>
 <span style={{display:"flex",flexDirection:"column",justifyContent:"center",minWidth:52,lineHeight:1.05}}><span style={{fontFamily:"'Cormorant Garamond'",fontSize:19,fontWeight:700,color:stCol}}>{slot}</span><span style={{fontSize:10,fontWeight:600,color:G.muted}}>{(a.duration||30)+" min"}</span></span>
 <div style={{width:isWaiting?9:7,borderRadius:7,flexShrink:0,alignSelf:"stretch",background:GRAD[a.status]||GRAD.confirmed,boxShadow:"inset 2px 2px 4px rgba(255,255,255,.45),inset -2px -2px 5px rgba(0,0,0,.18),3px 4px 13px "+(GLOW[a.status]||GLOW.confirmed)}}></div>
 <div style={{flex:1,minWidth:0}}>
@@ -5136,6 +5335,11 @@ return(
 {/* V338: selo TERMO PENDENTE tambem na visao NORMAL do dia (antes so aparecia na compacta) */}
 {termoSisoPend(a)&&<div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
 <span style={{fontSize:9.5,background:"#8B6914",color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"\ud83d\udccb TERMO PENDENTE"}</span>
+</div>}
+{/* V359: protese que ainda nao chegou do laboratorio */}
+{_prN&&<div style={{display:"flex",gap:7,marginTop:5,flexWrap:"wrap",alignItems:"center"}}>
+<ProsSelo_V359 info={_prN} tam="n"/>
+<span style={{fontSize:10.5,fontWeight:700,color:_prN.critico?G.red:G.orange,lineHeight:1.35}}>{prosResumo_V359(_prN,labs,a)}</span>
 </div>}
 {flags.length>0&&<div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
 {flags.map(function(f,i){return <span key={i} style={{fontSize:10,background:"var(--surface)",color:"#9a7636",borderRadius:7,padding:"3px 9px",fontWeight:700,boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px var(--nm-light)"}}>{f}</span>;})}
@@ -5180,8 +5384,10 @@ var _preC=!!(pC&&pC._pre);/* V283 */
 var _temAlertaC=(_flC.length>0||_noAnC||_semCadC||_preC||termoSisoPend(aC));// V321
 var nmC=isPartC?aC.patientName:((pC&&pC.name)||"A confirmar");
 var stColC=isPartC?G.red:(SCN[aC.status]||G.primary);
+var _prC=prosDe_V359(aC);// V359
+var _prCrC=!!(_prC&&_prC.critico);
 _slotsCompact.push(
-<div key={"c"+slot} onClick={function(){setViewA(aC);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:10,background:"var(--surface)",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",marginBottom:5,cursor:"pointer",borderLeft:hasAlertC?"3px solid var(--yellow)":"none"}}>
+<div key={"c"+slot} onClick={function(){setViewA(aC);}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",borderRadius:10,background:_prCrC?"var(--red-soft)":"var(--surface)",boxShadow:(_prCrC?"0 0 0 1.5px var(--red),":"")+"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",marginBottom:5,cursor:"pointer",borderLeft:_prC?("4px solid "+(_prCrC?"var(--red)":"var(--orange)")):(hasAlertC?"3px solid var(--yellow)":"none")}}>
 <span style={{fontFamily:"'Cormorant Garamond'",fontSize:multi?15:16,fontWeight:700,color:stColC,minWidth:multi?96:46,lineHeight:1,whiteSpace:"nowrap"}}>{lbl}</span>
 <div style={{width:3.5,height:22,borderRadius:3,flexShrink:0,background:GRAD[aC.status]||GRAD.confirmed}}></div>
 <span style={{fontSize:12.5,fontWeight:800,color:isPartC?G.red:G.text,flex:"1 1 auto",minWidth:0,maxWidth:_temAlertaC?"46%":"none",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",letterSpacing:".2px"}}>{nmC}</span>
@@ -5195,6 +5401,7 @@ _slotsCompact.push(
 {_flC.map(function(fx,ix){return <span key={ix} style={{color:fx.hot?"#a8342c":"#9a7636"}}>{(ix?" \u00b7 ":"")+fx.t}</span>;})}
 </span>}
 </span>}
+{_prC&&<ProsSelo_V359 info={_prC} tam="c"/>}{/* V359 */}
 <span style={{fontSize:10,color:G.muted,fontWeight:700,whiteSpace:"nowrap",maxWidth:92,overflow:"hidden",textOverflow:"ellipsis"}}>{aC.procedureCustom||aC.procedure}</span>
 {hasAlertC&&<span style={{width:19,height:19,borderRadius:6,background:"#D32F2F",color:"#fff",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:900,boxShadow:"0 1px 4px rgba(180,30,30,.45)"}}>!</span>}
 <span style={{width:16,height:16,borderRadius:5,background:SCN[aC.status]||G.primary,color:"#fff",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:900}}><i className={"ph-fill "+(SCN_IC[aC.status]||"ph-circle")} style={{fontSize:11}}></i></span>
@@ -5300,6 +5507,7 @@ if(!a)a=appts.find(function(x){return x.date===selDate&&x.time===slot&&x.dentist
 {!p&&a.patientName&&<div style={{marginTop:2}}><span style={{fontSize:8,background:G.red,color:"#fff",borderRadius:3,padding:"1px 5px",fontWeight:800,display:"inline-block",lineHeight:1.2}}>{"\u26d4 SEM CADASTRO"}</span></div>}
 {p&&p._pre&&<div style={{marginTop:2}}><span style={{fontSize:8,background:G.blue,color:"#fff",borderRadius:3,padding:"1px 5px",fontWeight:800,display:"inline-block",lineHeight:1.2}}>{"\u26a1 PR\u00c9-CADASTRO"}</span></div>}
 {p&&anamFalta(p)&&<div style={{marginTop:2}}><span style={{fontSize:8,background:"#D81B60",color:"#fff",borderRadius:3,padding:"1px 5px",fontWeight:800,display:"inline-block",lineHeight:1.2}}>{"⚠ SEM ANAMNESE"}</span></div>}
+{(function(){var _prM=prosDe_V359(a);return _prM?<div style={{marginTop:2}}><ProsSelo_V359 info={_prM} tam="m"/></div>:null;})()}{/* V359 */}
                   {healthFlags.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:2,marginTop:2}}>{healthFlags.map(function(f,i){return <span key={i} style={{fontSize:8,background:f.startsWith("⚠")?G.red+"20":f.startsWith("💊")?G.yellow+"20":G.blue+"15",color:f.startsWith("⚠")?G.red:f.startsWith("💊")?G.yellow:G.blue,borderRadius:3,padding:"1px 4px",fontWeight:700}}>{f}</span>;})}</div>}
                   {!isDent&&<div style={{display:"flex",gap:3,marginTop:3}}>
                     <select value={a.status} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();chSt(a.id,e.target.value);}} style={{border:"1px solid "+SC[a.status],background:"var(--surface)",borderRadius:5,padding:"1px 4px",fontSize:9,color:SC[a.status],fontWeight:700,cursor:"pointer",outline:"none"}}>
@@ -5383,8 +5591,9 @@ if(a.blocked)return <div key={ds+slot} style={{background:"var(--red-soft)",bord
 var nm=a.patientName||((pats.find(function(x){return x.id===a.patientId;})||{}).name)||"?";
 var extras=appts.filter(function(x){return x.date===ds&&x.time===slot&&wkDents.some(function(d){return d.id===x.dentistId;})&&x.status!=="cancelled"&&x.status!=="rescheduled"&&x.status!=="missed"&&!x.blocked;}).length;
 var den=dents.find(function(d){return d.id===a.dentistId;});
-return <div key={ds+slot} onClick={function(){setViewA(a);}} style={{background:SC_BG[a.status]||"var(--card)",borderLeft:"3px solid "+(SC[a.status]||G.primary),borderRadius:5,minHeight:24,padding:"3px 5px",cursor:"pointer",overflow:"hidden"}}>
-<div style={{fontSize:10.5,fontWeight:700,color:G.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{nomeCurto(nm)}</div>
+var _prW=prosDe_V359(a);// V359
+return <div key={ds+slot} onClick={function(){setViewA(a);}} title={_prW?prosTitulo_V359(_prW):undefined} style={{background:(_prW&&_prW.critico)?"var(--red-soft)":(SC_BG[a.status]||"var(--card)"),borderLeft:"3px solid "+(_prW?(_prW.critico?G.red:G.orange):(SC[a.status]||G.primary)),borderRadius:5,minHeight:24,padding:"3px 5px",cursor:"pointer",overflow:"hidden"}}>
+<div style={{fontSize:10.5,fontWeight:700,color:G.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{_prW?<span style={{color:_prW.critico?G.red:G.orange}}>{_prW.critico?"🚨 ":"📦 "}</span>:null}{nomeCurto(nm)}</div>
 {(a.treatment||a.procedure)&&<div style={{fontSize:8.5,color:G.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{a.treatment||a.procedure}</div>}
 {wkDents.length>1&&den&&<div style={{fontSize:8,color:den.color,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{den.name.replace(/Dr\.|Dra\./i,"").trim().split(" ")[0]}{extras>1?" +"+(extras-1):""}</div>}
 </div>;
@@ -5436,10 +5645,12 @@ return(
 {passadas.map(renderItem)}
 </div>}
 {histTab==="info"&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+{/* V359: protese que ainda nao chegou -- baixa e cobranca do laboratorio daqui mesmo */}
+<ProsAviso_V359 info={prosDe_V359(a)} a={a} patNome={(p&&p.name)||a.patientName||""} labs={labs} podeBaixa={!isDent&&typeof setPros==="function"} onChegou={prosChegou_V359}/>
 {p&&p.obs&&<div style={{background:G.yellow+"18",border:"2px solid "+G.yellow,borderRadius:10,padding:"8px 12px",fontWeight:700,color:G.yellow}}>{"⚠ "+p.obs}</div>}
 <div style={{background:G.accent,borderRadius:10,padding:"10px 14px",cursor:"pointer"}} onClick={()=>{setViewA(null);setOpenFolder(p);}}>
 <div style={{fontSize:15,fontWeight:700,color:G.primary,textDecoration:"underline"}}>{p&&p.name}</div>
-<div style={{fontSize:12,color:G.muted}}>{"📁 "+(((p&&p.folder))||"sem ficha")+" · Toque para abrir prontuário"}/* V282 */{/* V283: situacao do cadastro dentro do modal da consulta */}{!p&&<span style={{marginLeft:8,background:G.red,color:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800}}>{"\u26d4 SEM CADASTRO"}</span>}{p&&p._pre&&<span style={{marginLeft:8,background:G.blue,color:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}</div>
+<div style={{fontSize:12,color:G.muted}}>{"📁 "+(((p&&p.folder))||"sem ficha")+" · Toque para abrir prontuário"}{/* V282 */}{/* V283: situacao do cadastro dentro do modal da consulta */}{!p&&<span style={{marginLeft:8,background:G.red,color:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800}}>{"\u26d4 SEM CADASTRO"}</span>}{p&&p._pre&&<span style={{marginLeft:8,background:G.blue,color:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}</div>
 {p&&p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600,marginTop:3}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
 </div>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
@@ -5673,7 +5884,7 @@ return <button key={d.id} onClick={function(){togDen(d.id);}} style={{display:"f
 </div>
 
   </div>}
-{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs||[]} setRecs={setRecs||(()=>{})} treats={treats||[]} setTreats={setTreats||(()=>{})} budgets={budgets||[]} setBudgets={setBudgets||(()=>{})} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} onClose={()=>setOpenFolder(null)}/>}
+{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs||[]} setRecs={setRecs||(()=>{})} treats={treats||[]} setTreats={setTreats||(()=>{})} budgets={budgets||[]} setBudgets={setBudgets||(()=>{})} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} pros={pros} labs={labs} onClose={()=>setOpenFolder(null)}/>}
 </div>
 );
 }
@@ -6251,7 +6462,7 @@ return <div style={{background:G.card,borderRadius:13,boxShadow:"6px 6px 15px va
 </div>;
 }
 
-function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat,waTemplates,docsEmitidos,setDocsEmitidos}){
+function Pacientes({pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,addLog,delPat,waTemplates,docsEmitidos,setDocsEmitidos,pros=[],labs=[]}){
 var _fidx=useMemo(function(){return faltaIdx(appts);},[appts]);
 const [srch,setSrch]=useState("");
 const [pPage,setPPage]=useState(0);
@@ -6457,7 +6668,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
     {preDone.ind&&!_agCel(preDone.ind.phone)&&<div style={{background:"var(--amber-soft)",border:"1.5px solid "+G.gold,borderRadius:11,padding:"12px 14px",display:"flex",flexDirection:"column",gap:9}}>
       <div style={{fontSize:12.5,fontWeight:700,color:G.yellow,lineHeight:1.5}}>{"\u26a0\ufe0f "+preDone.ind.name+(_agDig(preDone.ind.phone).length>=10?" s\u00f3 tem telefone fixo na ficha \u2014 n\u00e3o d\u00e1 para mandar WhatsApp.":" n\u00e3o tem telefone cadastrado.")}</div>
       <MotivoPular ind={preDone.ind} compact onPular={function(m,susp){setPats(function(prev){return prev.map(function(p){return p.id===preDone.pac.id?Object.assign({},p,{indicAgradSkip:m,indicAgradSkipBy:(user&&user.name)||"",indicAgradSkipTs:new Date().toISOString(),indicAgradSusp:!!susp,_ts:Date.now()}):p;});});fecharPre();}}/>
-    </div>}/* V319 */
+    </div>}{/* V319 */}
     {(!preDone.ind||preDone.sent)&&<Btn ch="Fechar" onClick={fecharPre}/>}
   </div>
   :<Fragment>
@@ -6468,7 +6679,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 {gateP&&<GateAgrad pac={gateP.pac} ind={gateP.ind} pats={pats} waTemplates={waTemplates}
   onAgradecer={function(){var ind=gateP.ind;var txt=getWA(waTemplates,gateP.pac._pre?"indicacao_pre":"indicacao",{nome:String(ind.name||"").split(" ")[0],paciente:gateP.pac.name});wa(ind.phone,txt);_agStampP(gateP.pac.id,{indicAgrad:new Date().toISOString(),indicAgradBy:(user&&user.name)||""});setGateP(null);setPm(false);}}
   onPular={function(m,susp){_agStampP(gateP.pac.id,{indicAgradSkip:m,indicAgradSkipBy:(user&&user.name)||"",indicAgradSkipTs:new Date().toISOString(),indicAgradSusp:!!susp});setGateP(null);setPm(false);}}
-  onVoltar={function(){setGateP(null);}}/>}/* V319 */
+  onVoltar={function(){setGateP(null);}}/>}{/* V319 */}
 {missNew&&<AvisoObrig lista={missNew} onVoltar={function(){setMissNew(null);}} onSalvar={function(){var _m=missNew;setMissNew(null);savePatOk(_m);}}/* V281 *//>}
 {delModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
@@ -6481,7 +6692,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 <button onClick={()=>setDelModal(null)} style={{border:"1.5px solid var(--primary)",background:"transparent",color:"var(--primary)",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
 <button onClick={async ()=>{if(delModal._busy)return;setDelModal(Object.assign({},delModal,{_busy:true}));var _r=null;try{_r=delPat?await delPat(delModal.pat.id):{ok:true};}catch(e){_r={ok:false,msg:String((e&&e.message)||e)};}if(_r&&_r.ok){setPats(prev=>prev.filter(x=>x.id!==delModal.pat.id));if(addLog)addLog("paciente","Excluiu paciente: "+delModal.pat.name,delModal.pat.name);setDelModal(null);}else{alert("Não foi possível excluir no servidor"+((_r&&_r.msg)?(": "+_r.msg):".")+" Verifique a conexão e tente novamente.");setDelModal(prev=>prev?Object.assign({},prev,{_busy:false}):prev);}}} style={{background:"var(--red)",color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer",opacity:delModal._busy?0.6:1}}>{delModal._busy?"Excluindo...":"Excluir Permanentemente"}</button>
 </div></div></div></div>}
-{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} onClose={()=>setOpenFolder(null)}/>}
+{openFolder&&<PatientFolder waTemplates={waTemplates} pat={openFolder} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} pros={pros} labs={labs} onClose={()=>setOpenFolder(null)}/>}
 
 <Modal open={pm} close={()=>setPm(false)} title={ep?"Editar Paciente":"Novo Paciente"} wide ch={<div style={{display:"flex",flexDirection:"column",gap:11}}>
   <Inp lb="Nome completo *" val={pf.name} set={fp("name")}/>
@@ -6536,8 +6747,12 @@ const t=today();
 const lateP=pros.filter(p=>p.status==="waiting"&&p.due&&p.due<t).sort((a,b)=>(a.due||"").localeCompare(b.due||""));
 // Exatamente hoje
 const todayOnly=pros.filter(p=>p.due===t&&p.status==="waiting");
-// "Hoje" mostra atrasadas (destaque vermelho) em primeiro + as de hoje
-const todP=[...lateP,...todayOnly];
+// V359: trabalho que ainda nao chegou e o paciente esta marcado HOJE na agenda (mesmo com previsao futura)
+const apHj_V359=(appts||[]).filter(a=>a&&a.date===t);
+const pacHoje_V359=p=>{if(!prosAberto_V359(p)||!apHj_V359.length)return null;const c=prosConsulta_V359(p,apHj_V359,t);return (c&&c.date===t)?c:null;};
+const pacHojeP=pros.filter(p=>!!pacHoje_V359(p));
+// "Hoje" mostra atrasadas (destaque vermelho) em primeiro + as de hoje + (V359) as do paciente marcado hoje
+const todP=[...lateP,...todayOnly,...pacHojeP.filter(p=>lateP.indexOf(p)<0&&todayOnly.indexOf(p)<0)];
 const flt=filt==="today"?todP:filt==="all"?pros:pros.filter(p=>p.status===filt).sort((a,b)=>(a.due||"9999-99-99").localeCompare(b.due||"9999-99-99"));
 // V212: busca de paciente dentro do relatorio de proteses
 const nrmP=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
@@ -6580,14 +6795,15 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 </div>;})()}
 {srchAct&&srchPatIds.length>1&&<div style={{background:G.card,borderRadius:10,padding:"10px 14px",fontSize:12,color:G.muted,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>{"\uD83D\uDD0E"} {srchPatIds.length} pacientes encontrados ({srchList.length} trabalhos, total {cur(srchTot)}) — digite mais letras para ver o resumo individual</div>}
 {!srchAct&&filt==="today"&&todP.length===0&&<div style={{background:G.card,borderRadius:12,padding:28,textAlign:"center",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}><div style={{fontSize:28,marginBottom:6}}>✅</div><div style={{fontWeight:700,color:G.success}}>Nenhum trabalho previsto para hoje!</div></div>}
+{!srchAct&&filt==="today"&&pacHojeP.length>0&&<div style={{background:"var(--red-soft)",border:"2px solid "+G.red,borderRadius:10,padding:"11px 14px"}}><div style={{fontWeight:800,color:G.red,fontSize:14}}>{"🚨 "+pacHojeP.length+(pacHojeP.length>1?" pacientes marcados":" paciente marcado")+" HOJE com trabalho que não chegou"}</div><div style={{color:G.muted,fontSize:12,marginTop:2}}>{"Ligar para o laboratório agora ou avisar o paciente antes do horário"}</div></div>}{/* V359 */}
 {!srchAct&&filt==="today"&&lateP.length>0&&<div style={{background:G.red,borderRadius:10,padding:"11px 14px",boxShadow:`0 2px 10px ${G.red}55`}}><div style={{fontWeight:700,color:"#fff",fontSize:14}}>⚠️ {lateP.length} prótese(s) ATRASADA(S)!</div><div style={{color:"#fff",opacity:.85,fontSize:12,marginTop:2}}>Cobrar o laboratório com urgência</div></div>}
 {!srchAct&&filt==="today"&&todayOnly.length>0&&<div style={{background:G.orange+"15",border:`2px solid ${G.orange}`,borderRadius:10,padding:"10px 14px"}}><div style={{fontWeight:700,color:G.orange}}>🔔 {todayOnly.length} trabalho(s) para fechar hoje</div></div>}
 <div style={{display:"flex",flexDirection:"column",gap:9}}>
-{flt2.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];const lab=labs.find(x=>x.id===p.labId);const late=p.status==="waiting"&&p.due&&p.due<t;const isT=p.due===t&&p.status==="waiting";
-return <div key={p.id} style={late?{background:G.red+"10",borderRadius:12,padding:"13px 15px",border:`2px solid ${G.red}`,boxShadow:`0 2px 12px ${G.red}40`}:{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${isT?G.orange:PROS_SC[p.status]}`}}>
+{flt2.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];const lab=labs.find(x=>x.id===p.labId);const late=p.status==="waiting"&&p.due&&p.due<t;const isT=p.due===t&&p.status==="waiting";const pHj=pacHoje_V359(p);/* V359 */
+return <div key={p.id} style={(late||pHj)?{background:G.red+"10",borderRadius:12,padding:"13px 15px",border:`2px solid ${G.red}`,boxShadow:`0 2px 12px ${G.red}40`}:{background:G.card,borderRadius:12,padding:"13px 15px",boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",borderLeft:`4px solid ${isT?G.orange:PROS_SC[p.status]}`}}>
 <div style={{display:"flex",gap:11,flexWrap:"wrap"}}>
 <div style={{flex:1,minWidth:170}}>
-<div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}><span style={{fontWeight:700,fontSize:13,color:late?G.red:G.text}}>{pat?.name}</span><span style={{fontSize:11,color:G.muted}}>P.{pat?.folder}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/>{late&&<Bdg l="⚠ ATRASADO" col={G.red} sm/>}{isT&&!late&&<Bdg l="📅 HOJE" col={G.orange} sm/>}{/* V278: detetive -- quem mexeu neste trabalho (nivel 3) */}{user.level>=3&&<button onClick={e=>{e.stopPropagation();setDetPros(p);}} title="Quem deu a baixa?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:26,height:26,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}</div>
+<div style={{display:"flex",gap:6,alignItems:"center",marginBottom:3,flexWrap:"wrap"}}><span style={{fontWeight:700,fontSize:13,color:late?G.red:G.text}}>{pat?.name}</span><span style={{fontSize:11,color:G.muted}}>P.{pat?.folder}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/>{late&&<Bdg l="⚠ ATRASADO" col={G.red} sm/>}{isT&&!late&&<Bdg l="📅 HOJE" col={G.orange} sm/>}{pHj&&<span style={{background:G.red,color:"#fff",borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:800,whiteSpace:"nowrap",animation:"prosAlarme359 1.6s ease-in-out infinite"}}>{"🚨 PACIENTE HOJE"+(pHj.time?" "+pHj.time:"")}</span>}{/* V359 */}{/* V278: detetive -- quem mexeu neste trabalho (nivel 3) */}{user.level>=3&&<button onClick={e=>{e.stopPropagation();setDetPros(p);}} title="Quem deu a baixa?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:26,height:26,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}</div>
 <div style={{fontSize:12}}>🦷 <strong>{p.type}</strong>{(p.qty||1)>1?" ×"+p.qty:""} -- {p.proc}</div>
 <div style={{fontSize:11,color:G.muted,marginTop:2}}>Dente: {p.tooth||"--"} · 🏥 {lab?.name} · Enviado: {fmt(p.sent)} · Previsão: {fmt(p.due)}{p.returned?` · Retornou: ${fmt(p.returned)}`:""}</div>
 {(p.cor||p.escala)&&<div style={{fontSize:11,color:G.primary,fontWeight:700}}>{"\ud83c\udfa8 Cor: "}<b>{p.cor||"--"}</b>{p.escala?<span style={{color:G.muted,fontWeight:600}}>{" \u00b7 "+p.escala}</span>:null}</div>}{/* V324 */}
@@ -13900,6 +14116,7 @@ function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,
     </div>
     <PnlLembretes rems={rems} setRems={setRems} users={users} user={user} pats={pats} go={setView}/>
     <PnlTermoSisoV338 appts={appts} pats={pats} go={setView}/>{/* V338 */}
+    <PnlProsHoje_V359 appts={appts} pros={pros} pats={pats} labs={labs} go={setView}/>{/* V359 */}
     {blocos.map(function(bk){
       return <PnlBloco key={bk} bk={bk} D={D} user={user} ticks={pacsTicks} setTicks={setPacsTicks} go={setView} abrirFicha={abrirFicha}/>;
     })}
@@ -14022,6 +14239,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     <div><h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Visão Geral</h2><div style={{fontSize:12,color:G.muted}}>{new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div></div>
     <div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div>
   </div>
+
+  <PnlProsHoje_V359 appts={appts} pros={pros} pats={pats} labs={labs} go={setView}/>{/* V359: paciente de hoje com protese que nao chegou */}
 
   {pnlLegOn(user,"compras")&&(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta na visao geral
   var totPend=pend.reduce(function(s2,g2){return s2+valorCompra(g2);},0);
@@ -16819,7 +17038,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
 </div>}
 {SEC.map(function(sec){return <SecRow key={sec.id} sec={sec} open={!!audOpen[sec.id]} toggle={audToggle} onAct={function(a){setAudAct(a);}} onOpen={function(pid){var p=(pats||[]).find(function(x){return x.id===pid;});if(p)setAudFicha(p);else alert("Paciente não encontrado no cadastro.");}}/>;})}
 {nExcl>0&&<div style={{display:"flex",justifyContent:"center"}}><button onClick={function(){setAuditDismiss({});}} style={{background:"none",border:"1px solid "+G.border,borderRadius:8,padding:"7px 14px",fontSize:12,fontWeight:700,color:G.muted,cursor:"pointer"}}>{"↩ Restaurar "+nExcl+" excluido(s)"}</button></div>}
-{!!audFicha&&<PatientFolder pat={audFicha} pats={pats} setPats={function(){}} recs={recs} setRecs={setRecs||function(){}} treats={treats} setTreats={setTreats||function(){}} budgets={[]} setBudgets={function(){}} appts={appts} dents={dents} procs={[]} user={user} waTemplates={[]} onClose={function(){setAudFicha(null);}}/>}
+{!!audFicha&&<PatientFolder pat={audFicha} pats={pats} setPats={function(){}} recs={recs} setRecs={setRecs||function(){}} treats={treats} setTreats={setTreats||function(){}} budgets={[]} setBudgets={function(){}} appts={appts} dents={dents} procs={[]} user={user} waTemplates={[]} pros={pros||[]} onClose={function(){setAudFicha(null);}}/>}
 {!!audAct&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:G.card,borderRadius:14,padding:18,maxWidth:360,width:"100%",boxShadow:"0 10px 30px rgba(0,0,0,.25)"}}>
 <div style={{fontFamily:"'Cormorant Garamond'",fontSize:20,marginBottom:9}}>
@@ -18885,8 +19104,8 @@ return <>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha} setRems={setRems} users={users} pontos={pontos} remarcar={remarcar} budgets={budgets} impl={impl}/>}
       {/* V290: painel do dia para recepcao e dentistas */}
       {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
-      {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate} faixaRecados={faixaRecados_V353}/>}
-      {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer}/>}
+      {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate} faixaRecados={faixaRecados_V353} pros={pros} setPros={setPros} labs={labs}/>}
+      {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer} pros={pros} labs={labs}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog} appts={appts}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts} abrirFicha={abrirFicha}/>}
       {view==="lems"&&<Lembretes rems={rems} setRems={setRems} recs={recs} appts={appts} users={users} pats={pats} espera={espera} setEspera={setEspera} dents={dents} user={user} semTicks={semTicks} setSemTicks={setSemTicks} anivTicks={anivTicks} setAnivTicks={setAnivTicks} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSent={waSent}/>}
@@ -19056,7 +19275,7 @@ return <>
   })}
 </div>
 
-{fichaPat&&<PatientFolder waTemplates={waTemplates} pat={fichaPat} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} onClose={function(){setFichaPat(null);}}/>}
+{fichaPat&&<PatientFolder waTemplates={waTemplates} pat={fichaPat} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} pros={pros} labs={labs} onClose={function(){setFichaPat(null);}}/>}
 
 </>;
 }
