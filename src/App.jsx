@@ -656,6 +656,12 @@ const mo6=d=>{const x=new Date(d+"T12:00");x.setMonth(x.getMonth()+6);return x.t
 const moN=(d,n)=>{const x=new Date(d+"T12:00");x.setMonth(x.getMonth()+(Number(n)||6));return x.toISOString().split("T")[0];};
 const retMonths=p=>{var m=p&&Number(p.retMeses);return (m&&m>0)?m:6;};
 const retDue=(p,lastDate)=>{if(!lastDate)return null;if(p&&p.retData&&p.retData>=lastDate)return p.retData;return moN(lastDate,retMonths(p));};
+// V361: base do retorno = ULTIMA CONSULTA do paciente (a data mais recente entre o ultimo atendimento
+// pago em recs e a ultima consulta "Realizado" da agenda, ate hoje). Antes contava so o ultimo
+// atendimento PAGO, e quem paga adiantado (ex.: protese) ficava com o retorno ~3 meses cedo demais.
+// So entra quem tem pelo menos 1 atendimento pago (mesma porta de antes -- nao amplia o envio semestral).
+// Devolve {pid:{date,dentistId}} numa passada so (evita filtrar recs/appts por paciente).
+const ultConsMap=(recs,appts)=>{var t=today();var pago={},m={};var put=function(pid,d,did){if(pid==null||!d)return;var k=String(pid);if(!m[k]||d>m[k].date)m[k]={date:d,dentistId:did};};(recs||[]).forEach(function(r){if(r&&Number(r.paid)>0&&r.patientId!=null){pago[String(r.patientId)]=1;put(r.patientId,r.date,r.dentistId);}});(appts||[]).forEach(function(a){if(a&&a.status==="done"&&!a.blocked&&a.date&&a.date<=t)put(a.patientId,a.date,a.dentistId);});Object.keys(m).forEach(function(k){if(!pago[k])delete m[k];});return m;};
 const retLabel=(p,lastDate)=>{if(p&&p.retData&&(!lastDate||p.retData>=lastDate))return "Controle "+fmt(p.retData);var m=retMonths(p);return m===6?"Semestral":("Controle "+m+" meses");};
 const calcNet=(v,p)=>p==="Cartão Crédito"?v*0.965:p==="Cartão Débito"?v*0.98:v;
 const wa=(ph,msg)=>{const n=(ph||"").replace(/\D/g,"");const u="https://wa.me/"+(n.startsWith("55")?n:"55"+n)+"?text="+encodeURIComponent(msg);const a=document.createElement("a");a.href=u;a.target="_blank";document.body.appendChild(a);a.click();document.body.removeChild(a);};
@@ -822,6 +828,7 @@ function autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user){
   var y=new Date(new Date(t+"T12:00").getTime()-86400000).toISOString().split("T")[0];
   var PC=["Exodontia","Extracao","Extração","Exo","Implante","Cirurgia","Cirurgico","Cirúrgico","Cirúrgica","Enxerto","Sinus","Gengivoplastia","Apicectomia","Frenectomia","Biopsia","Urgencia","Urgência","Emergencia","Emergência"];
   var n=0;
+  var _uc=ultConsMap(recs,appts);// V361
   pats.forEach(function(p){
     // aniversario hoje (nao marcado)
     if(p.dob&&p.dob.slice(5)===t.slice(5)){
@@ -829,7 +836,7 @@ function autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user){
       if(!(tkB&&tkB.done))n++;
     }
     // semestral vencido, sem agendamento futuro e nao tratado
-    var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+    var lastRec=_uc[String(p.id)];
     if(lastRec&&retDue(p,lastRec.date)<=t){
       var futura=appts.find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
       var tratado=st[p.id]&&st[p.id].done;
@@ -852,10 +859,11 @@ function autoActionableCount(pats,recs,appts,pacsTicks,semTicks,user){
 }
 const autoRems=(pats,recs,appts)=>{
 const t=today(),y=yest(),tm=tom();const out=[];
+const _uc=ultConsMap(recs,appts);// V361
 pats.forEach(p=>{
 if(isBday(p.dob))out.push({id:`b${p.id}`,title:`🎂 Aniversário -- ${p.name}`,desc:"Hoje é aniversário! Enviar parabéns.",date:t,priority:"medium",done:false,patientId:p.id,type:"bday"});
-const lr=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];
-if(lr&&lr.paid>0&&retDue(p,lr.date)<=t)out.push({id:`s${p.id}`,title:`📅 ${retLabel(p,lr.date)} -- ${p.name}`,desc:`Último atend: ${fmt(lr.date)}`,date:t,priority:"medium",done:false,patientId:p.id,type:"semi"});
+const lr=_uc[String(p.id)];
+if(lr&&retDue(p,lr.date)<=t)out.push({id:`s${p.id}`,title:`📅 ${retLabel(p,lr.date)} -- ${p.name}`,desc:`Último atend: ${fmt(lr.date)}`,date:t,priority:"medium",done:false,patientId:p.id,type:"semi"});
 const surg=recs.find(r=>r.patientId===p.id&&r.procedure==="Cirurgia"&&r.date===y);
 if(surg)out.push({id:`c${p.id}`,title:`🔴 Pós-Cirurgia -- ${p.name}`,desc:`Cirurgia ontem (D.${surg.tooth}).`,date:t,priority:"high",done:false,patientId:p.id,type:"surg"});
 });
@@ -2700,7 +2708,7 @@ return <>
             <div style={{fontSize:12,color:G.muted,marginTop:2}}>Este paciente não tem retorno marcado.</div>
           </div>}
         {(function(){
-          var lp=patRecs.find(function(r){return Number(r.paid)>0;});
+          var lp=ultConsMap(patRecs,patAppts)[String(pat.id)];// V361: ultima consulta, nao so o ultimo pagamento
           var due=lp?retDue(pat,lp.date):null;
           var lbl=retLabel(pat,lp?lp.date:null);
           var mm=retMonths(pat);
@@ -7779,9 +7787,10 @@ const anivMes=pats.filter(p=>p.dob&&p.dob.slice(5,7)===t2.slice(5,7));
 const PCIR2=['Exodontia','Extracao','Extração','Exo','Implante','Cirurgia','Cirurgico','Cirúrgico','Cirúrgica','Enxerto','Sinus','Gengivoplastia','Apicectomia','Frenectomia','Biopsia','Urgencia','Urgência','Emergencia','Emergência'];
 const yst2=new Date(new Date(t2)-86400000).toISOString().split('T')[0];
 const posCir2=appts.filter(a=>a.date===yst2&&(a.status==='done'||a.status==='confirmed')&&PCIR2.some(p=>{var kw=p.toLowerCase();return (a.procedure&&a.procedure.toLowerCase().includes(kw))||(a.treatment&&a.treatment.toLowerCase().includes(kw));})&&(!isDentist||a.dentistId===user.dentistId)).map(a=>({a,p:pats.find(x=>x.id===a.patientId)})).filter(x=>x.p).filter(x=>!(((pacsTicks||{})["poscir_"+x.a.patientId+"_"+x.a.date])||{}).done);
+const _uc2=ultConsMap(recs,appts);// V361
 const semAtras2=pats.filter(function(p){
-// Use recs (atendimentos com baixa registrada) as source of truth
-var lastRec=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+// V361: ultima consulta (pago em recs OU "Realizado" na agenda); so quem ja tem atendimento pago
+var lastRec=_uc2[String(p.id)];
 if(!lastRec)return false; // never attended = don't show yet
 // Show when today >= lastRec date + 6 months
 if(retDue(p,lastRec.date)>t2)return false;
@@ -7925,7 +7934,7 @@ return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi
     </div>
     {pendSem.length===0&&<div style={{textAlign:'center',padding:14,color:G.success,fontSize:13,fontWeight:700}}>Todos resolvidos!</div>}
     {pendSem.map(p=>{
-      const lastRec=recs.filter(r=>r.patientId===p.id&&r.paid>0).sort((a,b)=>b.date.localeCompare(a.date))[0];
+      const lastRec=_uc2[String(p.id)];// V361
       const dias=lastRec?Math.floor((new Date(t2)-new Date(lastRec.date+"T12:00"))/86400000):null;
       const sixMonthsDate=lastRec?retDue(p,lastRec.date):null;
       const mesesPassados=lastRec?Math.floor(dias/30):null;
@@ -8935,9 +8944,10 @@ function PacsTab({pats,recs,treats,appts,dents,mo,user,pacsTicks,setPacsTicks,ab
 const bdiff=function(dob){var md=(dob||"").slice(5);if(!md)return 999;var d=new Date(tDate.getFullYear()+"-"+md+"T12:00");var df=Math.round((d-tDate)/86400000);if(df>182)df-=365;else if(df<-182)df+=365;return df;};
 const bdayWeek=pats.filter(function(p){if(!p.dob)return false;var df=bdiff(p.dob);return df>=-7&&df<=7;}).sort(function(a,b){var da=bdiff(a.dob),db=bdiff(b.dob);var ra=da<0?(-da-1):(da+7),rb=db<0?(-db-1):(db+7);return ra-rb;});
 const bdayMonth=pats.filter(p=>p.dob&&p.dob.slice(5,7)===thisMonth);
+const _ucL=ultConsMap(recs,appts);// V361
 const semestral=pats.filter(function(p){
-// Only recs with payment (confirmed attendance)
-var last=recs.filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+// V361: ultima consulta (pago em recs OU "Realizado" na agenda); so quem ja tem atendimento pago
+var last=_ucL[String(p.id)];
 if(!last)return false; // no record = don't show
 // Show on the exact day that completes 6 months
 var sixMonthsAfter=retDue(p,last.date);
@@ -9004,7 +9014,7 @@ return <div style={{background:overdue||todayB?"var(--red-soft)":G.card,borderRa
 const sections=[
 {id:"bday_week",label:"🎂 Aniversariantes esta semana",col:G.gold,list:bdayWeek,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
 {id:"bday_month",label:"🎉 Aniversariantes este mês",col:G.gold,list:bdayMonth,extra:p=>`Aniversário: ${fmt(p.dob).slice(0,5)} · ${age(p.dob)}`,wa:waBday},
-{id:"semestral",label:"📅 Controle Semestral",col:G.orange,list:semestral,sub:"Mais de 6 meses sem atendimento",extra:p=>{const l=recs.filter(r=>r.patientId===p.id).sort((a,b)=>b.date.localeCompare(a.date))[0];var _lb=retLabel(p,l&&l.date);return (_lb!=="Semestral"?_lb+" · ":"")+"Último atend: "+fmt(l&&l.date);},wa:waSemestral},
+{id:"semestral",label:"📅 Controle Semestral",col:G.orange,list:semestral,sub:"Mais de 6 meses sem atendimento",extra:p=>{const l=_ucL[String(p.id)];var _lb=retLabel(p,l&&l.date);return (_lb!=="Semestral"?_lb+" · ":"")+"Última consulta: "+fmt(l&&l.date);},wa:waSemestral},
 {id:"sem_ret",label:"⚠️ Em tratamento sem agendamento",col:G.red,list:semRetorno,sub:"Plano ativo sem consulta futura",extra:x=>{const pend=x.items.filter(i=>!i.done).length;return`Plano: ${x.name} · ${pend} proc. pendente${pend>1?"s":""}`;},wa:waSemRet,isTreat:true},
 {id:"new_pats",label:"✨ Novos pacientes no mês",col:G.primary,list:newPats,extra:()=>"",wa:null},
 ];
@@ -16844,7 +16854,8 @@ function pacCoberto(pid){return (_pagoByPac[pid]||0)>=((_realByPac[pid]||0)-0.5)
 var baixaPend=appts.filter(function(a){return a.status==="done"&&Number(a.value)>0&&a.date<=ont&&a.date>=d14&&!hasBaixa(a)&&!pacCoberto(a.patientId);}).sort(function(a,b){return b.date.localeCompare(a.date);}).map(function(a){return {nome:nomeP(a.patientId),det:(a.procedure||"Atendimento")+" em "+fmt(a.date)+" · "+cur(a.value)+" sem baixa",key:"baixa_"+a.id};});
 
 // 7. Controle semestral (+6 meses sem consulta, sem agendamento)
-var semestral=pats.filter(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];if(!last)return false;if(retDue(p,last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=recs.filter(function(r){return r.patientId===p.id&&Number(r.paid)>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];return {nome:p.name,det:(retLabel(p,last.date)!=="Semestral"?retLabel(p,last.date)+" · ":"")+"Último atend.: "+fmt(last.date)+" · "+diasDe(last.date)+" dias",key:"sem_"+p.id};});
+var _ucP=ultConsMap(recs,appts);// V361: ultima consulta (pago OU "Realizado" na agenda)
+var semestral=pats.filter(function(p){var last=_ucP[String(p.id)];if(!last)return false;if(retDue(p,last.date)>t)return false;var fut=appts.some(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed"&&a.status!=="rescheduled";});return !fut;}).map(function(p){var last=_ucP[String(p.id)];return {nome:p.name,det:(retLabel(p,last.date)!=="Semestral"?retLabel(p,last.date)+" · ":"")+"Última consulta: "+fmt(last.date)+" · "+diasDe(last.date)+" dias",key:"sem_"+p.id};});
 
 // 8. Lista de espera vencendo/vencida
 var esperaVenc=(espera||[]).filter(function(e){return e.valido&&e.valido<=amanha;}).sort(function(a,b){return a.valido.localeCompare(b.valido);}).map(function(e){return {nome:e.patName||nomeP(e.patientId),det:(e.proc||"")+" · "+(e.valido<t?"VENCIDO em "+fmt(e.valido):e.valido===t?"vence HOJE":"vence amanhã"),key:"espera_"+(e.id||e.patientId)};});
@@ -18832,9 +18843,10 @@ addJob("Aniversário","a_"+p.id+"_"+ano,"aniversario_paciente",p.phone,[p.name],
 });
 }
 if(cfg.semestral){
+var _ucW=ultConsMap(D.recs,D.appts);// V361 (bloco desativado desde a V205; mantido igual ao servidor)
 (D.pats||[]).forEach(function(p){
 if(!p.phone)return;
-var last=(D.recs||[]).filter(function(r){return r.patientId===p.id&&r.paid>0;}).sort(function(a,b){return b.date.localeCompare(a.date);})[0];
+var last=_ucW[String(p.id)];
 if(!last)return;
 if(retDue(p,last.date)>t)return;
 var fut=(D.appts||[]).find(function(a){return a.patientId===p.id&&a.date>=t&&a.status!=="cancelled"&&a.status!=="missed";});
