@@ -28,7 +28,12 @@ async load(){const f=await this.loadFull();return f?f.data:null;},
 async getTimestamp(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
 // V196: no login, baixar apenas a lista de usuarios (poucos KB) em vez do banco inteiro
 async loadUsersOnly(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=users:data->users",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0]&&Array.isArray(rows[0].users)&&rows[0].users.length)return rows[0].users;return null;}catch(e){return null;}},
-async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}},
+async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}}, // V362: so a restauracao de backup usa esta (grava sem trava, de proposito)
+// V362: gravacao CONDICIONAL do blob. So grava se o servidor ainda estiver na versao que este aparelho conhece
+// (updated_at igual a baseTs). Se outro aparelho gravou no meio, NADA e gravado e volta {conflito:true}.
+// Antes o save conferia o carimbo e gravava em dois passos: quem gravasse no intervalo era apagado
+// (caso real 06/10: a baixa da Clau feita no celular sumiu 0,06s depois, coberta pela copia do PC da recepcao).
+async saveSe(data,baseTs){if(!baseTs)return {ok:false,semBase:true};try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&updated_at=eq."+encodeURIComponent(baseTs)+"&select=updated_at",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});if(!r.ok)return {ok:false,status:r.status};var rows=null;try{rows=await r.json();}catch(e){rows=null;}if(Array.isArray(rows)&&rows.length&&rows[0]&&rows[0].updated_at)return {ok:true,updated_at:rows[0].updated_at};if(Array.isArray(rows)&&!rows.length)return {ok:false,conflito:true};return {ok:false,status:r.status};}catch(e){return {ok:false};}},
 async loadPatients(){if(!SUPA_URL)return null;try{var all=[];var lastId=0;var step=1000;for(var guard=0;guard<500;guard++){var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=id.asc&limit="+step+"&id=gt."+lastId,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return all.length?all:null;var rows=await r.json();if(!rows||!rows.length)break;for(var k=0;k<rows.length;k++){all.push(rows[k].data);}lastId=rows[rows.length-1].id;if(rows.length<step)break;}return all;}catch(e){return null;}},
 async loadPatientsSince(ts){if(!SUPA_URL)return null;try{var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=updated_at.asc&updated_at=gt."+encodeURIComponent(ts)+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return null;var d=await r.json();return (d||[]).map(function(row){return {id:row.id,data:row.data,ts:row.updated_at};});}catch(e){return null;}},
 async deletePatients(ids){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!ids||!ids.length)return {ok:true};try{var r=await fetch(SUPA_URL+"/rest/v1/patients?id=in.("+ids.map(function(i){return encodeURIComponent(i);}).join(",")+")",{method:"DELETE",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Prefer":"return=minimal"}});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}return {ok:true};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}, // V197
@@ -18013,12 +18018,12 @@ const patPollNowRef=useRef(null); // V225: gatilho imediato do sync de pacientes
 const rtTickRef=useRef(0); // V225: contador p/ poll adaptativo
 const rtCanalRef=useRef(null); // V226: canal p/ broadcast 'mudou'
 const lastSavedKeyJsonRef=useRef(null); // V199: JSON por chave da ultima gravacao/leitura
-const lastSavedSigRef=useRef(null); // V313: assinatura do ultimo blob gravado COM SUCESSO (sem _vers). Serve so para evitar regravar conteudo identico.
+// V362: a assinatura do V313 (lastSavedSigRef) saiu -- o save agora compara chave por chave com o que o servidor tem.
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
 const delItemsRef=useRef([]);
 const mergeLoopRef=useRef(0);
-const forceSaveRef=useRef(false); // V357: a PROXIMA tentativa de save grava sem anti-sobrescrita (so depois de varios merges seguidos)
+const reenviarRef=useRef(false); // V362: o poll achou aqui algo MAIS NOVO que no servidor -> reenviar (o "forcar" da V357 saiu: gravacao agora e condicional)
 const mergeGenRef=useRef(0); // V357: conta os merges feitos pelo save; copia do estado anterior ao ultimo merge nao grava
 const lastSavedItemKeys=useRef(null);
 const lastSavedApptIds=useRef(null);
@@ -18048,19 +18053,22 @@ const fetchBlobDelta=async function(){
         var lv=blobVersRef.current||{};
         var changed=[];
         Object.keys(v.vers).forEach(function(k){if(k==="_vers"||k==="pats")return;if(v.vers[k]!==lv[k])changed.push(k);});
-        if(!changed.length)return {data:{},updated_at:v.updated_at,partial:true};
+        if(!changed.length)return {data:{},updated_at:v.updated_at,partial:true,base:{}};
         BLOB_TOMB_KEYS.forEach(function(k){if(changed.indexOf(k)<0)changed.push(k);});
         var part=await supabase.loadKeys(changed);
         if(part&&part.updated_at){
-          var sd={};
+          var sd={},base={};
           changed.forEach(function(k){
             if(part[k]!==undefined&&part[k]!==null){
               sd[k]=part[k];
+              base[k]=lastSavedKeyJsonRef.current[k]; // V362: o que este aparelho sabia do servidor ANTES desta leitura (merge de 3 vias)
               if(v.vers[k]!=null)blobVersRef.current[k]=v.vers[k];
               try{lastSavedKeyJsonRef.current[k]=JSON.stringify(part[k]);}catch(e){}
             }
           });
-          return {data:sd,updated_at:part.updated_at,partial:true};
+          // V362: se alguem gravou ENTRE as duas leituras, fica o carimbo da 1a (o do mapa de versoes): a proxima
+          // conferencia ve a diferenca e busca o resto. Antes ficava o da 2a e o aparelho se achava em dia sem estar.
+          return {data:sd,updated_at:(part.updated_at===v.updated_at?part.updated_at:v.updated_at),partial:true,base:base};
         }
       }
     }
@@ -18068,8 +18076,13 @@ const fetchBlobDelta=async function(){
   // fallback: comportamento identico ao anterior (download completo)
   var fresh=await supabase.loadFull();
   if(fresh&&fresh.data){
+    var baseF={};
     try{if(fresh.data._vers&&typeof fresh.data._vers==="object")blobVersRef.current=Object.assign({},fresh.data._vers);}catch(e){}
-    return {data:fresh.data,updated_at:fresh.updated_at,partial:false};
+    try{ // V362: a carga completa tambem vira a referencia do que o servidor tem (antes so a leitura por chave atualizava)
+      if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
+      Object.keys(fresh.data).forEach(function(k){if(k==="_vers")return;baseF[k]=lastSavedKeyJsonRef.current[k];try{lastSavedKeyJsonRef.current[k]=JSON.stringify(fresh.data[k]);}catch(e){}});
+    }catch(e){}
+    return {data:fresh.data,updated_at:fresh.updated_at,partial:false,base:baseF};
   }
   return null;
 };
@@ -18110,6 +18123,68 @@ function _mgList(localList,serverList,prefix,delSet){
 function mergeGastos(local,server,delSet){
   local=local||{};server=server||{};delSet=delSet||{};
   return {clinica:_mgList(local.clinica,server.clinica,"clinica",delSet),pessoal:_mgList(local.pessoal,server.pessoal,"pessoal",delSet)};
+}
+// V362: mesmo CONTEUDO em JSON, ignorando so a ordem das chaves dos objetos (o banco/jsonb devolve as chaves
+// em outra ordem, entao o mesmo dado parecia "diferente" e o aparelho regravava o blob a toa). Compara a
+// estrutura direto, sem montar texto.
+function _jsVis(v){return v!==undefined&&typeof v!=="function"&&typeof v!=="symbol";}
+function _igualJson(a,b){
+  if(a===b)return true;
+  if(a!==null&&typeof a==="object"&&typeof a.toJSON==="function")a=a.toJSON();
+  if(b!==null&&typeof b==="object"&&typeof b.toJSON==="function")b=b.toJSON();
+  if(typeof a==="number"&&!isFinite(a))a=null;
+  if(typeof b==="number"&&!isFinite(b))b=null;
+  if(a===null||b===null||typeof a!=="object"||typeof b!=="object")return a===b;
+  var aa=Array.isArray(a);
+  if(aa!==Array.isArray(b))return false;
+  if(aa){
+    if(a.length!==b.length)return false;
+    for(var i=0;i<a.length;i++){var x=a[i],y=b[i];if(!_jsVis(x))x=null;if(!_jsVis(y))y=null;if(!_igualJson(x,y))return false;}
+    return true;
+  }
+  var na=0,k;
+  for(k in a){if(!Object.prototype.hasOwnProperty.call(a,k)||!_jsVis(a[k]))continue;na++;if(!Object.prototype.hasOwnProperty.call(b,k)||!_jsVis(b[k])||!_igualJson(a[k],b[k]))return false;}
+  var nb=0;
+  for(k in b){if(Object.prototype.hasOwnProperty.call(b,k)&&_jsVis(b[k]))nb++;}
+  return na===nb;
+}
+// V362: valor local tem o mesmo conteudo que o texto JSON de referencia? Compara com uma leitura NOVA do texto
+// (nunca com objetos guardados: se alguma tela alterasse um objeto no lugar, a mudanca ficaria invisivel).
+function _mesmoConteudo(valor,refJson){
+  if(refJson===undefined||refJson===null)return false;
+  try{return _igualJson(valor,JSON.parse(refJson));}catch(e){return false;}
+}
+// V362: depois do merge, o aparelho ficou com algo MAIS NOVO que o servidor nesta lista? (item com carimbo _ts
+// maior; ou item que o servidor nao tem e que nao foi excluido de proposito -- so em listas com exclusao marcada).
+// Antes o merge mantinha a versao local e ninguem a mandava de volta: celular "pago", servidor "pendente".
+function _temMaisNovo(localArr,serverArr,delSet,prefix,soMaisNovo){
+  if(!Array.isArray(localArr)||!Array.isArray(serverArr))return false;
+  var srv={};
+  for(var i=0;i<serverArr.length;i++){var x=serverArr[i];if(x&&x.id!=null)srv[x.id]=x;}
+  for(var j=0;j<localArr.length;j++){
+    var l=localArr[j];
+    if(!l||l.id==null)continue;
+    if(prefix&&delSet&&delSet[prefix+":"+l.id])continue;
+    var s=srv[l.id];
+    if(!s){if(prefix&&!soMaisNovo)return true;continue;}
+    if((l._ts||0)>(s._ts||0))return true;
+  }
+  return false;
+}
+// V362: mesmo teste para a agenda, com as regras do mergeAppts (statusTs e _ts; exclusao via delApts)
+function _apptMaisNovo(localArr,serverArr,delSet){
+  if(!Array.isArray(localArr)||!Array.isArray(serverArr))return false;
+  var srv={};
+  for(var i=0;i<serverArr.length;i++){var x=serverArr[i];if(x&&x.id!=null)srv[x.id]=x;}
+  for(var j=0;j<localArr.length;j++){
+    var l=localArr[j];
+    if(!l||l.id==null||(delSet&&delSet[l.id]))continue;
+    var s=srv[l.id];
+    if(!s)return true;
+    if((l.statusTs||"")>(s.statusTs||""))return true;
+    if((l._ts||0)>(s._ts||0))return true;
+  }
+  return false;
 }
 function _itemKeys(map){var o={};if(map){Object.keys(map).forEach(function(t){(map[t]||[]).forEach(function(e){if(e&&e.id!=null)o[t+":"+e.id]=true;if(t==="treats"&&e&&e.payments)e.payments.forEach(function(pp){if(pp&&pp.id!=null)o["tpay:"+pp.id]=true;});});});}return o;}// V351: cada pagamento de plano vira chave "tpay:id" -> exclusao de pagamento gera tombstone em delItems
 function _waTs(a){if(!a)return "";var c=a.confirmadoWAts||"";var x=a.canceladoWAts||"";return c>x?c:x;}
@@ -18232,7 +18307,87 @@ useEffect(function(){
   var _genEfeito=mergeGenRef.current; // V357: geracao do estado que este save enxerga (muda a cada merge do save)
   if(saveTimer.current)clearTimeout(saveTimer.current);
   setSaveStatus("saving");
-  var doSave=async function(force){
+  // V362: traz o que mudou no servidor e junta com o estado local (era o miolo da anti-sobrescrita, agora usado
+  // tambem quando a gravacao condicional e recusada). Devolve "merged" se juntou dados (quem grava e o proximo
+  // render, ja com o merge), "nada" se o servidor so trocou o carimbo (este save segue com o carimbo novo) ou false.
+  var juntarDoServidor=async function(){
+    var fresh=await fetchBlobDelta(); // V199: baixa so o que mudou
+    if(!fresh||!fresh.data)return false;
+    var sd=fresh.data;
+    if(!Object.keys(sd).length){lastServerTs.current=fresh.updated_at;return "nada";}
+    // unir exclusoes do servidor com as nossas
+    if(sd.delApts&&sd.delApts.length){var _dd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_dd.indexOf(id)<0)_dd.push(id);});delAptsRef.current=_dd.length>3000?_dd.slice(-3000):_dd;}
+    if(sd.delPats&&sd.delPats.length){var _dpp=delPatsRef.current||[];sd.delPats.forEach(function(id){if(_dpp.indexOf(id)<0)_dpp.push(id);});delPatsRef.current=_dpp.length>3000?_dpp.slice(-3000):_dpp;} // V197
+    if(delPatsRef.current&&delPatsRef.current.length){var _dpmA={};delPatsRef.current.forEach(function(i){_dpmA[i]=true;});setPats(function(prev){prev=prev||[];var n=prev.filter(function(p){return !(p&&p.id!=null&&_dpmA[p.id]);});return n.length===prev.length?prev:n;});} // V197
+    if(sd.delGastos&&sd.delGastos.length){var _dgs=delGastosRef.current||[];sd.delGastos.forEach(function(k){if(_dgs.indexOf(k)<0)_dgs.push(k);});delGastosRef.current=_dgs.length>3000?_dgs.slice(-3000):_dgs;}
+    if(sd.delItems&&sd.delItems.length){var _dis=delItemsRef.current||[];sd.delItems.forEach(function(k){if(_dis.indexOf(k)<0)_dis.push(k);});delItemsRef.current=_dis.length>5000?_dis.slice(-5000):_dis;}
+    var _diSet={};(delItemsRef.current||[]).forEach(function(k){_diSet[k]=true;});
+    var _skip={};(delAptsRef.current||[]).forEach(function(id){_skip[id]=true;});
+    // Merge automatico: adicionar registros que nao temos localmente (menos os apagados)
+    var mergeArr=function(localArr,serverArr,setter,prefix){
+      setter(function(prev){
+        prev=prev||[];
+        var changed=false,base=prev;
+        if(prefix){base=prev.filter(function(x){return !(x&&x.id!=null&&_diSet[prefix+":"+x.id]);});if(base.length!==prev.length)changed=true;}
+        if(serverArr&&serverArr.length){
+          var srvById={};serverArr.forEach(function(x){if(x&&x.id!=null)srvById[x.id]=x;});
+          base=base.map(function(x){if(x&&x.id!=null&&srvById[x.id]&&(srvById[x.id]._ts||0)>(x._ts||0)){changed=true;return srvById[x.id];}return x;});
+          var localIds={};base.forEach(function(x){if(x&&x.id!=null)localIds[x.id]=true;});
+          var missing=serverArr.filter(function(x){return x&&x.id!=null&&!localIds[x.id]&&!(prefix&&_diSet[prefix+":"+x.id]);});
+          if(missing.length){base=base.concat(missing);changed=true;}
+        }
+        return changed?base:prev;
+      });
+    };
+    setAppts(function(prev){var arr=mergeAppts(prev,sd.appts,_skip);return JSON.stringify(arr)===JSON.stringify(prev)?prev:arr;});
+    mergeArr(recs,sd.recs,setRecs,"recs");
+    mergeArr(budgets,sd.budgets,setBudgets,"budgets");
+    setTreats(function(prev){var _a=mergeTreats(prev,sd.treats,_diSet);return JSON.stringify(_a)===JSON.stringify(prev)?prev:_a;});
+    mergeArr(pros,sd.pros,setPros,"pros");
+    mergeArr(rems,sd.rems,setRems,"rems");
+    mergeArr(notas,sd.notas,setNotas,"notas");// V323
+    mergeArr(bkpLog,sd.bkpLog,setBkpLog,"bkpLog");// V327
+    mergeArr(logs,sd.logs,setLogs);
+    mergeArr(implMov,sd.implMov,setImplMov,"implMov");
+    mergeArr(implCat,sd.implCat,setImplCat,"implCat");
+    mergeArr(implFech,sd.implFech,setImplFech,"implFech");// V333
+    mergeArr(impl,sd.impl,setImpl,"impl");
+    mergeArr(stock,sd.stock,setStock,"stock");// V289: estoque item-a-item + respeita exclusoes/fusoes
+    mergeArr(pontos,sd.pontos,setPontos);
+    mergeArr(caixa,sd.caixa,setCaixa);
+    mergeArr(afast,sd.afast,setAfast,"afast");// V300: afastamentos item-a-item + tombstone
+    mergeArr(cotExtra,sd.cotExtra,setCotExtra,"cotExtra");// V310: itens avulsos da lista de compra
+    mergeArr(docsEmitidos,sd.docsEmitidos,setDocsEmitidos);// V320: log de documentos emitidos
+    mergeArr(hol,sd.hol,setHol,"hol");// V300: holerites
+    if(sd.ferPer)setFerPer(function(prev){return JSON.stringify(sd.ferPer)===JSON.stringify(prev)?prev:sd.ferPer;});// V303
+    if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V300
+    // V239: cadastros passam a entrar no merge antes de gravar (antes o save levava a copia velha da memoria e desfazia edicao de outro aparelho)
+    if(sd.users)setUsers(function(prev){var m=mergeCad(prev,sd.users,_diSet,"users");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
+    if(sd.dents)setDents(function(prev){var m=mergeCad(prev,sd.dents,_diSet,"dents");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
+    if(sd.acessoCfg)setAcessoCfg(function(prev){var n=_newerCfg(prev,sd.acessoCfg);return n===prev?prev:n;});
+    if(sd.pontoCfg)setPontoCfg(function(prev){var n=_newerCfg(prev,sd.pontoCfg);return n===prev?prev:n;}); // V190
+    if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
+    if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
+    if(sd.auditDismiss)setAuditDismiss(function(prev){var m=mergeTicks(prev,sd.auditDismiss);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V289
+    if(sd.orcResp)setOrcResp(function(prev){return mergeTicks(prev,sd.orcResp);}); // V232
+    if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSet);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, nao perde edicao local nem remota
+    if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
+    // V362: chaves SEM merge item-a-item. Antes ficava sempre a copia deste aparelho e o save apagava a mudanca feita
+    // em outro (lista de espera, remarcar, modelos de mensagem...). Agora: se aqui ninguem mexeu desde a ultima
+    // sincronizacao, adota a do servidor; se mexeu, fica a daqui (como antes).
+    var _base=fresh.base||{};
+    var _semMexer=function(prev,k){var b=_base[k];if(b===undefined||b===null)return false;var lj;try{lj=JSON.stringify(prev);}catch(e){return false;}if(lj===b)return true;return _mesmoConteudo(prev,b);};
+    var _adotar=function(k,setter){if(sd[k]===undefined||sd[k]===null)return;setter(function(prev){if(!_semMexer(prev,k))return prev;return JSON.stringify(prev)===JSON.stringify(sd[k])?prev:sd[k];});};
+    if(sd.waSent)setWaSent(function(prev){var m=Object.assign({},sd.waSent,prev||{});return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V362: marcacoes de envio: uniao (servidor + este aparelho)
+    _adotar("waAutoLog",setWaAutoLog);_adotar("expenses",setExpenses);_adotar("perms",setPerms);_adotar("labs",setLabs);_adotar("procs",setProcs);_adotar("prosProcs",setProsProcs);
+    _adotar("espera",setEspera);_adotar("remarcar",setRemarcar);_adotar("semTicks",setSemTicks);_adotar("anivTicks",setAnivTicks);_adotar("waTemplates",setWaTemplates);
+    lastServerTs.current=fresh.updated_at;
+    if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
+    // V357: o runSave NAO repete o doSave que pediu isto (ele so enxerga o estado de antes do merge)
+    mergeGenRef.current++;
+    return "merged";
+  };
+  var doSave=async function(){
     // V357: esta copia do estado e de ANTES do ultimo merge feito pelo save? Entao nao faz nada (nem detecta
     // exclusoes nem grava): mandaria dados velhos por cima do que acabou de chegar do servidor. Quem grava e a
     // copia do proximo render, que ja tem o merge.
@@ -18262,148 +18417,112 @@ useEffect(function(){
       _di=_di.filter(function(k){return !_ik[k];});
       delItemsRef.current=_di.length>5000?_di.slice(-5000):_di;
     }
-    // ANTI-SOBRESCRITA: verificar se servidor tem versao mais nova que a nossa
-    if(!force){try{
-      var serverTs=await supabase.getTimestamp();
-      if(serverTs&&lastServerTs.current&&serverTs!==lastServerTs.current){
-        // Outro computador salvou! Recarregar antes de gravar para nao perder dados
-        var fresh=await fetchBlobDelta(); // V199: baixa so o que mudou
-        if(fresh&&fresh.data){
-          var sd=fresh.data;
-          // unir exclusoes do servidor com as nossas
-          if(sd.delApts&&sd.delApts.length){var _dd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_dd.indexOf(id)<0)_dd.push(id);});delAptsRef.current=_dd.length>3000?_dd.slice(-3000):_dd;}
-          if(sd.delPats&&sd.delPats.length){var _dpp=delPatsRef.current||[];sd.delPats.forEach(function(id){if(_dpp.indexOf(id)<0)_dpp.push(id);});delPatsRef.current=_dpp.length>3000?_dpp.slice(-3000):_dpp;} // V197
-          if(delPatsRef.current&&delPatsRef.current.length){var _dpmA={};delPatsRef.current.forEach(function(i){_dpmA[i]=true;});setPats(function(prev){prev=prev||[];var n=prev.filter(function(p){return !(p&&p.id!=null&&_dpmA[p.id]);});return n.length===prev.length?prev:n;});} // V197
-          if(sd.delGastos&&sd.delGastos.length){var _dgs=delGastosRef.current||[];sd.delGastos.forEach(function(k){if(_dgs.indexOf(k)<0)_dgs.push(k);});delGastosRef.current=_dgs.length>3000?_dgs.slice(-3000):_dgs;}
-          if(sd.delItems&&sd.delItems.length){var _dis=delItemsRef.current||[];sd.delItems.forEach(function(k){if(_dis.indexOf(k)<0)_dis.push(k);});delItemsRef.current=_dis.length>5000?_dis.slice(-5000):_dis;}
-          var _diSet={};(delItemsRef.current||[]).forEach(function(k){_diSet[k]=true;});
-          var _skip={};(delAptsRef.current||[]).forEach(function(id){_skip[id]=true;});
-          // Merge automatico: adicionar registros que nao temos localmente (menos os apagados)
-          var mergeArr=function(localArr,serverArr,setter,prefix){
-            setter(function(prev){
-              prev=prev||[];
-              var changed=false,base=prev;
-              if(prefix){base=prev.filter(function(x){return !(x&&x.id!=null&&_diSet[prefix+":"+x.id]);});if(base.length!==prev.length)changed=true;}
-              if(serverArr&&serverArr.length){
-                var srvById={};serverArr.forEach(function(x){if(x&&x.id!=null)srvById[x.id]=x;});
-                base=base.map(function(x){if(x&&x.id!=null&&srvById[x.id]&&(srvById[x.id]._ts||0)>(x._ts||0)){changed=true;return srvById[x.id];}return x;});
-                var localIds={};base.forEach(function(x){if(x&&x.id!=null)localIds[x.id]=true;});
-                var missing=serverArr.filter(function(x){return x&&x.id!=null&&!localIds[x.id]&&!(prefix&&_diSet[prefix+":"+x.id]);});
-                if(missing.length){base=base.concat(missing);changed=true;}
-              }
-              return changed?base:prev;
-            });
-          };
-          setAppts(function(prev){var arr=mergeAppts(prev,sd.appts,_skip);return JSON.stringify(arr)===JSON.stringify(prev)?prev:arr;});
-          mergeArr(recs,sd.recs,setRecs,"recs");
-          mergeArr(budgets,sd.budgets,setBudgets,"budgets");
-          setTreats(function(prev){var _a=mergeTreats(prev,sd.treats,_diSet);return JSON.stringify(_a)===JSON.stringify(prev)?prev:_a;});
-          mergeArr(pros,sd.pros,setPros,"pros");
-          mergeArr(rems,sd.rems,setRems,"rems");
-          mergeArr(notas,sd.notas,setNotas,"notas");// V323
-          mergeArr(bkpLog,sd.bkpLog,setBkpLog,"bkpLog");// V327
-          mergeArr(logs,sd.logs,setLogs);
-          mergeArr(implMov,sd.implMov,setImplMov,"implMov");
-          mergeArr(implCat,sd.implCat,setImplCat,"implCat");
-          mergeArr(implFech,sd.implFech,setImplFech,"implFech");// V333
-          mergeArr(impl,sd.impl,setImpl,"impl");
-          mergeArr(stock,sd.stock,setStock,"stock");// V289: estoque item-a-item + respeita exclusoes/fusoes
-          mergeArr(pontos,sd.pontos,setPontos);
-          mergeArr(caixa,sd.caixa,setCaixa);
-          mergeArr(afast,sd.afast,setAfast,"afast");// V300: afastamentos item-a-item + tombstone
-          mergeArr(cotExtra,sd.cotExtra,setCotExtra,"cotExtra");// V310: itens avulsos da lista de compra
-          mergeArr(docsEmitidos,sd.docsEmitidos,setDocsEmitidos);// V320: log de documentos emitidos
-          mergeArr(hol,sd.hol,setHol,"hol");// V300: holerites
-          if(sd.ferPer)setFerPer(function(prev){return JSON.stringify(sd.ferPer)===JSON.stringify(prev)?prev:sd.ferPer;});// V303
-          if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V300
-          // V239: cadastros passam a entrar no merge antes de gravar (antes o save levava a copia velha da memoria e desfazia edicao de outro aparelho)
-          if(sd.users)setUsers(function(prev){var m=mergeCad(prev,sd.users,_diSet,"users");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
-          if(sd.dents)setDents(function(prev){var m=mergeCad(prev,sd.dents,_diSet,"dents");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
-          if(sd.acessoCfg)setAcessoCfg(function(prev){var n=_newerCfg(prev,sd.acessoCfg);return n===prev?prev:n;});
-          if(sd.pontoCfg)setPontoCfg(function(prev){var n=_newerCfg(prev,sd.pontoCfg);return n===prev?prev:n;}); // V190
-          if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
-          if(sd.pacsTicks)setPacsTicks(function(prev){return mergeTicks(prev,sd.pacsTicks);});
-          if(sd.auditDismiss)setAuditDismiss(function(prev){var m=mergeTicks(prev,sd.auditDismiss);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V289
-          if(sd.orcResp)setOrcResp(function(prev){return mergeTicks(prev,sd.orcResp);}); // V232
-          if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSet);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, nao perde edicao local nem remota
-          if(sd.gastos){var _dgm={};(delGastosRef.current||[]).forEach(function(k){_dgm[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgm);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
-          lastServerTs.current=fresh.updated_at;
-          if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
-          // Cancelar este save - o useEffect vai disparar de novo com o estado mergeado
-          // V357: e o runSave NAO repete este doSave (ele so enxerga o estado de antes do merge)
-          mergeGenRef.current++;
-          return "merged";
-        }
-      }
-    }catch(e){}}
     const payload={appts,recs,treats,pros,rems,notas,bkpLog,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
     if(!patTableOk.current)payload.pats=pats;
-    // V313: assinatura ANTES do carimbo _vers (o _vers muda a cada save e mascararia a comparacao).
-    var _sigNow=null;try{_sigNow=JSON.stringify(payload);}catch(e){_sigNow=null;}
-    // V313: gatilhos como "pats" (que ja gravam na tabela propria e nao entram no blob) disparavam
-    // uma regravacao de ~412kB sem nenhuma mudanca dentro. Se nada mudou, nao ha o que gravar.
-    if(!force&&_sigNow!==null&&lastSavedSigRef.current===_sigNow){
+    // V362: o que, chave por chave, o servidor ainda NAO tem. Referencia: o que este aparelho gravou ou baixou por
+    // ultimo. O mesmo conteudo com as chaves em outra ordem (o jsonb do banco reordena) nao conta como mudanca.
+    if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
+    var _kj={},_mud=[];
+    Object.keys(payload).forEach(function(k){
+      var _js;try{_js=JSON.stringify(payload[k]);}catch(e){_js=null;}
+      if(_js===undefined)return; // valor vazio: nem vai no JSON do pacote
+      var _ref=lastSavedKeyJsonRef.current[k];
+      if(_js!==null&&_js===_ref){_kj[k]=_js;return;}
+      if(_js!==null&&_ref!==undefined&&_mesmoConteudo(payload[k],_ref)){lastSavedKeyJsonRef.current[k]=_js;_kj[k]=_js;return;}
+      if(_js!==null)_kj[k]=_js;
+      _mud.push(k);
+    });
+    if(!_mud.length){
+      // V362: nada de novo para o servidor (ex.: este aparelho so RECEBEU dados de outro) -> nao regrava o blob.
+      // Antes cada aparelho aberto regravava o blob inteiro segundos depois de receber qualquer mudanca (eco):
+      // trafego e Disk IO a toa, e mais chance de duas gravacoes se cruzarem. O estado daqui = o do servidor, entao
+      // a foto usada para detectar exclusoes passa a ser esta (como se tivesse gravado).
+      {var _ai0={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai0[a.id]=true;});lastSavedApptIds.current=_ai0;}
+      lastSavedGastosKeys.current=_gKeys(gastos);
+      lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
+      reenviarRef.current=false;
       if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
       if(lastLocalChangeTs.current===_editAtStart)orientDirtyRef.current=false;
       if(lastLocalChangeTs.current===_editAtStart){try{idb.set("draft_v1",null);}catch(e){}}
       return true;
     }
-    try{ // V199: carimbo de versao so nas chaves cujo conteudo mudou
-      if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
-      var _vNow=new Date().toISOString();
-      Object.keys(payload).forEach(function(k){
-        var _js;try{_js=JSON.stringify(payload[k]);}catch(e){_js=null;}
-        if(_js===null)return;
-        if(lastSavedKeyJsonRef.current[k]!==_js||!blobVersRef.current[k]){blobVersRef.current[k]=_vNow;lastSavedKeyJsonRef.current[k]=_js;}
-      });
-      payload._vers=Object.assign({},blobVersRef.current);
+    // ANTI-SOBRESCRITA, 1a camada (barata, so o carimbo): se outro aparelho gravou, junta antes de mandar o pacote.
+    // A 2a camada e a gravacao condicional logo abaixo, que fecha o intervalo entre conferir e gravar.
+    try{
+      var serverTs=await supabase.getTimestamp();
+      if(serverTs&&serverTs!==lastServerTs.current){
+        var _j=await juntarDoServidor();
+        if(_j==="merged")return "merged";
+      }
     }catch(e){}
-    var ok=false;
-    for(var i=0;i<3&&!ok;i++){
-      try{
-        var saved=await supabase.save(payload);
-        if(saved!==false){
-          lastSaved.current=JSON.stringify(payload);
-          lastSavedSigRef.current=_sigNow; // V313: so marca depois do save confirmado. Save que falhou continua sendo retentado.
-          {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
-          lastSavedGastosKeys.current=_gKeys(gastos);
-          lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
-          // Atualizar timestamp do servidor para o nosso
-          var newTs=await supabase.getTimestamp();
-          if(newTs)lastServerTs.current=newTs;
-          if(newTs){try{idb.set("blob_v1",{data:payload,updated_at:newTs});}catch(e){}} // V198
-          try{if(rtCanalRef.current&&rtCanalRef.current.state==="joined")rtCanalRef.current.send({type:"broadcast",event:"mudou",payload:{k:"blob"}});}catch(e){} // V226: aviso instantaneo aos outros aparelhos
-          if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
-          if(lastLocalChangeTs.current===_editAtStart)orientDirtyRef.current=false;
-          if(lastLocalChangeTs.current===_editAtStart){try{idb.set("draft_v1",null);}catch(e){}} // V234: salvo com sucesso, limpa o rascunho
-          ok=true;
-        }
-      }catch(e){}
-      if(!ok&&i<2)await new Promise(function(r){setTimeout(r,1200);});
+    if(!lastServerTs.current){ // V362: sem referencia do servidor (abertura falhou?) nunca grava as cegas: sincroniza antes
+      var _j0=false;try{_j0=await juntarDoServidor();}catch(e){_j0=false;}
+      if(_j0==="merged")return "merged";
+      if(!lastServerTs.current)return false;
+    }
+    // V199: carimbo de versao so nas chaves cujo conteudo mudou (V362: so vale depois da gravacao confirmada)
+    var _vNow=new Date().toISOString();
+    var _novosVers={};
+    _mud.forEach(function(k){_novosVers[k]=_vNow;});
+    Object.keys(_kj).forEach(function(k){if(!blobVersRef.current[k]&&!_novosVers[k])_novosVers[k]=_vNow;});
+    payload._vers=Object.assign({},blobVersRef.current,_novosVers);
+    var ok=false,_falhas=0,_conflitos=0;
+    while(!ok&&_falhas<3){
+      var res=null;
+      try{res=await supabase.saveSe(payload,lastServerTs.current);}catch(e){res=null;}
+      if(res&&res.ok){
+        Object.assign(blobVersRef.current,_novosVers);
+        Object.keys(_kj).forEach(function(k){lastSavedKeyJsonRef.current[k]=_kj[k];});
+        {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
+        lastSavedGastosKeys.current=_gKeys(gastos);
+        lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
+        lastServerTs.current=res.updated_at; // V362: carimbo da PROPRIA gravacao. Antes lia o carimbo de novo depois de gravar; se outro aparelho tivesse gravado no meio, pegava o dele como se fosse o seu e nunca baixava o que ele mandou.
+        try{idb.set("blob_v1",{data:payload,updated_at:res.updated_at});}catch(e){} // V198
+        try{if(rtCanalRef.current&&rtCanalRef.current.state==="joined")rtCanalRef.current.send({type:"broadcast",event:"mudou",payload:{k:"blob"}});}catch(e){} // V226: aviso instantaneo aos outros aparelhos
+        reenviarRef.current=false;
+        if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
+        if(lastLocalChangeTs.current===_editAtStart)orientDirtyRef.current=false;
+        if(lastLocalChangeTs.current===_editAtStart){try{idb.set("draft_v1",null);}catch(e){}} // V234: salvo com sucesso, limpa o rascunho
+        ok=true;
+        break;
+      }
+      if(res&&res.conflito){
+        // V362: outro aparelho gravou entre a conferencia e a gravacao -> NADA foi gravado. Junta o que ele mandou:
+        // se veio dado, quem grava e o proximo render (ja com o merge); se so o carimbo mudou, tenta de novo ja.
+        _conflitos++;
+        var _jc=false;try{_jc=await juntarDoServidor();}catch(e){_jc=false;}
+        if(_jc==="merged")return "merged";
+        if(_jc==="nada"&&_conflitos<5)continue;
+        if(_conflitos>=5){mergeGenRef.current++;return "merged";} // servidor mudando sem parar: o runSave tenta de novo daqui a pouco
+      }
+      _falhas++;
+      if(_falhas<3)await new Promise(function(r){setTimeout(r,1200);});
     }
     return ok;
   };
   var runSave=async function runSave(){
     if(isSaving.current){ pendingSave.current=true; return; }
     isSaving.current=true;
-    var _forcar=forceSaveRef.current===true;forceSaveRef.current=false; // V357
-    var ok=await doSave(_forcar);
+    var ok=await doSave();
     if(ok==="merged"){
       // V357: o merge so vira estado no PROXIMO render; este doSave ainda enxerga a copia de ANTES dele.
       // O laco antigo chamava este mesmo doSave de novo -> a copia velha ia para o servidor e apagava o que
       // tinha acabado de chegar (caso real 01/10: a confirmacao do WhatsApp do Elias voltou para pendente).
       // Agora quem grava e sempre a versao MAIS NOVA do save (runSaveRef), ja com o estado mergeado.
+      // V362: sem o "forcar" da V357 (depois de 4 merges seguidos gravava SEM conferir -- foi assim que a copia do PC
+      // da recepcao apagou a baixa da Clau em 06/10). Com a gravacao condicional copia velha nunca passa; se o servidor
+      // seguir mudando, cada tentativa junta o que chegou e tenta de novo, com um intervalo um pouco maior.
       mergeLoopRef.current++;
-      if(mergeLoopRef.current>=4){mergeLoopRef.current=0;forceSaveRef.current=true;} // servidor mudando sem parar: a proxima tentativa (ja com o merge) grava direto
       isSaving.current=false;
       pendingSave.current=false;
       if(saveTimer.current)clearTimeout(saveTimer.current);
       var _esteSave=runSave,_t0=Date.now();
+      var _janela=mergeLoopRef.current>=4?4000:2000; // V362
       var _confere=function(){
         saveTimer.current=null;
         var _rs=runSaveRef.current;
         if(_rs&&_rs!==_esteSave){_rs();return;} // ja existe um save mais novo: ele grava (se for de antes do merge, a checagem de geracao o segura)
-        if(Date.now()-_t0<2000){saveTimer.current=setTimeout(_confere,150);return;} // aguarda o render do merge (o efeito costuma re-agendar antes disto)
+        if(Date.now()-_t0<_janela){saveTimer.current=setTimeout(_confere,150);return;} // aguarda o render do merge (o efeito costuma re-agendar antes disto)
         _genEfeito=mergeGenRef.current; // sem render novo = o merge nao mudou o estado: esta copia ja e a atual
         _esteSave();
       };
@@ -18576,7 +18695,8 @@ useEffect(function(){
     try{
       var serverTs=await supabase.getTimestamp();
       if(!serverTs)return;
-      if(lastServerTs.current===null){lastServerTs.current=serverTs;return;}
+      // V362: sem referencia ainda (abertura falhou?) -> segue e baixa tudo. Antes adotava o carimbo sem baixar nada
+      // e o aparelho passava a se achar em dia com o estado vazio/velho da memoria.
       if(serverTs===lastServerTs.current)return;
       // Servidor mudou - carregar e fazer merge
       var fresh=await fetchBlobDelta(); // V199: baixa so o que mudou
@@ -18589,6 +18709,7 @@ useEffect(function(){
       if(sd.delPats&&sd.delPats.length){var _pdp=delPatsRef.current||[];sd.delPats.forEach(function(id){if(_pdp.indexOf(id)<0)_pdp.push(id);});delPatsRef.current=_pdp.length>3000?_pdp.slice(-3000):_pdp;} // V197
       if(delPatsRef.current&&delPatsRef.current.length){var _dpmB={};delPatsRef.current.forEach(function(i){_dpmB[i]=true;});setPats(function(prev){prev=prev||[];var n=prev.filter(function(p){return !(p&&p.id!=null&&_dpmB[p.id]);});return n.length===prev.length?prev:n;});} // V197
       if(sd.delItems&&sd.delItems.length){var _pdi=delItemsRef.current||[];sd.delItems.forEach(function(k){if(_pdi.indexOf(k)<0)_pdi.push(k);});delItemsRef.current=_pdi.length>5000?_pdi.slice(-5000):_pdi;}
+      if(sd.delGastos&&sd.delGastos.length){var _pdg=delGastosRef.current||[];sd.delGastos.forEach(function(k){if(_pdg.indexOf(k)<0)_pdg.push(k);});delGastosRef.current=_pdg.length>3000?_pdg.slice(-3000):_pdg;} // V362: o poll nao juntava as exclusoes de gastos -- gasto apagado em um aparelho continuava no outro e voltava no proximo save
       // adota a versao do servidor (reflete exclusoes). itens novos ainda nao salvos
       // estao protegidos pelas travas (12s recente / save pendente / falha de save) acima.
       var mergeArr=function(serverArr,setter){
@@ -18602,7 +18723,9 @@ useEffect(function(){
       var _delP={};(delAptsRef.current||[]).forEach(function(id){_delP[id]=true;});
       var _diSetP={};(delItemsRef.current||[]).forEach(function(k){_diSetP[k]=true;});
       // ADITIVO: mantem tudo que e local; so traz do servidor o que ainda nao temos.
-      var addArr=function(serverArr,setter,prefix){
+      // V362: e marca reenviarRef se, depois do merge, o aparelho ficou com algo MAIS NOVO que o servidor
+      // (soMaisNovo: listas com corte de tamanho -- item que o servidor "nao tem" ali pode ser so o corte).
+      var addArr=function(serverArr,setter,prefix,soMaisNovo){
         setter(function(prev){
           prev=prev||[];
           var changed=false,base=prev;
@@ -18614,7 +18737,9 @@ useEffect(function(){
             var miss=serverArr.filter(function(x){return x&&x.id!=null&&!ids[x.id]&&!(prefix&&_diSetP[prefix+":"+x.id]);});
             if(miss.length){base=base.concat(miss);changed=true;}
           }
-          return changed?base:prev;
+          var fin=changed?base:prev;
+          if(_temMaisNovo(fin,serverArr,_diSetP,prefix,soMaisNovo))reenviarRef.current=true; // V362
+          return fin;
         });
       };
       // AGENDA: servidor manda no status (reflete confirmacoes do WhatsApp), mas mantem consultas locais que o servidor ainda nao tem e remove as apagadas.
@@ -18625,6 +18750,7 @@ useEffect(function(){
           var arr=mergeAppts(prev,serverArr,_delP);
           var fin=JSON.stringify(arr)===JSON.stringify(prev)?prev:arr;
           var _ai={};fin.forEach(function(a){if(a&&a.id!=null)_ai[a.id]=true;});lastSavedApptIds.current=_ai;
+          if(_apptMaisNovo(fin,serverArr,_delP))reenviarRef.current=true; // V362
           return fin;
         });
       };
@@ -18635,20 +18761,20 @@ useEffect(function(){
       addArr(sd.pros,setPros,"pros");
       addArr(sd.rems,setRems,"rems");
       addArr(sd.notas,setNotas,"notas");// V330: notas nao entrava no poll -- aparelho aberto ficava com lista velha
-      if(sd.bkpLog)addArr(sd.bkpLog,setBkpLog,"bkpLog");// V358: bkpLog tambem nao entrava no poll -- o aparelho aberto regravava a lista velha por cima
+      if(sd.bkpLog)addArr(sd.bkpLog,setBkpLog,"bkpLog",true);// V358: bkpLog tambem nao entrava no poll -- o aparelho aberto regravava a lista velha por cima
       addArr(sd.logs,setLogs);
       addArr(sd.pontos,setPontos);
       addArr(sd.caixa,setCaixa); // V190: caixa agora sincroniza no poll
-      if(sd.pontoCfg)setPontoCfg(function(prev){var n=_newerCfg(prev,sd.pontoCfg);return n===prev?prev:n;}); // V190
+      if(sd.pontoCfg)setPontoCfg(function(prev){var n=_newerCfg(prev,sd.pontoCfg);if(prev&&(prev._ts||0)>(sd.pontoCfg._ts||0))reenviarRef.current=true;return n===prev?prev:n;}); // V190 // V362: reenvia se a daqui for mais nova
       if(sd.expenses)setExpenses(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.expenses)?prev:sd.expenses;});
-      if(sd.gastos){var _dgp={};(delGastosRef.current||[]).forEach(function(k){_dgp[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgp);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
+      if(sd.gastos){var _dgp={};(delGastosRef.current||[]).forEach(function(k){_dgp[k]=true;});setGastos(function(prev){var m=mergeGastos(prev,sd.gastos,_dgp);if(_temMaisNovo(m.clinica,sd.gastos.clinica||[],_dgp,"clinica")||_temMaisNovo(m.pessoal,sd.gastos.pessoal||[],_dgp,"pessoal"))reenviarRef.current=true;return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});} // V362: gasto mais novo aqui (ex.: baixa apagada por copia velha de outro aparelho) -> reenvia
       if(sd.waAuto){waAutoSrvRef.current=_newerWa(waAutoSrvRef.current,sd.waAuto);setWaAuto(function(prev){var w=_newerWa(prev,sd.waAuto);return JSON.stringify(prev)===JSON.stringify(w)?prev:w;});}
       if(sd.waSent)setWaSent(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waSent)?prev:sd.waSent;});
       if(sd.orcResp)setOrcResp(function(prev){var m=mergeTicks(prev,sd.orcResp);return JSON.stringify(prev)===JSON.stringify(m)?prev:m;}); // V232
       if(sd.waAutoLog)setWaAutoLog(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waAutoLog)?prev:sd.waAutoLog;});
-      if(sd.users)setUsers(function(prev){var m=mergeCad(prev,sd.users,_diSetP,"users");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V239: item-a-item, nao sobrescreve edicao local recente
-      if(sd.dents)setDents(function(prev){var m=mergeCad(prev,sd.dents,_diSetP,"dents");return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V239
-      if(sd.acessoCfg)setAcessoCfg(function(prev){var n=_newerCfg(prev,sd.acessoCfg);return n===prev?prev:n;}); // V239: antes nem sincronizava
+      if(sd.users)setUsers(function(prev){var m=mergeCad(prev,sd.users,_diSetP,"users");if(_temMaisNovo(m,sd.users,_diSetP,"users"))reenviarRef.current=true;return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V239: item-a-item, nao sobrescreve edicao local recente // V362
+      if(sd.dents)setDents(function(prev){var m=mergeCad(prev,sd.dents,_diSetP,"dents");if(_temMaisNovo(m,sd.dents,_diSetP,"dents"))reenviarRef.current=true;return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V239 // V362
+      if(sd.acessoCfg)setAcessoCfg(function(prev){var n=_newerCfg(prev,sd.acessoCfg);if(prev&&(prev._ts||0)>(sd.acessoCfg._ts||0))reenviarRef.current=true;return n===prev?prev:n;}); // V239: antes nem sincronizava // V362
       if(sd.perms)setPerms(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.perms)?prev:sd.perms;});
       if(sd.labs)setLabs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.labs)?prev:sd.labs;});
       if(sd.procs&&sd.procs.length)setProcs(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.procs)?prev:sd.procs;});
@@ -18660,10 +18786,11 @@ useEffect(function(){
       if(sd.pacsTicks)setPacsTicks(function(prev){var m=mergeTicks(prev,sd.pacsTicks);return JSON.stringify(prev)===JSON.stringify(m)?prev:m;});if(sd.auditDismiss)setAuditDismiss(function(prev){var m=mergeTicks(prev,sd.auditDismiss);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V289
       if(sd.semTicks)setSemTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.semTicks)?prev:sd.semTicks;});
       if(sd.anivTicks)setAnivTicks(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.anivTicks)?prev:sd.anivTicks;});
+      if(sd.waTemplates)setWaTemplates(function(prev){return JSON.stringify(prev)===JSON.stringify(sd.waTemplates)?prev:sd.waTemplates;}); // V362: modelos de mensagem nao entravam no poll -- o aparelho aberto regravava os velhos por cima
       if(sd.implCat)addArr(sd.implCat,setImplCat,"implCat");// V238 merge aditivo - nao sobrescreve mais
       if(sd.implMov)addArr(sd.implMov,setImplMov,"implMov");// V238 merge aditivo - nao sobrescreve mais
       if(sd.implFech)addArr(sd.implFech,setImplFech,"implFech");// V333
-      if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSetP);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, _ts mais novo vence
+      if(sd.orientacoes)setOrientacoes(function(prev){var m=mergeOrient(prev,sd.orientacoes,_diSetP);if(_temMaisNovo(m,sd.orientacoes,_diSetP,"orientacoes"))reenviarRef.current=true;return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V234: item-a-item, _ts mais novo vence // V362
       if(sd.cotExtra)addArr(sd.cotExtra,setCotExtra,"cotExtra");// V310: poll dos itens avulsos
       if(sd.docsEmitidos)addArr(sd.docsEmitidos,setDocsEmitidos);// V320: poll dos documentos emitidos
       if(sd.afast)addArr(sd.afast,setAfast,"afast");// V305: afast nao entrava no poll -- aparelho aberto ficava com lista velha e apagava o registro no proprio save
@@ -18672,6 +18799,15 @@ useEffect(function(){
       if(sd.ferPer)setFerPer(function(prev){return JSON.stringify(sd.ferPer)===JSON.stringify(prev)?prev:sd.ferPer;});// V305
       lastServerTs.current=fresh.updated_at;
       if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
+      // V362: se o merge deixou aqui algo MAIS NOVO que o servidor (a copia de outro aparelho apagou), reenvia sozinho.
+      // Se o merge mudou o estado, o autosave ja vai rodar; se nao mudou, ninguem rodava e a divergencia ficava.
+      // O save so grava o que de fato difere do servidor.
+      setTimeout(function(){
+        if(!reenviarRef.current||!runSaveRef.current)return;
+        if(isSaving.current||saveTimer.current)return; // ja tem save a caminho: ele leva o estado atual
+        dirtyRef.current=true;
+        saveTimer.current=setTimeout(function(){saveTimer.current=null;if(runSaveRef.current)runSaveRef.current();},300);
+      },AUTOSAVE_MS+500);
     }catch(e){}
   };
   doPollNowRef.current=doPoll; // V225: Realtime dispara o mesmo sync
