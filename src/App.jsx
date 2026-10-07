@@ -18053,22 +18053,27 @@ const fetchBlobDelta=async function(){
         var lv=blobVersRef.current||{};
         var changed=[];
         Object.keys(v.vers).forEach(function(k){if(k==="_vers"||k==="pats")return;if(v.vers[k]!==lv[k])changed.push(k);});
-        if(!changed.length)return {data:{},updated_at:v.updated_at,partial:true,base:{}};
+        if(!changed.length)return {data:{},updated_at:v.updated_at,partial:true,base:{},commit:function(){}};
         BLOB_TOMB_KEYS.forEach(function(k){if(changed.indexOf(k)<0)changed.push(k);});
         var part=await supabase.loadKeys(changed);
         if(part&&part.updated_at){
-          var sd={},base={};
+          var sd={},base={},_pv={},_pj={};
           changed.forEach(function(k){
             if(part[k]!==undefined&&part[k]!==null){
               sd[k]=part[k];
               base[k]=lastSavedKeyJsonRef.current[k]; // V362: o que este aparelho sabia do servidor ANTES desta leitura (merge de 3 vias)
-              if(v.vers[k]!=null)blobVersRef.current[k]=v.vers[k];
-              try{lastSavedKeyJsonRef.current[k]=JSON.stringify(part[k]);}catch(e){}
+              if(v.vers[k]!=null)_pv[k]=v.vers[k];
+              try{_pj[k]=JSON.stringify(part[k]);}catch(e){}
             }
           });
+          // V363: so marca como "recebido" quando quem chamou JUNTA os dados (commit). Antes marcava aqui mesmo;
+          // se o poll desistisse (alguem clicou durante o download), o aparelho ficava achando que ja tinha a versao
+          // nova sem te-la juntado, e o save seguinte gravava a copia velha por cima (caso real 07/10 12:43: tres
+          // respostas do WhatsApp voltaram para pendente e a guarda do robo teve que reaplicar).
+          var _commit=function(){Object.keys(_pv).forEach(function(k){blobVersRef.current[k]=_pv[k];});if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};Object.keys(_pj).forEach(function(k){lastSavedKeyJsonRef.current[k]=_pj[k];});};
           // V362: se alguem gravou ENTRE as duas leituras, fica o carimbo da 1a (o do mapa de versoes): a proxima
           // conferencia ve a diferenca e busca o resto. Antes ficava o da 2a e o aparelho se achava em dia sem estar.
-          return {data:sd,updated_at:(part.updated_at===v.updated_at?part.updated_at:v.updated_at),partial:true,base:base};
+          return {data:sd,updated_at:(part.updated_at===v.updated_at?part.updated_at:v.updated_at),partial:true,base:base,commit:_commit};
         }
       }
     }
@@ -18076,13 +18081,13 @@ const fetchBlobDelta=async function(){
   // fallback: comportamento identico ao anterior (download completo)
   var fresh=await supabase.loadFull();
   if(fresh&&fresh.data){
-    var baseF={};
-    try{if(fresh.data._vers&&typeof fresh.data._vers==="object")blobVersRef.current=Object.assign({},fresh.data._vers);}catch(e){}
-    try{ // V362: a carga completa tambem vira a referencia do que o servidor tem (antes so a leitura por chave atualizava)
-      if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};
-      Object.keys(fresh.data).forEach(function(k){if(k==="_vers")return;baseF[k]=lastSavedKeyJsonRef.current[k];try{lastSavedKeyJsonRef.current[k]=JSON.stringify(fresh.data[k]);}catch(e){}});
+    var baseF={},_pjF={},_vF=null;
+    try{if(fresh.data._vers&&typeof fresh.data._vers==="object")_vF=Object.assign({},fresh.data._vers);}catch(e){}
+    try{ // V362: a carga completa tambem vira a referencia do que o servidor tem (V363: so no commit, depois de juntar)
+      Object.keys(fresh.data).forEach(function(k){if(k==="_vers")return;baseF[k]=(lastSavedKeyJsonRef.current||{})[k];try{_pjF[k]=JSON.stringify(fresh.data[k]);}catch(e){}});
     }catch(e){}
-    return {data:fresh.data,updated_at:fresh.updated_at,partial:false,base:baseF};
+    var _commitF=function(){if(_vF)blobVersRef.current=_vF;if(!lastSavedKeyJsonRef.current)lastSavedKeyJsonRef.current={};Object.keys(_pjF).forEach(function(k){lastSavedKeyJsonRef.current[k]=_pjF[k];});};
+    return {data:fresh.data,updated_at:fresh.updated_at,partial:false,base:baseF,commit:_commitF};
   }
   return null;
 };
@@ -18314,7 +18319,7 @@ useEffect(function(){
     var fresh=await fetchBlobDelta(); // V199: baixa so o que mudou
     if(!fresh||!fresh.data)return false;
     var sd=fresh.data;
-    if(!Object.keys(sd).length){lastServerTs.current=fresh.updated_at;return "nada";}
+    if(!Object.keys(sd).length){if(fresh.commit)fresh.commit();lastServerTs.current=fresh.updated_at;return "nada";}
     // unir exclusoes do servidor com as nossas
     if(sd.delApts&&sd.delApts.length){var _dd=delAptsRef.current||[];sd.delApts.forEach(function(id){if(_dd.indexOf(id)<0)_dd.push(id);});delAptsRef.current=_dd.length>3000?_dd.slice(-3000):_dd;}
     if(sd.delPats&&sd.delPats.length){var _dpp=delPatsRef.current||[];sd.delPats.forEach(function(id){if(_dpp.indexOf(id)<0)_dpp.push(id);});delPatsRef.current=_dpp.length>3000?_dpp.slice(-3000):_dpp;} // V197
@@ -18381,6 +18386,7 @@ useEffect(function(){
     if(sd.waSent)setWaSent(function(prev){var m=Object.assign({},sd.waSent,prev||{});return JSON.stringify(m)===JSON.stringify(prev)?prev:m;}); // V362: marcacoes de envio: uniao (servidor + este aparelho)
     _adotar("waAutoLog",setWaAutoLog);_adotar("expenses",setExpenses);_adotar("perms",setPerms);_adotar("labs",setLabs);_adotar("procs",setProcs);_adotar("prosProcs",setProsProcs);
     _adotar("espera",setEspera);_adotar("remarcar",setRemarcar);_adotar("semTicks",setSemTicks);_adotar("anivTicks",setAnivTicks);_adotar("waTemplates",setWaTemplates);
+    if(fresh.commit)fresh.commit(); // V363: so agora (dados ja juntados) vira a referencia do que o servidor tem
     lastServerTs.current=fresh.updated_at;
     if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
     // V357: o runSave NAO repete o doSave que pediu isto (ele so enxerga o estado de antes do merge)
@@ -18797,6 +18803,7 @@ useEffect(function(){
       if(sd.hol)addArr(sd.hol,setHol,"hol");// V305
       if(sd.ferSaldo)setFerSaldo(function(prev){var m=mergeTicks(prev,sd.ferSaldo);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});// V305
       if(sd.ferPer)setFerPer(function(prev){return JSON.stringify(sd.ferPer)===JSON.stringify(prev)?prev:sd.ferPer;});// V305
+      if(fresh.commit)fresh.commit(); // V363: so depois de juntar; se o poll desistir acima, nada fica marcado como recebido
       lastServerTs.current=fresh.updated_at;
       if(fresh.partial===false){try{idb.set("blob_v1",{data:fresh.data,updated_at:fresh.updated_at});}catch(e){}} // V198+V199: cache so quando completo
       // V362: se o merge deixou aqui algo MAIS NOVO que o servidor (a copia de outro aparelho apagou), reenvia sozinho.
