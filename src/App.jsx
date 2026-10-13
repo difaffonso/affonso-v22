@@ -1914,6 +1914,72 @@ function AvisoObrig({lista,onVoltar,onSalvar}){
   </div>;
 }
 
+// ══════════════════════════════════════════════════════════
+// V364 — DESCONTO EM % NO PLANO DE TRATAMENTO
+// O desconto muda o "value" de cada procedimento (o mesmo campo que saldo, financeiro e
+// comissao ja leem) e guarda o valor de tabela em "vOrig", para trocar ou desfazer o
+// desconto sem excluir o plano. O plano guarda em "desconto" a %, o motivo, quem e quando;
+// cada item com desconto leva tambem dPct/dMot, para o rotulo nao se perder se o merge entre
+// aparelhos trouxer o cabecalho do plano de uma copia que ainda nao tinha o desconto.
+// Regras:
+//  - o calculo parte sempre do vOrig: trocar 5% por 10% da 10%, nao 5% em cima de 5%
+//  - procedimento ja realizado nao muda de valor (a comissao ja foi calculada sobre ele)
+//  - os centavos do arredondamento vao para o item mais caro, para a soma bater com o total
+// ══════════════════════════════════════════════════════════
+function descBase_V364(it){return (it&&it.vOrig!=null)?(Number(it.vOrig)||0):(Number(it&&it.value)||0);}
+function descTravado_V364(it){return !!(it&&(it.done||it.paid));}
+function descPctNum_V364(v){var n=parseFloat(String(v==null?"":v).replace(",","."));return isNaN(n)?0:n;}
+function descPctTxt_V364(p){return String(Math.round((Number(p)||0)*100)/100).replace(".",",");}
+// Devolve a nova lista de itens: os marcados em "sel" (indice -> true) recebem o desconto,
+// os nao marcados que tinham desconto voltam ao valor de tabela, os realizados ficam como estao.
+// pct 0 (ou fora de 0..100) remove o desconto de todos os itens nao realizados.
+function descAplicar_V364(items,pct,sel,motivo){
+  items=items||[];pct=Number(pct)||0;sel=sel||{};motivo=motivo||"";
+  var ativo=pct>0&&pct<100;
+  var baseC={},novoC={},somaBase=0,somaNovo=0,maior=-1;
+  items.forEach(function(it,i){
+    if(!ativo||!sel[i]||!it||descTravado_V364(it))return;
+    var c=Math.round(descBase_V364(it)*100);
+    if(c<=0)return;
+    baseC[i]=c;somaBase+=c;
+    var n=Math.round(c*(100-pct)/100+1e-6);
+    novoC[i]=n;somaNovo+=n;
+    if(maior<0||c>baseC[maior])maior=i;
+  });
+  var alvo=Math.round(somaBase*(100-pct)/100+1e-6);
+  if(maior>=0&&alvo!==somaNovo)novoC[maior]+=alvo-somaNovo;
+  return items.map(function(it,i){
+    if(!it||descTravado_V364(it))return it;
+    if(novoC[i]!=null){
+      var vo=baseC[i]/100,nv=novoC[i]/100;
+      if(it.vOrig!=null&&Number(it.vOrig)===vo&&Number(it.value)===nv&&Number(it.dPct)===pct&&(it.dMot||"")===motivo)return it;
+      return Object.assign({},it,{vOrig:vo,value:nv,dPct:pct,dMot:motivo});
+    }
+    if(it.vOrig!=null){var o=Object.assign({},it,{value:Number(it.vOrig)||0});delete o.vOrig;delete o.dPct;delete o.dMot;return o;}
+    return it;
+  });
+}
+// % e motivo em vigor no plano: do cabecalho do plano ou, se faltar, do primeiro item com desconto
+function descInfo_V364(t){
+  var d=t&&t.desconto;
+  if(d&&Number(d.pct)>0)return {pct:Number(d.pct),motivo:d.motivo||"",por:d.por||"",em:d.em||""};
+  var it=((t&&t.items)||[]).find(function(x){return x&&x.vOrig!=null&&Number(x.dPct)>0;});
+  return it?{pct:Number(it.dPct),motivo:it.dMot||"",por:"",em:""}:null;
+}
+// Valor de tabela (sub), desconto (desc) e total cobrado (tot) de uma lista de itens
+function descResumo_V364(items){
+  var sub=0,tot=0;
+  (items||[]).forEach(function(it){if(!it)return;sub+=descBase_V364(it);tot+=Number(it.value)||0;});
+  sub=Math.round(sub*100)/100;tot=Math.round(tot*100)/100;
+  return {sub:sub,desc:Math.round((sub-tot)*100)/100,tot:tot};
+}
+function descTemAtivo_V364(items){return (items||[]).some(function(it){return it&&!descTravado_V364(it)&&it.vOrig!=null;});}
+// Rotulo na tela: "Desconto 5% · PIX"
+function descRotulo_V364(t){var d=descInfo_V364(t);if(!d)return "Desconto";return "Desconto "+descPctTxt_V364(d.pct)+"%"+(d.motivo?" · "+d.motivo:"");}
+// Rotulo no orcamento impresso (para o paciente): "Desconto para pagamento via PIX (5%)"
+function descRotuloPdf_V364(t){var d=descInfo_V364(t);if(!d)return "";var m={"PIX":"pagamento via PIX","Dinheiro":"pagamento em dinheiro","À vista":"pagamento à vista"}[d.motivo||""];return "Desconto "+(m?"para "+m+" ":"especial ")+"("+descPctTxt_V364(d.pct)+"%)";}
+const DESC_MOTIVOS_V364=["PIX","Dinheiro","À vista","Negociação","Outro"];
+
 function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose,waTemplates,docsEmitidos=[],setDocsEmitidos=function(){},pros=[],labs=[]}){
 // Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
@@ -2039,7 +2105,7 @@ h+="<div class='content'>";
 h+="<div class='title'>Plano de Tratamento Personalizado</div>";
 h+="<div class='hello'>Ol&aacute;, <b>"+(pat.name||"")+"</b>! Foi um prazer receb&ecirc;-lo(a). Preparamos com todo o cuidado o plano abaixo para cuidar do seu sorriso com excel&ecirc;ncia.</div>";
 h+="<div class='sec-t'>Procedimentos propostos</div>"+itensHtml;
-if(desc0>0){h+="<div class='total-box'><div class='de'>"+brl(subtotal)+"</div><div class='por'>"+brl(tot)+" <small>no plano</small></div><div class='eco'>Voc&ecirc; economiza "+brl(desc0)+"</div></div>";}
+if(desc0>0){h+="<div class='total-box'><div class='de'>"+brl(subtotal)+"</div><div class='por'>"+brl(tot)+" <small>no plano</small></div><div class='eco'>"+(b.discLabel?b.discLabel+" &mdash; voc&ecirc; economiza ":"Voc&ecirc; economiza ")+brl(desc0)+"</div></div>";}/* V364: rotulo do desconto do plano */
 else{h+="<div class='total-box'><div class='por'>"+brl(tot)+" <small>investimento total</small></div></div>";}
 if(payHtml){h+="<div class='sec-t'>Condi&ccedil;&otilde;es de pagamento</div><div class='pay-box'>"+payHtml+"</div>";}
 h+="<div class='valid'>Esta proposta &eacute; v&aacute;lida at&eacute; "+valStr+".</div>";
@@ -2104,6 +2170,9 @@ setTni({d:"",procId:"",v:""});
 const [ortoPayModal,setOrtoPayModal]=useState(null); // {tid, idx}
 const [ortoPayMethod,setOrtoPayMethod]=useState("PIX");
 const [ortoPayVal,setOrtoPayVal]=useState("");
+// V364: desconto em % no plano (descModal = id do plano aberto; sel = indice do item -> true)
+const [descModal,setDescModal]=useState(null);
+const [descForm,setDescForm]=useState({pct:"",motivo:"PIX",sel:{}});
 const togItemPaid=(tid,idx)=>{
 const treat=treats.find(t=>t.id===tid);
 if(!treat)return;
@@ -2222,6 +2291,36 @@ _by:(user&&user.name)||"",
 };
 setRecs(prev=>[...prev,recObj]);
 setPayModal(null);setPayForm({date:today(),value:"",method:"Dinheiro",inst:"1",note:""});
+};
+// V364: abre o desconto do plano. Sem desconto: todos os procedimentos nao realizados vem marcados.
+// Com desconto: vem marcados so os que ja estao com desconto (procedimento novo entra se marcar).
+const abrirDesconto_V364=(t)=>{
+  const its=(t&&t.items)||[];
+  const tem=descTemAtivo_V364(its);
+  const sel={};
+  its.forEach(function(it,i){if(!it||descTravado_V364(it))return;if(!tem||it.vOrig!=null)sel[i]=true;});
+  const d=tem?descInfo_V364(t):null;
+  setDescForm({pct:d?descPctTxt_V364(d.pct):"",motivo:(d&&d.motivo)||"PIX",sel:sel,n:its.length});
+  setDescModal(t.id);
+};
+// V364: aplica (pct>0) ou remove (pct 0) o desconto. Carimba _ts no plano e _dts nos itens que mudaram,
+// para o merge entre aparelhos (item a item) nao trazer o valor antigo de volta.
+// nEsp: quantos procedimentos o plano tinha quando o desconto foi aberto (a marcacao e por posicao;
+// se outro aparelho incluiu ou tirou procedimento nesse meio tempo, nao aplica).
+const salvarDesconto_V364=(tid,pct,motivo,sel,nEsp)=>{
+  const agora=Date.now();const quem=(user&&user.name)||"";const quando=new Date(agora).toISOString();
+  setTreats(prev=>prev.map(function(tr){
+    if(tr.id!==tid)return tr;
+    const velhos=tr.items||[];
+    if(nEsp!=null&&velhos.length!==nEsp)return tr;
+    const its=descAplicar_V364(velhos,pct,sel,motivo).map(function(it,i){return it===velhos[i]?it:Object.assign({},it,{_dts:agora});});
+    const ativo=descTemAtivo_V364(its);
+    const o=Object.assign({},tr,{_ts:agora,items:its});
+    if(ativo)o.desconto={pct:Number(pct),motivo:motivo||"",por:quem,em:quando};
+    else delete o.desconto;
+    o.descontoLog=(tr.descontoLog||[]).concat([{acao:ativo?"aplicou":"removeu",pct:ativo?Number(pct):0,motivo:ativo?(motivo||""):"",de:descResumo_V364(velhos).tot,para:descResumo_V364(its).tot,por:quem,em:quando}]).slice(-20);
+    return o;
+  }));
 };
 const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets),_by:(budgEdit&&budgEdit._by)||(user&&user.name)||""};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
@@ -2422,6 +2521,9 @@ return <>
     {patTreats.map(t=>{
       const total=t.items.reduce((s,i)=>s+i.value,0);
       const paid=(t.payments||[]).reduce((s,p)=>s+p.value,0);
+      const rD=descResumo_V364(t.items);// V364
+      const temDescD=rD.desc>0.004;// V364
+      const podeDescD=!isDentUser&&!ehAux_V329(user)&&!t.orto&&(t.items||[]).some(function(it){return it&&!descTravado_V364(it);});// V364
       const effOrc=(function(){var s=(t.orcStatus||"espera");if((s==="parcial"||s==="espera")&&total>0&&paid>=total-0.005)return "aprovado";if(s==="espera"&&paid>0)return "parcial";return s;})();
       return <div key={t.id} style={{background:t.finalizado?"var(--green-soft)":G.bg,borderRadius:12,padding:"14px 16px",border:"1px solid "+(t.finalizado?G.success:G.border),opacity:t.finalizado?0.85:1}}>
         <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:6}}>
@@ -2434,10 +2536,11 @@ return <>
   <div style={{fontSize:12,color:G.muted}}>{"Início: "+fmt(t.start)}{t.finalizado?" · Finalizado: "+fmt(t.finalizadoEm):""}</div>
 </div>
           <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div></div>
+            <div style={{textAlign:"right"}}>{temDescD&&<div style={{fontSize:11,color:G.muted,textDecoration:"line-through"}}>{cur(rD.sub)}</div>}<div style={{fontWeight:700,color:G.primary}}>{cur(total)}</div><div style={{fontSize:11,color:G.muted}}>Pago: {cur(paid)} · Saldo: {cur(total-paid)}</div>{temDescD&&<div style={{fontSize:11,color:G.success,fontWeight:700}}>{descRotulo_V364(t)+": − "+cur(rD.desc)}</div>}</div>
             {!isDentUser&&<button onClick={()=>{setAddProcModal(t.id);setAddProcForm({procId:"",d:"",v:"",qty:"",manual:"",teeth:""});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Proc.</button>}
             {!isDentUser&&<button onClick={()=>setEditPlan({id:t.id,name:t.name||"",start:t.start||today()})} style={{background:G.accent,color:G.primary,border:"1.5px solid "+G.primary,borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>✏️ Editar</button>}
-            <button onClick={()=>{setPdfBudget({items:t.items.map(function(it){return{d:it.desc,v:it.value};}),disc:0,dentistId:t.dentistId,date:t.start,_planName:t.name});setPayCfg(defPayCfg());setTreats(prev=>prev.map(x=>x.id===t.id?{...x,_ts:Date.now(),orcEnviado:true,orcEnviadoAt:today()}:x));}} style={{background:G.gold,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>📄 Orçamento</button>
+            {podeDescD&&<button onClick={()=>abrirDesconto_V364(t)} title="Aplicar, trocar ou remover desconto em % nos procedimentos" style={{background:temDescD?G.success:G.accent,color:temDescD?"#fff":G.success,border:"1.5px solid "+G.success,borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{(temDescD&&descInfo_V364(t))?("🏷️ Desconto "+descPctTxt_V364(descInfo_V364(t).pct)+"%"):"🏷️ Desconto"}</button>}
+            <button onClick={()=>{const _rD=descResumo_V364(t.items);const _tem=_rD.desc>0.004;/* V364: no orcamento sai o valor de tabela de cada item + a linha do desconto */setPdfBudget({items:t.items.map(function(it){return{d:it.desc,v:descBase_V364(it)};}),disc:_tem?_rD.desc:0,discLabel:_tem?descRotuloPdf_V364(t):"",dentistId:t.dentistId,date:t.start,_planName:t.name});setPayCfg(_tem?Object.assign(defPayCfg(),{avista:{on:true,desc:0}}):defPayCfg());setTreats(prev=>prev.map(x=>x.id===t.id?{...x,_ts:Date.now(),orcEnviado:true,orcEnviadoAt:today()}:x));}} style={{background:G.gold,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>📄 Orçamento</button>
                 { !t.finalizado
                   ? (!isDentUser&&<button onClick={()=>setTreats(prev=>prev.map(x=>x.id!==t.id?x:{...x,_ts:Date.now(),finalizado:true,finalizadoEm:today(),finalizadoPor:user.name}))}
                     style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"✓ Finalizar"}</button>)
@@ -2507,6 +2610,7 @@ return <>
                 </div>
                 :(it.payMonth?<div style={{marginTop:4}}><span style={{background:G.blue,color:"#fff",borderRadius:8,padding:"2px 9px",fontSize:10,fontWeight:700}}>{"💰 Pagar em: "+pagMesLabel(it.payMonth)}</span></div>:null))}
             </div>
+            {it.vOrig!=null&&Math.abs(Number(it.vOrig)-Number(it.value))>0.004&&<span style={{fontSize:11,color:G.muted,textDecoration:"line-through"}} title="Valor de tabela">{cur(it.vOrig)}</span>}
             <span style={{fontSize:13,fontWeight:700,color:isDone?G.muted:G.primary}}>{cur(it.value)}</span>
             {!isDone&&<button onClick={()=>{setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,_ts:Date.now(),items:tr.items.filter((_,idx)=>idx!==i)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}} title="Remover procedimento">✕</button>}
           </div>;
@@ -3809,6 +3913,107 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
     </div>
   </div>
 </div>}
+
+{/* V364: Desconto em % no plano de tratamento */}
+{descModal!=null&&(function(){
+  var tD=treats.find(function(x){return x.id===descModal;});
+  if(!tD)return null;
+  var itensD=tD.items||[];
+  var pctN=descPctNum_V364(descForm.pct);
+  var pctOk=pctN>0&&pctN<100;
+  var simul=descAplicar_V364(itensD,pctOk?pctN:0,descForm.sel,descForm.motivo);
+  var rN=descResumo_V364(simul);
+  var pagoD=(tD.payments||[]).reduce(function(s,p){return s+(Number(p.value)||0);},0);
+  var temAtivo=descTemAtivo_V364(itensD);
+  var livresIdx=[];itensD.forEach(function(it,i){if(it&&!descTravado_V364(it))livresIdx.push(i);});
+  var nSel=livresIdx.filter(function(i){return !!descForm.sel[i];}).length;
+  var temTrav=itensD.some(function(it){return descTravado_V364(it);});
+  var dAt=descInfo_V364(tD);
+  var chipSt=function(on){return {background:on?G.primary:"var(--card)",color:on?"#fff":G.muted,border:"1.5px solid "+(on?G.primary:G.border),borderRadius:8,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer"};};
+  var linkSt={background:"none",border:"none",color:G.primary,fontSize:11,fontWeight:700,cursor:"pointer",padding:0,textDecoration:"underline"};
+  var setSel=function(s){setDescForm(function(p){return Object.assign({},p,{sel:s});});};
+  var rotDesc="Desconto"+(pctOk&&nSel>0?(" "+descPctTxt_V364(pctN)+"%"+(nSel<livresIdx.length?(" em "+nSel+" de "+livresIdx.length+" itens"):"")):"");
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:500,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
+        <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{"🏷️ Desconto no plano"}</span>
+        <button onClick={function(){setDescModal(null);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+      </div>
+      <div style={{padding:20,display:"flex",flexDirection:"column",gap:13}}>
+        <div>
+          <div style={{fontSize:14,fontWeight:700,color:G.text}}>{tD.name}</div>
+          {temAtivo&&dAt&&<div style={{fontSize:11,color:G.muted,marginTop:2}}>{"Hoje: "+descRotulo_V364(tD)+(dAt.por?" · aplicado por "+dAt.por:"")+(dAt.em?" em "+new Date(dAt.em).toLocaleDateString("pt-BR"):"")}</div>}
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Desconto</label>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <input type="text" inputMode="decimal" value={descForm.pct} onChange={function(e){var v=e.target.value;setDescForm(function(p){return Object.assign({},p,{pct:v});});}} placeholder="Ex: 5" style={{width:76,border:"1.5px solid "+(pctOk?G.primary:G.border),borderRadius:8,padding:"8px 11px",fontSize:15,fontWeight:700,outline:"none",color:G.text,background:"var(--surface)"}}/>
+            <span style={{fontSize:15,fontWeight:700,color:G.muted}}>%</span>
+            {[5,7,10].map(function(n){return <button key={n} onClick={function(){setDescForm(function(p){return Object.assign({},p,{pct:String(n)});});}} style={chipSt(pctN===n)}>{n+"%"}</button>;})}
+          </div>
+        </div>
+
+        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+          <span style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",marginRight:2}}>Motivo</span>
+          {DESC_MOTIVOS_V364.map(function(m){return <button key={m} onClick={function(){setDescForm(function(p){return Object.assign({},p,{motivo:m});});}} style={chipSt(descForm.motivo===m)}>{m}</button>;})}
+        </div>
+
+        {pagoD>0&&<div style={{background:"var(--amber-soft)",border:"1.5px solid "+G.orange,borderRadius:9,padding:"8px 12px",fontSize:12,color:G.text,lineHeight:1.45}}>
+          {"Este plano já tem "}<b>{cur(pagoD)}</b>{" pago ("+(tD.payments||[]).slice(0,3).map(function(p){return (p.method||"")+" "+fmt(p.date);}).join(", ")+((tD.payments||[]).length>3?"…":"")+"). Se parte foi paga de outra forma, desmarque esses procedimentos para o desconto não cair sobre eles."}
+        </div>}
+
+        <div style={{border:"1px solid "+G.border,borderRadius:10,overflow:"hidden"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 12px",background:G.bg,fontSize:11,fontWeight:700,color:G.muted}}>
+            <span>{"Aplicar em "+nSel+" de "+livresIdx.length}</span>
+            <span style={{display:"flex",gap:12}}>
+              <button onClick={function(){var s={};livresIdx.forEach(function(i){s[i]=true;});setSel(s);}} style={linkSt}>Todos</button>
+              <button onClick={function(){setSel({});}} style={linkSt}>Nenhum</button>
+            </span>
+          </div>
+          {itensD.map(function(it,i){
+            if(!it)return null;
+            var trav=descTravado_V364(it);
+            var on=!trav&&!!descForm.sel[i];
+            var base=descBase_V364(it);
+            var nv=Number(simul[i]&&simul[i].value)||0;
+            var muda=!trav&&Math.abs(nv-base)>0.004;
+            return <label key={i} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 12px",borderTop:"1px solid "+G.border,cursor:trav?"default":"pointer",opacity:trav?0.6:1}}>
+              <input type="checkbox" checked={on} disabled={trav} onChange={function(e){var c=e.target.checked;setDescForm(function(p){var s=Object.assign({},p.sel);if(c)s[i]=true;else delete s[i];return Object.assign({},p,{sel:s});});}} style={{accentColor:G.primary,width:16,height:16,flexShrink:0}}/>
+              <span style={{flex:1,minWidth:0,fontSize:12.5,fontWeight:600,color:G.text}}>{it.desc}{trav&&<span style={{fontSize:10,color:G.muted,fontWeight:700}}>{" · realizado"}</span>}</span>
+              {muda
+                ?<span style={{fontSize:12,whiteSpace:"nowrap"}}><span style={{textDecoration:"line-through",color:G.muted}}>{cur(base)}</span>{" → "}<b style={{color:G.success}}>{cur(nv)}</b></span>
+                :<span style={{fontSize:12,fontWeight:700,color:G.muted,whiteSpace:"nowrap"}}>{cur(trav?it.value:base)}</span>}
+            </label>;
+          })}
+        </div>
+        {temTrav&&<div style={{fontSize:11,color:G.muted,marginTop:-6}}>Procedimentos já realizados não mudam de valor — a comissão já foi calculada sobre eles.</div>}
+
+        <div style={{background:G.accent,borderRadius:10,padding:"10px 13px",display:"flex",flexDirection:"column",gap:4,fontSize:13,color:G.text}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10}}><span>Valor de tabela</span><span>{cur(rN.sub)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,color:G.success,fontWeight:700}}><span>{rotDesc}</span><span>{"− "+cur(rN.desc)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,fontWeight:800,color:G.primary,fontSize:14.5,borderTop:"1px solid "+G.border,paddingTop:5,marginTop:2}}><span>Novo total</span><span>{cur(rN.tot)}</span></div>
+          {pagoD>0&&<div style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:12,color:G.muted}}><span>{"Já pago "+cur(pagoD)+" · falta pagar"}</span><b style={{color:G.text}}>{cur(Math.max(0,rN.tot-pagoD))}</b></div>}
+        </div>
+
+        <div style={{display:"flex",gap:9,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",paddingTop:12,borderTop:"1px solid "+G.border}}>
+          {temAtivo
+            ?<button onClick={function(){salvarDesconto_V364(tD.id,0,"",{});setDescModal(null);}} style={{background:"var(--card)",border:"1.5px solid "+G.red,color:G.red,borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>↩ Remover desconto</button>
+            :<span/>}
+          <div style={{display:"flex",gap:9}}>
+            <button onClick={function(){setDescModal(null);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+            <button onClick={function(){
+              if(!pctOk){alert("Informe a porcentagem do desconto (entre 0 e 100).");return;}
+              if(nSel===0){alert("Marque pelo menos um procedimento para receber o desconto.");return;}
+              if(descForm.n!=null&&itensD.length!==descForm.n){alert("Os procedimentos deste plano mudaram enquanto o desconto estava aberto. Confira a lista e aplique de novo.");abrirDesconto_V364(tD);return;}
+              salvarDesconto_V364(tD.id,pctN,descForm.motivo,descForm.sel,descForm.n);setDescModal(null);
+            }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>✓ Aplicar desconto</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>;
+})()}
 
 </>;
 }
