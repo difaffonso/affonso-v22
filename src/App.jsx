@@ -1980,6 +1980,69 @@ function descRotulo_V364(t){var d=descInfo_V364(t);if(!d)return "Desconto";retur
 function descRotuloPdf_V364(t){var d=descInfo_V364(t);if(!d)return "";var m={"PIX":"pagamento via PIX","Dinheiro":"pagamento em dinheiro","À vista":"pagamento à vista"}[d.motivo||""];return "Desconto "+(m?"para "+m+" ":"especial ")+"("+descPctTxt_V364(d.pct)+"%)";}
 const DESC_MOTIVOS_V364=["PIX","Dinheiro","À vista","Negociação","Outro"];
 
+// ══════════════════════════════════════════════════════════
+// V365 — EDITAR PROCEDIMENTO DO PLANO (descricao e valor), sem excluir e lancar de novo
+// O valor digitado e o VALOR DE TABELA. Se o procedimento esta no desconto do plano (V364),
+// o desconto e recalculado na hora (mesma %, mesmo arredondamento do botao Desconto).
+// Procedimento realizado: so o administrador edita, e o valor fica travado se a comissao ja
+// foi paga ao dentista (recebido) ou se for mensalidade de orto (valor ligado ao pagamento).
+// Cada edicao fica registrada no proprio item (edLog: quem, quando, de -> para).
+// ══════════════════════════════════════════════════════════
+// Le valor no formato brasileiro: "1.556,00", "350,5", "350.50", "R$ 300" -> numero (NaN se invalido)
+function valorBR_V365(s){
+  var t=String(s==null?"":s).replace(/R\$/gi,"").replace(/\s/g,"");
+  if(!t||!/^[0-9.,]+$/.test(t))return NaN;
+  if(t.indexOf(",")>=0){t=t.replace(/\./g,"");if(t.indexOf(",")!==t.lastIndexOf(","))return NaN;t=t.replace(",",".");}
+  else{var p=t.split(".");if(p.length>2||(p.length===2&&p[1].length===3))t=p.join("");}
+  var n=parseFloat(t);
+  return isNaN(n)?NaN:Math.round(n*100)/100;
+}
+function valorTxt_V365(v){return (Math.round((Number(v)||0)*100)/100).toFixed(2).replace(".",",");}
+// % e motivo do desconto em vigor nos procedimentos ainda nao realizados (null se nao ha)
+function descAtual_V365(items,t){
+  var ab=(items||[]).filter(function(it){return it&&!descTravado_V364(it)&&it.vOrig!=null;});
+  if(!ab.length)return null;
+  var x=ab.find(function(it){return Number(it.dPct)>0&&Number(it.dPct)<100;});
+  if(x)return {pct:Number(x.dPct),motivo:x.dMot||""};
+  var d=t&&t.desconto;
+  return (d&&Number(d.pct)>0&&Number(d.pct)<100)?{pct:Number(d.pct),motivo:d.motivo||""}:null;
+}
+function itemTravaValor_V365(it){return descTravado_V364(it)&&!!(it.orto||it.recebido);}
+// Retrato do item para conferir, na hora de salvar, se outro aparelho nao mexeu nele
+function itemRef_V365(it){return JSON.stringify([(it&&it.desc)||"",Number(it&&it.value)||0,(it&&it.vOrig!=null)?Number(it.vOrig):null,descTravado_V364(it)]);}
+// Edita o item idx. novo={desc, tab (valor de tabela), comDesc (fica no desconto do plano)}.
+// Devolve a nova lista (a mesma, se nada mudou); itens alterados levam _dts=agora.
+function editarItem_V365(items,idx,novo,quem,quando,agora,t){
+  items=items||[];novo=novo||{};
+  var it0=items[idx];if(!it0)return items;
+  var trav=descTravado_V364(it0);
+  var it1=Object.assign({},it0,{desc:String(novo.desc==null?"":novo.desc).trim()||it0.desc||""});
+  var tab=Math.round((Number(novo.tab)||0)*100)/100;
+  if(!itemTravaValor_V365(it0)){
+    if(trav){
+      // realizado: mantem o desconto que ja tinha, recalculado so nele (nao mexe nos outros)
+      var p=Number(it0.dPct)||0;
+      if(it0.vOrig!=null&&p>0&&p<100){it1.vOrig=tab;it1.value=Math.round(Math.round(tab*100)*(100-p)/100+1e-6)/100;}
+      else{it1.value=tab;delete it1.vOrig;delete it1.dPct;delete it1.dMot;}
+    }else{
+      var at=descAtual_V365(items,t);
+      if(novo.comDesc&&at){it1.vOrig=tab;it1.value=tab;it1.dPct=at.pct;it1.dMot=at.motivo;}
+      else{it1.value=tab;delete it1.vOrig;delete it1.dPct;delete it1.dMot;}
+    }
+  }
+  var its=items.slice();its[idx]=it1;
+  // refaz o desconto dos nao realizados: a soma continua exata (centavos no item mais caro)
+  if(!trav){
+    var at2=descAtual_V365(its,t);
+    if(at2){var sel={};its.forEach(function(x,k){if(x&&!descTravado_V364(x)&&x.vOrig!=null)sel[k]=true;});its=descAplicar_V364(its,at2.pct,sel,at2.motivo);}
+  }
+  var itF=its[idx];
+  var mudou=(itF.desc||"")!==(it0.desc||"")||Math.abs(descBase_V364(itF)-descBase_V364(it0))>0.004||Math.abs((Number(itF.value)||0)-(Number(it0.value)||0))>0.004||((itF.vOrig!=null)!==(it0.vOrig!=null));
+  if(!mudou)return items;
+  its[idx]=Object.assign({},itF,{edLog:(it0.edLog||[]).concat([{em:quando||"",por:quem||"",de:{desc:it0.desc||"",tab:descBase_V364(it0),val:Number(it0.value)||0},para:{desc:itF.desc||"",tab:descBase_V364(itF),val:Number(itF.value)||0}}]).slice(-10)});
+  return its.map(function(x,k){return x===items[k]?x:Object.assign({},x,{_dts:agora});});
+}
+
 function PatientFolder({pat:patProp,pats,setPats,recs,setRecs,treats,setTreats,budgets,setBudgets,appts,dents,procs,user,onClose,waTemplates,docsEmitidos=[],setDocsEmitidos=function(){},pros=[],labs=[]}){
 // Always read live data from pats - this ensures saves reflect immediately
 const pat=pats.find(p=>p.id===patProp.id)||patProp;
@@ -2173,6 +2236,8 @@ const [ortoPayVal,setOrtoPayVal]=useState("");
 // V364: desconto em % no plano (descModal = id do plano aberto; sel = indice do item -> true)
 const [descModal,setDescModal]=useState(null);
 const [descForm,setDescForm]=useState({pct:"",motivo:"PIX",sel:{}});
+// V365: editar procedimento do plano {tid, idx, n, ref, desc, val, comDesc}
+const [editItem,setEditItem]=useState(null);
 const togItemPaid=(tid,idx)=>{
 const treat=treats.find(t=>t.id===tid);
 if(!treat)return;
@@ -2321,6 +2386,33 @@ const salvarDesconto_V364=(tid,pct,motivo,sel,nEsp)=>{
     o.descontoLog=(tr.descontoLog||[]).concat([{acao:ativo?"aplicou":"removeu",pct:ativo?Number(pct):0,motivo:ativo?(motivo||""):"",de:descResumo_V364(velhos).tot,para:descResumo_V364(its).tot,por:quem,em:quando}]).slice(-20);
     return o;
   }));
+};
+// V365: editar descricao e valor de um procedimento do plano
+const abrirEditItem_V365=(t,i)=>{
+  const its=(t&&t.items)||[];const it=its[i];if(!it)return;
+  setEditItem({tid:t.id,idx:i,n:its.length,ref:itemRef_V365(it),desc:it.desc||"",val:valorTxt_V365(descBase_V364(it)),comDesc:it.vOrig!=null});
+};
+const salvarEditItem_V365=()=>{
+  const e=editItem;if(!e)return;
+  const desc=String(e.desc||"").trim();
+  if(!desc){alert("Escreva a descrição do procedimento.");return;}
+  const tr0=treats.find(x=>x.id===e.tid);
+  const it0=tr0&&(tr0.items||[])[e.idx];
+  if(!tr0||(tr0.items||[]).length!==e.n||!it0||itemRef_V365(it0)!==e.ref){alert("Este procedimento foi alterado em outro computador enquanto você editava. Abra de novo para conferir.");setEditItem(null);return;}
+  const tab=itemTravaValor_V365(it0)?descBase_V364(it0):valorBR_V365(e.val);
+  if(isNaN(tab)){alert("Valor inválido. Escreva, por exemplo, 350 ou 350,50.");return;}
+  const agora=Date.now();const quem=(user&&user.name)||"";const quando=new Date(agora).toISOString();
+  setTreats(prev=>prev.map(function(tr){
+    if(tr.id!==e.tid)return tr;
+    const velhos=tr.items||[];const iv=velhos[e.idx];
+    if(velhos.length!==e.n||!iv||itemRef_V365(iv)!==e.ref)return tr;// outro aparelho mexeu: nao grava por cima
+    const its=editarItem_V365(velhos,e.idx,{desc:desc,tab:tab,comDesc:!!e.comDesc},quem,quando,agora,tr);
+    if(its===velhos)return tr;
+    const o=Object.assign({},tr,{_ts:agora,items:its});
+    if(o.desconto&&!its.some(function(x){return x&&x.vOrig!=null;}))delete o.desconto;// nenhum item ficou com desconto
+    return o;
+  }));
+  setEditItem(null);
 };
 const saveBudg=()=>{if(!bf.items.length)return alert("Adicione itens");const obj={...bf,patientId:pat.id,disc:pmoney(bf.disc),items:bf.items.map(function(it){return {...it,v:pmoney(it.v)};}),id:budgEdit?budgEdit.id:nid(budgets),_by:(budgEdit&&budgEdit._by)||(user&&user.name)||""};setBudgets(prev=>budgEdit?prev.map(b=>b.id===budgEdit.id?obj:b):[...prev,obj]);setBudgModal(false);};
 
@@ -2595,6 +2687,7 @@ return <>
                   <span>✓ Realizado por {it.doneBy} em {fmt(it.doneDate)}</span>
                   {user.level>=3&&<button onClick={()=>togItemPaid(t.id,i)} style={{background:"var(--amber-soft)",border:"1.5px solid "+G.orange,borderRadius:6,padding:"1px 8px",fontSize:10,fontWeight:700,color:G.orange,cursor:"pointer"}}>↩ Desfazer baixa</button>}
                 </div>}
+              {user.level>=3&&it.edLog&&it.edLog.length>0&&(function(){var u=it.edLog[it.edLog.length-1]||{};var mv=u.de&&u.para&&Math.abs((Number(u.de.tab)||0)-(Number(u.para.tab)||0))>0.004;return <div style={{fontSize:10,color:G.muted,marginTop:1}}>{"✏️ Editado por "+(u.por||"—")+(u.em?" em "+new Date(u.em).toLocaleDateString("pt-BR"):"")+(mv?" · valor era "+cur(u.de.tab):"")+(it.edLog.length>1?" · "+it.edLog.length+" edições":"")}</div>;})()}
               {isDone&&it.creditFuture&&<div style={{fontSize:10,color:G.blue,marginTop:1,display:"flex",alignItems:"center",gap:4}}>
                 <span>💳</span><span>Comissão aguarda crédito do cartão</span>
               </div>}
@@ -2610,9 +2703,12 @@ return <>
                 </div>
                 :(it.payMonth?<div style={{marginTop:4}}><span style={{background:G.blue,color:"#fff",borderRadius:8,padding:"2px 9px",fontSize:10,fontWeight:700}}>{"💰 Pagar em: "+pagMesLabel(it.payMonth)}</span></div>:null))}
             </div>
+            <div style={{display:"flex",alignItems:"center",gap:9,marginLeft:"auto",flexShrink:0}}>{/* V365: valor e botoes juntos (no celular descem de linha juntos) */}
             {it.vOrig!=null&&Math.abs(Number(it.vOrig)-Number(it.value))>0.004&&<span style={{fontSize:11,color:G.muted,textDecoration:"line-through"}} title="Valor de tabela">{cur(it.vOrig)}</span>}
             <span style={{fontSize:13,fontWeight:700,color:isDone?G.muted:G.primary}}>{cur(it.value)}</span>
+            {!isDentUser&&(!isDone||user.level>=3)&&<button onClick={()=>abrirEditItem_V365(t,i)} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,lineHeight:1,padding:"0 2px"}} title="Editar descrição e valor">✏️</button>}
             {!isDone&&<button onClick={()=>{setTreats(prev=>prev.map(tr=>tr.id!==t.id?tr:{...tr,_ts:Date.now(),items:tr.items.filter((_,idx)=>idx!==i)}));}} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:16,lineHeight:1,padding:"0 2px"}} title="Remover procedimento">✕</button>}
+            </div>
           </div>;
         })}
         <Div lb="Pagamentos Registrados"/>
@@ -4009,6 +4105,70 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
               salvarDesconto_V364(tD.id,pctN,descForm.motivo,descForm.sel,descForm.n);setDescModal(null);
             }} style={{background:G.success,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>✓ Aplicar desconto</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>;
+})()}
+
+{/* V365: Editar descricao e valor de um procedimento do plano */}
+{editItem&&(function(){
+  var tE=treats.find(function(x){return x.id===editItem.tid;});
+  var itE=tE&&(tE.items||[])[editItem.idx];
+  if(!tE||!itE)return null;
+  var trav=descTravado_V364(itE);
+  var trava=itemTravaValor_V365(itE);
+  var at=trav?null:descAtual_V365(tE.items,tE);
+  var tabN=trava?descBase_V364(itE):valorBR_V365(editItem.val);
+  var valOk=!isNaN(tabN);
+  var simE=valOk?editarItem_V365(tE.items,editItem.idx,{desc:editItem.desc,tab:tabN,comDesc:!!editItem.comDesc},"","",0,tE):null;
+  var itS=simE&&simE[editItem.idx];
+  var rA=descResumo_V364(tE.items),rS=simE?descResumo_V364(simE):rA;
+  var pagoE=(tE.payments||[]).reduce(function(s,p){return s+(Number(p.value)||0);},0);
+  var mudaTot=Math.abs(rS.tot-rA.tot)>0.004;
+  var pDone=Number(itE.dPct)||0;
+  var lbSt={fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"};
+  var inSt={border:"1.5px solid "+G.border,borderRadius:8,padding:"9px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--surface)",width:"100%"};
+  var enter=function(ev){if(ev.key==="Enter"){ev.preventDefault();salvarEditItem_V365();}};
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:460,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:"1px solid "+G.border}}>
+        <span style={{fontFamily:"'Cormorant Garamond'",fontSize:20}}>{"✏️ Editar procedimento"}</span>
+        <button onClick={function(){setEditItem(null);}} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
+      </div>
+      <div style={{padding:20,display:"flex",flexDirection:"column",gap:13}}>
+        <div style={{fontSize:12,color:G.muted}}>{"Plano: "}<b style={{color:G.text}}>{tE.name}</b></div>
+        {trav&&<div style={{background:"var(--amber-soft)",border:"1.5px solid "+G.orange,borderRadius:9,padding:"8px 12px",fontSize:12,color:G.text,lineHeight:1.45}}>
+          <b>{"Procedimento já realizado"+(itE.doneBy?" por "+itE.doneBy:"")+(itE.doneDate?" em "+fmt(itE.doneDate):"")+". "}</b>
+          {trava?(itE.orto?"O valor está ligado ao pagamento registrado na baixa — para mudar o valor, desfaça a baixa.":"A comissão deste procedimento já foi paga ao dentista, por isso o valor não pode mudar."):"Mudar o valor muda a comissão do dentista, que ainda não foi paga."}
+        </div>}
+        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+          <label style={lbSt}>Procedimento</label>
+          <input value={editItem.desc} onChange={function(ev){var v=ev.target.value;setEditItem(function(p){return Object.assign({},p,{desc:v});});}} onKeyDown={enter} style={inSt}/>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+          <label style={lbSt}>{(at||(trav&&itE.vOrig!=null))?"Valor de tabela (R$)":"Valor (R$)"}</label>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <input type="text" inputMode="decimal" value={trava?valorTxt_V365(tabN):editItem.val} disabled={trava} onFocus={function(ev){try{ev.target.select();}catch(x){}}} onChange={function(ev){var v=ev.target.value;setEditItem(function(p){return Object.assign({},p,{val:v});});}} onKeyDown={enter} style={Object.assign({},inSt,{width:140,fontSize:15,fontWeight:700,border:"1.5px solid "+(valOk?G.border:G.red),opacity:trava?0.6:1})}/>
+            <span style={{fontSize:13,fontWeight:700,color:valOk?G.primary:G.red}}>{valOk?cur(tabN):"valor inválido"}</span>
+          </div>
+        </div>
+        {at&&<label style={{display:"flex",alignItems:"center",gap:9,flexWrap:"wrap",cursor:"pointer",background:G.bg,borderRadius:9,padding:"9px 12px"}}>
+          <input type="checkbox" checked={!!editItem.comDesc} onChange={function(ev){var c=ev.target.checked;setEditItem(function(p){return Object.assign({},p,{comDesc:c});});}} style={{accentColor:G.primary,width:16,height:16,flexShrink:0}}/>
+          <span style={{flex:1,minWidth:150,fontSize:12.5,fontWeight:600,color:G.text}}>{"Com o desconto de "+descPctTxt_V364(at.pct)+"%"+(at.motivo?" ("+at.motivo+")":"")+" do plano"}</span>
+          {editItem.comDesc&&itS&&valOk&&<b style={{fontSize:13,color:G.success,whiteSpace:"nowrap"}}>{"fica "+cur(itS.value)}</b>}
+        </label>}
+        {trav&&!trava&&itE.vOrig!=null&&pDone>0&&itS&&valOk&&<div style={{fontSize:12,color:G.muted}}>{"Com o desconto de "+descPctTxt_V364(pDone)+"% que ele já tinha, fica "}<b style={{color:G.success}}>{cur(itS.value)}</b></div>}
+        <div style={{background:G.accent,borderRadius:10,padding:"10px 13px",display:"flex",flexDirection:"column",gap:4,fontSize:13,color:G.text}}>
+          <div style={{display:"flex",justifyContent:"space-between",gap:10,fontWeight:700}}>
+            <span>Total do plano</span>
+            <span>{mudaTot&&<span style={{textDecoration:"line-through",color:G.muted,fontWeight:400,marginRight:6}}>{cur(rA.tot)}</span>}<span style={{color:G.primary}}>{cur(rS.tot)}</span></span>
+          </div>
+          {pagoE>0&&<div style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:12,color:G.muted}}><span>{"Já pago "+cur(pagoE)+" · falta pagar"}</span><b style={{color:G.text}}>{cur(Math.max(0,rS.tot-pagoE))}</b></div>}
+        </div>
+        <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid "+G.border}}>
+          <button onClick={function(){setEditItem(null);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
+          <button onClick={salvarEditItem_V365} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>✓ Salvar</button>
         </div>
       </div>
     </div>
