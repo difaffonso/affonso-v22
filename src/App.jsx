@@ -5122,7 +5122,7 @@ function PnlProsHoje_V359({appts,pros,pats,labs,go}){
   </div>;
 }
 
-function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate,faixaRecados,pros=[],setPros,labs=[]}){
+function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate,faixaRecados,pros=[],setPros,labs=[],pacsTicks={}}){
 // V321: quais pacientes ja tem termo de siso ASSINADO (para o alerta na linha da agenda).
 // Busca uma vez ao abrir a agenda; o alerta some sozinho quando o termo e assinado.
 const [sisoOk,setSisoOk]=useState({});
@@ -5711,6 +5711,8 @@ return(
 {p&&p._pre&&<span style={{fontSize:9.5,background:G.blue,color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}
 {p&&anamFalta(p)&&<span style={{fontSize:9.5,background:"#cf5a78",color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"⚠ ANAMNESE NÃO CADASTRADA"}</span>}
 </div>}
+{/* V366: cobranca de confirmacao ja feita, paciente ainda sem confirmar */}
+{a.status==="pending"&&cobConfTick_V366(pacsTicks,a.id)&&(function(){var ck=cobConfTick_V366(pacsTicks,a.id);var hh=ck.at?new Date(ck.at).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}):"";var dd=ck.at?_ld(new Date(ck.at)):"";return <div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}><span style={{fontSize:9.5,background:"#c2703d",color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"\ud83d\udcf2 COBRADO "+(dd&&dd!==today()?dd.slice(8,10)+"/"+dd.slice(5,7)+" ":"")+hh+(ck.by?" \u00b7 "+ck.by:"")+" \u2014 LIGAR"}</span></div>;})()}
 {/* V338: selo TERMO PENDENTE tambem na visao NORMAL do dia (antes so aparecia na compacta) */}
 {termoSisoPend(a)&&<div style={{display:"flex",gap:5,marginTop:5,flexWrap:"wrap"}}>
 <span style={{fontSize:9.5,background:"#8B6914",color:"#fff",borderRadius:6,padding:"3px 9px",fontWeight:800,letterSpacing:".3px"}}>{"\ud83d\udccb TERMO PENDENTE"}</span>
@@ -5760,7 +5762,7 @@ ANAM_CONDS.forEach(function(c){if(anC[c[0]]&&ANAM_ALERT.indexOf(c[0])<0)_flC.pus
 var _noAnC=pC?anamFalta(pC):false;
 var _semCadC=isPartC||!pC;/* V283 */
 var _preC=!!(pC&&pC._pre);/* V283 */
-var _temAlertaC=(_flC.length>0||_noAnC||_semCadC||_preC||termoSisoPend(aC));// V321
+var _temAlertaC=(_flC.length>0||_noAnC||_semCadC||_preC||termoSisoPend(aC)||(aC.status==="pending"&&!!cobConfTick_V366(pacsTicks,aC.id)));// V321 // V366
 var nmC=isPartC?aC.patientName:((pC&&pC.name)||"A confirmar");
 var stColC=isPartC?G.red:(SCN[aC.status]||G.primary);
 var _prC=prosDe_V359(aC);// V359
@@ -5775,6 +5777,7 @@ _slotsCompact.push(
 {_semCadC&&<span style={{fontSize:9,background:G.red,color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26d4 SEM CADASTRO"}</span>}
 {_preC&&<span style={{fontSize:9,background:G.blue,color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}
 {_noAnC&&<span style={{fontSize:9,background:"#cf5a78",color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\u26a0 SEM ANAMNESE"}</span>}
+{aC.status==="pending"&&cobConfTick_V366(pacsTicks,aC.id)&&<span style={{fontSize:9,background:"#c2703d",color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\ud83d\udcf2 COBRADO"}</span>}
 {termoSisoPend(aC)&&<span style={{fontSize:9,background:"#8B6914",color:"#fff",borderRadius:5,padding:"2px 6px",fontWeight:800,whiteSpace:"nowrap",flexShrink:0,letterSpacing:".3px"}}>{"\ud83d\udccb TERMO PENDENTE"}</span>}
 {_flC.length>0&&<span style={{fontSize:10,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",minWidth:0}} title={_flC.map(function(fx){return fx.t;}).join(" \u00b7 ")}>
 {_flC.map(function(fx,ix){return <span key={ix} style={{color:fx.hot?"#a8342c":"#9a7636"}}>{(ix?" \u00b7 ":"")+fx.t}</span>;})}
@@ -8203,6 +8206,9 @@ const pendSem=semAtras2.filter(p=>!semTicks[p.id]?.done);
 const doneSem=semAtras2.filter(p=>semTicks[p.id]?.done);
 
 return <div style={{display:'flex',flexDirection:'column',gap:12}} className="fi">
+
+{/* V366: cobranca de confirmacao */}
+<PnlCobConf_V366 appts={appts} pats={pats} ticks={pacsTicks} setTicks={setPacsTicks} user={user}/>
 
 {/* LISTA DE ESPERA */}
 
@@ -14430,6 +14436,83 @@ function pnlAbertura(u){
 }
 
 // ---- painel da recepcao / dentista (nivel < 3) ----
+// ===== V366: COBRANCA DE CONFIRMACAO (manual, pelo outro WhatsApp) =====
+// Paciente que recebeu o lembrete de vespera (chave "v_<apptId>_<data>" no
+// wa_sent_srv do SERVIDOR) e continua "pending". Aparece a partir das 17:30 do
+// dia em que o lembrete saiu e fica ate o horario da consulta. Um clique abre o
+// WhatsApp com o texto pronto e da baixa em pacsTicks ("cobconf_<apptId>"),
+// que ja sincroniza entre aparelhos (mergeTicks) -> some do Painel e dos
+// Lembretes ao mesmo tempo. Zero array novo no blob.
+const COBCONF_HORA_V366="17:30";
+function cobConfMsg_V366(nome,data,hora){
+  var pn=String(nome||"").trim().split(/\s+/)[0]||"";
+  pn=pn?pn.charAt(0).toUpperCase()+pn.slice(1).toLowerCase():"";
+  return "Oi"+(pn?", "+pn:"")+"! Aqui é da Affonso Odontologia. Enviamos o pedido de confirmação da sua consulta de "+String(data||"").slice(8,10)+"/"+String(data||"").slice(5,7)+" às "+(hora||"")+" pelo nosso número oficial (11) 2524-9975, mas ainda não tivemos retorno. Pode confirmar por aqui mesmo? Salve também o número oficial, que é por onde mandamos os lembretes.";
+}
+function cobConfTick_V366(ticks,apptId){var r=(ticks||{})["cobconf_"+apptId];return (r&&r.done)?r:null;}
+function PnlCobConf_V366({appts,pats,ticks,setTicks,user,abrirFicha,titulo}){
+  const [srv,setSrv]=useState(null);
+  const [agora,setAgora]=useState(Date.now());
+  useEffect(function(){
+    var alive=true;
+    var carregar=function(){supabase.loadWaSentSrv().then(function(r){if(alive)setSrv(r||{});}).catch(function(){if(alive)setSrv({});});};
+    carregar();
+    var iv=setInterval(carregar,5*60*1000);
+    var iv2=setInterval(function(){if(alive)setAgora(Date.now());},60*1000);
+    return function(){alive=false;clearInterval(iv);clearInterval(iv2);};
+  },[]);
+  if(!user||Number(user.level||1)<2)return null;
+  if(srv===null)return null;
+  var nowD=new Date(agora);
+  var t=_ld(nowD);
+  var hhmm=String(nowD.getHours()).padStart(2,"0")+":"+String(nowD.getMinutes()).padStart(2,"0");
+  var limite=new Date(nowD.getTime()+4*86400000);var limS=_ld(limite);
+  var grupos={};
+  (appts||[]).forEach(function(a){
+    if(!a||a.blocked||a.status!=="pending"||!a.patientId)return;
+    if(!a.date||a.date<t||a.date>limS)return;
+    if(a.date===t&&String(a.time||"99:99")<=hhmm)return;// consulta ja chegou
+    var enviado=srv["v_"+a.id+"_"+a.date];
+    if(!enviado)return;
+    var libera=String(enviado).slice(0,10)+" "+COBCONF_HORA_V366;
+    if((t+" "+hhmm)<libera)return;
+    if(cobConfTick_V366(ticks,a.id))return;
+    var p=(pats||[]).find(function(x){return String(x.id)===String(a.patientId);});
+    if(!p||!p.phone)return;
+    var gk=a.patientId+"_"+a.date;
+    if(!grupos[gk])grupos[gk]={p:p,date:a.date,time:a.time||"",ids:[]};
+    grupos[gk].ids.push(a.id);
+    if(String(a.time||"")<String(grupos[gk].time||"99"))grupos[gk].time=a.time;
+  });
+  var lista=Object.keys(grupos).map(function(k){return grupos[k];}).sort(function(x,y){return (x.date+x.time).localeCompare(y.date+y.time);});
+  if(!lista.length)return null;
+  var cor="#c2703d";
+  var cobrar=function(g){
+    wa(g.p.phone,cobConfMsg_V366(g.p.name,g.date,g.time));
+    var reg={done:true,ts:Date.now(),at:new Date().toISOString(),by:(user&&user.name)||""};
+    setTicks&&setTicks(function(prev){var n=Object.assign({},prev||{});g.ids.forEach(function(id){n["cobconf_"+id]=reg;});return n;});
+  };
+  return <div style={{background:G.card,borderRadius:13,padding:"12px 13px",boxShadow:"0 1px 5px rgba(0,0,0,.07)",borderLeft:"4px solid "+cor}}>
+    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}>
+      <span style={{fontSize:15}}>{"📲"}</span>
+      <span style={{fontSize:12.5,fontWeight:800,color:cor,letterSpacing:".3px"}}>{titulo||"SEM CONFIRMAÇÃO — COBRAR"}</span>
+      <span style={{marginLeft:"auto",fontSize:11,fontWeight:800,color:"#fff",background:cor,borderRadius:20,padding:"1px 8px"}}>{lista.length}</span>
+    </div>
+    <div style={{fontSize:10.5,color:G.muted,marginBottom:4,lineHeight:1.4}}>{"Receberam o lembrete de véspera e não responderam. O botão abre o WhatsApp com a mensagem pronta."}</div>
+    {lista.map(function(g){
+      var quando=g.date===t?"Hoje":(g.date===tom()?"Amanhã":(g.date.slice(8,10)+"/"+g.date.slice(5,7)));
+      return <div key={"cc"+g.ids[0]} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:9,background:"var(--bg)",marginTop:5}}>
+        <div style={{minWidth:52,lineHeight:1.15}}>
+          <div style={{fontSize:10,fontWeight:700,color:G.muted}}>{quando}</div>
+          <div style={{fontSize:12.5,fontWeight:800,color:cor}}>{g.time||"--:--"}</div>
+        </div>
+        <span onClick={function(){abrirFicha&&abrirFicha(g.p);}} style={{fontSize:12,fontWeight:700,color:G.text,flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:abrirFicha?"pointer":"default"}}>{g.p.name}</span>
+        <button onClick={function(){cobrar(g);}} style={{border:"none",borderRadius:9,padding:"7px 11px",fontSize:11.5,fontWeight:800,cursor:"pointer",background:"#25D366",color:"#fff",whiteSpace:"nowrap",flexShrink:0}}>{"Cobrar confirmação"}</button>
+      </div>;
+    })}
+  </div>;
+}
+
 // V338: bloco da Visao Geral com os termos de siso ainda nao assinados do dia.
 function PnlTermoSisoV338({appts,pats,go}){
   const [sisoOk,setSisoOk]=useState(null);
@@ -14496,6 +14579,7 @@ function PainelDia({appts,pats,rems,setRems,pros,dents,labs,stock,espera,pontos,
       {cardMini("⏳",hoje.length-conf,"A confirmar",G.orange)}
     </div>
     <PnlLembretes rems={rems} setRems={setRems} users={users} user={user} pats={pats} go={setView}/>
+    <PnlCobConf_V366 appts={appts} pats={pats} ticks={pacsTicks} setTicks={setPacsTicks} user={user} abrirFicha={abrirFicha}/>{/* V366 */}
     <PnlTermoSisoV338 appts={appts} pats={pats} go={setView}/>{/* V338 */}
     <PnlProsHoje_V359 appts={appts} pros={pros} pats={pats} labs={labs} go={setView}/>{/* V359 */}
     {blocos.map(function(bk){
@@ -14621,6 +14705,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
     <div style={{fontSize:12,color:G.muted}}>Olá, <strong>{user.name}</strong></div>
   </div>
 
+  <PnlCobConf_V366 appts={appts} pats={pats} ticks={pacsTicks} setTicks={setPacsTicks} user={user} abrirFicha={abrirFicha}/>{/* V366 */}
   <PnlProsHoje_V359 appts={appts} pros={pros} pats={pats} labs={labs} go={setView}/>{/* V359: paciente de hoje com protese que nao chegou */}
 
   {pnlLegOn(user,"compras")&&(function(){var pend=comprasSemEntrada(gastos,stock);if(!pend.length)return null;// V269 alerta na visao geral
@@ -19625,7 +19710,7 @@ return <>
       {view==="dash"&&user.level>=3&&<Dashboard appts={appts} pats={pats} recs={recs} rems={rems} pros={pros} dents={dents} setView={go} user={user} gastos={gastos} stock={stock} labs={labs} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} espera={espera} waSent={waSent} setRecs={setRecs} abrirFicha={abrirFicha} setRems={setRems} users={users} pontos={pontos} remarcar={remarcar} budgets={budgets} impl={impl}/>}
       {/* V290: painel do dia para recepcao e dentistas */}
       {view==="dash"&&user.level<3&&<PainelDia appts={appts} pats={pats} rems={rems} setRems={setRems} pros={pros} dents={dents} labs={labs} stock={stock} espera={espera} pontos={pontos} users={users} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} remarcar={remarcar} recs={recs} budgets={budgets} impl={impl} setView={go} abrirFicha={abrirFicha}/>}
-      {view==="agenda"&&<Agenda waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate} faixaRecados={faixaRecados_V353} pros={pros} setPros={setPros} labs={labs}/>}
+      {view==="agenda"&&<Agenda pacsTicks={pacsTicks} waTemplates={waTemplates} appts={appts} setAppts={setAppts} {...cp} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} logs={logs} agendaSelDate={agendaSelDate} setAgendaSelDate={setAgendaSelDate} faixaRecados={faixaRecados_V353} pros={pros} setPros={setPros} labs={labs}/>}
       {view==="pacs"&&<Pacientes waTemplates={waTemplates} pats={pats} setPats={setPats} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} appts={appts} dents={dents} procs={procs} user={user} docsEmitidos={docsEmitidos} setDocsEmitidos={setDocsEmitidos} addLog={function(tipo,desc,pat){mkLog(logs,setLogs,user,tipo,desc,pat);}} delPat={delPatServer} pros={pros} labs={labs}/>}
       {view==="pros"&&<Proteses pros={pros} setPros={setPros} pats={pats} dents={dents} labs={labs} prosProcs={prosProcs} setProsProcs={setProsProcs} user={user} logs={logs} addLog={cp.addLog} appts={appts}/>}
       {view==="impl"&&<Implantes impl={impl} setImpl={setImpl} pats={pats} appts={appts} abrirFicha={abrirFicha}/>}
