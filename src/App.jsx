@@ -12304,7 +12304,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <div style={{fontWeight:700,fontSize:13,color:G.primary}}>{"Aporte extraordinário em "+frLbl(Mc)+" (só este mês)"}</div>
       <div style={{fontSize:12,lineHeight:1.5}}>{"Para o DAS de "+frLbl(frAdd(Mc,1))+" já sair no Anexo III, seu pró-labore de "+frLbl(Mc)+" precisa ser de pelo menos "}<b>{frRS(plano.minimo28)}</b>{" (28%). Para a meta de "+metaPct+": "}<b>{frRS(plano.janela)}</b>{". Os meses seguintes voltam ao seu pró-labore normal."}</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
-        <Inp lb={"Seu pró-labore em "+frLbl(Mc)} ph="ex.: 35.000,00" val={pAporte} set={setPAporte} style={{flex:"1 1 180px"}}/>
+        <Inp lb={"Pró-labore TOTAL de "+frLbl(Mc)+" (valor do holerite)"} ph="ex.: 22.000,00" val={pAporte} set={setPAporte} style={{flex:"1 1 180px"}}/>
         <Btn ch={"Mínimo ("+frFmt(plano.minimo28)+")"} v="g" sm onClick={function(){setPAporte(frFmt(plano.minimo28));}}/>
         <Btn ch={"Meta ("+frFmt(plano.janela)+")"} v="g" sm onClick={function(){setPAporte(frFmt(plano.janela));}}/>
         {pAporte&&<Btn ch="Limpar" v="g" sm onClick={function(){setPAporte("");}}/>}
@@ -12316,7 +12316,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
           {lin("DAS de "+frLbl(frAdd(Mc,1)),<span><span style={{color:frCor(projSem[0].fator,metaBp)}}>{frPct(projSem[0].fator)+" "+projSem[0].anexo}</span>{" → "}<b style={{color:frCor(proj[0].fator,metaBp)}}>{frPct(proj[0].fator)+" "+proj[0].anexo}</b></span>)}
           {economia!==null&&lin("DAS estimado nos próximos 12 meses",frRS(dasSem)+" → "+frRS(dasCom))}
           {economia!==null&&lin("Economia de DAS",<b style={{color:economia>0?G.success:G.muted}}>{frRS(economia)}</b>)}
-          {lin("Pró-labore a mais neste mês",frRS(extraPL))}
+          {lin("Holerite de "+frLbl(Mc),frRS(nAporte)+" (normal "+frFmt(nDiego)+" + "+frFmt(extraPL)+" a mais)")}
           {lin("IR estimado sobre esse valor (27,5%)",<span style={{color:G.red}}>{"− "+frRS(irExtra)}</span>)}
           {saldo!==null&&<div style={{marginTop:8,background:saldo>0?"var(--green-soft)":"var(--red-soft)",color:saldo>0?G.success:G.red,borderRadius:9,padding:"8px 11px",fontSize:12,fontWeight:800}}>{(saldo>0?"Compensa: ganho estimado de ":"Não compensa: perda estimada de ")+frRS(Math.abs(saldo))}</div>}
         </div>;})()}
