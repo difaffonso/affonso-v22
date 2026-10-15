@@ -12120,16 +12120,20 @@ function frPlano(meses,metaBp,ym,recC,baseC){
   if(faltam.length)return {incompleto:true,faltam:faltam};
   var nec=frMetaC(metaBp,R)-F;
   var jan=Math.max(0,nec-baseC),rit=Math.max(0,frMetaC(metaBp,recC)-baseC);
-  return {rbt12Prox:R,fs11:F,necessaria:nec,janela:jan,ritmo:rit,recomendado:Math.max(jan,rit)};
+  var min28=Math.max(0,Math.ceil(FR_MIN_BP*R/10000)-F-baseC); // V369: minimo de pro-labore no mes para o proximo DAS sair no Anexo III
+  return {rbt12Prox:R,fs11:F,necessaria:nec,janela:jan,ritmo:rit,recomendado:Math.max(jan,rit),minimo28:min28};
 }
 
 // Repete receita/folha a partir de ym e calcula o Fator R dos DAS de ym+1 .. ym+n
-function frProjecao(meses,metaBp,ym,recC,folhaC,n){
+function frProjecao(meses,metaBp,ym,recC,folhaC,n,folha1C){
   var m2=Object.assign({},meses);
-  for(var i=0;i<n;i++)m2[frAdd(ym,i)]={receita:recC,folha:folhaC,prev:true};
-  var out=[];for(var j=1;j<=n;j++)out.push(calcFatorR(m2,metaBp,frAdd(ym,j)));
+  for(var i=0;i<=n;i++)m2[frAdd(ym,i)]={receita:recC,folha:(i===0&&folha1C!=null)?folha1C:folhaC,prev:true};
+  var out=[];for(var j=1;j<=n;j++){var d=calcFatorR(m2,metaBp,frAdd(ym,j));if(!d.incompleto){d.das=Math.round(recC*frAliq(d.rbt12,d.anexo));d.dasV=Math.round(recC*frAliq(d.rbt12,"V"));}out.push(d);}
   return out;
 }
+// V369: DAS estimado (aliquota efetiva do Simples). Tabelas: [limite RBT12, nominal, parcela a deduzir]
+const FR_TAB={III:[[180000,.06,0],[360000,.112,9360],[720000,.135,17640],[1800000,.16,35640],[3600000,.21,125640],[4800000,.33,648000]],V:[[180000,.155,0],[360000,.18,4500],[720000,.195,9900],[1800000,.205,17100],[3600000,.23,62100],[4800000,.305,540000]]};
+function frAliq(rbtC,anexo){var R=rbtC/100,t=FR_TAB[anexo]||FR_TAB.V;if(R<=0)return 0;for(var i=0;i<t.length;i++){if(R<=t[i][0])return Math.max(0,(R*t[i][1]-t[i][2])/R);}var u=t[t.length-1];return (R*u[1]-u[2])/R;}
 
 function frCor(fator,metaBp){if(fator*10000>=metaBp)return G.success;if(fator*10000>=FR_MIN_BP)return G.yellow;return G.red;}
 
@@ -12161,6 +12165,7 @@ const [ef,setEf]=useState(null);
 const [salvando,setSalvando]=useState(false);
 const [pRec,setPRec]=useState(null);
 const [pBase,setPBase]=useState(null);
+const [pAporte,setPAporte]=useState("");
 const [pDiego,setPDiego]=useState(null);
 const recarregar=function(){setErro("");return frLoad().then(function(d){setRows(d.rows);setMetaBp(d.metaBp);}).catch(function(e){setErro(String((e&&e.message)||e));setRows([]);});};
 useEffect(function(){recarregar();},[]);
@@ -12188,7 +12193,14 @@ const vRec=pRec!==null?pRec:frFmt(dRec),vBase=pBase!==null?pBase:frFmt(ref.base)
 const nRec=frC(frParse(vRec))||0,nDiego=frC(frParse(vDiego))||0;
 const base=frC(frParse(vBase))||0;
 const plano=frPlano(meses,metaBp,Mc,nRec,base);
-const proj=frProjecao(meses,metaBp,Mc,nRec,base+nDiego,12);
+const nAporte=pAporte?frC(frParse(pAporte)):null;
+const temAporte=nAporte!==null&&!isNaN(nAporte)&&nAporte>0;
+const projSem=frProjecao(meses,metaBp,Mc,nRec,base+nDiego,12);
+const proj=temAporte?frProjecao(meses,metaBp,Mc,nRec,base+nDiego,12,base+nAporte):projSem;
+const somaDas=function(ps){var t=0,ok=true;ps.forEach(function(d){if(d.incompleto)ok=false;else t+=d.das;});return ok?t:null;};
+const dasSem=somaDas(projSem),dasCom=somaDas(proj);
+const extraPL=temAporte?Math.max(0,nAporte-nDiego):0;
+const irExtra=Math.round(extraPL*0.275);
 
 const mudaMeta=function(delta){var nb=Math.max(FR_MIN_BP,Math.min(4000,metaBp+delta));if(nb===metaBp)return;var ant=metaBp;setMetaBp(nb);setSalvandoMeta(true);frSaveMeta(nb).catch(function(e){setMetaBp(ant);alert("Não foi possível salvar a meta: "+((e&&e.message)||e));}).then(function(){setSalvandoMeta(false);});};
 
@@ -12288,7 +12300,29 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <Btn ch={"Usar recomendado ("+frFmt(plano.recomendado)+")"} sm onClick={function(){setPDiego(frFmt(plano.recomendado));}}/>
       <Btn ch={"Usar ritmo ("+frFmt(plano.ritmo)+")"} v="g" sm onClick={function(){setPDiego(frFmt(plano.ritmo));}}/>
     </div>}
-    <div style={{fontSize:11,color:G.muted}}>{"Folha do mês simulada: "+frRS(base+nDiego)+(nRec?" · "+frPct((base+nDiego)/nRec)+" da receita":"")+". Cada barra abaixo é o Fator R de um DAS futuro, repetindo esses valores todo mês. Verde = Anexo III, vermelho = Anexo V. Nada é gravado aqui."}</div>
+    {!plano.incompleto&&<div style={{background:"var(--surface-2)",borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:9}}>{/* V369: aporte extraordinario */}
+      <div style={{fontWeight:700,fontSize:13,color:G.primary}}>{"Aporte extraordinário em "+frLbl(Mc)+" (só este mês)"}</div>
+      <div style={{fontSize:12,lineHeight:1.5}}>{"Para o DAS de "+frLbl(frAdd(Mc,1))+" já sair no Anexo III, seu pró-labore de "+frLbl(Mc)+" precisa ser de pelo menos "}<b>{frRS(plano.minimo28)}</b>{" (28%). Para a meta de "+metaPct+": "}<b>{frRS(plano.janela)}</b>{". Os meses seguintes voltam ao seu pró-labore normal."}</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
+        <Inp lb={"Seu pró-labore em "+frLbl(Mc)} ph="ex.: 35.000,00" val={pAporte} set={setPAporte} style={{flex:"1 1 180px"}}/>
+        <Btn ch={"Mínimo ("+frFmt(plano.minimo28)+")"} v="g" sm onClick={function(){setPAporte(frFmt(plano.minimo28));}}/>
+        <Btn ch={"Meta ("+frFmt(plano.janela)+")"} v="g" sm onClick={function(){setPAporte(frFmt(plano.janela));}}/>
+        {pAporte&&<Btn ch="Limpar" v="g" sm onClick={function(){setPAporte("");}}/>}
+      </div>
+      {temAporte&&!projSem[0].incompleto&&!proj[0].incompleto&&(function(){
+        var economia=(dasSem!==null&&dasCom!==null)?dasSem-dasCom:null;var saldo=economia!==null?economia-irExtra:null;
+        var lin=function(a,b,c){return <div style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:12,padding:"5px 0",borderBottom:"1px solid "+G.border}}><span style={{color:G.muted}}>{a}</span><span style={{textAlign:"right"}}>{b}{c&&<span style={{color:G.muted}}>{" "+c}</span>}</span></div>;};
+        return <div style={{display:"flex",flexDirection:"column"}}>
+          {lin("DAS de "+frLbl(frAdd(Mc,1)),<span><span style={{color:frCor(projSem[0].fator,metaBp)}}>{frPct(projSem[0].fator)+" "+projSem[0].anexo}</span>{" → "}<b style={{color:frCor(proj[0].fator,metaBp)}}>{frPct(proj[0].fator)+" "+proj[0].anexo}</b></span>)}
+          {economia!==null&&lin("DAS estimado nos próximos 12 meses",frRS(dasSem)+" → "+frRS(dasCom))}
+          {economia!==null&&lin("Economia de DAS",<b style={{color:economia>0?G.success:G.muted}}>{frRS(economia)}</b>)}
+          {lin("Pró-labore a mais neste mês",frRS(extraPL))}
+          {lin("IR estimado sobre esse valor (27,5%)",<span style={{color:G.red}}>{"− "+frRS(irExtra)}</span>)}
+          {saldo!==null&&<div style={{marginTop:8,background:saldo>0?"var(--green-soft)":"var(--red-soft)",color:saldo>0?G.success:G.red,borderRadius:9,padding:"8px 11px",fontSize:12,fontWeight:800}}>{(saldo>0?"Compensa: ganho estimado de ":"Não compensa: perda estimada de ")+frRS(Math.abs(saldo))}</div>}
+        </div>;})()}
+      <div style={{fontSize:10,color:G.muted,lineHeight:1.45}}>Estimativa: DAS = receita do mês × alíquota efetiva do anexo (tabelas do Simples); IR = 27,5% sobre o pró-labore acima do normal. Confirme com a contabilidade antes de lançar.</div>
+    </div>}
+    <div style={{fontSize:11,color:G.muted}}>{(temAporte?"Folha de "+frLbl(Mc)+" com aporte: "+frRS(base+nAporte)+"; depois ":"Folha do mês simulada: ")+frRS(base+nDiego)+(nRec?" · "+frPct((base+nDiego)/nRec)+" da receita":"")+". Cada barra abaixo é o Fator R de um DAS futuro, repetindo esses valores todo mês. Verde = Anexo III, vermelho = Anexo V. Nada é gravado aqui."}</div>
     <div style={{overflowX:"auto"}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(52px,1fr))",gap:6,minWidth:640,alignItems:"end",height:170,position:"relative"}}>
         {proj.map(function(d){var h=d.incompleto?4:Math.max(4,Math.min(120,Math.round(d.fator*100/45*120)));var c=d.incompleto?G.border:(d.anexo==="III"?G.success:G.red);
