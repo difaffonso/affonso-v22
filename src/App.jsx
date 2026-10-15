@@ -12160,8 +12160,7 @@ const [salvandoMeta,setSalvandoMeta]=useState(false);
 const [ef,setEf]=useState(null);
 const [salvando,setSalvando]=useState(false);
 const [pRec,setPRec]=useState(null);
-const [pClt,setPClt]=useState(null);
-const [pJul,setPJul]=useState(null);
+const [pBase,setPBase]=useState(null);
 const [pDiego,setPDiego]=useState(null);
 const recarregar=function(){setErro("");return frLoad().then(function(d){setRows(d.rows);setMetaBp(d.metaBp);}).catch(function(e){setErro(String((e&&e.message)||e));setRows([]);});};
 useEffect(function(){recarregar();},[]);
@@ -12183,10 +12182,11 @@ const ultDet=function(campo,padrao){var rs=(rows||[]).slice().reverse();for(var 
 const rec12=(function(){var s=0,n=0;for(var i=1;i<=12;i++){var m=meses[frAdd(Mc,-i)];if(m&&m.receita!==null){s+=m.receita;n++;}}return n?Math.round(s/n/10000)*10000:0;})();
 const notasMc=notas[Mc]||{c:0,n:0};
 const dRec=Math.max(rec12,notasMc.c);
-const dClt=ultDet("folha_clt",654524),dJul=ultDet("prolabore_juliana",200000),dDiego=ultDet("prolabore_diego",800000);
-const vRec=pRec!==null?pRec:frFmt(dRec),vClt=pClt!==null?pClt:frFmt(dClt),vJul=pJul!==null?pJul:frFmt(dJul),vDiego=pDiego!==null?pDiego:frFmt(dDiego);
-const nRec=frC(frParse(vRec))||0,nClt=frC(frParse(vClt))||0,nJul=frC(frParse(vJul))||0,nDiego=frC(frParse(vDiego))||0;
-const base=nClt+nJul;
+// V368: base do simulador = ultimo mes com folha total e pro-labore do Diego lancados (folha sem o Diego = funcionarias + Juliana)
+const ref=(function(){var rs=(rows||[]).slice().reverse();for(var i=0;i<rs.length;i++){var r=rs[i];if(r.folha_total!=null&&r.prolabore_diego!=null)return {ym:String(r.competencia).slice(0,7),base:frC(r.folha_total)-frC(r.prolabore_diego),diego:frC(r.prolabore_diego)};}return {ym:null,base:854524,diego:800000};})();
+const vRec=pRec!==null?pRec:frFmt(dRec),vBase=pBase!==null?pBase:frFmt(ref.base),vDiego=pDiego!==null?pDiego:frFmt(ref.diego);
+const nRec=frC(frParse(vRec))||0,nDiego=frC(frParse(vDiego))||0;
+const base=frC(frParse(vBase))||0;
 const plano=frPlano(meses,metaBp,Mc,nRec,base);
 const proj=frProjecao(meses,metaBp,Mc,nRec,base+nDiego,12);
 
@@ -12275,20 +12275,20 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
 
   <div style={{...card,gap:12}}>
     <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6,alignItems:"baseline"}}>
-      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>{"Planejamento de "+frLbl(Mc)+" · simulador"}</span>
+      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>{"E se eu mantiver esses valores? · projeção"}</span>
       <span style={{fontSize:11,color:G.muted}}>{"Notas da empresa até hoje: "+frRS(notasMc.c)+" ("+notasMc.n+")"}</span>
     </div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
-      <Inp lb="Receita prevista do mês" val={vRec} set={setPRec}/>
-      <Inp lb="Folha CLT" val={vClt} set={setPClt}/>
-      <Inp lb="Pró-labore Juliana" val={vJul} set={setPJul}/>
-      <Inp lb="Pró-labore Diego (simular)" val={vDiego} set={setPDiego}/>
+      <Inp lb="Receita por mês (entrada)" val={vRec} set={setPRec}/>
+      <Inp lb="Folha sem o seu pró-labore" val={vBase} set={setPBase}/>
+      <Inp lb="Seu pró-labore" val={vDiego} set={setPDiego}/>
     </div>
+    <div style={{fontSize:11,color:G.muted,lineHeight:1.5}}>{"Receita: média dos últimos 12 meses ("+frRS(rec12)+"). Folha sem você (funcionárias + Juliana) e seu pró-labore: "+(ref.ym?"valores de "+frLbl(ref.ym):"valores padrão")+". Pode mudar qualquer campo para testar."}</div>
     {!plano.incompleto&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
       <Btn ch={"Usar recomendado ("+frFmt(plano.recomendado)+")"} sm onClick={function(){setPDiego(frFmt(plano.recomendado));}}/>
       <Btn ch={"Usar ritmo ("+frFmt(plano.ritmo)+")"} v="g" sm onClick={function(){setPDiego(frFmt(plano.ritmo));}}/>
     </div>}
-    <div style={{fontSize:11,color:G.muted}}>{"Folha do mês simulada: "+frRS(base+nDiego)+(nRec?" · "+frPct((base+nDiego)/nRec)+" da receita":"")+". Repete os mesmos valores nos meses seguintes. Nada é gravado aqui."}</div>
+    <div style={{fontSize:11,color:G.muted}}>{"Folha do mês simulada: "+frRS(base+nDiego)+(nRec?" · "+frPct((base+nDiego)/nRec)+" da receita":"")+". Cada barra abaixo é o Fator R de um DAS futuro, repetindo esses valores todo mês. Verde = Anexo III, vermelho = Anexo V. Nada é gravado aqui."}</div>
     <div style={{overflowX:"auto"}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(52px,1fr))",gap:6,minWidth:640,alignItems:"end",height:170,position:"relative"}}>
         {proj.map(function(d){var h=d.incompleto?4:Math.max(4,Math.min(120,Math.round(d.fator*100/45*120)));var c=d.incompleto?G.border:(d.anexo==="III"?G.success:G.red);
