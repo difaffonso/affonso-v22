@@ -12069,6 +12069,322 @@ function bkpDirSet_V340(h){
   }).catch(function(){return false;});
 }
 
+// ══════════════════════════════════════════════════════════
+// V367: FATOR R (Simples Nacional) - aba do Administrativo, so admin (level>=3).
+// Tabelas proprias fator_r_mensal / fator_r_config: le ao abrir a aba e grava so ao clicar em Salvar.
+// Fora do blob clinic_data, do autosave e do poll (Disk IO).
+// Receita: valor da contabilidade quando informado; em branco = soma automatica das notas EMITIDAS pela EMPRESA (payer "empresa", status "issued").
+// Contas em centavos (inteiros); meta em pontos-base (2900 = 29%).
+const FR_MIN_BP=2800;
+const FR_MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+function frAdd(ym,n){var y=Number(ym.slice(0,4)),m=Number(ym.slice(5,7))-1+n;y+=Math.floor(m/12);m=((m%12)+12)%12;return y+"-"+(m<9?"0":"")+(m+1);}
+function frLbl(ym){return FR_MESES[Number(ym.slice(5,7))-1]+"/"+ym.slice(0,4);}
+function frLblC(ym){return FR_MESES[Number(ym.slice(5,7))-1]+"/"+ym.slice(2,4);}
+function frC(v){if(v===null||v===undefined||v==="")return null;var n=Number(v);return isFinite(n)?Math.round(n*100):null;}
+function frParse(s){var t=String(s==null?"":s).trim().replace(/R\$|\s/g,"");if(!t)return null;if(t.indexOf(",")>=0||/^-?\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,"").replace(",",".");var n=Number(t);return isFinite(n)?n:NaN;}
+function frFmt(c){if(c===null||c===undefined)return "";var neg=c<0;c=Math.abs(Math.round(c));var s=String(Math.floor(c/100)).replace(/\B(?=(\d{3})+(?!\d))/g,".");var d=String(c%100);if(d.length<2)d="0"+d;return (neg?"-":"")+s+","+d;}
+function frRS(c){return c===null||c===undefined?"—":(c<0?"− R$ ":"R$ ")+frFmt(Math.abs(c));}
+function frPct(x){return (x*100).toFixed(2).replace(".",",")+"%";}
+function frMetaC(metaBp,c){return Math.round(metaBp*c/10000);}
+function frYmHoje(){var d=new Date();return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);}
+
+// Notas emitidas pela empresa, por mes: {"2026-09":{c:centavos,n:qtd}}
+function frNotasEmpresa(pats){var o={};(pats||[]).forEach(function(p){((p&&p.nfs)||[]).forEach(function(n){if(!n||!n.date||n.payer!=="empresa")return;if((n.status||"pending")!=="issued")return;var k=String(n.date).slice(0,7);if(!o[k])o[k]={c:0,n:0};o[k].c+=Math.round((Number(n.value)||0)*100);o[k].n++;});});return o;}
+
+// Junta linhas do banco + notas: {ym:{receita,fonte('contab'|'prevista'|'notas'),folha,prev,row}}
+function frMontaMeses(rows,notas){
+  var o={};
+  (rows||[]).forEach(function(r){var k=String(r.competencia).slice(0,7);var rc=frC(r.receita),fonte=null;
+    if(rc!==null)fonte=r.receita_status==="prevista"?"prevista":"contab";
+    else if(notas[k]){rc=notas[k].c;fonte="notas";}
+    o[k]={receita:rc,fonte:fonte,folha:frC(r.folha_total),folhaPrev:r.folha_status==="prevista",row:r};});
+  Object.keys(notas).forEach(function(k){if(!o[k])o[k]={receita:notas[k].c,fonte:"notas",folha:null,folhaPrev:false,row:null};});
+  Object.keys(o).forEach(function(k){o[k].prev=o[k].fonte!=="contab"||o[k].folhaPrev;});
+  return o;
+}
+
+// Fator R que vale para o DAS da competencia ym: janela ym-12 .. ym-1 (o proprio mes nao entra)
+function calcFatorR(meses,metaBp,ym){
+  var R=0,F=0,faltam=[],prev=false;
+  for(var i=12;i>=1;i--){var k=frAdd(ym,-i),m=meses[k];
+    if(!m||m.receita===null||m.folha===null){faltam.push(k);continue;}
+    R+=m.receita;F+=m.folha;if(m.prev)prev=true;}
+  if(faltam.length||R<=0)return {ym:ym,incompleto:true,faltam:faltam};
+  return {ym:ym,rbt12:R,fs12:F,fator:F/R,anexo:F*10000>=FR_MIN_BP*R?"III":"V",folga:F-frMetaC(metaBp,R),folgaMin:F-frMetaC(FR_MIN_BP,R),prev:prev};
+}
+
+// Planejamento da competencia ym (a folha de ym conta no DAS de ym+1)
+function frPlano(meses,metaBp,ym,recC,baseC){
+  var R=recC,F=0,faltam=[];
+  for(var i=11;i>=1;i--){var k=frAdd(ym,-i),m=meses[k];if(!m||m.receita===null||m.folha===null){faltam.push(k);continue;}R+=m.receita;F+=m.folha;}
+  if(faltam.length)return {incompleto:true,faltam:faltam};
+  var nec=frMetaC(metaBp,R)-F;
+  var jan=Math.max(0,nec-baseC),rit=Math.max(0,frMetaC(metaBp,recC)-baseC);
+  return {rbt12Prox:R,fs11:F,necessaria:nec,janela:jan,ritmo:rit,recomendado:Math.max(jan,rit)};
+}
+
+// Repete receita/folha a partir de ym e calcula o Fator R dos DAS de ym+1 .. ym+n
+function frProjecao(meses,metaBp,ym,recC,folhaC,n){
+  var m2=Object.assign({},meses);
+  for(var i=0;i<n;i++)m2[frAdd(ym,i)]={receita:recC,folha:folhaC,prev:true};
+  var out=[];for(var j=1;j<=n;j++)out.push(calcFatorR(m2,metaBp,frAdd(ym,j)));
+  return out;
+}
+
+function frCor(fator,metaBp){if(fator*10000>=metaBp)return G.success;if(fator*10000>=FR_MIN_BP)return G.yellow;return G.red;}
+
+async function frLoad(){
+  var h={"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()};
+  var r1=await fetch(SUPA_URL+"/rest/v1/fator_r_mensal?select=*&order=competencia.asc",{headers:h});
+  if(!r1.ok)throw new Error("Erro "+r1.status+" ao ler fator_r_mensal");
+  var rows=await r1.json();
+  var r2=await fetch(SUPA_URL+"/rest/v1/fator_r_config?id=eq.1&select=meta",{headers:h});
+  var cfg=r2.ok?await r2.json():[];
+  var bp=(cfg&&cfg[0]&&cfg[0].meta!=null)?Math.round(Number(cfg[0].meta)*10000):2900;
+  return {rows:Array.isArray(rows)?rows:[],metaBp:bp};
+}
+async function frSaveRow(obj){
+  var r=await fetch(SUPA_URL+"/rest/v1/fator_r_mensal?on_conflict=competencia",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(obj)});
+  if(!r.ok){var t="";try{t=await r.text();}catch(e){}throw new Error(t||("Erro "+r.status));}
+}
+async function frSaveMeta(bp){
+  var r=await fetch(SUPA_URL+"/rest/v1/fator_r_config?id=eq.1",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({meta:bp/10000,updated_at:new Date().toISOString()})});
+  if(!r.ok){var t="";try{t=await r.text();}catch(e){}throw new Error(t||("Erro "+r.status));}
+}
+
+function FatorRTab({pats,user}){
+const [rows,setRows]=useState(null);
+const [erro,setErro]=useState("");
+const [metaBp,setMetaBp]=useState(2900);
+const [salvandoMeta,setSalvandoMeta]=useState(false);
+const [ef,setEf]=useState(null);
+const [salvando,setSalvando]=useState(false);
+const [pRec,setPRec]=useState(null);
+const [pClt,setPClt]=useState(null);
+const [pJul,setPJul]=useState(null);
+const [pDiego,setPDiego]=useState(null);
+const recarregar=function(){setErro("");return frLoad().then(function(d){setRows(d.rows);setMetaBp(d.metaBp);}).catch(function(e){setErro(String((e&&e.message)||e));setRows([]);});};
+useEffect(function(){recarregar();},[]);
+const notas=useMemo(function(){return frNotasEmpresa(pats);},[pats]);
+const meses=useMemo(function(){return frMontaMeses(rows||[],notas);},[rows,notas]);
+
+if(!(user&&user.level>=3))return null;
+if(rows===null)return <div style={{padding:20,color:G.muted,fontSize:13}}>Carregando Fator R…</div>;
+
+const hoje=new Date();
+const Mc=frYmHoje();
+const metaPct=(metaBp/100).toFixed(1).replace(".",",").replace(",0","")+"%";
+const dasAtual=calcFatorR(meses,metaBp,Mc);
+const dasAnt=calcFatorR(meses,metaBp,frAdd(Mc,-1));
+const venc=function(ym){var p=frAdd(ym,1);return "20/"+p.slice(5,7);};
+
+// ultima linha com detalhamento (para os padroes do planejamento)
+const ultDet=function(campo,padrao){var rs=(rows||[]).slice().reverse();for(var i=0;i<rs.length;i++){if(rs[i][campo]!=null)return frC(rs[i][campo]);}return padrao;};
+const rec12=(function(){var s=0,n=0;for(var i=1;i<=12;i++){var m=meses[frAdd(Mc,-i)];if(m&&m.receita!==null){s+=m.receita;n++;}}return n?Math.round(s/n/10000)*10000:0;})();
+const notasMc=notas[Mc]||{c:0,n:0};
+const dRec=Math.max(rec12,notasMc.c);
+const dClt=ultDet("folha_clt",654524),dJul=ultDet("prolabore_juliana",200000),dDiego=ultDet("prolabore_diego",800000);
+const vRec=pRec!==null?pRec:frFmt(dRec),vClt=pClt!==null?pClt:frFmt(dClt),vJul=pJul!==null?pJul:frFmt(dJul),vDiego=pDiego!==null?pDiego:frFmt(dDiego);
+const nRec=frC(frParse(vRec))||0,nClt=frC(frParse(vClt))||0,nJul=frC(frParse(vJul))||0,nDiego=frC(frParse(vDiego))||0;
+const base=nClt+nJul;
+const plano=frPlano(meses,metaBp,Mc,nRec,base);
+const proj=frProjecao(meses,metaBp,Mc,nRec,base+nDiego,12);
+
+const mudaMeta=function(delta){var nb=Math.max(FR_MIN_BP,Math.min(4000,metaBp+delta));if(nb===metaBp)return;var ant=metaBp;setMetaBp(nb);setSalvandoMeta(true);frSaveMeta(nb).catch(function(e){setMetaBp(ant);alert("Não foi possível salvar a meta: "+((e&&e.message)||e));}).then(function(){setSalvandoMeta(false);});};
+
+const abrir=function(ym){var m=meses[ym],r=(m&&m.row)||{};var f=function(v){return v==null?"":frFmt(frC(v));};
+  setEf({ym:ym,receita:f(r.receita),receita_status:r.receita_status||"confirmada",folha_clt:f(r.folha_clt),prolabore_diego:f(r.prolabore_diego),prolabore_juliana:f(r.prolabore_juliana),folha_total:f(r.folha_total),folha_status:r.folha_status||(r.folha_total!=null?"confirmada":"prevista"),das_pago:f(r.das_pago),anexo_declarado:r.anexo_declarado||"",observacao:r.observacao||""});};
+const salvar=function(){
+  if(!ef||!/^\d{4}-\d{2}$/.test(ef.ym))return alert("Informe a competência (mês/ano).");
+  var campos=["receita","folha_clt","prolabore_diego","prolabore_juliana","folha_total","das_pago"],obj={competencia:ef.ym+"-01"},bad=[];
+  campos.forEach(function(k){var v=frParse(ef[k]);if(v!==null&&(isNaN(v)||v<0))bad.push(k);obj[k]=(v===null||isNaN(v))?null:Math.round(v*100)/100;});
+  if(bad.length)return alert("Valor inválido em: "+bad.join(", ")+". Use o formato 19.784,12.");
+  obj.receita_status=ef.receita_status==="prevista"?"prevista":"confirmada";
+  obj.folha_status=ef.folha_status==="prevista"?"prevista":"confirmada";
+  obj.anexo_declarado=ef.anexo_declarado==="III"||ef.anexo_declarado==="V"?ef.anexo_declarado:null;
+  obj.observacao=ef.observacao||null;obj.updated_at=new Date().toISOString();
+  setSalvando(true);
+  frSaveRow(obj).then(function(){return recarregar();}).then(function(){setEf(null);}).catch(function(e){alert("Não foi possível salvar: "+((e&&e.message)||e));}).then(function(){setSalvando(false);});
+};
+
+const card={background:G.card,borderRadius:16,padding:16,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px var(--nm-light)",display:"flex",flexDirection:"column",gap:7};
+const cap={fontSize:10,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:".5px"};
+const big={fontFamily:"'Cormorant Garamond'",fontWeight:700,lineHeight:1.05};
+const chip=function(txt,bg,col){return <span style={{background:bg,color:col,borderRadius:6,padding:"1px 6px",fontSize:9,fontWeight:800,whiteSpace:"nowrap",fontStyle:"normal"}}>{txt}</span>;};
+const anexoChip=function(a){return a==="III"?<Bdg l={"Anexo III"} col={G.success} sm/>:<Bdg l={"Anexo V"} col={G.red} sm/>;};
+const prevTag=<span style={{fontSize:10,fontWeight:700,color:G.yellow,fontStyle:"italic"}}>com valores previstos</span>;
+
+// linhas da tabela: mes corrente + 14 anteriores, mais novo primeiro
+const linhas=[];for(var i=0;i<=14;i++)linhas.push(frAdd(Mc,-i));
+const grafico=[];for(var j=12;j>=1;j--){var gk=frAdd(Mc,-j),gm=meses[gk];grafico.push({ym:gk,p:(gm&&gm.receita&&gm.folha!==null)?gm.folha/gm.receita:null,prev:!!(gm&&gm.prev)});}
+const ef2=ef?(function(){var a=frParse(ef.folha_clt),b=frParse(ef.prolabore_diego),c=frParse(ef.prolabore_juliana);if(a===null||b===null||c===null||isNaN(a)||isNaN(b)||isNaN(c))return null;return Math.round(a*100)+Math.round(b*100)+Math.round(c*100);})():null;
+const seg=function(val,opts,set){return <div style={{display:"flex",gap:4,padding:3,borderRadius:9,background:"var(--surface-2)"}}>{opts.map(function(o){var on=val===o[0];return <button key={o[0]} type="button" onClick={function(){set(o[0]);}} style={{border:"none",borderRadius:7,padding:"6px 12px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",background:on?G.primary:"transparent",color:on?"#fff":G.muted}}>{o[1]}</button>;})}</div>;};
+const fe=function(k){return function(v){setEf(function(p){var n=Object.assign({},p);n[k]=v;return n;});};};
+
+return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",flexWrap:"wrap",gap:10}}>
+    <div>
+      <div style={{fontFamily:"'Cormorant Garamond'",fontSize:24,fontWeight:600}}>Fator R · Simples Nacional</div>
+      <div style={{fontSize:12,color:G.muted}}>Janela móvel de 12 meses · meta {metaPct} · mínimo legal 28%</div>
+    </div>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <Btn ch="Atualizar" v="g" sm onClick={recarregar}/>
+      <Btn ch="+ Lançar mês" sm onClick={function(){var ant=meses[frAdd(Mc,-1)];abrir(ant&&ant.folha!==null&&!ant.folhaPrev?Mc:frAdd(Mc,-1));}}/>
+    </div>
+  </div>
+  {erro&&<div style={{background:"var(--red-soft)",color:G.red,borderRadius:10,padding:"10px 12px",fontSize:12,fontWeight:700}}>{"Erro ao carregar: "+erro}</div>}
+  <div style={{background:"var(--surface-2)",borderRadius:12,padding:"10px 13px",fontSize:12,color:G.text,lineHeight:1.5}}>
+    O Fator R do DAS de um mês usa a receita e a folha dos 12 meses anteriores. A folha lançada neste mês só conta a partir do DAS do mês que vem. <b>Receita:</b> quando o campo da contabilidade fica em branco, entra sozinha a soma das notas <b>emitidas pela empresa</b> (as dos dentistas ficam de fora).
+  </div>
+
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))",gap:13}}>
+    <div style={card}>
+      <div style={cap}>{"Fator R · DAS de "+frLbl(Mc)}</div>
+      {dasAtual.incompleto?<div style={{fontSize:13,color:G.muted}}>{"Dados incompletos (falta "+dasAtual.faltam.map(frLblC).join(", ")+")"}</div>:<>
+        <div style={{display:"flex",alignItems:"baseline",gap:9,flexWrap:"wrap"}}><span style={{...big,fontSize:40,color:frCor(dasAtual.fator,metaBp)}}>{frPct(dasAtual.fator)}</span>{anexoChip(dasAtual.anexo)}</div>
+        <div style={{fontSize:12,color:G.muted}}>{"vence "+venc(Mc)+" · "}{dasAtual.prev?prevTag:"valores confirmados"}</div>
+      </>}
+      {hoje.getDate()<=20&&!dasAnt.incompleto&&<div style={{fontSize:11,color:G.muted}}>{"DAS de "+frLbl(frAdd(Mc,-1))+" (vence "+venc(frAdd(Mc,-1))+"): "}<b style={{color:frCor(dasAnt.fator,metaBp)}}>{frPct(dasAnt.fator)+" · "+dasAnt.anexo}</b></div>}
+    </div>
+    <div style={card}>
+      <div style={cap}>Folga na janela</div>
+      {dasAtual.incompleto?<div style={{fontSize:13,color:G.muted}}>—</div>:<>
+        <div style={{...big,fontSize:32,color:dasAtual.folga>=0?G.success:(dasAtual.folgaMin>=0?G.yellow:G.red)}}>{frRS(dasAtual.folga)}</div>
+        <div style={{fontSize:12,color:G.muted}}>{"em relação à meta de "+metaPct}</div>
+        <div style={{fontSize:12,color:G.muted}}>{"Mínimo 28%: "}<b style={{color:dasAtual.folgaMin>=0?G.success:G.red}}>{frRS(dasAtual.folgaMin)}</b></div>
+      </>}
+    </div>
+    <div style={{...card,background:G.primary,color:"#fff"}}>
+      <div style={{...cap,color:"#d4e4da"}}>{"Pró-labore recomendado · "+frLbl(Mc)}</div>
+      {plano.incompleto?<div style={{fontSize:13}}>{"Faltam dados de "+plano.faltam.map(frLblC).join(", ")}</div>:<>
+        <div style={{...big,fontSize:32}}>{frRS(plano.recomendado)}</div>
+        <div style={{fontSize:11,color:"#d4e4da"}}>{"Janela: "+frFmt(plano.janela)+" · Ritmo: "+frFmt(plano.ritmo)}</div>
+        <div style={{fontSize:11,color:"#d4e4da"}}>{"Conta no DAS de "+frLbl(frAdd(Mc,1))+". Ajuste a receita prevista abaixo."}</div>
+      </>}
+    </div>
+    <div style={card}>
+      <div style={cap}>Meta</div>
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <Btn ch="−" v="g" sm dis={salvandoMeta||metaBp<=FR_MIN_BP} onClick={function(){mudaMeta(-50);}}/>
+        <span style={{...big,fontSize:36,color:G.primary}}>{metaPct}</span>
+        <Btn ch="+" v="g" sm dis={salvandoMeta||metaBp>=4000} onClick={function(){mudaMeta(50);}}/>
+      </div>
+      <div style={{fontSize:11,color:G.muted}}>Mínimo legal 28% (fixo). Passo de 0,5 ponto.</div>
+    </div>
+  </div>
+
+  <div style={{...card,gap:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6,alignItems:"baseline"}}>
+      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>{"Planejamento de "+frLbl(Mc)+" · simulador"}</span>
+      <span style={{fontSize:11,color:G.muted}}>{"Notas da empresa até hoje: "+frRS(notasMc.c)+" ("+notasMc.n+")"}</span>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
+      <Inp lb="Receita prevista do mês" val={vRec} set={setPRec}/>
+      <Inp lb="Folha CLT" val={vClt} set={setPClt}/>
+      <Inp lb="Pró-labore Juliana" val={vJul} set={setPJul}/>
+      <Inp lb="Pró-labore Diego (simular)" val={vDiego} set={setPDiego}/>
+    </div>
+    {!plano.incompleto&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+      <Btn ch={"Usar recomendado ("+frFmt(plano.recomendado)+")"} sm onClick={function(){setPDiego(frFmt(plano.recomendado));}}/>
+      <Btn ch={"Usar ritmo ("+frFmt(plano.ritmo)+")"} v="g" sm onClick={function(){setPDiego(frFmt(plano.ritmo));}}/>
+    </div>}
+    <div style={{fontSize:11,color:G.muted}}>{"Folha do mês simulada: "+frRS(base+nDiego)+(nRec?" · "+frPct((base+nDiego)/nRec)+" da receita":"")+". Repete os mesmos valores nos meses seguintes. Nada é gravado aqui."}</div>
+    <div style={{overflowX:"auto"}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(52px,1fr))",gap:6,minWidth:640,alignItems:"end",height:170,position:"relative"}}>
+        {proj.map(function(d){var h=d.incompleto?4:Math.max(4,Math.min(120,Math.round(d.fator*100/45*120)));var c=d.incompleto?G.border:(d.anexo==="III"?G.success:G.red);
+          return <div key={d.ym} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:3,height:170}}>
+            <span style={{fontSize:10,fontWeight:800,color:d.incompleto?G.muted:frCor(d.fator,metaBp)}}>{d.incompleto?"—":frPct(d.fator)}</span>
+            <div style={{width:"70%",height:h,background:c,borderRadius:"6px 6px 2px 2px",opacity:.85}}/>
+            <span style={{fontSize:10,color:G.muted,fontWeight:700}}>{frLblC(d.ym)}</span>
+          </div>;})}
+      </div>
+    </div>
+  </div>
+
+  <div style={{...card,gap:10}}>
+    <span style={{fontWeight:700,fontSize:15,color:G.primary}}>Folha ÷ receita de cada mês</span>
+    <div style={{overflowX:"auto"}}>
+      <div style={{position:"relative",display:"grid",gridTemplateColumns:"repeat(12,minmax(52px,1fr))",gap:6,minWidth:640,height:150,alignItems:"end"}}>
+        <div style={{position:"absolute",left:0,right:0,bottom:Math.round(17+28/40*112),borderTop:"1.5px dashed "+G.red,opacity:.7,pointerEvents:"none"}}/>
+        {grafico.map(function(g){var h=g.p===null?4:Math.max(4,Math.min(112,Math.round(g.p*100/40*112)));var low=g.p!==null&&g.p<0.28;
+          return <div key={g.ym} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:3,height:150}}>
+            <span style={{fontSize:10,fontWeight:800,color:g.p===null?G.muted:(low?G.red:G.success),fontStyle:g.prev?"italic":"normal"}}>{g.p===null?"—":(g.p*100).toFixed(1).replace(".",",")+"%"}</span>
+            <div style={{width:"70%",height:h,background:g.p===null?G.border:(low?G.red:G.success),borderRadius:"6px 6px 2px 2px",opacity:g.prev?.5:.85}}/>
+            <span style={{fontSize:10,color:G.muted,fontWeight:700,height:14,lineHeight:"14px"}}>{frLblC(g.ym)}</span>
+          </div>;})}
+      </div>
+    </div>
+    <div style={{fontSize:11,color:G.muted}}>Linha tracejada = 28%. Barras claras = valores previstos ou receita automática das notas.</div>
+  </div>
+
+  <div style={{...card,gap:8,padding:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:6,alignItems:"baseline"}}>
+      <span style={{fontWeight:700,fontSize:15,color:G.primary}}>Mês a mês</span>
+      <span style={{fontSize:11,color:G.muted,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>{chip("CONTAB.","var(--surface-2)",G.muted)}valor da contabilidade {chip("NOTAS","var(--green-soft)",G.success)}automático <i>itálico = previsto</i></span>
+    </div>
+    <div style={{overflowX:"auto"}}>
+      <table style={{width:"100%",minWidth:980,borderCollapse:"collapse",fontSize:12}}>
+        <thead><tr>{["Mês","Receita","Folha total","Pró-lab. Diego","% do mês","RBT12","FS12","Fator R","Anexo","Folga"].map(function(h,ix){return <th key={h} style={{textAlign:ix===0?"left":(ix===8?"center":"right"),padding:"8px 8px",fontSize:10,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",borderBottom:"1.5px solid "+G.border,whiteSpace:"nowrap"}}>{h}</th>;})}</tr></thead>
+        <tbody>{linhas.map(function(ym){var m=meses[ym]||{receita:null,folha:null,fonte:null,row:null};var r=m.row||{};var das=calcFatorR(meses,metaBp,ym);var pct=(m.receita&&m.folha!==null)?m.folha/m.receita:null;var corrente=ym===Mc;
+          var td={padding:"8px 8px",borderBottom:"1px solid "+G.border,textAlign:"right",whiteSpace:"nowrap"};
+          return <tr key={ym} onClick={function(){abrir(ym);}} style={{cursor:"pointer",background:corrente?"var(--green-soft)":"transparent"}}>
+            <td style={{...td,textAlign:"left",fontWeight:700}}>{frLbl(ym)}{corrente&&<div style={{fontSize:9,color:G.muted,fontWeight:800}}>MÊS CORRENTE</div>}</td>
+            <td style={{...td,fontStyle:m.fonte&&m.fonte!=="contab"?"italic":"normal"}}>{m.receita===null?"—":frFmt(m.receita)}<div>{m.fonte==="contab"?chip("CONTAB.","var(--surface-2)",G.muted):m.fonte==="notas"?chip(corrente?"NOTAS · PARCIAL":"NOTAS"+(notas[ym]?" ("+notas[ym].n+")":""),"var(--green-soft)",G.success):m.fonte==="prevista"?chip("PREVISTA","var(--amber-soft)",G.yellow):null}</div></td>
+            <td style={{...td,fontStyle:m.folhaPrev?"italic":"normal"}}>{m.folha===null?(corrente?"a lançar":"—"):frFmt(m.folha)}{m.folhaPrev&&<div>{chip("PREVISTA","var(--amber-soft)",G.yellow)}</div>}</td>
+            <td style={{...td,color:G.muted}}>{r.prolabore_diego!=null?frFmt(frC(r.prolabore_diego)):"—"}</td>
+            <td style={{...td,fontWeight:700,color:pct===null?G.muted:(pct<0.28?G.red:G.text)}}>{pct===null?"—":frPct(pct)}</td>
+            <td style={{...td,color:G.muted}}>{das.incompleto?"—":frFmt(das.rbt12)}</td>
+            <td style={{...td,color:G.muted}}>{das.incompleto?"—":frFmt(das.fs12)}</td>
+            <td style={{...td,fontWeight:800,color:das.incompleto?G.muted:frCor(das.fator,metaBp),fontStyle:das.prev?"italic":"normal"}}>{das.incompleto?<span style={{fontSize:10,fontWeight:700}}>dados incompletos</span>:frPct(das.fator)}</td>
+            <td style={{...td,textAlign:"center"}}>{das.incompleto?"—":anexoChip(das.anexo)}</td>
+            <td style={{...td,fontWeight:700,color:das.incompleto?G.muted:(das.folga>=0?G.success:(das.folgaMin>=0?G.yellow:G.red))}}>{das.incompleto?"—":frFmt(das.folga)}</td>
+          </tr>;})}</tbody>
+      </table>
+    </div>
+    <div style={{fontSize:11,color:G.muted}}>RBT12, FS12, Fator R, Anexo e Folga de cada linha são os do DAS daquela competência (12 meses anteriores). Clique numa linha para lançar ou editar o mês.</div>
+  </div>
+
+  <Modal open={!!ef} close={function(){if(!salvando)setEf(null);}} wide title={ef?("Fator R · "+frLbl(ef.ym)):""} ch={ef&&<div style={{display:"flex",flexDirection:"column",gap:13}}>
+    <Inp lb="Competência" type="month" val={ef.ym} set={fe("ym")} style={{maxWidth:200}}/>
+    <div style={{fontSize:12,color:G.muted}}>{"A folha deste mês conta no DAS de "+frLbl(frAdd(ef.ym,1))+" (vence "+venc(frAdd(ef.ym,1))+")."}</div>
+    <div style={{background:"var(--surface-2)",borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:9}}>
+      <div style={{fontWeight:700,fontSize:13,color:G.primary}}>Receita</div>
+      <div style={{fontSize:12}}>{"Notas emitidas pela empresa neste mês: "}<b>{frRS((notas[ef.ym]||{c:0}).c)}</b>{" ("+((notas[ef.ym]||{n:0}).n)+" notas)"}</div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+        <Inp lb="Receita declarada (contabilidade)" ph="em branco = usar as notas" val={ef.receita} set={fe("receita")} style={{flex:"1 1 200px"}}/>
+        {seg(ef.receita_status,[["confirmada","Confirmada"],["prevista","Prevista"]],fe("receita_status"))}
+      </div>
+      {ef.receita&&(function(){var v=frParse(ef.receita),nc=(notas[ef.ym]||{c:0}).c;if(v===null||isNaN(v)||!nc)return null;var dif=Math.round(v*100)-nc;return dif===0?null:<div style={{fontSize:11,color:G.yellow,fontWeight:700}}>{"Diferença para as notas: "+(dif>0?"+ ":"− ")+frRS(Math.abs(dif))}</div>;})()}
+    </div>
+    <div style={{background:"var(--surface-2)",borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:9}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+        <span style={{fontWeight:700,fontSize:13,color:G.primary}}>Folha de pagamento</span>
+        {seg(ef.folha_status,[["prevista","Prevista"],["confirmada","Confirmada"]],fe("folha_status"))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:9}}>
+        <Inp lb="Folha CLT (+ encargos)" ph="opcional" val={ef.folha_clt} set={fe("folha_clt")}/>
+        <Inp lb="Pró-labore Diego" ph="opcional" val={ef.prolabore_diego} set={fe("prolabore_diego")}/>
+        <Inp lb="Pró-labore Juliana" ph="opcional" val={ef.prolabore_juliana} set={fe("prolabore_juliana")}/>
+      </div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+        <Inp lb="Folha total (valor oficial do cálculo)" val={ef.folha_total} set={fe("folha_total")} style={{flex:"1 1 200px"}}/>
+        {ef2!==null&&frC(frParse(ef.folha_total))!==ef2&&<Btn ch={"Usar soma: "+frFmt(ef2)} v="g" sm onClick={function(){fe("folha_total")(frFmt(ef2));}}/>}
+      </div>
+    </div>
+    <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+      <Inp lb="DAS pago" ph="0,00" val={ef.das_pago} set={fe("das_pago")} style={{flex:"1 1 160px"}}/>
+      <div style={{display:"flex",flexDirection:"column",gap:4}}><label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Anexo declarado</label>{seg(ef.anexo_declarado,[["","—"],["III","III"],["V","V"]],fe("anexo_declarado"))}</div>
+    </div>
+    <Txt lb="Observação" val={ef.observacao} set={fe("observacao")} rows={2}/>
+    {(function(){var rc=frParse(ef.receita),fo=frParse(ef.folha_total);var recC=(rc!==null&&!isNaN(rc))?Math.round(rc*100):(notas[ef.ym]||{c:0}).c;if(fo===null||isNaN(fo)||!recC)return null;var p=Math.round(fo*100)/recC;return <div style={{background:p<0.28?"var(--red-soft)":"var(--green-soft)",color:p<0.28?G.red:G.success,borderRadius:10,padding:"9px 12px",fontSize:12,fontWeight:700}}>{"Folha = "+frPct(p)+" da receita do mês"+(p<0.28?" (abaixo de 28%)":"")}</div>;})()}
+    <div style={{display:"flex",justifyContent:"flex-end",gap:9}}>
+      <Btn ch="Cancelar" v="g" dis={salvando} onClick={function(){setEf(null);}}/>
+      <Btn ch={salvando?"Salvando…":"Salvar"} dis={salvando} onClick={salvar}/>
+    </div>
+  </div>}/>
+</div>;
+}
+
 function Admin({users,setUsers,procs,setProcs,dents,setDents,labs,setLabs,perms,setPerms,logs,setLogs,user,pats,setPats,appts,setAppts,recs,setRecs,treats,setTreats,budgets,setBudgets,pros,setPros,rems,setRems,stock,setStock,expenses,setExpenses,impl,setImpl,waAuto,setWaAuto,waAutoLog,acessoCfg,setAcessoCfg,bkpLog,setBkpLog}){
 const [tab,setTab]=useState("users");const [lfUser,setLfUser]=useState("all");const [lfPat,setLfPat]=useState("");const [lfData,setLfData]=useState("");const [lfTipo,setLfTipo]=useState("all");
 const TIPOS_LOG=["all","agenda","paciente","financeiro","estoque","protese","lembrete","remarcar","admin"];
@@ -12124,9 +12440,10 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 
 <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26}}>Administrativo</h2>
 <div style={{display:"flex",gap:0,borderBottom:"2px solid "+G.border,overflowX:"auto"}}>
-{[["users","Usuarios"],["import","Importar Dados"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["wa","🤖 WhatsApp"],["log","Log"],["backup","Backup"]].map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
+{[["users","Usuarios"],["import","Importar Dados"],["dents","Dentistas"],["procs","Procedimentos"],["labs","Laboratorios"],["agenda","Horarios"],["access","Acessos"],["wa","🤖 WhatsApp"],["log","Log"],["backup","Backup"]].concat(user&&user.level>=3?[["fatorr","📊 Fator R"]]:[]).map(([k,l])=><button key={k} onClick={()=>setTab(k)} style={{border:"none",background:"none",padding:"9px 13px",fontFamily:"'Manrope'",fontWeight:700,fontSize:12,cursor:"pointer",color:tab===k?G.primary:G.muted,borderBottom:"3px solid "+(tab===k?G.primary:"transparent"),marginBottom:-2,whiteSpace:"nowrap"}}>{l}</button>)}
 </div>
 {tab==="import"&&<ImportWizard pats={pats} setPats={setPats}/>}
+{tab==="fatorr"&&user&&user.level>=3&&<FatorRTab pats={pats} user={user}/>}{/* V367 */}
 {tab==="users"&&<div style={{display:"flex",flexDirection:"column",gap:9}}>
 <div style={{background:G.accent,borderRadius:10,padding:"9px 12px",fontSize:12,color:G.primary}}>
 Para adicionar dentista use a aba <strong>Dentistas</strong>. Aqui crie apenas credenciais de acesso.
