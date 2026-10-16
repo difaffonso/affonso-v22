@@ -8909,7 +8909,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 }
 
 // ══════════════════════════════════════════════════════════
-// NF TAB - Relatorio de Notas Fiscais (admin only) - V211
+// NF TAB - Relatorio de Notas Fiscais (admin + secretaria desde V371) - V211
 function NFTab({pats,dents,mo,abrirFicha}){
 const [dia,setDia]=useState("");
 const [emit,setEmit]=useState("all");
@@ -9803,7 +9803,7 @@ const pessoalG=gastoMes(gastos&&gastos.pessoal);
 
 const TABS=ehAux_V329(user)?[["prot","Protéticos"]]:[["dent","Dentistas"],["prot","Protéticos"],["orc","Orçamentos"],["buscar","🔎 Buscar"],["orto","🦷 Orto"],["pacs","👥 Pacientes"],["msg","📱 WhatsApp"]];// V329
 if(user.level>=3)TABS.push(["gastos","💸 Gastos"]);
-if(user.level>=3)TABS.push(["nf","🧾 Notas"]);
+if(user.level>=3||(user.level===2&&!ehAux_V329(user)))TABS.push(["nf","🧾 Notas"]);// V371: secretaria (nivel 2, nao auxiliar) tambem ve o relatorio de notas fiscais
 const TABS_R=(user&&user.level>=3)?TABS.concat([["respOrc","💬 Respostas Orç."]]):TABS; // V232: aba exclusiva do admin (V235: movido para depois dos push de Gastos/Notas)
 
 return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
@@ -10103,7 +10103,7 @@ return <div key={t.id} style={{background:G.card,borderRadius:10,padding:"11px 1
 {tab==="buscar"&&<BuscaOrcTab treats={treats} pats={pats} dents={dents} abrirFicha={abrirFicha}/>}
 {tab==="msg"&&<MsgTab pats={pats} selMsg={selMsg} setSelMsg={setSelMsg} selPatsMsg={selPatsMsg} setSelPatsMsg={setSelPatsMsg} allSelMsg={allSelMsg} setAllSelMsg={setAllSelMsg} waTemplates={waTemplates} setWaTemplates={setWaTemplates} user={user}/>}
 {tab==="respOrc"&&user.level>=3&&<RespOrcTab treats={treats} budgets={budgets} pats={pats} dents={dents} appts={appts} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp} user={user} abrirFicha={abrirFicha}/>}
-{tab==="nf"&&user.level>=3&&<NFTab pats={pats} dents={dents} mo={mo} abrirFicha={abrirFicha}/>}
+{tab==="nf"&&(user.level>=3||(user.level===2&&!ehAux_V329(user)))&&<NFTab pats={pats} dents={dents} mo={mo} abrirFicha={abrirFicha}/>}
 
   </div>;
 }
