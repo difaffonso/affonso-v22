@@ -819,6 +819,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:4}}>
 {yrs.reverse().map(yr=><option key={yr} value={yr}>{yr}</option>)}
 </select>
 </div>
+{/* V372: data pela metade nao grava nada -- avisa o que falta */}
+{(d||m||y)&&!(d&&m&&y)&&<div style={{fontSize:11.5,fontWeight:800,color:G.red}}>{"\u26a0 Data incompleta \u2014 falta "+[!d?"o dia":"",!m?"o m\u00eas":"",!y?"o ano":""].filter(Boolean).join(" e ")+". Sem isso a data n\u00e3o \u00e9 gravada."}</div>}
 
   </div>;
 };
@@ -1895,7 +1897,21 @@ function faltamObrig(p){
   if(nm&&nm.split(/\s+/).length<2)f.push("Sobrenome (s\u00f3 um nome digitado)");
   return f;
 }
-function AvisoObrig({lista,onVoltar,onSalvar}){
+// V372: grava so os campos que a pessoa mudou nesta edicao, por cima da versao MAIS RECENTE da ficha.
+// Antes a ficha inteira era regravada a partir da copia carregada ao abrir: uma copia velha
+// (outra tela aberta, outro aparelho) apagava nascimento/CPF ja gravados e devolvia o pre-cadastro.
+function mesclaEdicao(atual,base,editado){
+  atual=atual||{};base=base||{};editado=editado||{};
+  var o=Object.assign({},atual);var ks={};
+  Object.keys(base).forEach(function(k){ks[k]=1;});Object.keys(editado).forEach(function(k){ks[k]=1;});
+  Object.keys(ks).forEach(function(k){
+    if(JSON.stringify(base[k])!==JSON.stringify(editado[k])){
+      if(Object.prototype.hasOwnProperty.call(editado,k))o[k]=editado[k];else delete o[k];
+    }
+  });
+  return o;
+}
+function AvisoObrig({lista,onVoltar,onSalvar,pre}){
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
     <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:440,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
       <div style={{background:"var(--yellow)",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>{"\u26a0\ufe0f Campos obrigat\u00f3rios em branco"}</div></div>
@@ -1904,6 +1920,7 @@ function AvisoObrig({lista,onVoltar,onSalvar}){
         <div style={{background:"var(--amber-soft)",border:"1.5px solid var(--yellow)",borderRadius:11,padding:"12px 14px",display:"flex",flexDirection:"column",gap:7}}>
           {(lista||[]).map(function(x,i){return <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:13.5,fontWeight:700,color:"var(--yellow)"}}><span>{"\u2022"}</span><span>{x}</span></div>;})}
         </div>
+        {pre&&<div style={{background:"var(--blue-soft)",border:"1.5px solid var(--blue)",borderRadius:10,padding:"10px 13px",fontSize:12.5,fontWeight:700,color:"var(--blue)",lineHeight:1.45}}>{"\u26a1 Se salvar assim, a ficha continua como PR\u00c9-CADASTRO at\u00e9 esses campos serem preenchidos."}</div>/* V372 */}
         <div style={{fontSize:13.5,fontWeight:700}}>Deseja salvar mesmo assim?</div>
         <div style={{display:"flex",gap:9,justifyContent:"flex-end",paddingTop:12,borderTop:"1px solid var(--border)",flexWrap:"wrap"}}>
           <button onClick={onVoltar} style={{border:"1.5px solid var(--primary)",background:"transparent",color:"var(--primary)",borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Voltar e preencher</button>
@@ -2050,7 +2067,7 @@ const isDentUser=user&&user.level===1;
 const [tab,setTab]=useState("ficha");
 const [editMode,setEditMode]=useState(false);
 const [imgCat,setImgCat]=useState("rx");const [imgTreat,setImgTreat]=useState("");const [imgNota,setImgNota]=useState("");const [imgBusy,setImgBusy]=useState(false);const [imgErr,setImgErr]=useState("");const [imgView,setImgView]=useState(null);
-const [pf,setPf]=useState({...pat});const [showWAanam,setShowWAanam]=useState(false);const [showPortal,setShowPortal]=useState(false);const [showIARX,setShowIARX]=useState(false);const [fillAnam,setFillAnam]=useState(false);const [buscaMsg,setBuscaMsg]=useState("");
+const [pf,setPf]=useState({...pat});const pfBase=useRef({...pat});/* V372: copia da ficha no inicio da edicao */const abrirEdicao=function(){var b={...pat};pfBase.current=b;setPf(b);setEditMode(true);};const [showWAanam,setShowWAanam]=useState(false);const [showPortal,setShowPortal]=useState(false);const [showIARX,setShowIARX]=useState(false);const [fillAnam,setFillAnam]=useState(false);const [buscaMsg,setBuscaMsg]=useState("");
 
 // Keep pf in sync when pat updates externally (e.g. after NF save)
 // But don't override if user is actively editing
@@ -2201,13 +2218,13 @@ const [gateF,setGateF]=useState(null);/* V319 */
 /* V319: carimba o agradecimento (ou o motivo) na ficha aberta */
 const _agStamp=function(o){setPats(function(prev){return prev.map(function(p){return p.id===pat.id?Object.assign({},p,o,{_ts:Date.now()}):p;});});setPf(function(p){return Object.assign({},p,o);});};
 // V281: carimbo de autoria na ficha + registro de "salvar mesmo assim" (auditoria de cadastro)
-const savePatOk=(_ovrL)=>{const _uN=(user&&user.name)||"";const _tsI=new Date().toISOString();setPats(prev=>prev.map(function(p){if(p.id!==pat.id)return p;var o=Object.assign({},pf,{_by:p._by||pf._by||"",_cr:p._cr||pf._cr||null,_byTs:p._byTs||pf._byTs||"",_edBy:_uN,_edTs:_tsI});if(_ovrL&&_ovrL.length)o._ovr=((p._ovr)||[]).concat([{campos:_ovrL,por:_uN,ts:_tsI,onde:"edicao"}]);/* V282: sai do estado pre-cadastro quando os obrigatorios ficam completos */if(p._pre){if(faltamObrig(o).length===0){o._pre=false;o._preDoneBy=_uN;o._preDoneTs=_tsI;}else{o._pre=true;}}return o;}));
+const savePatOk=(_ovrL)=>{const _uN=(user&&user.name)||"";const _tsI=new Date().toISOString();var _base=pfBase.current||{};var _ed=pf;setPats(prev=>prev.map(function(p){if(p.id!==pat.id)return p;var o=Object.assign(mesclaEdicao(p,_base,_ed),{_by:p._by||_ed._by||"",_cr:p._cr||_ed._cr||null,_byTs:p._byTs||_ed._byTs||"",_edBy:_uN,_edTs:_tsI});/* V372 */if(_ovrL&&_ovrL.length)o._ovr=((p._ovr)||[]).concat([{campos:_ovrL,por:_uN,ts:_tsI,onde:"edicao"}]);/* V282: sai do estado pre-cadastro quando os obrigatorios ficam completos */if(p._pre){if(faltamObrig(o).length===0){o._pre=false;o._preDoneBy=_uN;o._preDoneTs=_tsI;}else{o._pre=true;}}pfBase.current=o;return o;}));
 /* V319: nao fecha a edicao com indicacao pendente de agradecimento */
 var _gp=agradPend(Object.assign({},pf,{id:pat.id}),pats);
 if(_gp&&user&&user.level>=2){setGateF(_gp);return;}
 setEditMode(false);};
-const savePat=()=>{if(!String(pf.name||"").trim()){alert("N\u00e3o \u00e9 poss\u00edvel salvar a ficha sem o nome do paciente.");return;}var _f=faltamObrig(pf);if(_f.length>0){setMissPF(_f);return;}savePatOk();};
-const saveAnam=()=>{setPats(prev=>prev.map(p=>p.id===pat.id?pf:p));setEditMode(false);};
+const savePat=()=>{if(!String(pf.name||"").trim()){alert("N\u00e3o \u00e9 poss\u00edvel salvar a ficha sem o nome do paciente.");return;}var _f=faltamObrig(mesclaEdicao(pat,pfBase.current,pf))/* V372 */;if(_f.length>0){setMissPF(_f);return;}savePatOk();};
+const saveAnam=()=>{var _base=pfBase.current||{};var _ed=pf;setPats(prev=>prev.map(function(p){if(p.id!==pat.id)return p;var o=mesclaEdicao(p,_base,_ed);pfBase.current=o;return o;}));setEditMode(false);};/* V372 */
 
 const genM=(d,n)=>{const ms=[];const x=new Date(d+"T12:00");for(let i=1;i<=n;i++){x.setMonth(x.getMonth()+1);ms.push(`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}`);}return ms;};
 const saveRec=()=>{
@@ -2512,7 +2529,7 @@ return <>
     <button onClick={function(){setShowIARX(true);}} style={{background:G.blue,color:"#fff",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"🦷 Analisar RX com IA"}</button>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📋 Dados do Paciente</span>{/* V282: selo de pre-cadastro na ficha */}{pat._pre&&<span style={{background:G.blue,color:"#fff",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:800,marginLeft:8}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}
-      {!editMode?<div style={{display:"flex",gap:5}}><Btn ch="📋 WA" v="g" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="🔗 Portal" v="g" sm onClick={function(){setShowPortal(true);}}/><Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/></div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={savePat}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
+      {!editMode?<div style={{display:"flex",gap:5}}><Btn ch="📋 WA" v="g" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="🔗 Portal" v="g" sm onClick={function(){setShowPortal(true);}}/><Btn ch="✏️ Editar" v="g" sm onClick={abrirEdicao}/></div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={savePat}/><Btn ch="Cancelar" v="g" sm onClick={()=>{var _b={...pat};pfBase.current=_b;setPf(_b);setEditMode(false);}}/></div>}
     </div>
     {pat.obs&&<div style={{background:G.yellow+"18",border:`2px solid ${G.yellow}`,borderRadius:10,padding:"9px 14px"}}><span style={{fontWeight:700,color:G.yellow}}>⚠ ALERGIA / OBS. IMPORTANTE</span><div style={{color:G.text,marginTop:4,fontSize:14}}>{pat.obs||pat.allergy}</div></div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
@@ -2573,7 +2590,7 @@ return <>
     {fillAnam&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:9000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:16,overflowY:"auto"}}><div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,margin:"16px auto",padding:"20px"}}><AnamForm patientName={pat.name} initial={pf.anamnese} onCancel={function(){setFillAnam(false);}} onSubmit={function(a){var aa=Object.assign({},a,{preenchida:true});setPf(prev=>Object.assign({},prev,{anamnese:Object.assign({},prev.anamnese||{},aa)}));setPats(prev=>prev.map(pp=>pp.id===pf.id?Object.assign({},pp,{anamnese:Object.assign({},pp.anamnese||{},aa)}):pp));setFillAnam(false);}}/></div></div>}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🩺 Anamnese Clínica</span>
-      {!editMode?<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn ch="📋 WA" v="w" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="📝 Na tela" v="g" sm onClick={function(){setFillAnam(true);}}/>{SUPA_URL&&<Btn ch="🔄 Buscar" v="g" sm onClick={function(){setBuscaMsg("Buscando...");supabase.fetchAnam(btoa("orbe:"+pat.id)).then(function(pp){if(pp){setPf(prev=>Object.assign({},prev,{anamnese:Object.assign({},prev.anamnese||{},pp)}));setEditMode(true);setBuscaMsg("Ficha recebida do paciente! Revise e salve.");}else{setBuscaMsg("Nenhuma ficha enviada ainda.");}});}}/>}{!isDentUser&&<Btn ch="✏️ Editar" v="g" sm onClick={()=>setEditMode(true)}/>}</div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={()=>{setPats(prev=>prev.map(p=>p.id===pf.id?Object.assign({},pf,{anamPend:false,anamnese:Object.assign({},pf.anamnese||{},{preenchida:true})}):p));setEditMode(false);}}/><Btn ch="Cancelar" v="g" sm onClick={()=>{setPf({...pat});setEditMode(false);}}/></div>}
+      {!editMode?<div style={{display:"flex",gap:6,flexWrap:"wrap"}}><Btn ch="📋 WA" v="w" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="📝 Na tela" v="g" sm onClick={function(){setFillAnam(true);}}/>{SUPA_URL&&<Btn ch="🔄 Buscar" v="g" sm onClick={function(){setBuscaMsg("Buscando...");supabase.fetchAnam(btoa("orbe:"+pat.id)).then(function(pp){if(pp){var _b0={...pat};pfBase.current=_b0;setPf(Object.assign({},_b0,{anamnese:Object.assign({},_b0.anamnese||{},pp)}));setEditMode(true);/* V372 */setBuscaMsg("Ficha recebida do paciente! Revise e salve.");}else{setBuscaMsg("Nenhuma ficha enviada ainda.");}});}}/>}{!isDentUser&&<Btn ch="✏️ Editar" v="g" sm onClick={abrirEdicao}/>}</div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={()=>{setPats(prev=>prev.map(p=>{if(p.id!==pf.id)return p;var o=Object.assign(mesclaEdicao(p,pfBase.current||{},pf),{anamPend:false,anamnese:Object.assign({},pf.anamnese||{},{preenchida:true})});pfBase.current=o;return o;}))/* V372 */;setEditMode(false);}}/><Btn ch="Cancelar" v="g" sm onClick={()=>{var _b={...pat};pfBase.current=_b;setPf(_b);setEditMode(false);}}/></div>}
     </div>
     {(function(){var fl=ANAM_ALERT.filter(function(k){return pf.anamnese&&pf.anamnese[k];}).map(function(k){var c=ANAM_CONDS.find(function(x){return x[0]===k;});return c?c[1]:k;});return fl.length>0?<div style={{background:G.red+"15",border:"1.5px solid "+G.red,borderRadius:10,padding:"10px 13px",display:"flex",gap:8,alignItems:"flex-start"}}><span style={{fontSize:16}}>⚠️</span><div style={{fontSize:12.5,color:G.red,fontWeight:600,lineHeight:1.5}}>Atencao especial: {fl.join(", ")}. Reforce a biosseguranca e avalie as precaucoes necessarias antes do procedimento.</div></div>:null;})()}
     <Div lb="Condições Sistêmicas"/>
@@ -3280,7 +3297,7 @@ return <>
   onAgradecer={function(){var ind=gateF.ind;var txt=getWA(waTemplates,gateF.pac._pre?"indicacao_pre":"indicacao",{nome:String(ind.name||"").split(" ")[0],paciente:gateF.pac.name});wa(ind.phone,txt);_agStamp({indicAgrad:new Date().toISOString(),indicAgradBy:(user&&user.name)||""});setGateF(null);setEditMode(false);}}
   onPular={function(m,susp){_agStamp({indicAgradSkip:m,indicAgradSkipBy:(user&&user.name)||"",indicAgradSkipTs:new Date().toISOString(),indicAgradSusp:!!susp});setGateF(null);setEditMode(false);}}
   onVoltar={function(){setGateF(null);}}/>}{/* V319 */}
-{missPF&&<AvisoObrig lista={missPF} onVoltar={function(){setMissPF(null);}} onSalvar={function(){var _m=missPF;setMissPF(null);savePatOk(_m);}}/* V281 *//>}
+{missPF&&<AvisoObrig pre={!!pat._pre} lista={missPF} onVoltar={function(){setMissPF(null);}} onSalvar={function(){var _m=missPF;setMissPF(null);savePatOk(_m);}}/* V281 *//>}
 {/* Add procedure to existing plan modal */}
 {confirmDesfazer&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:3200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
   <div style={{background:"var(--surface)",borderRadius:18,width:"100%",maxWidth:380,boxShadow:"0 8px 32px rgba(0,0,0,.25)"}}>
@@ -6438,6 +6455,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:4}}>{LB}
   {/* V307: o botao aparece SEMPRE que houver 2+ letras digitadas, junto com a lista.
       No V306 ele so vinha quando a busca voltava vazia — e buscar "Maria" traz centenas
       de fichas, escondendo a unica saida de quem nao sabe o nome completo. */}
+  {qq.length>0&&<div style={{fontSize:11.5,fontWeight:800,color:G.red,marginTop:2}}>{"\u26a0 Ainda n\u00e3o foi escolhido. Clique num nome da lista ou em \u201cUsar assim mesmo\u201d \u2014 s\u00f3 digitar n\u00e3o grava."}</div>/* V372 */}
   {qq.length>=2&&<div style={{display:"flex",flexDirection:"column",gap:5,marginTop:hits.length>0?5:2}}>
     {hits.length===0&&<div style={{fontSize:11.5,color:G.muted}}>{"Nenhum paciente com esse nome."}</div>}
     {hits.length>0&&<div style={{fontSize:11,color:G.muted}}>{"N\u00e3o \u00e9 nenhum desses?"}</div>}
@@ -6910,7 +6928,7 @@ const agradecerPre=function(){
 };
 const savePat=()=>{
 if(!pf.name)return;
-var _f=faltamObrig(pf);
+var _f=faltamObrig(ep?mesclaEdicao(((pats||[]).find(function(x){return x.id===ep.id;})||ep),ep,pf):pf)/* V372 */;
 if(_f.length>0){setMissNew(_f);return;}
 savePatOk();
 };
@@ -6952,7 +6970,7 @@ return;
 }
 // V281: criacao grava _by/_cr/_byTs; edicao grava _edBy/_edTs e preserva a autoria original
 const _pv=ep?((pats||[]).find(function(x){return x.id===ep.id;})||ep):null;
-const obj=Object.assign({},pf,{id:ep?ep.id:nid(pats)},isNew
+const obj=Object.assign({},isNew?pf:mesclaEdicao(_pv,ep,pf)/* V372: so o que mudou, por cima da versao atual */,{id:ep?ep.id:nid(pats)},isNew
   ?{_by:_uN,_cr:Date.now(),_byTs:_tsI}
   :{_by:(_pv&&_pv._by)||pf._by||"",_cr:(_pv&&_pv._cr)||pf._cr||null,_byTs:(_pv&&_pv._byTs)||pf._byTs||"",_edBy:_uN,_edTs:_tsI});
 if(_ovrEntry)obj._ovr=(((_pv&&_pv._ovr)||[])).concat(_ovrEntry);
@@ -7062,7 +7080,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
   onAgradecer={function(){var ind=gateP.ind;var txt=getWA(waTemplates,gateP.pac._pre?"indicacao_pre":"indicacao",{nome:String(ind.name||"").split(" ")[0],paciente:gateP.pac.name});wa(ind.phone,txt);_agStampP(gateP.pac.id,{indicAgrad:new Date().toISOString(),indicAgradBy:(user&&user.name)||""});setGateP(null);setPm(false);}}
   onPular={function(m,susp){_agStampP(gateP.pac.id,{indicAgradSkip:m,indicAgradSkipBy:(user&&user.name)||"",indicAgradSkipTs:new Date().toISOString(),indicAgradSusp:!!susp});setGateP(null);setPm(false);}}
   onVoltar={function(){setGateP(null);}}/>}{/* V319 */}
-{missNew&&<AvisoObrig lista={missNew} onVoltar={function(){setMissNew(null);}} onSalvar={function(){var _m=missNew;setMissNew(null);savePatOk(_m);}}/* V281 *//>}
+{missNew&&<AvisoObrig pre={!!(ep&&ep._pre)} lista={missNew} onVoltar={function(){setMissNew(null);}} onSalvar={function(){var _m=missNew;setMissNew(null);savePatOk(_m);}}/* V281 *//>}
 {delModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 <div style={{background:"var(--surface)",borderRadius:16,width:"100%",maxWidth:420,boxShadow:"0 22px 55px rgba(30,45,38,.30),inset 0 1px 0 rgba(251,255,247,.55)"}}>
 <div style={{background:"var(--red)",borderRadius:"16px 16px 0 0",padding:"14px 18px"}}><div style={{fontWeight:700,color:"#fff",fontSize:15}}>🗑️ Excluir Paciente</div></div>
@@ -18559,18 +18577,20 @@ useEffect(function(){
       setPats(function(prev){
         prev=prev||[];
         var idx={};prev.forEach(function(p,i){if(p&&p.id!=null)idx[p.id]=i;});
-        var next=prev.slice();var mut=false;
+        var next=prev.slice();var mut=false;var _skipP={};
         chg.forEach(function(c){
           if(!c||c.id==null||!c.data)return;
           if(_dpT[c.id])return; // V197: excluido, nao ressuscitar
           if(patPendRef.current&&patPendRef.current[c.id])return; // V318: ficha com gravacao pendente aqui - o servidor nao pode apaga-la
           var sj=JSON.stringify(c.data);
+          /* V372: ficha alterada aqui e ainda nao enviada -- a resposta do servidor (que pode ser a versao anterior) nao sobrescreve; o envio local vai em seguida */
+          if(idx[c.id]!=null){var _lsv=(lastSavedPats.current||{})[c.id];var _loc=JSON.stringify(next[idx[c.id]]);if(_lsv!=null&&_loc!==_lsv&&_loc!==sj){_skipP[c.id]=true;return;}}
           if(idx[c.id]!=null){if(JSON.stringify(next[idx[c.id]])!==sj){next[idx[c.id]]=c.data;mut=true;}}
           else{next.push(c.data);mut=true;}
         });
         if(!mut)return prev;
         var mm=lastSavedPats.current||{};
-        chg.forEach(function(c){if(c&&c.id!=null&&c.data)mm[c.id]=JSON.stringify(c.data);});
+        chg.forEach(function(c){if(c&&c.id!=null&&c.data&&!_skipP[c.id])mm[c.id]=JSON.stringify(c.data);});
         lastSavedPats.current=mm;
         return next;
       });
