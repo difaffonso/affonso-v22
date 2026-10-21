@@ -1415,6 +1415,33 @@ const contratoApi={
 function contratoLink(token){return appBase()+"?contrato="+encodeURIComponent(token);}
 // V321: o termo usa o MESMO link publico do contrato (mesma Edge Function, mesmo fluxo de assinatura)
 function termoLink(token){return contratoLink(token);}
+// V373: pacientes com termo de siso ASSINADO, recarregado sozinho. Antes so carregava ao abrir a tela,
+// entao o selo "TERMO PENDENTE" ficava na agenda ate dar F5 mesmo depois do paciente assinar.
+// Agora recarrega ao voltar para a aba/janela e a cada 2 min (so com a aba visivel).
+function useSisoOk_V373(inicial){
+  const [ok,setOk]=useState(inicial);
+  useEffect(function(){
+    var alive=true;
+    if(!SUPA_URL){setOk({});return;}
+    function manter(){if(alive)setOk(function(p){return p===null?{}:p;});}
+    function carregar(){
+      contratoApi.listC("").then(function(r){
+        if(!alive)return;
+        if(!r||!r.ok){manter();return;}
+        var m={};
+        (r.contratos||[]).forEach(function(c){try{if(c&&c.payload&&c.payload.tipo===TERMO_SISO_TIPO&&c.status==="assinado"&&c.patient_id!=null)m[String(c.patient_id)]=true;}catch(e){}});
+        setOk(m);
+      }).catch(manter);
+    }
+    carregar();
+    function onVis(){if(document.visibilityState==="visible")carregar();}
+    window.addEventListener("focus",carregar);
+    document.addEventListener("visibilitychange",onVis);
+    var t=setInterval(function(){if(document.visibilityState==="visible")carregar();},120000);
+    return function(){alive=false;window.removeEventListener("focus",carregar);document.removeEventListener("visibilitychange",onVis);clearInterval(t);};
+  },[]);
+  return ok;
+}
 // V321: monta o HTML do termo de consentimento de exo do siso.
 // O texto de riscos e o mesmo ja usado na orientacao "Pre-cirurgia de siso" — nao foi alterado.
 function buildTermoSisoHTML(o){
@@ -5142,20 +5169,7 @@ function PnlProsHoje_V359({appts,pros,pats,labs,go}){
 function Agenda({appts,setAppts,pats,setPats,dents,procs,user,addLog,recs,setRecs,treats,setTreats,budgets,setBudgets,waEvent,espera,logs,waTemplates,docsEmitidos,setDocsEmitidos,agendaSelDate,setAgendaSelDate,faixaRecados,pros=[],setPros,labs=[],pacsTicks={}}){
 // V321: quais pacientes ja tem termo de siso ASSINADO (para o alerta na linha da agenda).
 // Busca uma vez ao abrir a agenda; o alerta some sozinho quando o termo e assinado.
-const [sisoOk,setSisoOk]=useState({});
-useEffect(function(){
-  var alive=true;
-  if(!SUPA_URL)return;
-  contratoApi.listC("").then(function(r){
-    if(!alive||!r||!r.ok)return;
-    var m={};
-    (r.contratos||[]).forEach(function(c){
-      try{if(c&&c.payload&&c.payload.tipo===TERMO_SISO_TIPO&&c.status==="assinado"&&c.patient_id!=null)m[String(c.patient_id)]=true;}catch(e){}
-    });
-    setSisoOk(m);
-  });
-  return function(){alive=false;};
-},[]);
+const sisoOk=useSisoOk_V373({});// V373: recarrega sozinho (foco da janela + a cada 2 min)
 // true = esta consulta e de siso E o paciente ainda nao assinou o termo
 function termoSisoPend(a){
   if(!a||!a.patientId||a.blocked)return false;
@@ -14884,18 +14898,7 @@ function PnlCobConf_V366({appts,pats,ticks,setTicks,user,abrirFicha,titulo}){
 
 // V338: bloco da Visao Geral com os termos de siso ainda nao assinados do dia.
 function PnlTermoSisoV338({appts,pats,go}){
-  const [sisoOk,setSisoOk]=useState(null);
-  useEffect(function(){
-    var alive=true;
-    if(!SUPA_URL){setSisoOk({});return;}
-    contratoApi.listC("").then(function(r){
-      if(!alive)return;
-      var m={};
-      try{ if(r&&r.ok)(r.contratos||[]).forEach(function(c){ if(c&&c.payload&&c.payload.tipo===TERMO_SISO_TIPO&&c.status==="assinado"&&c.patient_id!=null)m[String(c.patient_id)]=true; }); }catch(e){}
-      setSisoOk(m);
-    }).catch(function(){ if(alive)setSisoOk({}); });
-    return function(){alive=false;};
-  },[]);
+  const sisoOk=useSisoOk_V373(null);// V373: recarrega sozinho (foco da janela + a cada 2 min)
   if(sisoOk===null)return null;
   var t=today();
   var lista=(appts||[]).filter(function(a){
