@@ -2585,6 +2585,8 @@ return <>
         {pf.origem==="Indicação"&&<IndicPicker pats={pats} selfId={pat.id} valId={pf.indicPorId} valNome={pf.indicPorNome} onPick={function(id,nm){setPf(function(p){return Object.assign({},p,{indicPorId:id,indicPorNome:nm});});}}/>}
       </>}
     </div>
+    {/* V374: disponibilidade de horario do paciente */}
+    {editMode?<DispEditor_V374 val={pf.disp} set={function(v){setPf(function(p){return Object.assign({},p,{disp:v});});}}/>:<DispView_V374 d={pat.disp}/>}
     {editMode&&<Txt lb="⚠ Obs. Importante (destaque em toda a clínica)" val={pf.obs} set={v=>setPf(p=>({...p,obs:v}))} rows={2}/>}
     {editMode&&<Txt lb="Observações Gerais" val={pf.notes} set={v=>setPf(p=>({...p,notes:v}))} rows={2}/>}
     {!editMode&&pat.notes&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.muted,fontStyle:"italic"}}>Obs: {pat.notes}</div>}
@@ -5181,6 +5183,7 @@ const [selDate,setSelDate]=useState(agendaSelDate||today());// V322: abre no dia
 useEffect(function(){if(agendaSelDate&&agendaSelDate!==selDate)setSelDate(agendaSelDate);},[agendaSelDate]);// V322
 useEffect(function(){if(typeof setAgendaSelDate==="function"&&selDate!==agendaSelDate)setAgendaSelDate(selDate);},[selDate]);// V322: mantem a faixa verde do topo sincronizada com o dia aberto
 const [agView,setAgView]=useState("dia");
+const [antM,setAntM]=useState(null);// V374: modal "Quem pode antecipar?"
 const [agZoom,setAgZoom]=useState(1);
 const [agViewMode,setAgViewMode]=useState(function(){try{return localStorage.getItem("agenda_view_mode")||"normal";}catch(e){return "normal";}});
 const [openFolder,setOpenFolder]=useState(null);
@@ -5656,10 +5659,26 @@ return (
 </div>;})}
 {espMatches.length>3&&<div style={{fontSize:11,color:"#7B1FA2"}}>{"+ "+(espMatches.length-3)+" paciente(s) com encaixe"}</div>}
 </div>}
+{/* V374: horario liberado por falta/desmarque com paciente que pode antecipar */}
+{antM&&<AntecipaModal_V374 info={antM} appts={appts} pats={pats} onClose={function(){setAntM(null);}} onAbrir={function(a){setAntM(null);setViewA(a);}}/>}
+{agView==="dia"&&user.level>=2&&!isDent&&(function(){
+var lib=antecipaLiberados_V374(appts,pats,vd,selDate,function(dd){return isOrto(dd)?SLOTS_ORTO:SLOTS;});
+if(!lib.length)return null;
+return <div style={{background:"var(--green-soft)",border:"2px solid "+G.primary,borderRadius:10,padding:"8px 12px"}}>
+<div style={{fontWeight:700,color:G.primary,fontSize:12,marginBottom:3}}>{"\u23e9 Hor\u00e1rio liberado \u2014 d\u00e1 para antecipar algu\u00e9m:"}</div>
+{lib.map(function(x){return <div key={x.dent.id+"|"+x.slot} style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",fontSize:12,color:G.text,marginBottom:3}}>
+<span style={{flex:1,minWidth:140}}>{"\u2022 "+x.slot+" \u00b7 "+x.dent.name.split(" ").slice(0,2).join(" ")+" ("+String(SL[x.motivo]||"").toLowerCase()+") \u2014 "+[x.ok?(x.ok+(x.ok>1?" podem vir":" pode vir")):"",x.sem?(x.sem+" a perguntar"):""].filter(Boolean).join(" \u00b7 ")}</span>
+<button onClick={function(){setAntM({dent:x.dent,date:selDate,slot:x.slot,slots:x.slots});}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:7,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>Ver</button>
+</div>;})}
+</div>;
+})()}
 {agView==="dia"&&vd.length===1&&<div style={{display:"flex",flexDirection:"column",gap:1,zoom:agZoom}}>
 {(()=>{
 // Inclui horarios personalizados dos agendamentos do dia
 var d=vd[0];
+// V374: botao "Quem pode antecipar?" so em horario futuro, para recepcao
+var _antOk=function(s){if(isDent||user.level<2)return false;var t=today();if(selDate<t)return false;if(selDate>t)return true;var n=new Date();return t2m(s)>n.getHours()*60+n.getMinutes();};
+var _antBt=function(s,mini){return _antOk(s)?<button key="ant" onClick={function(e){e.stopPropagation();setAntM({dent:d,date:selDate,slot:s,slots:activeSlots});}} title="Quem pode antecipar?" style={mini?{background:"transparent",border:"none",fontSize:12,cursor:"pointer",padding:0,lineHeight:1,color:G.primary}:{background:"var(--surface)",border:"1px solid "+G.border,borderRadius:6,padding:"2px 7px",fontSize:10,color:G.primary,cursor:"pointer",fontWeight:700}}>{"\u23e9"}</button>:null;};
 var customTimes=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&!activeSlots.includes(x.time);}).map(function(x){return x.time;});
 var allSlots=[...new Set([...activeSlots,...customTimes])].sort(function(x,y){return t2m(x)-t2m(y);});
 var _slots=allSlots.map(function(slot){
@@ -5694,6 +5713,7 @@ if(!a)return(
 {isDent
 ?<span style={{fontSize:11,color:G.border}}>──────</span>
 :<span style={{fontSize:11,color:(clipA?G.primary:G.border),fontWeight:clipA?800:400,flex:1}}>{clipA?"\ud83d\udccb Colar aqui":"+ agendar"}</span>}
+{_antBt(slot)}{/* V374 */}
 {!isDent&&<button onClick={e=>{e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{marginLeft:"auto",background:"var(--red-soft)",border:"1px solid #FFCDD2",borderRadius:6,padding:"2px 7px",fontSize:10,color:G.red,cursor:"pointer",fontWeight:700}} title="Bloquear horário">🔒</button>}
 </div>
 );
@@ -5711,6 +5731,7 @@ return(
 <div key={slot} onClick={function(){if(isDent)return;if(clipA&&colarEm(selDate,slot,d.id))return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF({...blank,date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id});setModal(true);}} style={{display:"flex",alignItems:"center",gap:4,padding:viewingOrto?"1px 6px":"1px 6px",borderRadius:5,background:"var(--green-soft)",border:(clipA&&!isDent?"1.5px dashed "+G.primary:"1px dashed "+G.border),cursor:isDent?"default":"pointer",minHeight:viewingOrto?20:26}}>
 <span style={{fontSize:10,color:G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
 <span style={{fontSize:11,color:(clipA&&!isDent?G.primary:G.border),fontWeight:(clipA&&!isDent)?800:400,flex:1}}>{isDent?"":(clipA?"\ud83d\udccb Colar aqui":"+ agendar")}</span>
+{_antBt(slot)}{/* V374 */}
 </div>
 );
 }
@@ -5849,6 +5870,7 @@ _slotsCompact.push(
 <div key={"cf"+slot} onClick={function(){if(isDent)return;if(clipA&&colarEm(selDate,slot,d.id))return;setEdit(null);var _isStdC=activeSlots.indexOf(slot)>=0;setF(Object.assign({},blank,{date:selDate,time:_isStdC?slot:"",timeCustom:_isStdC?"":slot,dentistId:d.id}));setModal(true);}} style={{display:"flex",alignItems:"center",gap:8,padding:"4px 10px",borderRadius:9,border:(clipA&&!isDent?"1.6px dashed "+G.primary:"1.2px dashed "+G.border),background:(clipA&&!isDent?G.accent:"var(--surface)"),marginBottom:5,cursor:isDent?"default":"pointer"}}>
 <span style={{fontSize:11,fontWeight:700,color:G.muted,minWidth:46}}>{slot}</span>
 {isDent?<span style={{fontSize:10.5,color:G.border,flex:1}}>{"──────"}</span>:<span style={{fontSize:10.5,color:(clipA?G.primary:G.muted),fontWeight:clipA?800:400,flex:1}}>{clipA?"\ud83d\udccb Colar aqui":"+ agendar"}</span>}
+{_antBt(slot,true)}{/* V374 */}
 {!isDent&&<button onClick={function(e){e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{background:"transparent",border:"none",fontSize:12,cursor:"pointer",padding:0,lineHeight:1}} title="Bloquear horario">{"🔒"}</button>}
 </div>
 );
@@ -5865,6 +5887,7 @@ return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,padding:
 <span style={{fontSize:11,color:G.muted}}>{a.procedure}</span>
 <span style={{background:SC_BG[a.status],color:SC[a.status],borderRadius:10,padding:"1px 7px",fontSize:10,fontWeight:700}}>{(SC_ICON[a.status]||"")+" "+SL[a.status]}</span>
 {user.level>=3&&<button onClick={function(e){e.stopPropagation();setDetetive(a);}} title="Quem cancelou?" style={{background:"var(--card)",border:"1.5px solid "+G.border,borderRadius:"50%",width:26,height:26,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1,boxShadow:"2px 2px 5px var(--nm-dark),-2px -2px 5px var(--nm-light)",flexShrink:0}}>{"\ud83d\udd75\ufe0f"}</button>}
+{_antOk(a.time)&&esperaSlotLivre(appts,d,selDate,a.time)&&<button onClick={function(){setAntM({dent:d,date:selDate,slot:a.time,slots:activeSlots});}} style={{background:"var(--green-soft)",color:G.primary,border:"1px solid "+G.primary,borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>{"\u23e9 Antecipar"}</button>}{/* V374 */}
 {!isDent&&<button onClick={function(){setEdit(a);var _std=SLOTS.indexOf(a.time)>=0;setF(Object.assign({},a,{patientId:String(a.patientId||""),dentistId:String(a.dentistId),time:_std?a.time:"",timeCustom:_std?"":a.time}));setModal(true);}} style={{background:G.primary,color:"#fff",border:"none",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer"}}>Reagendar</button>}
 </div>;
 })}
@@ -6065,6 +6088,7 @@ return(
 <div style={{fontSize:15,fontWeight:700,color:G.primary,textDecoration:"underline"}}>{p&&p.name}</div>
 <div style={{fontSize:12,color:G.muted}}>{"📁 "+(((p&&p.folder))||"sem ficha")+" · Toque para abrir prontuário"}{/* V282 */}{/* V283: situacao do cadastro dentro do modal da consulta */}{!p&&<span style={{marginLeft:8,background:G.red,color:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800}}>{"\u26d4 SEM CADASTRO"}</span>}{p&&p._pre&&<span style={{marginLeft:8,background:G.blue,color:"#fff",borderRadius:5,padding:"2px 7px",fontSize:10,fontWeight:800}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}</div>
 {p&&p.since&&<div style={{fontSize:11,color:G.primary,fontWeight:600,marginTop:3}}>{"⭐ Paciente desde "+fmt(p.since)}</div>}
+{p&&dispTem_V374(p.disp)&&<div style={{fontSize:11,color:p.disp.antecipa==="nao"?G.red:G.primary,fontWeight:600,marginTop:3}}>{"🕒 "+[dispResumo_V374(p.disp),String(p.disp.obs||"").trim()].filter(Boolean).join(" · ")}</div>}{/* V374 */}
 </div>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
 {[["Data/Hora",fmt(a.date)+" · "+a.time],["Procedimento",a.procedure],["Dentista",d.name],["Status",SL[a.status]]].map(([k,v])=>(
@@ -7130,6 +7154,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
       {[["M","👨 Masculino"],["F","👩 Feminino"],["","Não informado"]].map(([v,l])=><button key={v} onClick={()=>setPf(p=>({...p,genero:v}))} style={{flex:1,border:`2px solid ${pf.genero===v?G.primary:G.border}`,background:pf.genero===v?G.primary:"var(--card)",color:pf.genero===v?"#fff":G.muted,borderRadius:8,padding:"7px 4px",fontSize:11,fontWeight:700,cursor:"pointer"}}>{l}</button>)}
     </div>
   </div>
+  <DispEditor_V374 val={pf.disp} set={fp("disp")}/>{/* V374 */}
   <Txt lb="⚠ Obs. Importante (alergia grave, destaque vermelho)" val={pf.obs} set={fp("obs")} rows={2}/>
   <Txt lb="Observações Gerais" val={pf.notes} set={fp("notes")} rows={2}/>
   <Inp lb="Alergia" val={pf.allergy} set={fp("allergy")}/>
@@ -17233,6 +17258,178 @@ if(ok&&times.indexOf(slot)<0)times.push(slot);
 if(times.length)out.push({esp:e,dent:dent,times:times.sort()});
 });
 return out;
+}
+
+// ══════════════════════════════════════════════════════════
+// V374: DISPONIBILIDADE DO PACIENTE + "QUEM PODE ANTECIPAR?"
+// p.disp = {dias:[1..6], de:"HH:MM", ate:"HH:MM", antecipa:"sim"|"aviso"|"nao", obs:""}
+// Fica na ficha (tabela patients), fora do blob.
+// ══════════════════════════════════════════════════════════
+var DISP_DIAS_V374=[[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"],[6,"Sáb"]];
+var DISP_ANT_V374=[["sim","✅ Aceita antecipar"],["aviso","📅 Só com aviso de véspera"],["nao","⛔ Não aceita"]];
+var DISP_WD_V374=["dom","seg","ter","qua","qui","sex","sáb"];
+function dispTem_V374(d){return !!(d&&(((d.dias||[]).length)||d.de||d.ate||d.antecipa||String(d.obs||"").trim()));}
+function dispResumo_V374(d){
+  if(!dispTem_V374(d))return "";
+  var ps=[];var ds=(d.dias||[]);
+  if(ds.length===6)ps.push("Seg a Sáb");
+  else if(ds.length)ps.push(DISP_DIAS_V374.filter(function(x){return ds.indexOf(x[0])>=0;}).map(function(x){return x[1];}).join(", "));
+  if(d.de&&d.ate)ps.push(d.de+" às "+d.ate);else if(d.de)ps.push("a partir das "+d.de);else if(d.ate)ps.push("até "+d.ate);
+  var an=DISP_ANT_V374.find(function(x){return x[0]===d.antecipa;});
+  if(an)ps.push(an[1].replace(/^\S+\s/,""));
+  return ps.join(" · ");
+}
+// "ok" | "fora" (fora do dia/horario) | "nao" (nao aceita) | "aviso" (so com aviso, e o horario e hoje) | "semdado"
+function dispSlotOk_V374(d,dateStr,slot,durMin){
+  d=d||{};var dias=d.dias||[];
+  var restringe=dias.length||d.de||d.ate;
+  if(!restringe&&!d.antecipa)return "semdado";
+  if(d.antecipa==="nao")return "nao";
+  if(d.antecipa==="aviso"&&dateStr===today())return "aviso";
+  var wd=new Date(dateStr+"T12:00").getDay();
+  if(dias.length&&dias.indexOf(wd)<0)return "fora";
+  if(d.de&&t2m(slot)<t2m(d.de))return "fora";
+  if(d.ate&&t2m(slot)+Number(durMin||30)>t2m(d.ate))return "fora";
+  return "ok";
+}
+function dispDiaLbl_V374(ds){var d=new Date(ds+"T12:00");return DISP_WD_V374[d.getDay()]+" "+ds.slice(8,10)+"/"+ds.slice(5,7);}
+// Pacientes com consulta marcada DEPOIS deste horario vago (mesmo dentista, ate 30 dias) que poderiam vir antes.
+function antecipaCands_V374(appts,pats,dent,dateStr,slot,slots){
+  var out=[];if(!dent||!dateStr||!slot)return out;
+  var t=today();if(dateStr<t)return out;
+  if(dateStr===t){var nw=new Date();if(t2m(slot)<=nw.getHours()*60+nw.getMinutes())return out;}
+  if(!esperaSlotLivre(appts,dent,dateStr,slot))return out;
+  var lim=_ld(new Date(new Date(dateStr+"T12:00").getTime()+30*86400000));
+  var fut=(appts||[]).filter(function(a){
+    if(!a||a.blocked||!a.patientId||a.dentistId!==dent.id)return false;
+    if(a.status==="cancelled"||a.status==="rescheduled"||a.status==="missed"||a.status==="done"||a.status==="waiting")return false;
+    if(a.date<dateStr||a.date>lim)return false;
+    if(a.date===dateStr&&t2m(a.time)<=t2m(slot))return false;
+    return true;
+  }).sort(function(x,y){return x.date===y.date?t2m(x.time)-t2m(y.time):(x.date<y.date?-1:1);});
+  var sl=slots||SLOTS;var idx=sl.indexOf(slot);var visto={};
+  fut.forEach(function(a){
+    if(visto[a.patientId])return;visto[a.patientId]=1;
+    var p=(pats||[]).find(function(x){return x.id===a.patientId;});
+    if(!p)return;
+    var dur=Number(a.duration||30);var fim=t2m(slot)+dur;var cabe=true;
+    if(idx<0){cabe=dur<=30;}
+    else{for(var i=idx;i<sl.length&&t2m(sl[i])<fim;i++){if(!esperaSlotLivre(appts,dent,dateStr,sl[i])){cabe=false;break;}}
+      if(t2m(sl[sl.length-1])+30<fim)cabe=false;}
+    out.push({a:a,p:p,dur:dur,cabe:cabe,st:dispSlotOk_V374(p.disp,dateStr,slot,dur)});
+  });
+  return out;
+}
+function antecipaGrupos_V374(cs){
+  return {
+    ok:cs.filter(function(c){return c.cabe&&c.st==="ok";}),
+    sem:cs.filter(function(c){return c.cabe&&c.st==="semdado";}),
+    out:cs.filter(function(c){return !(c.cabe&&(c.st==="ok"||c.st==="semdado"));})
+  };
+}
+// Horarios do dia liberados por falta/desmarque/cancelamento que tem alguem para antecipar
+function antecipaLiberados_V374(appts,pats,dentsDia,dateStr,slotsDe){
+  var out=[];var t=today();if(!dateStr||dateStr<t)return out;var visto={};
+  (appts||[]).forEach(function(a){
+    if(!a||a.date!==dateStr||a.blocked)return;
+    if(a.status!=="cancelled"&&a.status!=="rescheduled"&&a.status!=="missed")return;
+    var dent=(dentsDia||[]).find(function(d){return d.id===a.dentistId;});if(!dent)return;
+    var k=dent.id+"|"+a.time;if(visto[k])return;visto[k]=1;
+    var sl=slotsDe(dent);
+    var g=antecipaGrupos_V374(antecipaCands_V374(appts,pats,dent,dateStr,a.time,sl));
+    if(g.ok.length||g.sem.length)out.push({dent:dent,slot:a.time,slots:sl,ok:g.ok.length,sem:g.sem.length,motivo:a.status});
+  });
+  return out.sort(function(x,y){return t2m(x.slot)-t2m(y.slot);});
+}
+
+function DispEditor_V374({val,set}){
+  var d=val||{};var dias=d.dias||[];
+  function up(k,v){var o=Object.assign({},d);if(v===""||v==null||(Array.isArray(v)&&!v.length))delete o[k];else o[k]=v;set(o);}
+  var lbl={fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"};
+  var chip=function(on){return {border:"1.5px solid "+(on?G.primary:G.border),background:on?G.primary:"var(--surface)",color:on?"#fff":G.muted,borderRadius:8,padding:"6px 11px",fontSize:12,fontWeight:700,cursor:"pointer"};};
+  var inp={border:"1.5px solid "+G.border,borderRadius:8,padding:"7px 9px",fontSize:14,outline:"none",background:"var(--surface)"};
+  return <div style={{display:"flex",flexDirection:"column",gap:9,background:G.bg,borderRadius:10,padding:"11px 13px"}}>
+    <span style={lbl}>{"🕒 Disponibilidade de horário"}</span>
+    <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+      {DISP_DIAS_V374.map(function(x){var on=dias.indexOf(x[0])>=0;return <button key={x[0]} type="button" onClick={function(){up("dias",on?dias.filter(function(n){return n!==x[0];}):dias.concat([x[0]]).sort());}} style={chip(on)}>{x[1]}</button>;})}
+    </div>
+    <div style={{fontSize:11,color:G.muted,marginTop:-4}}>{"Nenhum dia marcado = qualquer dia"}</div>
+    <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",fontSize:13,color:G.text}}>
+      <span>A partir de</span><input type="time" value={d.de||""} onChange={function(e){up("de",e.target.value);}} style={inp}/>
+      <span>até</span><input type="time" value={d.ate||""} onChange={function(e){up("ate",e.target.value);}} style={inp}/>
+    </div>
+    <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+      {DISP_ANT_V374.map(function(x){var on=d.antecipa===x[0];return <button key={x[0]} type="button" onClick={function(){up("antecipa",on?"":x[0]);}} style={chip(on)}>{x[1]}</button>;})}
+    </div>
+    <input value={d.obs||""} onChange={function(e){up("obs",e.target.value);}} placeholder="Observação (ex.: trabalha no centro, terça só depois das 18h)" style={inp}/>
+  </div>;
+}
+function DispView_V374({d}){
+  var r=dispResumo_V374(d);var obs=String((d&&d.obs)||"").trim();
+  return <div style={{background:G.bg,borderRadius:8,padding:"8px 12px"}}>
+    <div style={{fontSize:10,fontWeight:700,color:G.muted}}>{"DISPONIBILIDADE DE HORÁRIO"}</div>
+    <div style={{fontWeight:600,fontSize:13,color:(r||obs)?(d.antecipa==="nao"?G.red:G.text):G.muted}}>{(r||obs)?[r,obs].filter(Boolean).join(" · "):"Não informada"}</div>
+  </div>;
+}
+function AntecipaModal_V374({info,appts,pats,onClose,onAbrir}){
+  const [verOut,setVerOut]=useState(false);
+  var dent=info.dent,dateStr=info.date,slot=info.slot;
+  var g=antecipaGrupos_V374(antecipaCands_V374(appts,pats,dent,dateStr,slot,info.slots));
+  var dentNm=String(dent.name||"").split(" ").slice(0,2).join(" ");
+  var quando=(dateStr===today()?"hoje":dispDiaLbl_V374(dateStr))+" às "+slot;
+  function msg(c){
+    var nm=String(c.p.name||"").split(" ")[0];
+    return "Olá, "+nm+"! 😊 Aqui é da Affonso Odontologia.\n\nAbriu um horário "+quando+" com "+dentNm+". Sua consulta está marcada para "+dispDiaLbl_V374(c.a.date)+" às "+c.a.time+".\n\nGostaria de antecipar para esse horário?";
+  }
+  function motivo(c){
+    if(!c.cabe)return "Não cabe: a consulta dele é de "+c.dur+" min";
+    if(c.st==="nao")return "Não aceita antecipar";
+    if(c.st==="aviso")return "Só com aviso de véspera";
+    if(c.st==="fora")return "Fora da disponibilidade dele";
+    return "";
+  }
+  var bt={border:"none",borderRadius:7,padding:"5px 11px",fontSize:11.5,fontWeight:700,cursor:"pointer",textDecoration:"none",display:"inline-flex",alignItems:"center"};
+  function linha(c,mot){
+    var r=dispResumo_V374(c.p.disp);var obs=String((c.p.disp&&c.p.disp.obs)||"").trim();
+    var f1=String(c.p.phone||"").replace(/\D/g,"");var f2=String(c.p.phone2||"").replace(/\D/g,"");
+    return <div key={c.a.id} style={{background:"var(--surface)",borderRadius:11,padding:"10px 12px",boxShadow:"3px 3px 8px var(--nm-dark),-3px -3px 8px var(--nm-light)",opacity:mot?.7:1}}>
+      <div style={{display:"flex",alignItems:"baseline",gap:8,flexWrap:"wrap"}}>
+        <span style={{fontWeight:700,fontSize:13.5,color:G.text,flex:1,minWidth:130}}>{c.p.name}</span>
+        <span style={{fontSize:11,fontWeight:700,color:G.blue}}>{"marcado "+dispDiaLbl_V374(c.a.date)+" "+c.a.time}</span>
+      </div>
+      <div style={{fontSize:11,color:G.muted,marginTop:2}}>{(c.a.procedureCustom||c.a.procedure||"Consulta")+" · "+c.dur+" min"}</div>
+      {(r||obs)&&<div style={{fontSize:11,color:G.primary,fontWeight:600,marginTop:3}}>{"🕒 "+[r,obs].filter(Boolean).join(" · ")}</div>}
+      {mot&&<div style={{fontSize:11,color:G.red,fontWeight:700,marginTop:3}}>{mot}</div>}
+      <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+        {f1&&<button onClick={function(){wa(c.p.phone,msg(c));}} style={Object.assign({},bt,{background:"#25D366",color:"#fff"})}>WhatsApp</button>}
+        {f1&&<a href={"tel:"+f1} style={Object.assign({},bt,{background:G.primary,color:"#fff"})}>{"Ligar"}</a>}
+        {f2&&<a href={"tel:"+f2} style={Object.assign({},bt,{background:"var(--green-soft)",color:G.primary})}>{"Ligar fixo"}</a>}
+        <button onClick={function(){onAbrir(c.a);}} style={Object.assign({},bt,{background:"var(--surface-2)",color:G.text})}>Abrir consulta</button>
+      </div>
+    </div>;
+  }
+  var tit={fontSize:11,fontWeight:800,textTransform:"uppercase",letterSpacing:".5px",marginTop:4};
+  return <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3400,display:"flex",alignItems:"center",justifyContent:"center",padding:12}}>
+    <div onClick={function(e){e.stopPropagation();}} style={{background:G.card,borderRadius:16,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30)"}}>
+      <div style={{background:G.primary,borderRadius:"16px 16px 0 0",padding:"14px 18px",display:"flex",alignItems:"center",gap:10}}>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:700,color:"#fff",fontSize:15}}>{"⏩ Quem pode antecipar?"}</div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,.8)",marginTop:2}}>{"Horário vago "+quando+" · "+dentNm}</div>
+        </div>
+        <button onClick={onClose} style={{border:"none",background:"rgba(255,255,255,.2)",borderRadius:8,color:"#fff",fontSize:16,cursor:"pointer",padding:"5px 11px",fontWeight:700}}>{"✕"}</button>
+      </div>
+      <div style={{padding:16,display:"flex",flexDirection:"column",gap:9}}>
+        <div style={{fontSize:11.5,color:G.muted,lineHeight:1.45}}>{"Pacientes de "+dentNm+" com consulta marcada nos próximos 30 dias. Quem não aceita antecipar ou não pode nesse horário fica escondido."}</div>
+        {g.ok.length>0&&<div style={Object.assign({},tit,{color:G.success})}>{"✅ Podem vir nesse horário ("+g.ok.length+")"}</div>}
+        {g.ok.map(function(c){return linha(c,"");})}
+        {g.sem.length>0&&<div style={Object.assign({},tit,{color:G.yellow})}>{"❓ Sem disponibilidade cadastrada — perguntar ("+g.sem.length+")"}</div>}
+        {g.sem.map(function(c){return linha(c,"");})}
+        {g.ok.length===0&&g.sem.length===0&&<div style={{textAlign:"center",padding:"18px 8px",color:G.muted,fontSize:13}}>{"Ninguém com consulta marcada pode vir nesse horário."}</div>}
+        {g.out.length>0&&<button onClick={function(){setVerOut(!verOut);}} style={{alignSelf:"flex-start",border:"none",background:"transparent",color:G.muted,fontSize:11.5,fontWeight:700,cursor:"pointer",padding:"4px 0",textDecoration:"underline"}}>{(verOut?"Esconder ":"Mostrar ")+g.out.length+" que não dá para antecipar"}</button>}
+        {verOut&&g.out.map(function(c){return linha(c,motivo(c));})}
+      </div>
+    </div>
+  </div>;
 }
 
 function _newerWa(a,b){if(!b)return a;if(!a)return b;return ((b._ts||0)>((a._ts)||0))?b:a;}
