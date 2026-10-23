@@ -2250,7 +2250,7 @@ const savePatOk=(_ovrL)=>{const _uN=(user&&user.name)||"";const _tsI=new Date().
 var _gp=agradPend(Object.assign({},pf,{id:pat.id}),pats);
 if(_gp&&user&&user.level>=2){setGateF(_gp);return;}
 setEditMode(false);};
-const savePat=()=>{if(!String(pf.name||"").trim()){alert("N\u00e3o \u00e9 poss\u00edvel salvar a ficha sem o nome do paciente.");return;}var _f=faltamObrig(mesclaEdicao(pat,pfBase.current,pf))/* V372 */;if(_f.length>0){setMissPF(_f);return;}savePatOk();};
+const savePat=()=>{if(!String(pf.name||"").trim()){alert("N\u00e3o \u00e9 poss\u00edvel salvar a ficha sem o nome do paciente.");return;}var _mg=mesclaEdicao(pat,pfBase.current,pf);if(dispFaltaFicha_V375(_mg)){alert(DISP_MSG_V375);return;}/* V375 */var _f=faltamObrig(_mg)/* V372 */;if(_f.length>0){setMissPF(_f);return;}savePatOk();};
 const saveAnam=()=>{var _base=pfBase.current||{};var _ed=pf;setPats(prev=>prev.map(function(p){if(p.id!==pat.id)return p;var o=mesclaEdicao(p,_base,_ed);pfBase.current=o;return o;}));setEditMode(false);};/* V372 */
 
 const genM=(d,n)=>{const ms=[];const x=new Date(d+"T12:00");for(let i=1;i<=n;i++){x.setMonth(x.getMonth()+1);ms.push(`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}`);}return ms;};
@@ -2558,6 +2558,7 @@ return <>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>📋 Dados do Paciente</span>{/* V282: selo de pre-cadastro na ficha */}{pat._pre&&<span style={{background:G.blue,color:"#fff",borderRadius:6,padding:"3px 9px",fontSize:10,fontWeight:800,marginLeft:8}}>{"\u26a1 PR\u00c9-CADASTRO"}</span>}
       {!editMode?<div style={{display:"flex",gap:5}}><Btn ch="📋 WA" v="g" sm onClick={function(){setShowWAanam(true);}}/><Btn ch="🔗 Portal" v="g" sm onClick={function(){setShowPortal(true);}}/><Btn ch="✏️ Editar" v="g" sm onClick={abrirEdicao}/></div>:<div style={{display:"flex",gap:8}}><Btn ch="💾 Salvar" sm onClick={savePat}/><Btn ch="Cancelar" v="g" sm onClick={()=>{var _b={...pat};pfBase.current=_b;setPf(_b);setEditMode(false);}}/></div>}
     </div>
+    {!editMode&&<DispTarja_V375 d={pat.disp} vazio={pat._pre?"":"toque em Editar para preencher"}/>}{/* V375: em destaque no topo */}
     {pat.obs&&<div style={{background:G.yellow+"18",border:`2px solid ${G.yellow}`,borderRadius:10,padding:"9px 14px"}}><span style={{fontWeight:700,color:G.yellow}}>⚠ ALERGIA / OBS. IMPORTANTE</span><div style={{color:G.text,marginTop:4,fontSize:14}}>{pat.obs||pat.allergy}</div></div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
       {!editMode?<>
@@ -2586,7 +2587,7 @@ return <>
       </>}
     </div>
     {/* V374: disponibilidade de horario do paciente */}
-    {editMode?<DispEditor_V374 val={pf.disp} set={function(v){setPf(function(p){return Object.assign({},p,{disp:v});});}}/>:<DispView_V374 d={pat.disp}/>}
+    {editMode&&<DispEditor_V374 val={pf.disp} set={function(v){setPf(function(p){return Object.assign({},p,{disp:v});});}}/>}
     {editMode&&<Txt lb="⚠ Obs. Importante (destaque em toda a clínica)" val={pf.obs} set={v=>setPf(p=>({...p,obs:v}))} rows={2}/>}
     {editMode&&<Txt lb="Observações Gerais" val={pf.notes} set={v=>setPf(p=>({...p,notes:v}))} rows={2}/>}
     {!editMode&&pat.notes&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:13,color:G.muted,fontStyle:"italic"}}>Obs: {pat.notes}</div>}
@@ -5184,6 +5185,7 @@ useEffect(function(){if(agendaSelDate&&agendaSelDate!==selDate)setSelDate(agenda
 useEffect(function(){if(typeof setAgendaSelDate==="function"&&selDate!==agendaSelDate)setAgendaSelDate(selDate);},[selDate]);// V322: mantem a faixa verde do topo sincronizada com o dia aberto
 const [agView,setAgView]=useState("dia");
 const [antM,setAntM]=useState(null);// V374: modal "Quem pode antecipar?"
+const [dispPede,setDispPede]=useState(null);// V375: pede disponibilidade ao agendar
 const [agZoom,setAgZoom]=useState(1);
 const [agViewMode,setAgViewMode]=useState(function(){try{return localStorage.getItem("agenda_view_mode")||"normal";}catch(e){return "normal";}});
 const [openFolder,setOpenFolder]=useState(null);
@@ -5391,11 +5393,16 @@ const _cfChecar=function(obj){
   }
   return "";
 };
-const save=()=>{
+const save=(_ev,_dispOk)=>{
 const finalTime=pad2((f.timeCustom||"").trim()||(f.time||"").trim());
 const hasPat=String(f.patientId||"").trim()||String(f.patientName||"").trim();
 // Permite salvar sem paciente - aparece como "A confirmar" na agenda
 if(!finalTime){alert("Preencha o horário");return;}
+// V375: paciente cadastrado (nao pre) sem disponibilidade -> pede antes de agendar/remarcar (so consulta de hoje em diante)
+if(!_dispOk&&!f.blocked&&f.patientId&&!f.useManual&&!f.usePre&&String(f.date||"")>=today()){
+  var _pD=pats.find(function(x){return x.id===Number(f.patientId);});
+  if(_pD&&!_pD._pre&&!dispCompleta_V375(_pD.disp)){setDispPede({pid:_pD.id,nome:_pD.name,disp:_pD.disp||{}});return;}
+}
 const dur=Number(f.duration)||30;
 // Gerar slots ocupados pela duração
 const extraSlots=[];
@@ -5660,6 +5667,7 @@ return (
 {espMatches.length>3&&<div style={{fontSize:11,color:"#7B1FA2"}}>{"+ "+(espMatches.length-3)+" paciente(s) com encaixe"}</div>}
 </div>}
 {/* V374: horario liberado por falta/desmarque com paciente que pode antecipar */}
+{dispPede&&<DispPedeModal_V375 nome={dispPede.nome} inicial={dispPede.disp} onVoltar={function(){setDispPede(null);}} onSalvar={function(d){var _uN=(user&&user.name)||"";var _tsI=new Date().toISOString();setPats(function(prev){return prev.map(function(p){return p.id===dispPede.pid?Object.assign({},p,{disp:d,_edBy:_uN,_edTs:_tsI}):p;});});if(addLog)addLog("paciente","Cadastrou disponibilidade: "+dispPede.nome,dispPede.nome);setDispPede(null);save(null,true);}}/>}{/* V375 */}
 {antM&&<AntecipaModal_V374 info={antM} appts={appts} pats={pats} onClose={function(){setAntM(null);}} onAbrir={function(a){setAntM(null);setViewA(a);}}/>}
 {agView==="dia"&&user.level>=2&&!isDent&&(function(){
 var lib=antecipaLiberados_V374(appts,pats,vd,selDate,function(dd){return isOrto(dd)?SLOTS_ORTO:SLOTS;});
@@ -6168,6 +6176,7 @@ setF(fdata);setViewA(null);setModal(true);}}/>}
 </div>}
 {f._preOk&&f._preInd&&!f._preInd.phone&&<div style={{fontSize:11,color:G.muted,marginBottom:6}}>{"Indicado por "+f._preInd.name+" \u00b7 sem telefone na ficha para agradecer"}</div>}
 <PatSearch val={f.patientId} set={upd("patientId")} pats={pats} appts={appts} treats={treats}/>
+{f.patientId&&!f.useManual&&(function(){var _pT=pats.find(function(x){return x.id===Number(f.patientId);});return _pT?<div style={{marginTop:6}}><DispTarja_V375 d={_pT.disp} vazio={_pT._pre?"":"ser\u00e1 pedida ao salvar"}/></div>:null;})()}{/* V375 */}
 {f.patientId&&!f.useManual&&<FaltaTarja pid={f.patientId} appts={appts} treats={treats}/>}
 {!f.patientId&&<div style={{fontSize:11,color:G.muted,marginTop:4}}>{"N\u00e3o encontrou? Use \u26a1 Pr\u00e9-cadastro acima para criar a ficha na hora."}</div>}
 </div>
@@ -6966,7 +6975,9 @@ const agradecerPre=function(){
 };
 const savePat=()=>{
 if(!pf.name)return;
-var _f=faltamObrig(ep?mesclaEdicao(((pats||[]).find(function(x){return x.id===ep.id;})||ep),ep,pf):pf)/* V372 */;
+var _mg=ep?mesclaEdicao(((pats||[]).find(function(x){return x.id===ep.id;})||ep),ep,pf):pf;
+if(dispFaltaFicha_V375(_mg)){alert(DISP_MSG_V375);return;}/* V375 */
+var _f=faltamObrig(_mg)/* V372 */;
 if(_f.length>0){setMissNew(_f);return;}
 savePatOk();
 };
@@ -17268,6 +17279,8 @@ return out;
 var DISP_DIAS_V374=[[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"],[6,"Sáb"]];
 var DISP_ANT_V374=[["sim","✅ Aceita antecipar"],["aviso","📅 Só com aviso de véspera"],["nao","⛔ Não aceita"]];
 var DISP_WD_V374=["dom","seg","ter","qua","qui","sex","sáb"];
+// V375: conta como preenchida quando tem pelo menos um dia E a resposta sobre antecipar. Horario em branco = qualquer horario.
+function dispCompleta_V375(d){return !!(d&&(d.dias||[]).length>0&&d.antecipa);}
 function dispTem_V374(d){return !!(d&&(((d.dias||[]).length)||d.de||d.ate||d.antecipa||String(d.obs||"").trim()));}
 function dispResumo_V374(d){
   if(!dispTem_V374(d))return "";
@@ -17342,6 +17355,13 @@ function antecipaLiberados_V374(appts,pats,dentsDia,dateStr,slotsDe){
   return out.sort(function(x,y){return t2m(x.slot)-t2m(y.slot);});
 }
 
+// V375: cadastro completo exige disponibilidade; pre-cadastro que continua pre nao exige
+var DISP_MSG_V375="Preencha a disponibilidade de hor\u00e1rio do paciente (os dias e se aceita antecipar) para salvar a ficha.";
+function dispFaltaFicha_V375(p){
+  p=p||{};
+  if(p._pre&&faltamObrig(p).length>0)return false;
+  return !dispCompleta_V375(p.disp);
+}
 function DispEditor_V374({val,set}){
   var d=val||{};var dias=d.dias||[];
   function up(k,v){var o=Object.assign({},d);if(v===""||v==null||(Array.isArray(v)&&!v.length))delete o[k];else o[k]=v;set(o);}
@@ -17352,8 +17372,9 @@ function DispEditor_V374({val,set}){
     <span style={lbl}>{"🕒 Disponibilidade de horário"}</span>
     <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
       {DISP_DIAS_V374.map(function(x){var on=dias.indexOf(x[0])>=0;return <button key={x[0]} type="button" onClick={function(){up("dias",on?dias.filter(function(n){return n!==x[0];}):dias.concat([x[0]]).sort());}} style={chip(on)}>{x[1]}</button>;})}
+      <button type="button" onClick={function(){up("dias",dias.length===6?[]:[1,2,3,4,5,6]);}} style={chip(dias.length===6)}>{"Todos"}</button>{/* V375 */}
     </div>
-    <div style={{fontSize:11,color:G.muted,marginTop:-4}}>{"Nenhum dia marcado = qualquer dia"}</div>
+    <div style={{fontSize:11,color:G.muted,marginTop:-4}}>{"Marque os dias e se aceita antecipar. Hor\u00e1rio em branco = qualquer hor\u00e1rio."}</div>
     <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",fontSize:13,color:G.text}}>
       <span>A partir de</span><input type="time" value={d.de||""} onChange={function(e){up("de",e.target.value);}} style={inp}/>
       <span>até</span><input type="time" value={d.ate||""} onChange={function(e){up("ate",e.target.value);}} style={inp}/>
@@ -17362,6 +17383,44 @@ function DispEditor_V374({val,set}){
       {DISP_ANT_V374.map(function(x){var on=d.antecipa===x[0];return <button key={x[0]} type="button" onClick={function(){up("antecipa",on?"":x[0]);}} style={chip(on)}>{x[1]}</button>;})}
     </div>
     <input value={d.obs||""} onChange={function(e){up("obs",e.target.value);}} placeholder="Observação (ex.: trabalha no centro, terça só depois das 18h)" style={inp}/>
+  </div>;
+}
+// V375: tarja em destaque (topo da ficha e janela de agendamento)
+function DispTarja_V375({d,vazio}){
+  var r=dispResumo_V374(d);var obs=String((d&&d.obs)||"").trim();
+  if(!r&&!obs)return <div style={{background:"var(--amber-soft)",border:"1.5px solid var(--yellow)",borderRadius:10,padding:"9px 12px",display:"flex",alignItems:"center",gap:8}}>
+    <i className="ph-regular ph-clock" style={{fontSize:18,color:"var(--yellow)"}}></i>
+    <span style={{fontSize:12.5,fontWeight:700,color:"var(--yellow)"}}>{"Disponibilidade de hor\u00e1rio n\u00e3o informada"+(vazio?(" \u2014 "+vazio):"")}</span>
+  </div>;
+  var nao=d&&d.antecipa==="nao";
+  return <div style={{background:nao?"var(--red-soft)":"var(--green-soft)",border:"2px solid "+(nao?G.red:G.primary),borderRadius:10,padding:"9px 12px",display:"flex",alignItems:"flex-start",gap:9}}>
+    <i className="ph-fill ph-clock" style={{fontSize:20,color:nao?G.red:G.primary,marginTop:1}}></i>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontSize:10,fontWeight:800,color:nao?G.red:G.primary,letterSpacing:".5px"}}>{"DISPONIBILIDADE DE HOR\u00c1RIO"}</div>
+      <div style={{fontSize:14,fontWeight:700,color:G.text,lineHeight:1.35}}>{r||"\u2014"}</div>
+      {obs&&<div style={{fontSize:12,color:G.muted,marginTop:1}}>{obs}</div>}
+    </div>
+  </div>;
+}
+// V375: janela que pede a disponibilidade ao salvar um agendamento
+function DispPedeModal_V375({nome,inicial,onSalvar,onVoltar}){
+  const [d,setD]=useState(inicial||{});
+  var ok=dispCompleta_V375(d);
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:3500,display:"flex",alignItems:"center",justifyContent:"center",padding:12}}>
+    <div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:460,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 22px 55px rgba(30,45,38,.30)"}}>
+      <div style={{background:G.primary,borderRadius:"16px 16px 0 0",padding:"14px 18px"}}>
+        <div style={{fontWeight:700,color:"#fff",fontSize:15}}>{"\ud83d\udd52 Antes de agendar: quando "+String(nome||"o paciente").split(" ")[0]+" pode vir?"}</div>
+        <div style={{fontSize:12,color:"rgba(255,255,255,.85)",marginTop:3,lineHeight:1.4}}>{"Pergunte ao paciente. \u00c9 uma vez s\u00f3: depois de preenchida, n\u00e3o pede mais."}</div>
+      </div>
+      <div style={{padding:16,display:"flex",flexDirection:"column",gap:12}}>
+        <DispEditor_V374 val={d} set={setD}/>
+        {!ok&&<div style={{fontSize:12,color:G.red,fontWeight:700}}>{((d.dias||[]).length?"":"Marque os dias")+((d.dias||[]).length||d.antecipa?"":" e ")+(d.antecipa?"":"diga se aceita antecipar")+"."}</div>}
+        <div style={{display:"flex",gap:8}}>
+          <button disabled={!ok} onClick={function(){if(ok)onSalvar(d);}} style={{flex:1,background:ok?G.primary:"var(--border)",color:ok?"#fff":G.muted,border:"none",borderRadius:9,padding:"11px 14px",fontSize:13.5,fontWeight:800,cursor:ok?"pointer":"not-allowed"}}>{"Salvar e agendar"}</button>
+          <button onClick={onVoltar} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:9,padding:"11px 14px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Voltar</button>
+        </div>
+      </div>
+    </div>
   </div>;
 }
 function DispView_V374({d}){
