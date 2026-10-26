@@ -16594,6 +16594,70 @@ disabled={!canSave} style={{background:canSave?"#7B1FA2":"var(--muted)",color:"#
 );
 }
 
+/* ============================================================================
+   V376 — Imprimir / salvar em PDF o ciclo de comodato (implantes Titaniofix)
+   Mesmo padrao das outras impressoes: monta o HTML, abre janela nova e chama
+   window.print(). Serve para o ciclo aberto, para a conferencia do fechamento
+   e para um ciclo ja fechado. So le os dados: nao grava nada no banco.
+   ========================================================================== */
+function prtCiclo_V376(o){
+var e=function(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");};
+var box="<td class='ck'><span></span></td>";
+var itens=o.itens||[];
+var linhasUso=itens.map(function(it){
+var det=(it.det||[]).map(function(d){return "<div class='det'>"+e(fmt(d.date))+" · "+e(d.patName)+" · dente "+e(d.dente)+(d.dentName?" · "+e(d.dentName):"")+(Number(d.qty)>1?" ("+e(d.qty)+")":"")+"</div>";}).join("");
+return "<tr>"+box+"<td class='cod'>"+e(it.codigo||"—")+"</td><td><b>"+e(it.desc)+"</b>"+det+"</td><td class='n'><b>"+e(it.qty)+"</b></td><td class='n'>"+e(cur(it.preco||0))+"</td><td class='n'><b>"+e(cur(it.total||0))+"</b></td></tr>";
+}).join("");
+var tabUso="<h2>Peças usadas neste ciclo</h2>"
++(itens.length===0?"<div class='vazio'>Nenhuma peça usada.</div>":
+"<table><thead><tr><th class='ck'>✓</th><th>Código</th><th>Descrição / pacientes</th><th class='n'>Qtd</th><th class='n'>Unit.</th><th class='n'>Total</th></tr></thead><tbody>"+linhasUso
++"<tr class='tot'><td></td><td></td><td>Total</td><td class='n'>"+e(o.qtdUsada||0)+"</td><td></td><td class='n'>"+e(cur(o.valorUsado||0))+"</td></tr></tbody></table>");
+var tabSimples=function(tit,lista,nota){
+if(!lista||!lista.length)return "";
+var q=lista.reduce(function(s,x){return s+Number(x.qty||0);},0);
+return "<h2>"+e(tit)+"</h2>"+(nota?"<div class='nota'>"+e(nota)+"</div>":"")
++"<table><thead><tr><th class='ck'>✓</th><th>Código</th><th>Descrição</th><th class='n'>Qtd</th></tr></thead><tbody>"
++lista.map(function(x){return "<tr>"+box+"<td class='cod'>"+e(x.codigo||"—")+"</td><td>"+e(x.desc)+"</td><td class='n'><b>"+e(x.qty)+"</b></td></tr>";}).join("")
++"<tr class='tot'><td></td><td></td><td>Total ("+lista.length+" produtos)</td><td class='n'>"+q+"</td></tr></tbody></table>";
+};
+var resumo=[["Peças usadas",o.qtdUsada||0],[o.aberto?"Valor a pagar":"Pago à Titaniofix",cur(o.valorUsado||0)]];
+if(o.aberto&&o.estoque)resumo.push(["Em estoque agora",o.estoque.reduce(function(s,x){return s+Number(x.qty||0);},0)]);
+if(!o.aberto){resumo.push(["Devolvidas",o.qtdDevol||0]);resumo.push(["Recebidas",o.qtdRepo||0]);}
+var periodo=(o.dataIni?fmt(o.dataIni)+" a ":"até ")+(o.dataFim?fmt(o.dataFim):"hoje")+" · "+(o.dias||0)+" dias";
+var h="<!DOCTYPE html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Ciclo "+e(o.nome)+" - Implantes</title><style>"
++"@page{size:A4;margin:12mm 11mm;}*{box-sizing:border-box;}body{font-family:Arial,Helvetica,sans-serif;color:#1a1a18;margin:0;padding:14px;font-size:11.5px;}"
++".hd{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #2f5d49;padding-bottom:8px;margin-bottom:10px;gap:10px;}"
++".cl{font-size:11px;color:#63635e;text-transform:uppercase;letter-spacing:1px;}h1{font-size:21px;color:#2f5d49;margin:2px 0 0;}"
++".st{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;margin-left:6px;vertical-align:middle;}"
++".ab{background:#fff4e0;color:#a76b00;}.fe{background:#e6f2ea;color:#1E7D45;}.mt{text-align:right;font-size:11px;color:#63635e;line-height:1.5;}"
++".rs{display:flex;gap:6px;margin-bottom:12px;}.rs div{flex:1;border:1px solid #c4c8c0;border-radius:6px;padding:6px 8px;}.rs span{display:block;font-size:9.5px;color:#63635e;text-transform:uppercase;}.rs b{font-size:15px;color:#2f5d49;}"
++"h2{font-size:12.5px;color:#2f5d49;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 5px;}"
++"table{width:100%;border-collapse:collapse;}thead{display:table-header-group;}tr{page-break-inside:avoid;break-inside:avoid;}"
++"th{background:#eef1ec;border-bottom:2px solid #2f5d49;text-align:left;padding:5px 6px;font-size:10.5px;}"
++"td{border-bottom:1px solid #c4c8c0;padding:5px 6px;vertical-align:top;}.n{text-align:right;white-space:nowrap;}"
++".cod{font-weight:700;color:#2f5d49;white-space:nowrap;}.det{font-size:10px;color:#63635e;margin-top:2px;}"
++".ck{width:22px;text-align:center;}.ck span{display:inline-block;width:12px;height:12px;border:1.3px solid #1a1a18;border-radius:2px;}"
++".tot td{font-weight:700;background:#eef1ec;border-bottom:2px solid #2f5d49;}.vazio,.nota{color:#63635e;font-size:11px;margin-bottom:5px;}"
++".ass{display:flex;gap:18px;margin-top:30px;page-break-inside:avoid;}.ass div{flex:1;border-top:1px solid #1a1a18;padding-top:4px;font-size:10.5px;color:#63635e;text-align:center;}"
++".np{text-align:center;margin:14px 0 4px;}.np button{padding:10px 22px;font-size:14px;background:#2f5d49;color:#fff;border:none;border-radius:8px;}"
++"@media print{.np{display:none;}body{padding:0;}}"
++"</style></head><body>"
++"<div class='np'><button onclick='window.print()'>Imprimir / Salvar em PDF</button></div>"
++"<div class='hd'><div><div class='cl'>"+e(CLINICA_INFO.nome)+" · Comodato Titaniofix</div><h1>Ciclo "+e(o.nome)+"<span class='st "+(o.aberto?"ab'>ABERTO":"fe'>FECHADO")+"</span></h1></div>"
++"<div class='mt'>"+e(periodo)+"<br>Emitido em "+e(new Date().toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}))+(o.user?"<br>Fechado por "+e(o.user):"")+"</div></div>"
++"<div class='rs'>"+resumo.map(function(r){return "<div><span>"+e(r[0])+"</span><b>"+e(r[1])+"</b></div>";}).join("")+"</div>"
++tabUso
++(o.aberto?tabSimples("Em estoque agora",o.estoque,"Peças que estão na clínica hoje — para conferir o que volta ao representante ou fica reconsignado."):"")
++(!o.aberto?tabSimples("Comodato recebido",o.reposicao):"")
++(!o.aberto?tabSimples("Devolvido ao representante",o.devolvido):"")
++"<div class='ass'><div>Conferido por (clínica)</div><div>Representante Titaniofix</div><div>Data</div></div>"
++"<script>window.onload=function(){setTimeout(function(){window.print();},350);};<\/script>"
++"</body></html>";
+var w=window.open("","_blank");
+if(!w){alert("Permita pop-ups para imprimir.");return;}
+w.document.write(h);w.document.close();
+}
+
 function ImplantesConsig({implCat,setImplCat,implMov,setImplMov,implFech,setImplFech,pats,dents,addLog,user}){
 var t=today();
 var [aba,setAba]=useState("estoque");
@@ -16739,6 +16803,11 @@ var cicloVal=movsCiclo.reduce(function(s,m){return s+precoDe(m.itemId)*Number(m.
 var cicloDias=diasEntre(cicloIni||(movsCiclo.length?movsCiclo.map(function(m){return m.date;}).sort()[0]:t),t);
 // agrupamento por item do ciclo aberto
 var cicloPorItem=agruparUso(movsCiclo);
+// V376: dados do ciclo aberto para impressao (inclui o que esta em estoque agora)
+var imprimirCicloAberto=function(nome,dataFim){
+var est=implCatOrd.filter(function(it){return Number(stockMap[it.id]||0)>0;}).map(function(it){return {codigo:it.codigo||"",desc:it.desc,qty:Number(stockMap[it.id]||0)};});
+prtCiclo_V376({aberto:true,nome:nome||nomeAuto(t),dataIni:cicloIni,dataFim:dataFim||"",dias:cicloDias,qtdUsada:cicloQtd,valorUsado:cicloVal,itens:cicloPorItem,estoque:est});
+};
 var repoTot=(function(){var q=0,v=0;(implCat||[]).forEach(function(it){var n=Number(fechQtds[it.id]||0);if(n>0){q+=n;v+=n*Number(it.preco||0);}});return{q:q,v:v};})();
 var devolTot=(implCat||[]).reduce(function(s,it){var q=Number(stockMap[it.id]||0);return s+(q>0?q:0);},0);
 var listaRepo=implCatAtivos.filter(function(it){
@@ -16933,6 +17002,7 @@ return(
 </div>
 {user&&user.level>=3?<button onClick={abrirFech} style={{width:"100%",background:G.primary,color:"#fff",border:"none",borderRadius:11,padding:"12px",fontSize:13.5,fontWeight:700,cursor:"pointer"}}>{"Fechar ciclo e repor"}</button>
 :<div style={{textAlign:"center",fontSize:11,color:G.muted}}>{"Somente o administrador pode fechar o ciclo."}</div>}
+<button onClick={function(){imprimirCicloAberto();}} style={{width:"100%",marginTop:8,display:"flex",alignItems:"center",justifyContent:"center",gap:7,background:"var(--surface)",border:"1.5px solid "+G.primary,color:G.primary,borderRadius:11,padding:"10px",fontSize:12.5,fontWeight:700,cursor:"pointer"}}><i className="ph-fill ph-printer" style={{fontSize:16}}></i>{"Imprimir / PDF para conferência"}</button>
 </div>
 {fechOrd.length>0&&<div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginTop:6}}>{"Ciclos fechados"}</div>}
 {fechOrd.map(function(f){return(
@@ -17011,6 +17081,7 @@ return(
 </div>
 );})}
 </div>}
+<button onClick={function(){prtCiclo_V376(Object.assign({},verFech,{aberto:false}));}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:7,background:"var(--surface)",border:"1.5px solid "+G.primary,color:G.primary,borderRadius:11,padding:"10px",fontSize:12.5,fontWeight:700,cursor:"pointer"}}><i className="ph-fill ph-printer" style={{fontSize:16}}></i>{"Imprimir / PDF"}</button>
 <button onClick={function(){setVerFech(null);}} style={{width:"100%",background:G.bg,border:"1px solid "+G.border,color:G.muted,borderRadius:11,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"‹ Voltar aos ciclos"}</button>
 {user&&user.level>=3&&<button onClick={function(){reabrirFech(verFech);}} style={{width:"100%",background:"var(--surface)",border:"1px solid "+G.red,color:G.red,borderRadius:11,padding:"10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"Reabrir este ciclo"}</button>}
 </div>}
@@ -17051,6 +17122,7 @@ return(
 </div>
 );})}
 </div>
+<button onClick={function(){imprimirCicloAberto(fechNome,fechData);}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:7,background:"var(--surface)",border:"1.5px solid "+G.primary,color:G.primary,borderRadius:11,padding:"10px",fontSize:12.5,fontWeight:700,cursor:"pointer"}}><i className="ph-fill ph-printer" style={{fontSize:16}}></i>{"Imprimir / PDF para conferência"}</button>
 <button onClick={function(){setFechPasso(2);}} style={{width:"100%",background:G.primary,color:"#fff",border:"none",borderRadius:11,padding:"12px",fontSize:13.5,fontWeight:700,cursor:"pointer"}}>{"Continuar para reposição ›"}</button>
 <button onClick={function(){setFechPasso(0);}} style={{width:"100%",background:G.bg,border:"1px solid "+G.border,color:G.muted,borderRadius:11,padding:"10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"Cancelar"}</button>
 </div>}
