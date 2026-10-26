@@ -17045,6 +17045,7 @@ return(
 <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Pago à Titaniofix"}</span><b style={{color:G.red}}>{cur(verFech.valorUsado||0)}</b></div>
 <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid "+G.border,fontSize:12}}><span>{"Devolvidas no fechamento"}</span><b>{verFech.qtdDevol||0}</b></div>
 <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:12}}><span>{"Recebidas no novo comodato"}</span><b>{verFech.qtdRepo||0}</b></div>
+<button onClick={function(){prtCiclo_V376(Object.assign({},verFech,{aberto:false}));}} style={{width:"100%",marginTop:10,display:"flex",alignItems:"center",justifyContent:"center",gap:7,background:"var(--surface)",border:"1.5px solid "+G.primary,color:G.primary,borderRadius:11,padding:"10px",fontSize:12.5,fontWeight:700,cursor:"pointer"}}><i className="ph-fill ph-printer" style={{fontSize:16}}></i>{"Imprimir / PDF"}</button>
 </div>
 <div style={{background:G.card,borderRadius:12,padding:"12px 14px"}}>
 <div style={{fontSize:11,fontWeight:800,color:G.primary,textTransform:"uppercase",letterSpacing:.4,marginBottom:7}}>{"Peças usadas neste ciclo"}</div>
@@ -17081,7 +17082,6 @@ return(
 </div>
 );})}
 </div>}
-<button onClick={function(){prtCiclo_V376(Object.assign({},verFech,{aberto:false}));}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:7,background:"var(--surface)",border:"1.5px solid "+G.primary,color:G.primary,borderRadius:11,padding:"10px",fontSize:12.5,fontWeight:700,cursor:"pointer"}}><i className="ph-fill ph-printer" style={{fontSize:16}}></i>{"Imprimir / PDF"}</button>
 <button onClick={function(){setVerFech(null);}} style={{width:"100%",background:G.bg,border:"1px solid "+G.border,color:G.muted,borderRadius:11,padding:"11px",fontSize:13,fontWeight:700,cursor:"pointer"}}>{"‹ Voltar aos ciclos"}</button>
 {user&&user.level>=3&&<button onClick={function(){reabrirFech(verFech);}} style={{width:"100%",background:"var(--surface)",border:"1px solid "+G.red,color:G.red,borderRadius:11,padding:"10px",fontSize:12,fontWeight:700,cursor:"pointer"}}>{"Reabrir este ciclo"}</button>}
 </div>}
