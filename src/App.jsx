@@ -641,6 +641,8 @@ const PIXRECS0=[
 const fmt=d=>d?new Date(d+"T12:00").toLocaleDateString("pt-BR"):"-";
 const _ld=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 const today=()=>_ld(new Date());
+// V378: consulta cancelada/remarcada/falta nao cria linha extra de horario na agenda
+const slotVivo_V378=function(x){return x&&x.status!=="cancelled"&&x.status!=="rescheduled"&&x.status!=="missed";};
 // Normaliza horário para "HH:MM" com zero à esquerda (ex: "8:15" -> "08:15"). Evita bug de ordenação alfabética na agenda.
 const pad2=t=>{if(!t||typeof t!=="string")return t;var p=t.split(":");if(p.length<2)return t;return String(p[0]).padStart(2,"0")+":"+String(p[1]).padStart(2,"0");};
 // Converte "HH:MM" em minutos, para ordenar horários numericamente (à prova de formato).
@@ -5398,6 +5400,8 @@ const finalTime=pad2((f.timeCustom||"").trim()||(f.time||"").trim());
 const hasPat=String(f.patientId||"").trim()||String(f.patientName||"").trim();
 // Permite salvar sem paciente - aparece como "A confirmar" na agenda
 if(!finalTime){alert("Preencha o horário");return;}
+// V378: so aceita horario no formato HH:MM (evita "xxxx" virar consulta)
+if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(finalTime)){alert("Hor\u00e1rio inv\u00e1lido: \""+finalTime+"\"\n\nUse o formato HH:MM, ex: 09:15.");return;}
 // V375: paciente cadastrado (nao pre) sem disponibilidade -> pede antes de agendar/remarcar (so consulta de hoje em diante)
 if(!_dispOk&&!f.blocked&&f.patientId&&!f.useManual&&!f.usePre&&String(f.date||"")>=today()){
   var _pD=pats.find(function(x){return x.id===Number(f.patientId);});
@@ -5414,6 +5418,15 @@ extraSlots.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);
 }
 }
 const obj={...f,time:finalTime,patientId:f.patientId?Number(f.patientId):null,patientName:f.patientId?"":(f.patientName||"A confirmar"),dentistId:Number(f.dentistId),value:Number(f.value)||0,duration:dur,extraSlots,id:edit?edit.id:nid(appts)};
+// V378: aviso de paciente com outra consulta ativa no mesmo dia, mesmo dentista (nao bloqueia, apenas confirma)
+if(_cfAtivo(obj)&&obj.patientId&&(!edit||edit.date!==obj.date||Number(edit.patientId)!==obj.patientId||Number(edit.dentistId)!==obj.dentistId||!_cfAtivo(edit))){
+  var _dup=(appts||[]).filter(function(a){return a.id!==obj.id&&a.date===obj.date&&Number(a.patientId)===obj.patientId&&Number(a.dentistId)===obj.dentistId&&_cfAtivo(a);});
+  if(_dup.length){
+    var _pDup=pats.find(function(x){return x.id===obj.patientId;});
+    var _hDup=_dup.map(function(a){return a.time;}).sort().join(", ");
+    if(window.confirm&&!window.confirm("\u26a0\ufe0f "+((_pDup&&_pDup.name)||"Este paciente")+" j\u00e1 tem consulta neste dia \u00e0s "+_hDup+".\n\nMarcar outra consulta mesmo assim?"))return;
+  }
+}
 // V280: aviso de conflito de agenda (nao bloqueia, apenas confirma)
 if(!obj.blocked){var _aviso=_cfChecar(obj);if(_aviso&&window.confirm&&!window.confirm(_aviso))return;}
 delete obj._colado; // V255: marca visual do "colado", nao vai para o banco
@@ -5687,7 +5700,7 @@ var d=vd[0];
 // V374: botao "Quem pode antecipar?" so em horario futuro, para recepcao
 var _antOk=function(s){if(isDent||user.level<2)return false;var t=today();if(selDate<t)return false;if(selDate>t)return true;var n=new Date();return t2m(s)>n.getHours()*60+n.getMinutes();};
 var _antBt=function(s,mini){return _antOk(s)?<button key="ant" onClick={function(e){e.stopPropagation();setAntM({dent:d,date:selDate,slot:s,slots:activeSlots});}} title="Quem pode antecipar?" style={mini?{background:"transparent",border:"none",fontSize:12,cursor:"pointer",padding:0,lineHeight:1,color:G.primary}:{background:"var(--surface)",border:"1px solid "+G.border,borderRadius:6,padding:"2px 7px",fontSize:10,color:G.primary,cursor:"pointer",fontWeight:700}}>{"\u23e9"}</button>:null;};
-var customTimes=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&!activeSlots.includes(x.time);}).map(function(x){return x.time;});
+var customTimes=appts.filter(function(x){return x.date===selDate&&x.dentistId===d.id&&!activeSlots.includes(x.time)&&slotVivo_V378(x);}).map(function(x){return x.time;});
 var allSlots=[...new Set([...activeSlots,...customTimes])].sort(function(x,y){return t2m(x)-t2m(y);});
 var _slots=allSlots.map(function(slot){
 // Prefer active (non-cancelled/missed/rescheduled) appointments first
@@ -5907,7 +5920,7 @@ return [agViewMode==="compact"?_slotsCompact:_slots, _cancelled];
   {agView==="dia"&&vd.length>1&&<div style={{overflowX:"auto",zoom:agZoom}}>
     <div style={{minWidth:vd.length>1?vd.length*130+55:250}}>
       {(function(){
-        var customTimesAll=appts.filter(function(x){return x.date===selDate&&vd.some(function(d){return d.id===x.dentistId;})&&activeSlots.indexOf(x.time)<0;}).map(function(x){return x.time;});
+        var customTimesAll=appts.filter(function(x){return x.date===selDate&&vd.some(function(d){return d.id===x.dentistId;})&&activeSlots.indexOf(x.time)<0&&slotVivo_V378(x);}).map(function(x){return x.time;});
         var allSlotsMulti=activeSlots.concat(customTimesAll).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(x,y){return t2m(x)-t2m(y);});
         return allSlotsMulti.map(function(slot){
         const hasAny=vd.some(d=>appts.find(a=>a.date===selDate&&a.time===slot&&a.dentistId===d.id));
@@ -5992,7 +6005,7 @@ var weekDays=week.slice(0,6);
 var wkDents=isDent?dents.filter(function(d){return d.id===user.dentistId;}):(denF==="all"?dents.filter(function(d){return !isOrto(d);}):dents.filter(function(d){return d.id===Number(denF);}));
 var single=wkDents.length===1?wkDents[0]:null;
 var wkAppts=appts.filter(function(x){return weekDays.indexOf(x.date)>=0&&wkDents.some(function(d){return d.id===x.dentistId;});});
-var customT=wkAppts.filter(function(x){return activeSlots.indexOf(x.time)<0&&!x.blocked;}).map(function(x){return x.time;});
+var customT=wkAppts.filter(function(x){return activeSlots.indexOf(x.time)<0&&!x.blocked&&slotVivo_V378(x);}).map(function(x){return x.time;});
 var wSlots=Array.from(new Set(activeSlots.concat(customT))).sort(function(a,b){return t2m(a)-t2m(b);});
 var colW="minmax(118px,1fr)";
 var grid="46px repeat(6,"+colW+")";
