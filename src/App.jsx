@@ -4614,6 +4614,20 @@ function prtAbrirAgenda_V347(cfg){
 }
 
 
+/* V381 — unidade limpa para a lista de compra.
+   No estoque o campo "unidade" às vezes guarda o status ("Em uso", "EM USO", "Uso",
+   "1 em uso", "3 cartela"...). Para a distribuidora só interessa quantidade + unidade.
+   Só formata a saída — não grava nada no estoque. */
+function cpUn_V381(u){
+  var t=String(u||"").replace(/\bem\s*uso\b/gi," ").replace(/\buso\b/gi," ")
+    .replace(/^\s*[0-9]+\s*/,"").replace(/\s+/g," ").trim();
+  var k=t.toLowerCase();
+  if(!t||/[0-9]/.test(t)||k==="un"||k==="und"||k==="unid"||k==="unidade"||k==="unidades")return "un";
+  if(k==="cx"||k==="caixa"||k==="caixas")return "cx";
+  if(k==="pacote"||k==="pacotes"||k==="pct")return "pct";
+  return k;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    V348 — Lista de compra em PDF (folha A4 para mandar na distribuidora)
    Recebe o texto do modal "Lista para o fornecedor" JÁ EDITADO pelo usuário
@@ -4635,7 +4649,7 @@ function cpPdf_V348(txt,clinica){
       if(i<0){itens.push({n:corpo,q:"",u:""});return;}
       var resto=corpo.slice(i+3).trim();
       var m=resto.match(/^([0-9]+(?:[.,][0-9]+)?)\s*(.*)$/);
-      itens.push({n:corpo.slice(0,i).trim(),q:m?m[1]:resto,u:m?(m[2]||""):""});
+      itens.push({n:corpo.slice(0,i).trim(),q:m?m[1]:resto,u:m?cpUn_V381(m[2]):""});
       return;}
     notas.push(t);});
 
@@ -11607,7 +11621,7 @@ return <div style={{marginTop:7,borderRadius:11,padding:"9px 11px",fontSize:11.5
 <div style={{flexShrink:0,textAlign:"right"}}>
 <div style={{display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}>
 <input type="number" min="0" value={String(q)} onChange={function(e){var o={};o[c.s.id]=e.target.value;setCpQty(Object.assign({},cpQty,o));}} onBlur={function(e){cpFirma(c,e.target.value);}} style={{width:52,textAlign:"center",fontFamily:"'Manrope'",fontWeight:800,fontSize:15,color:G.primary,background:G.bg,border:"none",borderRadius:10,padding:"7px 3px",boxShadow:"inset 2px 2px 5px var(--nm-dark),inset -2px -2px 5px #ffffff"}}/>
-<span style={{fontSize:10.5,color:G.muted,width:26,textAlign:"left"}}>{c.s.unit||"un"}</span>
+<span style={{fontSize:10.5,color:G.muted,width:26,textAlign:"left"}}>{cpUn_V381(c.s.unit)}</span>
 </div>
 <div style={{fontSize:10.5,color:G.muted,marginTop:4}}>{pr>0?cur(q*pr):"sem preço"}</div>
 {/* V314: preco que o fornecedor mandou agora — so confere na hora, nao grava nada */}
@@ -11635,8 +11649,8 @@ return <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:6}}>
 
 var gerar=function(){
 var l=["*Affonso Odontologia \u2014 lista de compra*",""];
-calc.forEach(function(c){var q=qtyDe(c);if(selDe(c)&&q>0)l.push("\u2022 "+c.s.name+" \u2014 "+q+" "+(c.s.unit||"un"));});
-extras.forEach(function(x){l.push("\u2022 "+x.name+" \u2014 "+x.qty+" "+(x.unit||"un"));});
+calc.forEach(function(c){var q=qtyDe(c);if(selDe(c)&&q>0)l.push("\u2022 "+c.s.name+" \u2014 "+q+" "+cpUn_V381(c.s.unit));});
+extras.forEach(function(x){l.push("\u2022 "+x.name+" \u2014 "+x.qty+" "+cpUn_V381(x.unit));});
 l.push("","Por favor, enviar pre\u00e7o e prazo de entrega.");
 setCpTxt(l.join("\n"));};
 
