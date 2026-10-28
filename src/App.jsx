@@ -1524,14 +1524,19 @@ function PublicContrato({token}){
   const [err,setErr]=useState("");
   useEffect(function(){var alive=true;contratoApi.fetchC(token).then(function(r){if(!alive)return;if(!r.ok){setSt("erro");return;}setData(r);if(r.status==="expirado")setSt("expirado");else if(r.status==="assinado")setSt("assinado");else setSt("pendente");}).catch(function(){if(alive)setSt("erro");});return function(){alive=false;};},[token]);
   function assinar(){if(!sig||!agree||sending)return;setSending(true);setErr("");contratoApi.signC(token,sig).then(function(r){setSending(false);if(r.ok)setSt("sucesso");else setErr(r.msg||"Não foi possível assinar. Tente novamente.");});}
-  var card={background:G.card,borderRadius:14,padding:18,maxWidth:760,margin:"0 auto",boxShadow:"0 8px 30px rgba(30,45,38,.14)"};
-  return <div style={{minHeight:"100vh",background:G.bg,padding:"22px 12px"}}>
-    <div style={{textAlign:"center",marginBottom:14}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:G.primary}}>{CLINICA_INFO.nome}</div><div style={{fontSize:12,color:G.muted}}>Contrato de tratamento</div></div>
+  var card={background:"var(--card,#e8ece6)",borderRadius:14,padding:18,maxWidth:760,margin:"0 auto",boxShadow:"0 8px 30px rgba(30,45,38,.14)"};
+  // V380: termo de siso usa esta mesma pagina — troca os textos de "contrato" para "termo"
+  var ehTermo=!!(data&&data.html&&data.html.indexOf("Termo de Consentimento")>=0);
+  var doc=ehTermo?"termo":"contrato";
+  var podeAssinar=!!(sig&&agree&&!sending);
+  return <div style={{minHeight:"100vh",background:"var(--bg,#e8ece6)",padding:"22px 12px"}}>
+    <style>{CSS}</style>{/* V380: sem o CSS global as vars --primary/--muted nao existiam e o botao Assinar ficava branco-sobre-branco (invisivel) — mesmo bug do V191 na anamnese */}
+    <div style={{textAlign:"center",marginBottom:14}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:26,color:G.primary}}>{CLINICA_INFO.nome}</div><div style={{fontSize:12,color:G.muted}}>{ehTermo?"Termo de consentimento":"Contrato de tratamento"}</div></div>
     {st==="loading"&&<div style={card}><div style={{textAlign:"center",color:G.muted,padding:30}}>Carregando contrato…</div></div>}
-    {st==="erro"&&<div style={card}><div style={{textAlign:"center",color:G.red,padding:30,fontSize:14}}>Contrato não encontrado. Confira o link ou peça um novo à clínica.</div></div>}
+    {st==="erro"&&<div style={card}><div style={{textAlign:"center",color:G.red,padding:30,fontSize:14}}>Documento não encontrado. Confira o link ou peça um novo à clínica.</div></div>}
     {st==="expirado"&&<div style={card}><div style={{textAlign:"center",padding:30}}><div style={{fontSize:34}}>⏰</div><div style={{fontWeight:700,marginTop:8,fontSize:15}}>Este link expirou.</div><div style={{fontSize:13,color:G.muted,marginTop:6}}>{"Por segurança o link vale 48 horas. Entre em contato com a "+CLINICA_INFO.nome+" pelo telefone "+CLINICA_INFO.telefone+" para receber um novo link."}</div></div></div>}
     {(st==="assinado"||st==="sucesso")&&data&&<div style={card}>
-      <div style={{background:"var(--green-soft)",borderRadius:10,padding:"12px 14px",marginBottom:14,textAlign:"center"}}><div style={{fontSize:26}}>✅</div><div style={{fontWeight:700,color:G.success}}>{st==="sucesso"?"Contrato assinado com sucesso!":"Este contrato já foi assinado."}</div><div style={{fontSize:12,color:G.muted,marginTop:4}}>A clínica foi notificada. Você pode fechar esta página.</div></div>
+      <div style={{background:"var(--green-soft)",borderRadius:10,padding:"12px 14px",marginBottom:14,textAlign:"center"}}><div style={{fontSize:26}}>✅</div><div style={{fontWeight:700,color:G.success}}>{st==="sucesso"?(ehTermo?"Termo assinado com sucesso!":"Contrato assinado com sucesso!"):("Este "+doc+" já foi assinado.")}</div><div style={{fontSize:12,color:G.muted,marginTop:4}}>A clínica foi notificada. Você pode fechar esta página.</div></div>
       {data.html&&<div style={{background:"#ffffff",borderRadius:10,padding:14,maxHeight:420,overflowY:"auto",border:"1px solid "+G.border}} dangerouslySetInnerHTML={{__html:data.html}}/>}
     </div>}
     {st==="pendente"&&data&&<div style={card}>
@@ -1540,9 +1545,10 @@ function PublicContrato({token}){
         <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Sua assinatura</label>
         <div style={{marginTop:6}}><SignaturePad value={sig} disabled={false} onChange={setSig}/></div>
       </div>
-      <label style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:12,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={agree} onChange={e=>setAgree(e.target.checked)} style={{marginTop:2}}/><span>Li o contrato acima e <b>concordo</b> com todas as condições.</span></label>
+      <label style={{display:"flex",alignItems:"flex-start",gap:8,marginTop:12,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={agree} onChange={e=>setAgree(e.target.checked)} style={{marginTop:2}}/><span>{ehTermo?<Fragment>Li o termo acima e <b>autorizo</b> a realização do procedimento.</Fragment>:<Fragment>Li o contrato acima e <b>concordo</b> com todas as condições.</Fragment>}</span></label>
       {err&&<div style={{marginTop:10,background:"var(--red-soft)",color:G.red,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:600}}>{err}</div>}
-      <button onClick={assinar} disabled={!sig||!agree||sending} style={{marginTop:14,width:"100%",background:(!sig||!agree||sending)?G.muted:G.primary,color:"#fff",border:"none",borderRadius:10,padding:"13px 16px",fontSize:15,fontWeight:700,cursor:(!sig||!agree||sending)?"not-allowed":"pointer"}}>{sending?"Enviando…":"✍️ Assinar contrato"}</button>
+      {!sending&&(!sig||!agree)&&<div style={{marginTop:12,fontSize:12.5,color:"#7a5a00",background:"#FFF8E1",borderRadius:8,padding:"8px 11px",textAlign:"center"}}>{!sig?"Faça sua assinatura no quadro acima e marque a caixa para liberar o botão.":"Marque a caixa acima para liberar o botão."}</div>}
+      <button onClick={assinar} disabled={!podeAssinar} style={{marginTop:12,width:"100%",background:podeAssinar?"#2f5d49":"#9aa79f",color:"#ffffff",border:"none",borderRadius:10,padding:"14px 16px",fontSize:16,fontWeight:700,cursor:podeAssinar?"pointer":"not-allowed"}}>{sending?"Enviando…":(ehTermo?"✍️ Assinar termo":"✍️ Assinar contrato")}</button>
       <div style={{fontSize:11,color:G.muted,marginTop:8,textAlign:"center"}}>Serão registrados data/hora, IP e código de verificação do documento (MP 2.200-2/2001, art. 10 §2º).</div>
     </div>}
   </div>;
@@ -1605,7 +1611,7 @@ function TermoSiso({pat,dents,user}){
       <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Assinatura</label>
       <div style={{marginTop:6}}><SignaturePad value={sig} disabled={false} onChange={setSig}/></div>
     </div>
-    <label style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={agree} onChange={function(e){setAgree(e.target.checked);}} style={{marginTop:2}}/><span>Li o termo acima e <b>autorizo</b> a realiza\u00e7\u00e3o do procedimento.</span></label>
+    <label style={{display:"flex",alignItems:"flex-start",gap:8,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={agree} onChange={function(e){setAgree(e.target.checked);}} style={{marginTop:2}}/><span>Li o termo acima e <b>autorizo</b> a realização do procedimento.</span></label>
     {msg&&<div style={{background:"var(--red-soft)",color:G.red,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:600}}>{msg}</div>}
     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
       <Btn ch={busy?"Registrando\u2026":"\u270d\ufe0f Confirmar assinatura"} onClick={assinarLocal} dis={!sig||!agree||busy}/>
@@ -1615,7 +1621,7 @@ function TermoSiso({pat,dents,user}){
   </div>;
   // ── tela normal ──
   return <div style={{display:"flex",flexDirection:"column",gap:14}}>
-    <Div lb="Termo de Consentimento \u2014 Exo do Siso"/>
+    <Div lb="Termo de Consentimento — Exo do Siso"/>
     {msg&&<div style={{background:"var(--green-soft)",color:G.success,borderRadius:8,padding:"9px 12px",fontSize:12.5,fontWeight:700}}>{msg}</div>}
     <div style={{background:G.bg,borderRadius:12,padding:"13px 15px",display:"flex",flexDirection:"column",gap:10}}>
       <div style={{fontSize:12,color:G.muted}}>Gere o termo, escolha se o paciente assina agora ou pelo celular dele.</div>
@@ -1624,22 +1630,22 @@ function TermoSiso({pat,dents,user}){
         <input value={dentes} onChange={function(e){setDentes(e.target.value);}} placeholder="ex.: 38, 48" style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)"}}/>
       </div>
       <div>
-        <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Cirurgi\u00e3o(\u00e3)-dentista</label>
+        <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Cirurgião(ã)-dentista</label>
         <select value={dentId} onChange={function(e){setDentId(e.target.value);}} style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)"}}>
           {dents.filter(function(d){return !d.inativo;}).map(function(d){return <option key={d.id} value={String(d.id)}>{d.name+(d.cro?(" \u2014 CRO "+d.cro):"")}</option>;})}
         </select>
       </div>
       <div>
-        <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Observa\u00e7\u00f5es (opcional)</label>
-        <input value={obs} onChange={function(e){setObs(e.target.value);}} placeholder="algo espec\u00edfico deste caso" style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)"}}/>
+        <label style={{fontSize:10.5,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px",display:"block",marginBottom:4}}>Observações (opcional)</label>
+        <input value={obs} onChange={function(e){setObs(e.target.value);}} placeholder="algo específico deste caso" style={{width:"100%",border:"1.5px solid "+G.border,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--card)"}}/>
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
         <Btn ch={busy?"Gerando\u2026":"\u270d\ufe0f Assinar aqui agora"} onClick={function(){gerar("aqui");}} dis={busy}/>
-        <Btn ch="\ud83d\udcf1 Enviar link por WhatsApp" v="w" onClick={function(){gerar("wa");}} dis={busy||!pat.phone}/>
+        <Btn ch="📱 Enviar link por WhatsApp" v="w" onClick={function(){gerar("wa");}} dis={busy||!pat.phone}/>
       </div>
       {!pat.phone&&<div style={{fontSize:11,color:G.muted}}>{"Sem telefone na ficha \u2014 s\u00f3 d\u00e1 para assinar aqui."}</div>}
     </div>
-    {rows===null&&<div style={{fontSize:13,color:G.muted,padding:"12px 4px"}}>Carregando\u2026</div>}
+    {rows===null&&<div style={{fontSize:13,color:G.muted,padding:"12px 4px"}}>Carregando…</div>}
     {rows&&rows.length===0&&<div style={{fontSize:13,color:G.muted,background:G.bg,borderRadius:10,padding:"14px 16px"}}>Nenhum termo emitido para este paciente ainda.</div>}
     {rows&&rows.map(function(c){
       var dts="";try{dts=(c.payload&&c.payload.dentes)||"";}catch(e){}
@@ -1652,9 +1658,9 @@ function TermoSiso({pat,dents,user}){
           <Bdg l={CLAB[c.status]||c.status} col={CCOL[c.status]||G.muted} sm/>
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
-          <Btn ch="\ud83d\udc41 Ver / Imprimir" v="g" sm onClick={function(){abrirContratoPrint(c);}}/>
-          {c.status==="pendente"&&pat.phone&&<Btn ch="\ud83d\udcf1 Reenviar link" v="w" sm onClick={function(){wa(pat.phone,"Ol\u00e1, "+(pat.name||"")+"! Segue novamente o termo para assinatura:\n"+termoLink(c.token));}}/>}
-          {c.status==="expirado"&&<Btn ch="\ud83d\udd04 Renovar 48h" v="y" sm onClick={function(){contratoApi.renewC(c.id).then(function(r){if(r.ok){setMsg("Validade renovada. Reenvie o link.");load();}else alert(r.msg||"N\u00e3o foi poss\u00edvel renovar.");});}}/>}
+          <Btn ch="👁 Ver / Imprimir" v="g" sm onClick={function(){abrirContratoPrint(c);}}/>
+          {c.status==="pendente"&&pat.phone&&<Btn ch="📱 Reenviar link" v="w" sm onClick={function(){wa(pat.phone,"Ol\u00e1, "+(pat.name||"")+"! Segue novamente o termo para assinatura:\n"+termoLink(c.token));}}/>}
+          {c.status==="expirado"&&<Btn ch="🔄 Renovar 48h" v="y" sm onClick={function(){contratoApi.renewC(c.id).then(function(r){if(r.ok){setMsg("Validade renovada. Reenvie o link.");load();}else alert(r.msg||"N\u00e3o foi poss\u00edvel renovar.");});}}/>}
         </div>
       </div>;
     })}
@@ -2618,7 +2624,7 @@ return <>
   {tab==="anamnese"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
     {showWAanam&&<WAAnamneseModal pat={pf} onClose={function(){setShowWAanam(false);}}/>}
     {buscaMsg&&<div style={{background:G.accent,borderRadius:8,padding:"8px 12px",fontSize:12.5,color:G.primary}}>{buscaMsg}</div>}
-    {pat.anamPend&&<div style={{background:G.success+"18",border:"1.5px solid "+G.success,borderRadius:10,padding:"10px 13px",display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:16}}>\u2705</span><div style={{fontSize:12.5,color:G.success,fontWeight:600,lineHeight:1.45}}>Ficha recebida do paciente pelo WhatsApp! Revise os dados abaixo e clique em <strong>Salvar</strong> para confirmar.</div></div>}
+    {pat.anamPend&&<div style={{background:G.success+"18",border:"1.5px solid "+G.success,borderRadius:10,padding:"10px 13px",display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:16}}>✅</span><div style={{fontSize:12.5,color:G.success,fontWeight:600,lineHeight:1.45}}>Ficha recebida do paciente pelo WhatsApp! Revise os dados abaixo e clique em <strong>Salvar</strong> para confirmar.</div></div>}
     {fillAnam&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:9000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:16,overflowY:"auto"}}><div style={{background:G.card,borderRadius:16,width:"100%",maxWidth:560,margin:"16px auto",padding:"20px"}}><AnamForm patientName={pat.name} initial={pf.anamnese} onCancel={function(){setFillAnam(false);}} onSubmit={function(a){var aa=Object.assign({},a,{preenchida:true});setPf(prev=>Object.assign({},prev,{anamnese:Object.assign({},prev.anamnese||{},aa)}));setPats(prev=>prev.map(pp=>pp.id===pf.id?Object.assign({},pp,{anamnese:Object.assign({},pp.anamnese||{},aa)}):pp));setFillAnam(false);}}/></div></div>}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
       <span style={{fontWeight:700,fontSize:15,color:G.primary}}>🩺 Anamnese Clínica</span>
@@ -15177,7 +15183,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
   {pnlLegOn(user,"retro")&&retroPend.length>0&&<div>
     {head(oRetro,setORetro,"\u26a0\ufe0f","Recebimentos lan\u00e7ados fora do dia",retroPend.length,G.red)}
     {oRetro&&bodyWrap(<>
-      {retroPend.length===0&&<div style={{fontSize:12,color:G.success,fontWeight:600}}>\u2705 Tudo revisado!</div>}
+      {retroPend.length===0&&<div style={{fontSize:12,color:G.success,fontWeight:600}}>✅ Tudo revisado!</div>}
       {retroPend.map(function(x){
         var p=(pats||[]).find(function(q){return String(q.id)===String(x.r.patientId);});
         return <div key={"rt"+x.r.id} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"9px 10px",borderRadius:10,background:"var(--surface-2)",borderLeft:"3px solid "+(x.grave?G.red:G.yellow)}}>
@@ -15188,9 +15194,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:12}} className="fi
               {(x.r.procedure||"\u2014")+(x.r.payment?" \u00b7 "+x.r.payment:"")}<br/>
               {"Recebimento de "}<b style={{color:G.text}}>{fmt(x.r.date)}</b>{" \u2014 digitado em "}<b style={{color:G.text}}>{fmt(x.dig)}</b>{" \u00b7 "}
               <b style={{color:x.grave?G.red:G.yellow}}>{x.dias+(x.dias===1?" dia depois":" dias depois")+(x.mesDif?", m\u00eas diferente":"")}</b><br/>
-              {x.r._by?<span>{"por "}<b style={{color:G.text}}>{x.r._by}</b></span>:<span style={{fontStyle:"italic"}}>autor n\u00e3o registrado</span>}
+              {x.r._by?<span>{"por "}<b style={{color:G.text}}>{x.r._by}</b></span>:<span style={{fontStyle:"italic"}}>autor não registrado</span>}
             </div>
-            <button onClick={function(){marcarRetro(x.r.id);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer",marginTop:5}}>\u2713 Marcar revisado</button>
+            <button onClick={function(){marcarRetro(x.r.id);}} style={{border:"1.5px solid "+G.primary,background:"transparent",color:G.primary,borderRadius:8,padding:"3px 9px",fontSize:10,fontWeight:700,cursor:"pointer",marginTop:5}}>✓ Marcar revisado</button>
           </div>
           <div style={{fontWeight:800,fontSize:13,whiteSpace:"nowrap"}}>{cur(x.r.paid)}</div>
         </div>;
