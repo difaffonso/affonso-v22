@@ -19033,7 +19033,7 @@ try{ // V199: base para comparacao de carimbos por chave
 }catch(e){lastSavedKeyJsonRef.current={};}
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
-lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,implFech:data.implFech,impl:data.impl,orientacoes:data.orientacoes,stock:data.stock,notas:data.notas});// V289 stock // V323 notas
+lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,implFech:data.implFech,impl:data.impl,orientacoes:data.orientacoes,stock:data.stock,notas:data.notas,cotExtra:data.cotExtra,afast:data.afast,hol:data.hol});// V379// V289 stock // V323 notas
 delItemsRef.current=data.delItems||[];
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
@@ -19187,6 +19187,10 @@ const lastSavedKeyJsonRef=useRef(null); // V199: JSON por chave da ultima gravac
 const delGastosRef=useRef([]);
 const lastSavedGastosKeys=useRef(null);
 const delItemsRef=useRef([]);
+// V379: lapide imediata para exclusoes item-a-item (itens avulsos da lista de compra, afastamentos, holerites).
+// Os botoes de excluir ja chamavam window.__delItemsAdd, mas a funcao nunca tinha sido criada -- sem lapide,
+// o poll de 15s e o merge do save traziam o item apagado de volta do servidor.
+try{window.__delItemsAdd=function(tipo,id){if(!tipo||id==null)return;var _k=tipo+":"+id;var _d=delItemsRef.current||[];if(_d.indexOf(_k)<0)_d.push(_k);delItemsRef.current=_d.length>5000?_d.slice(-5000):_d;};}catch(e){}
 const mergeLoopRef=useRef(0);
 const reenviarRef=useRef(false); // V362: o poll achou aqui algo MAIS NOVO que no servidor -> reenviar (o "forcar" da V357 saiu: gravacao agora e condicional)
 const mergeGenRef=useRef(0); // V357: conta os merges feitos pelo save; copia do estado anterior ao ultimo merge nao grava
@@ -19582,7 +19586,7 @@ useEffect(function(){
     }
     // detectar exclusoes de planos/registros desde a ultima sincronizacao
     if(lastSavedItemKeys.current){
-      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V323 notas
+      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas,cotExtra:cotExtraRef.current,afast:afastRef.current,hol:holRef.current});// V379// V289 stock // V323 notas
       var _di=delItemsRef.current||[];
       Object.keys(lastSavedItemKeys.current).forEach(function(k){if(!_ik[k]&&_di.indexOf(k)<0)_di.push(k);});
       _di=_di.filter(function(k){return !_ik[k];});
@@ -19610,7 +19614,7 @@ useEffect(function(){
       // a foto usada para detectar exclusoes passa a ser esta (como se tivesse gravado).
       {var _ai0={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai0[a.id]=true;});lastSavedApptIds.current=_ai0;}
       lastSavedGastosKeys.current=_gKeys(gastos);
-      lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
+      lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas,cotExtra:cotExtraRef.current,afast:afastRef.current,hol:holRef.current});// V379// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
       reenviarRef.current=false;
       if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
       if(lastLocalChangeTs.current===_editAtStart)orientDirtyRef.current=false;
@@ -19646,7 +19650,7 @@ useEffect(function(){
         Object.keys(_kj).forEach(function(k){lastSavedKeyJsonRef.current[k]=_kj[k];});
         {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
         lastSavedGastosKeys.current=_gKeys(gastos);
-        lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas});// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
+        lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas,cotExtra:cotExtraRef.current,afast:afastRef.current,hol:holRef.current});// V379// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
         lastServerTs.current=res.updated_at; // V362: carimbo da PROPRIA gravacao. Antes lia o carimbo de novo depois de gravar; se outro aparelho tivesse gravado no meio, pegava o dele como se fosse o seu e nunca baixava o que ele mandou.
         try{idb.set("blob_v1",{data:payload,updated_at:res.updated_at});}catch(e){} // V198
         try{if(rtCanalRef.current&&rtCanalRef.current.state==="joined")rtCanalRef.current.send({type:"broadcast",event:"mudou",payload:{k:"blob"}});}catch(e){} // V226: aviso instantaneo aos outros aparelhos
