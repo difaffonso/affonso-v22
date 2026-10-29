@@ -16829,6 +16829,16 @@ return r;
 var fechOrd=fechTodos.slice().sort(function(a,b){return String((b&&b.dataFim)||"").localeCompare(String((a&&a.dataFim)||""));});
 var ultFech=fechOrd[0]||null;
 var cicloIni=(ultFech&&ultFech.dataFim)||"";
+// V382: o ciclo aberto leva o nome do mes seguinte ao ultimo ciclo fechado (fechou Outubro -> aberto = Novembro),
+// mesmo que ainda estejamos no mes do fechamento. Sem ciclo fechado, usa o mes atual.
+var nomeAberto=(function(){
+if(!ultFech)return nomeAuto(t);
+var m=String(ultFech.nome||"").match(/^\s*([^\/]+)\/(\d{4})/),mi=-1,y=0;
+if(m){mi=MESES_PT.findIndex(function(x){return String(x).toLowerCase()===m[1].trim().toLowerCase();});y=Number(m[2]);}
+if(mi<0){var p=String(ultFech.dataFim||t).split("-");mi=Number(p[1])-1;y=Number(p[0]);}
+mi++;if(mi>11){mi=0;y++;}
+return MESES_PT[mi]+"/"+y;
+})();
 // saidas reais do ciclo aberto (exclui ajustes e as saidas de fechamento)
 var movsCiclo=usoEntre(cicloIni,"");
 var cicloQtd=movsCiclo.reduce(function(s,m){return s+Number(m.qty||0);},0);
@@ -16839,7 +16849,7 @@ var cicloPorItem=agruparUso(movsCiclo);
 // V376: dados do ciclo aberto para impressao (inclui o que esta em estoque agora)
 var imprimirCicloAberto=function(nome,dataFim){
 var est=implCatOrd.filter(function(it){return Number(stockMap[it.id]||0)>0;}).map(function(it){return {codigo:it.codigo||"",desc:it.desc,qty:Number(stockMap[it.id]||0)};});
-prtCiclo_V376({aberto:true,nome:nome||nomeAuto(t),dataIni:cicloIni,dataFim:dataFim||"",dias:cicloDias,qtdUsada:cicloQtd,valorUsado:cicloVal,itens:cicloPorItem,estoque:est});
+prtCiclo_V376({aberto:true,nome:nome||nomeAberto,dataIni:cicloIni,dataFim:dataFim||"",dias:cicloDias,qtdUsada:cicloQtd,valorUsado:cicloVal,itens:cicloPorItem,estoque:est});
 };
 var repoTot=(function(){var q=0,v=0;(implCat||[]).forEach(function(it){var n=Number(fechQtds[it.id]||0);if(n>0){q+=n;v+=n*Number(it.preco||0);}});return{q:q,v:v};})();
 var devolTot=(implCat||[]).reduce(function(s,it){var q=Number(stockMap[it.id]||0);return s+(q>0?q:0);},0);
@@ -16871,7 +16881,7 @@ novos[achados[0].id]=String(q);ok++;
 if(ok)setFechQtds(function(p){return Object.assign({},p,novos);});
 setColaMsg({ok:ok,naoAch:naoAch,ambig:ambig,ignor:ignor});
 };
-var abrirFech=function(){setFechData(t);setColaTxt("");setColaMsg(null);setFechNome(nomeAuto(t));setFechQtds({});setFechFiltro("todos");setFechPasso(1);};
+var abrirFech=function(){setFechData(t);setColaTxt("");setColaMsg(null);setFechNome(nomeAberto);setFechQtds({});setFechFiltro("todos");setFechPasso(1);};
 var addFnovo=function(){
 if(!fnF.desc.trim()){alert("Informe a descrição do item");return;}
 var newId=nid();
@@ -17021,7 +17031,7 @@ return(
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:9}}>
 <div>
 <span style={{fontSize:10,background:"#fff4e0",color:"#a76b00",borderRadius:5,padding:"2px 7px",fontWeight:700}}>{"CICLO ABERTO"}</span>
-<div style={{fontSize:18,fontWeight:800,color:G.primary,marginTop:5}}>{nomeAuto(t)}</div>
+<div style={{fontSize:18,fontWeight:800,color:G.primary,marginTop:5}}>{nomeAberto}</div>
 <div style={{fontSize:11,color:G.muted}}>{(cicloIni?"Desde "+fmt(cicloIni):"Desde o início")+" · "+cicloDias+" dias"}</div>
 </div>
 <div style={{textAlign:"right",flexShrink:0}}>
@@ -17129,7 +17139,7 @@ return(
 <div style={{background:G.primary+"12",borderLeft:"3px solid "+G.primary,borderRadius:"0 9px 9px 0",padding:"9px 11px",fontSize:11,color:"#3a4a42",lineHeight:1.5}}>{"Esta é a conta a acertar com o representante. Confira item por item antes de continuar."}</div>
 <div style={{background:G.card,borderRadius:12,padding:"12px 14px",display:"flex",gap:8}}>
 <div style={{flex:1}}><Inp lb="Nome do ciclo" val={fechNome} set={function(v){setFechNome(v);}} ph="Setembro/2026"/></div>
-<div style={{width:130}}><Inp lb="Data" val={fechData} set={function(v){setFechData(v);if(!fechNome||fechNome===nomeAuto(fechData))setFechNome(nomeAuto(v));}} type="date"/></div>
+<div style={{width:130}}><Inp lb="Data" val={fechData} set={function(v){setFechData(v);if(!fechNome||fechNome===nomeAuto(fechData))setFechNome(nomeAuto(v));/* V382: nome so muda junto com a data se ainda estiver no automatico da data */}} type="date"/></div>
 </div>
 <div style={{background:"var(--green-soft)",border:"2px solid #A5D6A7",borderRadius:12,padding:"12px 16px",textAlign:"center"}}>
 <div style={{fontSize:11,color:G.muted}}>{"Total do ciclo"+(cicloIni?" · desde "+fmt(cicloIni):"")}</div>
