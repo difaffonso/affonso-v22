@@ -12187,6 +12187,8 @@ function frFmt(c){if(c===null||c===undefined)return "";var neg=c<0;c=Math.abs(Ma
 function frRS(c){return c===null||c===undefined?"—":(c<0?"− R$ ":"R$ ")+frFmt(Math.abs(c));}
 function frPct(x){return (x*100).toFixed(2).replace(".",",")+"%";}
 function frMetaC(metaBp,c){return Math.round(metaBp*c/10000);}
+// V383: guia do Simples da competencia ym e paga dia 20 do mes seguinte (ex.: competencia nov/2026 -> guia de 20/dez/2026)
+function frGuia(ym){var p=frAdd(ym,1);return "guia de 20/"+FR_MESES[Number(p.slice(5,7))-1]+"/"+p.slice(0,4);}
 function frYmHoje(){var d=new Date();return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);}
 
 // Notas emitidas pela empresa, por mes: {"2026-09":{c:centavos,n:qtd}}
@@ -12307,6 +12309,18 @@ const mudaMeta=function(delta){var nb=Math.max(FR_MIN_BP,Math.min(4000,metaBp+de
 
 const abrir=function(ym){var m=meses[ym],r=(m&&m.row)||{};var f=function(v){return v==null?"":frFmt(frC(v));};
   setEf({ym:ym,receita:f(r.receita),receita_status:r.receita_status||"confirmada",folha_clt:f(r.folha_clt),prolabore_diego:f(r.prolabore_diego),prolabore_juliana:f(r.prolabore_juliana),folha_total:f(r.folha_total),folha_status:r.folha_status||(r.folha_total!=null?"confirmada":"prevista"),das_pago:f(r.das_pago),anexo_declarado:r.anexo_declarado||"",observacao:r.observacao||""});};
+// V383: grava o mes corrente com os valores do simulador (abre o lancamento ja preenchido para conferir e salvar)
+const abrirSim=function(){
+  var m=meses[Mc],r=(m&&m.row)||{};var f=function(v){return v==null?"":frFmt(frC(v));};
+  var dieg=temAporte?nAporte:nDiego;
+  var rr=ref.ym?((rows||[]).find(function(x){return String(x.competencia).slice(0,7)===ref.ym;})||{}):{};
+  var clt=frC(rr.folha_clt),jul=frC(rr.prolabore_juliana);
+  var split=clt!==null&&jul!==null&&clt+jul===base;
+  setEf({ym:Mc,receita:f(r.receita),receita_status:r.receita_status||"confirmada",
+    folha_clt:frFmt(base-(split?jul:0)),prolabore_diego:frFmt(dieg),prolabore_juliana:split?frFmt(jul):"",
+    folha_total:frFmt(base+dieg),folha_status:"prevista",das_pago:f(r.das_pago),anexo_declarado:r.anexo_declarado||"",
+    observacao:r.observacao||(split?"":"Folha CLT inclui o pró-labore da Juliana (valor do simulador).")});
+};
 const salvar=function(){
   if(!ef||!/^\d{4}-\d{2}$/.test(ef.ym))return alert("Informe a competência (mês/ano).");
   var campos=["receita","folha_clt","prolabore_diego","prolabore_juliana","folha_total","das_pago"],obj={competencia:ef.ym+"-01"},bad=[];
@@ -12347,17 +12361,17 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
   </div>
   {erro&&<div style={{background:"var(--red-soft)",color:G.red,borderRadius:10,padding:"10px 12px",fontSize:12,fontWeight:700}}>{"Erro ao carregar: "+erro}</div>}
   <div style={{background:"var(--surface-2)",borderRadius:12,padding:"10px 13px",fontSize:12,color:G.text,lineHeight:1.5}}>
-    O Fator R do DAS de um mês usa a receita e a folha dos 12 meses anteriores. A folha lançada neste mês só conta a partir do DAS do mês que vem. <b>Receita:</b> quando o campo da contabilidade fica em branco, entra sozinha a soma das notas <b>emitidas pela empresa</b> (as dos dentistas ficam de fora).
+    A guia do Simples de cada mês é paga no dia 20 do mês seguinte, e o Fator R dela usa a receita e a folha dos 12 meses anteriores. Por isso as notas de um mês caem na guia do mês seguinte, e a folha desse mesmo mês só pesa na guia de dois meses depois (ex.: notas de outubro → guia de 20/nov; pró-labore de outubro → guia de 20/dez). <b>Receita:</b> quando o campo da contabilidade fica em branco, entra sozinha a soma das notas <b>emitidas pela empresa</b> (as dos dentistas ficam de fora).
   </div>
 
   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))",gap:13}}>
     <div style={card}>
-      <div style={cap}>{"Fator R · DAS de "+frLbl(Mc)}</div>
+      <div style={cap}>{"Fator R · "+frGuia(Mc)}</div>
       {dasAtual.incompleto?<div style={{fontSize:13,color:G.muted}}>{"Dados incompletos (falta "+dasAtual.faltam.map(frLblC).join(", ")+")"}</div>:<>
         <div style={{display:"flex",alignItems:"baseline",gap:9,flexWrap:"wrap"}}><span style={{...big,fontSize:40,color:frCor(dasAtual.fator,metaBp)}}>{frPct(dasAtual.fator)}</span>{anexoChip(dasAtual.anexo)}</div>
         <div style={{fontSize:12,color:G.muted}}>{"vence "+venc(Mc)+" · "}{dasAtual.prev?prevTag:"valores confirmados"}</div>
       </>}
-      {hoje.getDate()<=20&&!dasAnt.incompleto&&<div style={{fontSize:11,color:G.muted}}>{"DAS de "+frLbl(frAdd(Mc,-1))+" (vence "+venc(frAdd(Mc,-1))+"): "}<b style={{color:frCor(dasAnt.fator,metaBp)}}>{frPct(dasAnt.fator)+" · "+dasAnt.anexo}</b></div>}
+      {hoje.getDate()<=20&&!dasAnt.incompleto&&<div style={{fontSize:11,color:G.muted}}>{"Guia de "+venc(frAdd(Mc,-1))+" (competência "+frLbl(frAdd(Mc,-1))+"): "}<b style={{color:frCor(dasAnt.fator,metaBp)}}>{frPct(dasAnt.fator)+" · "+dasAnt.anexo}</b></div>}
     </div>
     <div style={card}>
       <div style={cap}>Folga na janela</div>
@@ -12372,7 +12386,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
       {plano.incompleto?<div style={{fontSize:13}}>{"Faltam dados de "+plano.faltam.map(frLblC).join(", ")}</div>:<>
         <div style={{...big,fontSize:32}}>{frRS(plano.recomendado)}</div>
         <div style={{fontSize:11,color:"#d4e4da"}}>{"Janela: "+frFmt(plano.janela)+" · Ritmo: "+frFmt(plano.ritmo)}</div>
-        <div style={{fontSize:11,color:"#d4e4da"}}>{"Conta no DAS de "+frLbl(frAdd(Mc,1))+". Ajuste a receita prevista abaixo."}</div>
+        <div style={{fontSize:11,color:"#d4e4da"}}>{"Conta na "+frGuia(frAdd(Mc,1))+". Ajuste a receita prevista abaixo."}</div>
       </>}
     </div>
     <div style={card}>
@@ -12403,7 +12417,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
     </div>}
     {!plano.incompleto&&<div style={{background:"var(--surface-2)",borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:9}}>{/* V369: aporte extraordinario */}
       <div style={{fontWeight:700,fontSize:13,color:G.primary}}>{"Aporte extraordinário em "+frLbl(Mc)+" (só este mês)"}</div>
-      <div style={{fontSize:12,lineHeight:1.5}}>{"Para o DAS de "+frLbl(frAdd(Mc,1))+" já sair no Anexo III, seu pró-labore de "+frLbl(Mc)+" precisa ser de pelo menos "}<b>{frRS(plano.minimo28)}</b>{" (28%). Para a meta de "+metaPct+": "}<b>{frRS(plano.janela)}</b>{". Os meses seguintes voltam ao seu pró-labore normal."}</div>
+      <div style={{fontSize:12,lineHeight:1.5}}>{"Para a "+frGuia(frAdd(Mc,1))+" já sair no Anexo III, seu pró-labore de "+frLbl(Mc)+" precisa ser de pelo menos "}<b>{frRS(plano.minimo28)}</b>{" (28%). Para a meta de "+metaPct+": "}<b>{frRS(plano.janela)}</b>{". Os meses seguintes voltam ao seu pró-labore normal."}</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
         <Inp lb={"Pró-labore TOTAL de "+frLbl(Mc)+" (valor do holerite)"} ph="ex.: 22.000,00" val={pAporte} set={setPAporte} style={{flex:"1 1 180px"}}/>
         <Btn ch={"Mínimo ("+frFmt(plano.minimo28)+")"} v="g" sm onClick={function(){setPAporte(frFmt(plano.minimo28));}}/>
@@ -12414,7 +12428,7 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
         var economia=(dasSem!==null&&dasCom!==null)?dasSem-dasCom:null;var saldo=economia!==null?economia-irExtra:null;
         var lin=function(a,b,c){return <div style={{display:"flex",justifyContent:"space-between",gap:10,fontSize:12,padding:"5px 0",borderBottom:"1px solid "+G.border}}><span style={{color:G.muted}}>{a}</span><span style={{textAlign:"right"}}>{b}{c&&<span style={{color:G.muted}}>{" "+c}</span>}</span></div>;};
         return <div style={{display:"flex",flexDirection:"column"}}>
-          {lin("DAS de "+frLbl(frAdd(Mc,1)),<span><span style={{color:frCor(projSem[0].fator,metaBp)}}>{frPct(projSem[0].fator)+" "+projSem[0].anexo}</span>{" → "}<b style={{color:frCor(proj[0].fator,metaBp)}}>{frPct(proj[0].fator)+" "+proj[0].anexo}</b></span>)}
+          {lin(frGuia(frAdd(Mc,1)).replace("guia","Guia"),<span><span style={{color:frCor(projSem[0].fator,metaBp)}}>{frPct(projSem[0].fator)+" "+projSem[0].anexo}</span>{" → "}<b style={{color:frCor(proj[0].fator,metaBp)}}>{frPct(proj[0].fator)+" "+proj[0].anexo}</b></span>)}
           {economia!==null&&lin("DAS estimado nos próximos 12 meses",frRS(dasSem)+" → "+frRS(dasCom))}
           {economia!==null&&lin("Economia de DAS",<b style={{color:economia>0?G.success:G.muted}}>{frRS(economia)}</b>)}
           {lin("Holerite de "+frLbl(Mc),frRS(nAporte)+" (normal "+frFmt(nDiego)+" + "+frFmt(extraPL)+" a mais)")}
@@ -12423,14 +12437,18 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
         </div>;})()}
       <div style={{fontSize:10,color:G.muted,lineHeight:1.45}}>Estimativa: DAS = receita do mês × alíquota efetiva do anexo (tabelas do Simples); IR = 27,5% sobre o pró-labore acima do normal. Confirme com a contabilidade antes de lançar.</div>
     </div>}
-    <div style={{fontSize:11,color:G.muted}}>{(temAporte?"Folha de "+frLbl(Mc)+" com aporte: "+frRS(base+nAporte)+"; depois ":"Folha do mês simulada: ")+frRS(base+nDiego)+(nRec?" · "+frPct((base+nDiego)/nRec)+" da receita":"")+". Cada barra abaixo é o Fator R de um DAS futuro, repetindo esses valores todo mês. Verde = Anexo III, vermelho = Anexo V. Nada é gravado aqui."}</div>
+    <div style={{fontSize:11,color:G.muted}}>{(temAporte?"Folha de "+frLbl(Mc)+" com aporte: "+frRS(base+nAporte)+"; depois ":"Folha do mês simulada: ")+frRS(base+nDiego)+(nRec?" · "+frPct((base+nDiego)/nRec)+" da receita":"")+". Cada barra abaixo é o Fator R de uma guia futura, pelo mês em que ela é paga (dia 20), repetindo esses valores todo mês. Verde = Anexo III, vermelho = Anexo V. Nada é gravado até você tocar em Salvar."}</div>
+    <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+      <Btn ch={"Salvar em "+frLbl(Mc)} onClick={abrirSim}/>
+      <span style={{fontSize:11,color:G.muted,flex:"1 1 200px"}}>{"Grava "+frLbl(Mc)+" com folha "+frRS(base+(temAporte?nAporte:nDiego))+" (seu pró-labore "+frRS(temAporte?nAporte:nDiego)+") como prevista. A receita continua vindo das notas. Abre para conferir antes de salvar."}</span>
+    </div>
     <div style={{overflowX:"auto"}}>
       <div style={{display:"grid",gridTemplateColumns:"repeat(12,minmax(52px,1fr))",gap:6,minWidth:640,alignItems:"end",height:170,position:"relative"}}>
         {proj.map(function(d){var h=d.incompleto?4:Math.max(4,Math.min(120,Math.round(d.fator*100/45*120)));var c=d.incompleto?G.border:(d.anexo==="III"?G.success:G.red);
           return <div key={d.ym} style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",gap:3,height:170}}>
             <span style={{fontSize:10,fontWeight:800,color:d.incompleto?G.muted:frCor(d.fator,metaBp)}}>{d.incompleto?"—":frPct(d.fator)}</span>
             <div style={{width:"70%",height:h,background:c,borderRadius:"6px 6px 2px 2px",opacity:.85}}/>
-            <span style={{fontSize:10,color:G.muted,fontWeight:700}}>{frLblC(d.ym)}</span>
+            <span style={{fontSize:10,color:G.muted,fontWeight:700}}>{frLblC(frAdd(d.ym,1))}</span>
           </div>;})}
       </div>
     </div>
@@ -12476,12 +12494,12 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}}>
           </tr>;})}</tbody>
       </table>
     </div>
-    <div style={{fontSize:11,color:G.muted}}>RBT12, FS12, Fator R, Anexo e Folga de cada linha são os do DAS daquela competência (12 meses anteriores). Clique numa linha para lançar ou editar o mês.</div>
+    <div style={{fontSize:11,color:G.muted}}>RBT12, FS12, Fator R, Anexo e Folga de cada linha são os da guia daquela competência, paga no dia 20 do mês seguinte (janela dos 12 meses anteriores). Clique numa linha para lançar ou editar o mês.</div>
   </div>
 
   <Modal open={!!ef} close={function(){if(!salvando)setEf(null);}} wide title={ef?("Fator R · "+frLbl(ef.ym)):""} ch={ef&&<div style={{display:"flex",flexDirection:"column",gap:13}}>
     <Inp lb="Competência" type="month" val={ef.ym} set={fe("ym")} style={{maxWidth:200}}/>
-    <div style={{fontSize:12,color:G.muted}}>{"A folha deste mês conta no DAS de "+frLbl(frAdd(ef.ym,1))+" (vence "+venc(frAdd(ef.ym,1))+")."}</div>
+    <div style={{fontSize:12,color:G.muted}}>{"As notas deste mês caem na "+frGuia(ef.ym)+". A folha deste mês conta no Fator R da "+frGuia(frAdd(ef.ym,1))+"."}</div>
     <div style={{background:"var(--surface-2)",borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:9}}>
       <div style={{fontWeight:700,fontSize:13,color:G.primary}}>Receita</div>
       <div style={{fontSize:12}}>{"Notas emitidas pela empresa neste mês: "}<b>{frRS((notas[ef.ym]||{c:0}).c)}</b>{" ("+((notas[ef.ym]||{n:0}).n)+" notas)"}</div>
