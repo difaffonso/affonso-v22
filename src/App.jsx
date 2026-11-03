@@ -7357,7 +7357,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 <button onClick={()=>setModal(false)} style={{border:"none",background:"none",fontSize:24,cursor:"pointer",color:G.muted}}>×</button>
 </div>
 <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+<div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:11}}>
 <PatSearch lb="Paciente" val={f.patientId} set={v=>setF(p=>({...p,patientId:v}))} pats={pats}/>
 <div style={{display:"flex",flexDirection:"column",gap:4}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Dentista</label>
@@ -7366,7 +7366,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 </select>
 </div>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+<div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:11}}>
 <div style={{display:"flex",flexDirection:"column",gap:4}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Laboratório</label>
 <select value={f.labId} onChange={e=>setF(p=>({...p,labId:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--surface)"}}>
@@ -7376,18 +7376,19 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 </div>
 <Inp lb="Dente(s)" val={f.tooth} set={v=>setF(p=>({...p,tooth:v}))} ph="Ex: 16 ou 14-16"/>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
-<div style={{display:"flex",flexDirection:"column",gap:4}}>
+{/* V385: colunas minmax(0,1fr) -- campos encolhem e o custo do lab nao sai da janela */}
+<div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:11}}>
+<div style={{display:"flex",flexDirection:"column",gap:4,minWidth:0}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Tipo de Prótese</label>
 <select value={f.type} onChange={e=>setF(p=>({...p,type:e.target.value}))} style={{border:`1.5px solid ${G.border}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,background:"var(--surface)"}}>
 {PROS_T.map(t=><option key={t} value={t}>{t}</option>)}
 </select>
 </div>
-<div style={{display:"grid",gridTemplateColumns:"0.55fr 1fr",gap:8}}><Inp lb="Qtd" val={f.qty} set={v=>setF(p=>({...p,qty:v}))} type="number" ph="1"/><Inp lb="💰 Custo Lab cada (R$)" val={f.price} set={v=>setF(p=>({...p,price:v}))} type="number" ph="0,00"/></div>
-<div style={{display:"grid",gridTemplateColumns:"0.55fr 1fr",gap:8}}><Inp lb="🦷 Placas de dentes" val={f.dentesQtd} set={v=>setF(p=>({...p,dentesQtd:v}))} type="number" ph="0"/><Inp lb="Valor por placa (R$)" val={f.dentesVal} set={v=>setF(p=>({...p,dentesVal:v}))} type="number" ph="40,00"/></div>
+<div style={{display:"grid",gridTemplateColumns:"minmax(0,0.55fr) minmax(0,1fr)",gap:8,minWidth:0}}><Inp lb="Qtd" style={{minWidth:0}} val={f.qty} set={v=>setF(p=>({...p,qty:v}))} type="number" ph="1"/><Inp lb="💰 Custo Lab cada (R$)" style={{minWidth:0}} val={f.price} set={v=>setF(p=>({...p,price:v}))} type="number" ph="0,00"/></div>
+<div style={{display:"grid",gridTemplateColumns:"minmax(0,0.55fr) minmax(0,1fr)",gap:8,minWidth:0}}><Inp lb="🦷 Placas" style={{minWidth:0}} val={f.dentesQtd} set={v=>setF(p=>({...p,dentesQtd:v}))} type="number" ph="0"/><Inp lb="Valor por placa (R$)" style={{minWidth:0}} val={f.dentesVal} set={v=>setF(p=>({...p,dentesVal:v}))} type="number" ph="40,00"/></div>
 </div>
 {/* V324: cor e escala de cor */}
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+<div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:11}}>
 <Inp lb="🎨 Cor" val={f.cor||""} set={v=>setF(p=>({...p,cor:v}))} ph="Ex: A3,5 · 661 · 62 · BL2"/>
 <div style={{display:"flex",flexDirection:"column",gap:4}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Escala de cor</label>
@@ -7406,13 +7407,13 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 </select>
 {(!f.proc||!prosProcs.find(p=>p.name===f.proc))&&<input value={f.proc} onChange={e=>setF(p=>({...p,proc:e.target.value}))} placeholder="Descreva o procedimento específico..." style={{border:`1.5px solid ${G.primary}`,borderRadius:8,padding:"8px 11px",fontSize:14,outline:"none",color:G.text,marginTop:4}}/>}
 </div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+<div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:11}}>
 <Inp lb="Data de Envio" val={f.sent} set={v=>setF(p=>({...p,sent:v}))} type="date"/>
 <Inp lb="Previsão de Retorno" val={f.due} set={v=>setF(p=>({...p,due:v}))} type="date"/>
 </div>
 {/* V325: data e horario da consulta do paciente */}
 <div>
-<div style={{display:"grid",gridTemplateColumns:"1fr 0.62fr auto",gap:9,alignItems:"end"}}>
+<div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,0.62fr) auto",gap:9,alignItems:"end"}}>
 <Inp lb="📅 Paciente marcado em" val={f.pdata||""} set={v=>setF(p=>({...p,pdata:v}))} type="date"/>
 <Inp lb="Horário" val={f.phora||""} set={v=>setF(p=>({...p,phora:v}))} type="time"/>
 <button onClick={()=>{
@@ -7435,7 +7436,7 @@ setF(p=>({...p,pdata:prox.date,phora:prox.time||""}));
 </div>
 {f.pdata&&f.due&&f.due>f.pdata&&<div style={{background:"var(--amber-soft)",border:`1.5px solid ${G.yellow}`,borderRadius:9,padding:"8px 12px",fontSize:12,color:G.yellow,fontWeight:600,marginTop:7,lineHeight:1.5}}>{"⚠️ A previsão de retorno do laboratório ("+fmt(f.due)+") é depois da consulta do paciente ("+fmt(f.pdata)+(f.phora?" às "+f.phora:"")+"). Não dá tempo."}</div>}
 </div>
-{edit&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
+{edit&&<div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) minmax(0,1fr)",gap:11}}>
 <Inp lb="Data Retorno Real" val={f.returned} set={v=>setF(p=>({...p,returned:v}))} type="date"/>
 <div style={{display:"flex",flexDirection:"column",gap:4}}>
 <label style={{fontSize:11,fontWeight:700,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}>Status</label>
