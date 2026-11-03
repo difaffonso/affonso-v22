@@ -4746,14 +4746,16 @@ function protPdf_V355(rows,mo,pats,dents){
       if(da!==db)return da<db?-1:1;
       return nomePac(a).localeCompare(nomePac(b),"pt-BR");});
 
+    var dsc=r.dsc||labDescItens_V386(r.ps,0),pct=dsc.pct,pctTxt=String(pct).replace(".",",")+"%";// V386
     var pecas=0,total=0,porDent={},ordemDent=[];
     var linhas=ps.map(function(p,ix){
       var den=dents.find(function(x){return x.id===p.dentistId;})||dents[0]||{name:""};
       var dNome=String(den.name||"").split(" ")[0];
-      var q=Number(p.qty)||1,u=Number(p.price)||0,t=q*u;
+      var it=dsc.byId[p.id]||{cheio:prosCusto(p),desc:0,final:prosCusto(p)};// V386: valor cheio (inclui placas) e com desconto
+      var q=Number(p.qty)||1,u=Number(p.price)||0,t=it.cheio;
       pecas+=q;total+=t;
       if(!porDent[dNome]){porDent[dNome]={n:0,v:0};ordemDent.push(dNome);}
-      porDent[dNome].n++;porDent[dNome].v+=t;
+      porDent[dNome].n++;porDent[dNome].v+=it.final;
       var proc=String(p.proc||"").trim(),tipo=String(p.type||"").trim(),dente=String(p.tooth||"").trim();
       var sub=[];
       if(proc&&tipo&&proc.toLowerCase()!==tipo.toLowerCase())sub.push(tipo);
@@ -4770,7 +4772,10 @@ function protPdf_V355(rows,mo,pats,dents){
           +(obs?"<small class='obs'>"+esc(obs)+"</small>":"")+"</td>"
         +"<td class='den'>"+esc(dNome)+"</td>"
         +"<td class='qt'>"+q+"</td>"
-        +"<td class='val'>"+(t>0?"<b>"+esc(cur(t))+"</b>"+(q>1?"<small>"+esc(cur(u))+" cada</small>":""):"<span class='zero'>sem custo</span>")+"</td>"
+        +(pct>0
+          ?(t>0?"<td class='val ch'>"+esc(cur(t))+(q>1?"<small>"+esc(cur(u))+" cada</small>":"")+"</td><td class='val ds'>− "+esc(cur(it.desc))+"</td><td class='val'><b>"+esc(cur(it.final))+"</b></td>"
+               :"<td class='val ch' colspan='3'><span class='zero'>sem custo</span></td>")
+          :"<td class='val'>"+(t>0?"<b>"+esc(cur(t))+"</b>"+(q>1?"<small>"+esc(cur(u))+" cada</small>":"")+(Number(p.dentesQtd)>0?"<small>"+esc(prosCustoDet(p))+"</small>":""):"<span class='zero'>sem custo</span>")+"</td>")
         +"<td class='cf'><span class='box'></span></td>"
         +"</tr>";}).join("");
 
@@ -4791,16 +4796,23 @@ function protPdf_V355(rows,mo,pats,dents){
       +"<div><b>"+pecas+"</b><span>Peças</span></div>"
       +"<div><b>"+(r.done||0)+"</b><span>Instalados</span></div>"
       +"<div><b>"+(r.wait||0)+"</b><span>Pendentes</span></div>"
-      +"<div class='kc'><b>"+esc(cur(total))+"</b><span>Custo total</span></div>"
+      +(pct>0?"<div><b>"+esc(pctTxt)+"</b><span>Desconto</span></div>":"")
+      +"<div class='kc'><b>"+esc(cur(dsc.final))+"</b><span>"+(pct>0?"A pagar":"Custo total")+"</span></div>"
       +"</div></div>"
       +"<div class='crit'>Trabalhos com <b>data de retorno</b> entre 01 e "+new Date(Number(String(mo).slice(0,4)),Number(String(mo).slice(5,7)),0).getDate()+" de "+esc(mesTxt)+", em ordem de retorno.</div>"
       +"<table><thead><tr>"
       +"<th class='num'>Nº</th><th class='dt'>Retorno</th><th class='pac'>Paciente</th><th class='trab'>Trabalho</th>"
-      +"<th class='den'>Dentista</th><th class='qt'>Qtd</th><th class='val'>Valor</th><th class='cf'>Conf.</th>"
+      +"<th class='den'>Dentista</th><th class='qt'>Qtd</th>"
+      +(pct>0?"<th class='val'>Valor cheio</th><th class='val'>Desc. "+esc(pctTxt)+"</th><th class='val'>A pagar</th>":"<th class='val'>Valor</th>")
+      +"<th class='cf'>Conf.</th>"
       +"</tr></thead><tbody>"+linhas+"</tbody>"
       +"<tfoot><tr><td colspan='5' class='tl'>Total &mdash; "+ps.length+" trabalho"+(ps.length===1?"":"s")+"</td>"
-      +"<td class='qt'>"+pecas+"</td><td class='val'><b>"+esc(cur(total))+"</b></td><td class='cf'></td></tr></tfoot>"
+      +"<td class='qt'>"+pecas+"</td>"
+      +(pct>0?"<td class='val ch'>"+esc(cur(dsc.total))+"</td><td class='val ds'>− "+esc(cur(dsc.desc))+"</td><td class='val'><b>"+esc(cur(dsc.final))+"</b></td>"
+             :"<td class='val'><b>"+esc(cur(dsc.final))+"</b></td>")
+      +"<td class='cf'></td></tr></tfoot>"
       +"</table>"
+      +(pct>0?"<div class='resdesc'><span>Valor cheio <b>"+esc(cur(dsc.total))+"</b></span><span>Desconto do laboratório ("+esc(pctTxt)+") <b class='ds'>− "+esc(cur(dsc.desc))+"</b></span><span class='fin'>Total a pagar <b>"+esc(cur(dsc.final))+"</b></span></div>":"")
       +resumoDent
       +"<div class='ass'>"
       +"<div><span class='ln'></span>Conferido por (clínica)</div>"
@@ -4841,6 +4853,9 @@ function protPdf_V355(rows,mo,pats,dents){
     +".den{width:58px}"
     +".qt{width:34px;text-align:center}"
     +".val{width:82px;text-align:right;white-space:nowrap}"
+    +".val.ch{color:"+C.mut+"}.val.ds{color:#2f7a4f;width:70px}"
+    +".resdesc{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px 22px;margin-top:10px;padding:9px 12px;background:"+C.band+";border-radius:8px;font-size:11.5px;color:"+C.mut+"}"
+    +".resdesc b{color:"+C.ink+";margin-left:4px}.resdesc b.ds{color:#2f7a4f}.resdesc .fin b{color:#a8322b;font-size:13.5px}"
     +".cf{width:44px;text-align:center}"
     +".zero{font-size:10px;color:"+C.mut+";font-style:italic}"
     +".trab b.lg{font-weight:500}"
@@ -7214,6 +7229,24 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // V384: custo do laboratorio = servico (preco x qtd) + placas de dentes avulsas (dentesQtd x dentesVal)
 function prosCusto(p){if(!p)return 0;return (Number(p.price)||0)*(Number(p.qty)||1)+(Number(p.dentesQtd)||0)*(Number(p.dentesVal)||0);}
+/* V386: desconto mensal do laboratorio. O protetico da um % conforme o volume do mes; o % fica salvo no proprio
+   laboratorio (labs[].descMes = {"2026-10":20}) e e aplicado em CADA trabalho retornado no mes. O ultimo item com
+   custo absorve a diferenca de centavos, para a soma dos itens bater com o total com desconto. */
+function labDescPct_V386(l,mo){var m=l&&l.descMes;var v=Number(m&&m[mo]);return v>0&&v<100?v:0;}
+function labDescItens_V386(ps,pct){
+  var r2=function(x){return Math.round(x*100+1e-6)/100;};
+  pct=Number(pct)||0;
+  var itens=(ps||[]).map(function(p){return {p:p,cheio:r2(prosCusto(p)),desc:0,final:0};});
+  var total=r2(itens.reduce(function(s,x){return s+x.cheio;},0));
+  var descTot=pct>0?r2(total*pct/100):0;
+  var ult=-1;itens.forEach(function(x,i){if(x.cheio>0)ult=i;});
+  var acum=0,byId={};
+  itens.forEach(function(x,i){
+    var d=pct>0&&x.cheio>0?(i===ult?r2(descTot-acum):r2(x.cheio*pct/100)):0;
+    acum=r2(acum+d);x.desc=d;x.final=r2(x.cheio-d);
+    if(x.p&&x.p.id!=null)byId[x.p.id]=x;});
+  return {pct:pct,itens:itens,byId:byId,total:total,desc:descTot,final:r2(total-descTot)};
+}
 function prosCustoDet(p){if(!p)return "";const q=Number(p.qty)||1,pr=Number(p.price)||0,dq=Number(p.dentesQtd)||0,dv=Number(p.dentesVal)||0;const partes=[];if(q>1)partes.push(q+" \u00d7 "+cur(pr));else if(dq>0)partes.push(cur(pr));if(dq>0)partes.push(dq+(dq>1?" placas":" placa")+" \u00d7 "+cur(dv));return partes.length?"("+partes.join(" + ")+")":"";}
 function Proteses({pros,setPros,pats,dents,labs,prosProcs,setProsProcs,user,logs,addLog,appts=[]}){// V325: appts p/ puxar da agenda
 const [filt,setFilt]=useState("today");const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);const [srch,setSrch]=useState("");// V212 busca paciente
@@ -9828,7 +9861,33 @@ return <div key={l.k} style={{background:G.bg,borderRadius:12,padding:"11px 13px
 </div>}
 </div>;
 }
-function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha,setRecs=function(){},waSent={},orcResp={},setOrcResp=function(){}}){
+/* V386: barra de desconto do laboratorio no fechamento do mes (Relatorios > Proteticos).
+   Digita o % (ou toca num atalho) e todos os trabalhos do mes sao recalculados: cheio -> desconto -> a pagar. */
+function DescLab_V386({l,mo,dsc,pode,setLabs}){
+const pct=dsc.pct;
+const [txt,setTxt]=useState(pct?String(pct).replace(".",","):"");
+useEffect(()=>{setTxt(pct?String(pct).replace(".",","):"");},[pct,mo,l.id]);
+const gravar=v=>{setLabs(prev=>(prev||[]).map(x=>{if(x.id!==l.id)return x;const m=Object.assign({},x.descMes||{});if(v>0)m[mo]=v;else delete m[mo];return Object.assign({},x,{descMes:m,_ts:Date.now()});}));};
+const aplicar=raw=>{const s=String(raw==null?txt:raw).replace("%","").replace(",",".").trim();if(s===""){if(pct)gravar(0);return;}const v=Math.round(Number(s)*100)/100;if(!(v>0&&v<100)){alert("Informe um desconto entre 0 e 100%.");setTxt(pct?String(pct).replace(".",","):"");return;}if(v!==pct)gravar(v);setTxt(String(v).replace(".",","));};
+const chip=(v)=><button key={v} disabled={!pode} onClick={()=>aplicar(v)} style={{border:"1.5px solid "+(pct===v?G.primary:G.border),background:pct===v?G.primary:"var(--card)",color:pct===v?"#fff":G.primary,borderRadius:8,padding:"4px 9px",fontSize:11.5,fontWeight:700,cursor:pode?"pointer":"default",fontFamily:"'Manrope'"}}>{v+"%"}</button>;
+return <div style={{background:G.bg,borderRadius:10,padding:"10px 12px",marginBottom:10,display:"flex",flexDirection:"column",gap:8}}>
+<div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+<span style={{fontSize:11,fontWeight:800,color:G.muted,textTransform:"uppercase",letterSpacing:".4px"}}><i className="ph-fill ph-tag" style={{marginRight:4}}></i>Desconto do laboratório no mês</span>
+<div style={{display:"flex",alignItems:"center",gap:4}}>
+<input value={txt} disabled={!pode} inputMode="decimal" placeholder="0" onChange={e=>setTxt(e.target.value)} onBlur={()=>aplicar()} onKeyDown={e=>{if(e.key==="Enter")e.currentTarget.blur();}} style={{width:58,border:"1.5px solid "+(pct?G.primary:G.border),borderRadius:8,padding:"5px 8px",fontSize:14,fontWeight:700,textAlign:"right",outline:"none",background:"var(--card)",color:G.text}}/>
+<span style={{fontWeight:700,color:G.muted}}>%</span>
+</div>
+{[20,25,28,30].map(chip)}
+{pct>0&&pode&&<button onClick={()=>aplicar("")} style={{border:"none",background:"none",color:G.red,fontSize:11.5,fontWeight:700,cursor:"pointer"}}>Remover</button>}
+</div>
+{pct>0?<div style={{display:"flex",gap:14,flexWrap:"wrap",fontSize:12.5}}>
+<span style={{color:G.muted}}>Valor cheio <b style={{color:G.text}}>{cur(dsc.total)}</b></span>
+<span style={{color:G.muted}}>{"Desconto ("+String(pct).replace(".",",")+"%) "}<b style={{color:G.success}}>{"− "+cur(dsc.desc)}</b></span>
+<span style={{color:G.muted}}>A pagar <b style={{color:G.red}}>{cur(dsc.final)}</b></span>
+</div>:<div style={{fontSize:11.5,color:G.muted}}>{pode?"Digite o % que o protético deu neste mês: o desconto é aplicado em cada trabalho e o total com desconto vira o custo do fechamento.":"Sem desconto neste mês."}</div>}
+</div>;
+}
+function Relatorios({recs,treats=[],budgets=[],appts=[],pros,pats,dents,labs,setLabs=function(){},expenses,gastos,user,waTemplates,setWaTemplates,pacsTicks,setPacsTicks,abrirFicha,setRecs=function(){},waSent={},orcResp={},setOrcResp=function(){}}){
 const [tab,setTab]=useState(ehAux_V329(user)?"prot":"dent");const [mo,setMo]=useState(today().slice(0,7));const [orcDent,setOrcDent]=useState("all");const [orcFilter,setOrcFilter]=useState(null);const [openOrto,setOpenOrto]=useState({});const [openDent,setOpenDent]=useState({});const [openProt,setOpenProt]=useState({});
 const [selMsg,setSelMsg]=useState(null);
 const [selPatsMsg,setSelPatsMsg]=useState([]);
@@ -9901,7 +9960,7 @@ const clinCom=clinLiq*(d.commission||40)/100;
 return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom,ortoRs,clinRs,ortoRaw,ortoCom,clinRaw,clinCom,clinDeferred,isORec};
 
 });
-const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&(p.returned||"").startsWith(mo));const cost=ps.reduce((s,p)=>s+prosCusto(p),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
+const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&(p.returned||"").startsWith(mo));const dsc=labDescItens_V386(ps,labDescPct_V386(l,mo));/* V386: custo do fechamento ja com o desconto do mes */return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost:dsc.final,cheio:dsc.total,dsc};});
 const gastoMes=arr=>(arr||[]).filter(e=>(e.recorrente&&e.diaVenc)?true:e.parcelado?(function(){var k=(Number(mo.slice(0,4))*12+Number(mo.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));return k>=0&&k<Number(e.parcelas||1);})():(e.date&&e.date.startsWith(mo)));
 const isPagoG=e=>(e.recorrente||e.parcelado)?!!(e.pagoMeses&&e.pagoMeses[mo]):!!e.paid;
 const clinicaG=gastoMes(gastos&&gastos.clinica);
@@ -10023,16 +10082,17 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 {tab==="prot"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
 {/* V355: imprimir todos os laboratórios com retorno no mês (um por folha) */}
 {lr.filter(x=>x.ps.length>0).length>1&&<div style={{display:"flex",justifyContent:"flex-end"}}><button onClick={()=>protPdf_V355(lr,mo,pats,dents)} style={{border:"none",background:G.card,borderRadius:10,padding:"9px 15px",cursor:"pointer",color:G.primary,fontFamily:"'Manrope'",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:7,boxShadow:"4px 4px 10px var(--nm-dark),-4px -4px 10px #ffffff"}}><i className="ph-fill ph-printer" style={{fontSize:17}}></i>{"Imprimir todos ("+lr.filter(x=>x.ps.length>0).length+" laboratórios)"}</button></div>}
-{lr.map(({l,ps,tot,done,wait,cost})=>{const aberto=!!openProt[l.id];return <div key={l.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
+{lr.map(({l,ps,tot,done,wait,cost,cheio,dsc})=>{const aberto=!!openProt[l.id];return <div key={l.id} style={{background:G.card,borderRadius:13,padding:15,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff"}}>
 <div onClick={()=>setOpenProt(p=>Object.assign({},p,{[l.id]:!p[l.id]}))} style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:aberto?11:0,cursor:"pointer",alignItems:"center"}}>
 <div style={{display:"flex",alignItems:"center",gap:9}}><span style={{fontSize:13,color:G.primary,transition:"transform .2s",transform:aberto?"rotate(90deg)":"none"}}>▶</span><div><div style={{fontWeight:700,fontSize:15}}>{l.name}</div><div style={{fontSize:11,color:G.muted}}>{l.contact} · {l.phone}{aberto?"":" · toque para abrir"}</div></div></div>
 <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-{[["Retornados",tot,G.primary],["Instalados",done,G.success],["Pendentes",wait,G.yellow],["Custo Total",cur(cost),G.red]].map(([lbl,v,c])=><div key={lbl} style={{textAlign:"center",background:G.bg,borderRadius:8,padding:"6px 11px"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{lbl}</div></div>)}
+{[["Retornados",tot,G.primary],["Instalados",done,G.success],["Pendentes",wait,G.yellow],[dsc.pct>0?"Custo · −"+String(dsc.pct).replace(".",",")+"%":"Custo Total",dsc.pct>0?<span><span style={{display:"block",fontFamily:"'Manrope'",fontSize:10,fontWeight:600,color:G.muted,textDecoration:"line-through"}}>{cur(cheio)}</span>{cur(cost)}</span>:cur(cost),G.red]].map(([lbl,v,c])=><div key={lbl} style={{textAlign:"center",background:G.bg,borderRadius:8,padding:"6px 11px"}}><div style={{fontFamily:"'Cormorant Garamond'",fontSize:18,color:c}}>{v}</div><div style={{fontSize:10,color:G.muted,fontWeight:700}}>{lbl}</div></div>)}
 {/* V355: imprimir este laboratório (folha A4 para conferência) */}
-{ps.length>0&&<button onClick={e=>{e.stopPropagation();protPdf_V355([{l,ps,tot,done,wait,cost}],mo,pats,dents);}} title="Imprimir para conferência" style={{border:"1.5px solid rgba(47,93,73,.35)",background:G.bg,borderRadius:8,padding:"6px 11px",cursor:"pointer",color:G.primary,fontFamily:"'Manrope'",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}><i className="ph-fill ph-printer" style={{fontSize:18}}></i><span style={{fontSize:10,fontWeight:700}}>Imprimir</span></button>}
+{ps.length>0&&<button onClick={e=>{e.stopPropagation();protPdf_V355([{l,ps,tot,done,wait,cost,cheio,dsc}],mo,pats,dents);}} title="Imprimir para conferência" style={{border:"1.5px solid rgba(47,93,73,.35)",background:G.bg,borderRadius:8,padding:"6px 11px",cursor:"pointer",color:G.primary,fontFamily:"'Manrope'",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}><i className="ph-fill ph-printer" style={{fontSize:18}}></i><span style={{fontSize:10,fontWeight:700}}>Imprimir</span></button>}
 </div>
 </div>
-{aberto&&(ps.length>0?ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.returned||p.sent)}</span><span style={{flex:1}}>{pat?.name} -- {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{(p.qty||1)>1?p.qty+"× ":""}{Number(p.dentesQtd)>0?"+"+p.dentesQtd+" pl. ":""}{cur(prosCusto(p))}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;}):<div style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhuma prótese neste mês</div>)}
+{aberto&&ps.length>0&&<DescLab_V386 l={l} mo={mo} dsc={dsc} pode={user.level>=2&&!ehAux_V329(user)} setLabs={setLabs}/>}
+{aberto&&(ps.length>0?ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const _di=dsc.byId[p.id];const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.returned||p.sent)}</span><span style={{flex:1}}>{pat?.name} -- {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{(p.qty||1)>1?p.qty+"× ":""}{Number(p.dentesQtd)>0?"+"+p.dentesQtd+" pl. ":""}{_di&&_di.desc>0?<><span style={{color:G.muted,fontWeight:500,textDecoration:"line-through",marginRight:5}}>{cur(_di.cheio)}</span>{cur(_di.final)}</>:cur(prosCusto(p))}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;}):<div style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhuma prótese neste mês</div>)}
 </div>;})}
 </div>}
 {tab==="orc"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -20491,7 +20551,7 @@ return <>
       {view==="conversas"&&<Conversas pats={pats} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} waSeenRef={waSeenRef} onSeen={function(maxId){if(maxId>(waSeenRef.current||0)){waSeenRef.current=maxId;try{localStorage.setItem("waSeenId",String(maxId));}catch(e){}}setWaUnread(0);}} abrirFicha={abrirFicha}/>}
       {view==="satisf"&&<Satisfacao pats={pats} user={user} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waTemplates={waTemplates}/>}
       {view==="fin"&&<Financeiro recs={recs} setRecs={setRecs} pats={pats} dents={dents} expenses={expenses} gastos={gastos} treats={treats} user={user}/>}
-      {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp}/>}
+      {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} setLabs={setLabs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
       {view==="stk"&&<Estoque cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} implFech={implFech} setImplFech={setImplFech} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
