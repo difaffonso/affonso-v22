@@ -7212,6 +7212,9 @@ return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi
 // ══════════════════════════════════════════════════════════
 // PRÓTESES - with editable proc types
 // ══════════════════════════════════════════════════════════
+// V384: custo do laboratorio = servico (preco x qtd) + placas de dentes avulsas (dentesQtd x dentesVal)
+function prosCusto(p){if(!p)return 0;return (Number(p.price)||0)*(Number(p.qty)||1)+(Number(p.dentesQtd)||0)*(Number(p.dentesVal)||0);}
+function prosCustoDet(p){if(!p)return "";const q=Number(p.qty)||1,pr=Number(p.price)||0,dq=Number(p.dentesQtd)||0,dv=Number(p.dentesVal)||0;const partes=[];if(q>1)partes.push(q+" \u00d7 "+cur(pr));else if(dq>0)partes.push(cur(pr));if(dq>0)partes.push(dq+(dq>1?" placas":" placa")+" \u00d7 "+cur(dv));return partes.length?"("+partes.join(" + ")+")":"";}
 function Proteses({pros,setPros,pats,dents,labs,prosProcs,setProsProcs,user,logs,addLog,appts=[]}){// V325: appts p/ puxar da agenda
 const [filt,setFilt]=useState("today");const [modal,setModal]=useState(false);const [edit,setEdit]=useState(null);const [srch,setSrch]=useState("");// V212 busca paciente
 const [procModal,setProcModal]=useState(false);const [procForm,setProcForm]=useState({name:"",price:""});const [editProc,setEditProc]=useState(null);
@@ -7223,7 +7226,7 @@ const fmtTsP=iso=>{if(!iso)return "";const x=new Date(iso);if(isNaN(x))return ""
 const logP=(desc,patName)=>{try{if(typeof addLog==="function")addLog("protese",desc,patName||"");}catch(e){}};
 const patNm=id=>{const q=pats.find(x=>x.id===id);return (q&&q.name)||"";};
 const descP=q=>q.type+((q.qty||1)>1?" \u00d7"+q.qty:"")+(q.proc?" -- "+q.proc:"");
-const b0={patientId:"",dentistId:1,labId:"",type:PROS_T[0],proc:"",tooth:"",sent:today(),due:"",returned:"",status:"waiting",notes:"",price:"",qty:"1",cor:"",escala:"",pdata:"",phora:""};// V324 cor/escala + V325 data do paciente
+const b0={patientId:"",dentistId:1,labId:"",type:PROS_T[0],proc:"",tooth:"",sent:today(),due:"",returned:"",status:"waiting",notes:"",price:"",qty:"1",dentesQtd:"",dentesVal:"40",cor:"",escala:"",pdata:"",phora:""};// V384 dentesQtd/dentesVal// V324 cor/escala + V325 data do paciente
 const [f,setF]=useState(b0);const upd=k=>v=>setF(p=>({...p,[k]:v}));
 const t=today();
 // Atrasadas: aguardando com previsão anterior a hoje (mais antiga = mais atrasada vem primeiro)
@@ -7243,9 +7246,9 @@ const srchAct=srch.trim().length>0;
 const srchList=srchAct?pros.filter(p=>{const pt=pats.find(x=>x.id===p.patientId);return pt&&smartHit(srch,pt.name);}).filter(p=>(filt==="all"||filt==="today")?true:p.status===filt).sort((a,b)=>String(b.sent||"").localeCompare(String(a.sent||""))):null;
 const flt2=srchAct?srchList:flt;
 const srchPatIds=srchAct?[...new Set(srchList.map(p=>p.patientId))]:[];
-const srchTot=srchAct?srchList.reduce((s,p)=>s+(Number(p.price)||0)*(Number(p.qty)||1),0):0;
+const srchTot=srchAct?srchList.reduce((s,p)=>s+prosCusto(p),0):0;
 const srchInst=srchAct?srchList.filter(p=>p.status==="placed").length:0;
-const save=()=>{if(!f.patientId||!f.labId)return alert("Informe paciente e laboratório");const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,id:edit?edit.id:nid(pros),_ts:Date.now()};
+const save=()=>{if(!f.patientId||!f.labId)return alert("Informe paciente e laboratório");const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,dentesQtd:Number(f.dentesQtd)||0,dentesVal:Number(f.dentesQtd)>0?(Number(f.dentesVal)||0):0,id:edit?edit.id:nid(pros),_ts:Date.now()};
 // V278: grava autoria do cadastro (_by/_cr) e da ultima edicao (_edBy/_edTs)
 if(edit){obj._by=edit._by||"";obj._cr=edit._cr||edit._ts||Date.now();obj._edBy=uName;obj._edTs=new Date().toISOString();}
 else{obj._by=uName;obj._cr=Date.now();obj._byTs=new Date().toISOString();}
@@ -7292,15 +7295,15 @@ return <div key={p.id} style={(late||pHj)?{background:G.red+"10",borderRadius:12
 {(p.cor||p.escala)&&<div style={{fontSize:11,color:G.primary,fontWeight:700}}>{"\ud83c\udfa8 Cor: "}<b>{p.cor||"--"}</b>{p.escala?<span style={{color:G.muted,fontWeight:600}}>{" \u00b7 "+p.escala}</span>:null}</div>}{/* V324 */}
 {p.pdata&&<div style={{fontSize:11,fontWeight:700,color:(p.due&&p.due>p.pdata)?G.red:G.primary}}>{((p.due&&p.due>p.pdata)?"⚠️ ":"📅 ")+"Paciente marcado: "+fmt(p.pdata)+(p.phora?" às "+p.phora:"")}</div>}{/* V325 */}
 <div style={{fontSize:11,color:den.color}}>👨‍⚕️ {den.name}</div>
-<div style={{fontSize:11,color:G.primary,fontWeight:700}}>💰 Custo Lab: {cur((p.price||0)*(p.qty||1))}{(p.qty||1)>1?" ("+p.qty+" × "+cur(p.price)+")":""}</div>
+<div style={{fontSize:11,color:G.primary,fontWeight:700}}>💰 Custo Lab: {cur(prosCusto(p))}{prosCustoDet(p)?" "+prosCustoDet(p):""}</div>
 {p.notes&&<div style={{fontSize:10,color:G.muted,fontStyle:"italic"}}>{p.notes}</div>}
 </div>
 <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"flex-end"}}>
 {p.status==="waiting"&&<Btn ch="📦 Chegou!" sm onClick={()=>{setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"returned",returned:t,_recBy:uName,_recTs:new Date().toISOString(),_ts:Date.now()}:x));logP("Deu baixa na pr\u00f3tese ("+descP(p)+")",pat?.name||"");}}/>}
 {p.status==="returned"&&<Btn ch="✓ Instalada" v="y" sm onClick={()=>{setPros(prev=>prev.map(x=>x.id===p.id?{...x,status:"placed",_instBy:uName,_instTs:new Date().toISOString(),_ts:Date.now()}:x));logP("Marcou como instalada a pr\u00f3tese ("+descP(p)+")",pat?.name||"");}}/>}
 {lab?.phone&&<Btn ch="📱 Lab" v="w" sm onClick={()=>wa(lab.phone,`Olá ${lab.name}! Verificando ${p.type} paciente ${pat?.name}, dente ${p.tooth}${p.cor?", cor "+p.cor+(p.escala?" ("+p.escala+")":""):""}. Enviada ${fmt(p.sent)}, previsão ${fmt(p.due)}.${p.pdata?" O paciente está marcado para "+fmt(p.pdata)+(p.phora?" às "+p.phora:"")+".":""}`)}/>}
-<Btn ch="Editar" v="g" sm onClick={()=>{setEdit(p);setF({...p,patientId:String(p.patientId),dentistId:String(p.dentistId),labId:String(p.labId),price:String(p.price||""),qty:String(p.qty||1)});setModal(true);}}/>
-<Btn ch="✕ Excluir" v="r" sm onClick={()=>{setPros(prev=>prev.filter(x=>x.id!==p.id));logP("Excluiu pr\u00f3tese ("+descP(p)+")"+(p.price?", custo lab "+cur((p.price||0)*(p.qty||1)):""),pat?.name||"");}}/>
+<Btn ch="Editar" v="g" sm onClick={()=>{setEdit(p);setF({...p,patientId:String(p.patientId),dentistId:String(p.dentistId),labId:String(p.labId),price:String(p.price||""),qty:String(p.qty||1),dentesQtd:p.dentesQtd?String(p.dentesQtd):"",dentesVal:String(p.dentesVal||40)});setModal(true);}}/>
+<Btn ch="✕ Excluir" v="r" sm onClick={()=>{setPros(prev=>prev.filter(x=>x.id!==p.id));logP("Excluiu pr\u00f3tese ("+descP(p)+")"+(prosCusto(p)?", custo lab "+cur(prosCusto(p)):""),pat?.name||"");}}/>
 </div>
 </div>
 </div>;})}
@@ -7381,6 +7384,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(43,51,48,.45)",zIn
 </select>
 </div>
 <div style={{display:"grid",gridTemplateColumns:"0.55fr 1fr",gap:8}}><Inp lb="Qtd" val={f.qty} set={v=>setF(p=>({...p,qty:v}))} type="number" ph="1"/><Inp lb="💰 Custo Lab cada (R$)" val={f.price} set={v=>setF(p=>({...p,price:v}))} type="number" ph="0,00"/></div>
+<div style={{display:"grid",gridTemplateColumns:"0.55fr 1fr",gap:8}}><Inp lb="🦷 Placas de dentes" val={f.dentesQtd} set={v=>setF(p=>({...p,dentesQtd:v}))} type="number" ph="0"/><Inp lb="Valor por placa (R$)" val={f.dentesVal} set={v=>setF(p=>({...p,dentesVal:v}))} type="number" ph="40,00"/></div>
 </div>
 {/* V324: cor e escala de cor */}
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11}}>
@@ -7440,14 +7444,14 @@ setF(p=>({...p,pdata:prox.date,phora:prox.time||""}));
 </select>
 </div>
 </div>}
-{Number(f.qty||1)>1&&Number(f.price)>0&&<div style={{background:G.accent,borderRadius:8,padding:"7px 12px",fontSize:12.5,color:G.primary}}>Total do laboratório: <strong>{cur(Number(f.price)*Number(f.qty||1))}</strong> <span style={{color:G.muted}}>({f.qty} × {cur(Number(f.price))})</span></div>}
+{((Number(f.qty||1)>1&&Number(f.price)>0)||Number(f.dentesQtd)>0)&&<div style={{background:G.accent,borderRadius:8,padding:"7px 12px",fontSize:12.5,color:G.primary}}>Total do laboratório: <strong>{cur(prosCusto(f))}</strong> <span style={{color:G.muted}}>{prosCustoDet(f)}</span></div>}
 <Txt lb="Observações (cor, material)" val={f.notes} set={v=>setF(p=>({...p,notes:v}))} rows={2}/>
 <div style={{display:"flex",gap:9,justifyContent:"flex-end",marginTop:6,paddingTop:12,borderTop:`1px solid ${G.border}`}}>
 <button onClick={()=>setModal(false)} style={{border:`1.5px solid ${G.primary}`,background:"transparent",color:G.primary,borderRadius:8,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Cancelar</button>
 <button onClick={()=>{
 if(!f.patientId)return alert("Selecione o paciente");
 if(!f.labId)return alert("Selecione o laboratório");
-const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,id:edit?edit.id:nid(pros),_ts:Date.now()};
+const obj={...f,patientId:Number(f.patientId),dentistId:Number(f.dentistId),labId:Number(f.labId),price:Number(f.price||0),qty:Number(f.qty)||1,dentesQtd:Number(f.dentesQtd)||0,dentesVal:Number(f.dentesQtd)>0?(Number(f.dentesVal)||0):0,id:edit?edit.id:nid(pros),_ts:Date.now()};
 setPros(prev=>edit?prev.map(p=>p.id===edit.id?obj:p):[...prev,obj]);
 setModal(false);
 }} style={{background:G.primary,color:"#fff",border:"none",borderRadius:8,padding:"9px 18px",fontSize:14,fontWeight:700,cursor:"pointer"}}>💾 Salvar Prótese</button>
@@ -9896,7 +9900,7 @@ const clinCom=clinLiq*(d.commission||40)/100;
 return {d,rs,raw,liq,com,cf:allCf,donedItems,doneLiq,doneCom,ortoRs,clinRs,ortoRaw,ortoCom,clinRaw,clinCom,clinDeferred,isORec};
 
 });
-const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&(p.returned||"").startsWith(mo));const cost=ps.reduce((s,p)=>s+(p.price||0)*(p.qty||1),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
+const lr=labs.map(l=>{const ps=pros.filter(p=>p.labId===l.id&&(p.returned||"").startsWith(mo));const cost=ps.reduce((s,p)=>s+prosCusto(p),0);return {l,ps,tot:ps.length,done:ps.filter(p=>p.status==="placed").length,wait:ps.filter(p=>p.status==="waiting").length,cost};});
 const gastoMes=arr=>(arr||[]).filter(e=>(e.recorrente&&e.diaVenc)?true:e.parcelado?(function(){var k=(Number(mo.slice(0,4))*12+Number(mo.slice(5,7)))-(Number((e.date||"").slice(0,4))*12+Number((e.date||"").slice(5,7)));return k>=0&&k<Number(e.parcelas||1);})():(e.date&&e.date.startsWith(mo)));
 const isPagoG=e=>(e.recorrente||e.parcelado)?!!(e.pagoMeses&&e.pagoMeses[mo]):!!e.paid;
 const clinicaG=gastoMes(gastos&&gastos.clinica);
@@ -10027,7 +10031,7 @@ return <div key={i} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",bor
 {ps.length>0&&<button onClick={e=>{e.stopPropagation();protPdf_V355([{l,ps,tot,done,wait,cost}],mo,pats,dents);}} title="Imprimir para conferência" style={{border:"1.5px solid rgba(47,93,73,.35)",background:G.bg,borderRadius:8,padding:"6px 11px",cursor:"pointer",color:G.primary,fontFamily:"'Manrope'",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1}}><i className="ph-fill ph-printer" style={{fontSize:18}}></i><span style={{fontSize:10,fontWeight:700}}>Imprimir</span></button>}
 </div>
 </div>
-{aberto&&(ps.length>0?ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.returned||p.sent)}</span><span style={{flex:1}}>{pat?.name} -- {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{(p.qty||1)>1?p.qty+"× ":""}{cur((p.price||0)*(p.qty||1))}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;}):<div style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhuma prótese neste mês</div>)}
+{aberto&&(ps.length>0?ps.map(p=>{const pat=pats.find(x=>x.id===p.patientId);const den=dents.find(x=>x.id===p.dentistId)||dents[0];return <div key={p.id} style={{display:"flex",gap:8,fontSize:11,padding:"5px 0",borderBottom:`1px solid ${G.border}`,flexWrap:"wrap",alignItems:"center"}}><span style={{color:G.muted,minWidth:70}}>{fmt(p.returned||p.sent)}</span><span style={{flex:1}}>{pat?.name} -- {p.type} D.{p.tooth}</span><span style={{fontSize:10,color:den.color}}>{den.name.split(" ")[0]}</span><span style={{fontWeight:700,color:G.primary}}>{(p.qty||1)>1?p.qty+"× ":""}{Number(p.dentesQtd)>0?"+"+p.dentesQtd+" pl. ":""}{cur(prosCusto(p))}</span><Bdg l={PROS_SL[p.status]} col={PROS_SC[p.status]} sm/></div>;}):<div style={{fontSize:12,color:G.muted,padding:"6px 0"}}>Nenhuma prótese neste mês</div>)}
 </div>;})}
 </div>}
 {tab==="orc"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
