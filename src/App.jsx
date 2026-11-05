@@ -2,6 +2,12 @@ import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 
 const SUPA_URL="https://ncfsepyzrqaljswjiuiv.supabase.co";
 const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jZnNlcHl6cnFhbGpzd2ppdWl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTg1NzYsImV4cCI6MjA5NDA5NDU3Nn0.j_7sctB2bP0zljxPbh3Q4I_MzEksgL8PO5QNdzbaJDM";
+// V388: tempo limite nas chamadas do salvamento/sincronizacao. Antes, se a conexao engasgasse no meio, o fetch
+// ficava esperando para sempre: a trava do save nunca soltava, a tela ficava em "Salvando... aguarde" e NADA mais
+// saia do aparelho (caso real 05/11: PC da recepcao ficou ~4h sem gravar; lancamento do Luiz so existia la).
+// O timer nao e limpo de proposito: assim ele tambem cobre a leitura do corpo (r.json()); abortar depois que
+// terminou nao faz nada.
+function __fetchTO(url,opts,ms){var o=Object.assign({},opts||{});try{if(typeof AbortController!=="undefined"){var ac=new AbortController();o.signal=ac.signal;setTimeout(function(){try{ac.abort();}catch(e){}},ms||25000);}}catch(e){}return fetch(url,o);}
 // === AUTENTICACAO (Supabase Auth) — protecao de acesso ===
 let __ACCESS=null,__REFRESH=null,__EXP=0,__REFTIMER=null;
 function __authTok(){return __ACCESS||SUPA_KEY;}
@@ -23,17 +29,17 @@ const idb={
   async set(k,v){var db=await this.open();if(!db)return false;return new Promise(function(res){try{var rq=db.transaction("kv","readwrite").objectStore("kv").put(v,k);rq.onsuccess=function(){res(true);};rq.onerror=function(){res(false);};}catch(e){res(false);}});}
 };
 const supabase={
-async loadFull(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=data,updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return {data:rows[0].data,updated_at:rows[0].updated_at};return null;}catch(e){return null;}},
+async loadFull(){try{const r=await __fetchTO(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=data,updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}},60000);const rows=await r.json();if(rows&&rows[0]&&rows[0].data&&Object.keys(rows[0].data).length>0)return {data:rows[0].data,updated_at:rows[0].updated_at};return null;}catch(e){return null;}},
 async load(){const f=await this.loadFull();return f?f.data:null;},
-async getTimestamp(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
+async getTimestamp(){try{const r=await __fetchTO(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}},20000);const rows=await r.json();if(rows&&rows[0])return rows[0].updated_at;return null;}catch(e){return null;}},
 // V196: no login, baixar apenas a lista de usuarios (poucos KB) em vez do banco inteiro
 async loadUsersOnly(){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=users:data->users",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(rows&&rows[0]&&Array.isArray(rows[0].users)&&rows[0].users.length)return rows[0].users;return null;}catch(e){return null;}},
-async save(data){try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});return r.ok;}catch(e){return false;}}, // V362: so a restauracao de backup usa esta (grava sem trava, de proposito)
+async save(data){try{const r=await __fetchTO(SUPA_URL+"/rest/v1/clinic_data?id=eq.main",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({data,updated_at:new Date().toISOString()})},45000);return r.ok;}catch(e){return false;}}, // V362: so a restauracao de backup usa esta (grava sem trava, de proposito)
 // V362: gravacao CONDICIONAL do blob. So grava se o servidor ainda estiver na versao que este aparelho conhece
 // (updated_at igual a baseTs). Se outro aparelho gravou no meio, NADA e gravado e volta {conflito:true}.
 // Antes o save conferia o carimbo e gravava em dois passos: quem gravasse no intervalo era apagado
 // (caso real 06/10: a baixa da Clau feita no celular sumiu 0,06s depois, coberta pela copia do PC da recepcao).
-async saveSe(data,baseTs){if(!baseTs)return {ok:false,semBase:true};try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&updated_at=eq."+encodeURIComponent(baseTs)+"&select=updated_at",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({data,updated_at:new Date().toISOString()})});if(!r.ok)return {ok:false,status:r.status};var rows=null;try{rows=await r.json();}catch(e){rows=null;}if(Array.isArray(rows)&&rows.length&&rows[0]&&rows[0].updated_at)return {ok:true,updated_at:rows[0].updated_at};if(Array.isArray(rows)&&!rows.length)return {ok:false,conflito:true};return {ok:false,status:r.status};}catch(e){return {ok:false};}},
+async saveSe(data,baseTs){if(!baseTs)return {ok:false,semBase:true};try{const r=await __fetchTO(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&updated_at=eq."+encodeURIComponent(baseTs)+"&select=updated_at",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({data,updated_at:new Date().toISOString()})},45000);if(!r.ok)return {ok:false,status:r.status};var rows=null;try{rows=await r.json();}catch(e){rows=null;}if(Array.isArray(rows)&&rows.length&&rows[0]&&rows[0].updated_at)return {ok:true,updated_at:rows[0].updated_at};if(Array.isArray(rows)&&!rows.length)return {ok:false,conflito:true};return {ok:false,status:r.status};}catch(e){return {ok:false};}},
 async loadPatients(){if(!SUPA_URL)return null;try{var all=[];var lastId=0;var step=1000;for(var guard=0;guard<500;guard++){var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=id.asc&limit="+step+"&id=gt."+lastId,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return all.length?all:null;var rows=await r.json();if(!rows||!rows.length)break;for(var k=0;k<rows.length;k++){all.push(rows[k].data);}lastId=rows[rows.length-1].id;if(rows.length<step)break;}return all;}catch(e){return null;}},
 async loadPatientsSince(ts){if(!SUPA_URL)return null;try{var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=updated_at.asc&updated_at=gt."+encodeURIComponent(ts)+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return null;var d=await r.json();return (d||[]).map(function(row){return {id:row.id,data:row.data,ts:row.updated_at};});}catch(e){return null;}},
 async deletePatients(ids){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!ids||!ids.length)return {ok:true};try{var r=await fetch(SUPA_URL+"/rest/v1/patients?id=in.("+ids.map(function(i){return encodeURIComponent(i);}).join(",")+")",{method:"DELETE",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Prefer":"return=minimal"}});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}return {ok:true};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}, // V197
@@ -45,8 +51,8 @@ async fetchAnam(token){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL
 // V200: versao economica do poll - retorna so token+created_at (sem payload, ~poucas centenas de bytes).
 // Usa o mesmo cursor __anamCur (recuo de 15min p/ tolerar commits fora de ordem); dedup fica no handler.
 ,async fetchAnamTokens(){if(!SUPA_URL)return [];try{var since=this.__anamCur||new Date(Date.now()-7*864e5).toISOString();const r=await fetch(SUPA_URL+"/rest/v1/anamnese_subs?created_at=gte."+encodeURIComponent(since)+"&select=token,created_at&order=created_at.desc&limit=200",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();if(!Array.isArray(rows))return [];var mx=null;rows.forEach(function(x){if(x&&x.created_at&&(!mx||x.created_at>mx))mx=x.created_at;});if(mx){try{this.__anamCur=new Date(Date.parse(mx)-15*60000).toISOString();}catch(e2){}}return rows;}catch(e){return [];}}
-,async loadVers(){if(!SUPA_URL)return null;try{const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at,vers:data->_vers",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
-,async loadKeys(keys){if(!SUPA_URL||!keys||!keys.length)return null;try{var sel="updated_at,"+keys.map(function(k){return k+":data->"+k;}).join(",");const r=await fetch(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select="+encodeURIComponent(sel),{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
+,async loadVers(){if(!SUPA_URL)return null;try{const r=await __fetchTO(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select=updated_at,vers:data->_vers",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}},20000);const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
+,async loadKeys(keys){if(!SUPA_URL||!keys||!keys.length)return null;try{var sel="updated_at,"+keys.map(function(k){return k+":data->"+k;}).join(",");const r=await __fetchTO(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&select="+encodeURIComponent(sel),{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}},45000);const rows=await r.json();if(Array.isArray(rows)&&rows.length)return rows[0];return null;}catch(e){return null;}} // V199
 ,async loadWaMessages(){if(!SUPA_URL)return [];try{const r=await fetch(SUPA_URL+"/rest/v1/wa_messages?select=*&order=id.desc&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});var rows=await r.json();return Array.isArray(rows)?rows:[];}catch(e){return [];}}
 // V308: fonte propria e COMPLETA das respostas "Otimo" da pesquisa de satisfacao.
 // O cache de conversas guarda so as ultimas 1000 mensagens, entao avaliacoes antigas
@@ -18963,6 +18969,7 @@ return function(){ativo=false;clearInterval(t);};
 },[user]);
 const abrirFicha=function(p){if(!p)return;var pp=(p&&typeof p==="object")?p:pats.find(function(x){return x.id===Number(p);});if(pp)setFichaPat(pp);};
 const [saveStatus,setSaveStatus]=useState("idle");
+const [saveStuck,setSaveStuck]=useState(false); // V388: alarme "nao salvou"
 // V318: rede de seguranca do salvamento de pacientes (anamnese que "salva" e some).
 // O save de pacientes nao tinha retry, nem flush ao sair, nem aviso de erro proprio:
 // o balao verde "Dados salvos!" e do blob, que desde o V313 devolve sucesso na hora
@@ -19227,6 +19234,13 @@ try{idb.get("draft_v1").then(function(_dft){
   if(_dft.appts&&_dft.appts.length)setAppts(function(prev){var m=mergeAppts(prev,_dft.appts,_dfSkip);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
   if(_dft.orientacoes&&_dft.orientacoes.length)setOrientacoes(function(prev){var m=mergeOrient(prev,_dft.orientacoes,_dfDel);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});
   if(_dft.remarcar&&_dft.remarcar.length)setRemarcar(function(prev){prev=prev||[];var ids={};prev.forEach(function(r){if(r&&r.id!=null)ids[r.id]=1;});var add=_dft.remarcar.filter(function(r){return r&&r.id!=null&&!ids[r.id];});return add.length?prev.concat(add):prev;});
+  // V388: planos (pagamentos/itens) e recebimentos que nao chegaram ao servidor. Mesmo merge do sync (pagamentos
+  // unidos por id, lapides respeitadas, versao mais nova do plano vence). So rascunho de ate 2 dias.
+  var _dfRecente=(Date.now()-_dft.ts)<2*86400000,_dfMexeu=false;
+  if(_dfRecente&&_dft.treats&&_dft.treats.length){_dfMexeu=true;setTreats(function(prev){var m=mergeTreats(prev,_dft.treats,_dfDel);return JSON.stringify(m)===JSON.stringify(prev)?prev:m;});}
+  if(_dfRecente&&_dft.recs&&_dft.recs.length){_dfMexeu=true;setRecs(function(prev){prev=prev||[];var ix={};prev.forEach(function(r,i){if(r&&r.id!=null)ix[r.id]=i;});var next=null;_dft.recs.forEach(function(r){if(!r||r.id==null||_dfDel["recs:"+r.id])return;var i=ix[r.id];if(i==null){next=next||prev.slice();next.push(r);ix[r.id]=next.length-1;}else if((Number(r._ts)||0)>(Number(prev[i]&&prev[i]._ts)||0)){next=next||prev.slice();next[i]=r;}});return next||prev;});}
+  // o rascunho pode ser aplicado antes do autosave estar ligado: um "toque" depois garante que ele va ao servidor
+  if(_dfMexeu||(_dft.appts&&_dft.appts.length))setTimeout(function(){setTreats(function(p){return p?p.slice():p;});},2500);
 });}catch(e){}
 }catch(err){}
 }
@@ -19283,13 +19297,14 @@ setTimeout(()=>{initialized.current=true;},1000);
 // Salvar imediatamente ao sair/esconder a pagina
 var flushSave=function(){
   if(!initialized.current)return;
-  if(dirtyRef.current&&draftStateRef.current){try{idb.set("draft_v1",Object.assign({ts:Date.now()},draftStateRef.current));}catch(e){}} // V234: rascunho anti-perda (iOS pode matar o save ao sair do app)
+  if(dirtyRef.current&&draftStateRef.current){writeDraftNow();} // V234 (V388: via writeDraftNow, com planos e recebimentos): rascunho anti-perda (iOS pode matar o save ao sair do app)
   if(isSaving.current)return;
   if(!dirtyRef.current)return; // V210: nada pendente, nada a fazer
   if(saveTimer.current){clearTimeout(saveTimer.current);saveTimer.current=null;}
   try{if(runSaveRef.current)runSaveRef.current();}catch(e){} // V210: dispara o save real (com anti-sobrescrita e merge)
 };
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flushSave();});
+try{window.addEventListener("pagehide",function(){if(dirtyRef.current&&draftStateRef.current)writeDraftNow();});}catch(e){} // V388: F5/fechar a aba tambem guarda o rascunho
 });
 },[user]);
 
@@ -19331,6 +19346,20 @@ const lastSavedApptIds=useRef(null);
 const dirtyRef=useRef(false);
 const runSaveRef=useRef(null); // V210: ponte p/ disparar o save de fora do efeito
 const draftStateRef=useRef(null); // V234: espelho do estado pendente p/ rascunho anti-perda
+const lastOkSaveRef=useRef(Date.now()); // V388: hora da ultima gravacao confirmada pelo servidor (relogio deste aparelho)
+const dirtySinceRef=useRef(0); // V388: desde quando ha alteracao esperando para ir ao servidor
+// V388: rascunho anti-perda passa a levar tambem PLANOS e RECEBIMENTOS (antes so agenda/orientacoes/remarcar).
+// Vai so o que foi mexido depois da ultima gravacao confirmada (pelo _ts), para nao reaplicar copia velha.
+const writeDraftNow=function(){
+  try{
+    var d=draftStateRef.current;if(!d)return Promise.resolve(false);
+    var corte=(lastOkSaveRef.current||0)-10000;
+    var _tsOf=function(x){var t=Number(x&&x._ts)||0,t2=0;try{t2=x&&x.ts?(Date.parse(x.ts)||0):0;}catch(e){}return Math.max(t,t2);};
+    var tr=(d.treats||[]).filter(function(t){return t&&(Number(t._ts)||0)>=corte;});
+    var rc=(d.recs||[]).filter(function(r){return r&&_tsOf(r)>=corte;});
+    return idb.set("draft_v1",{ts:Date.now(),appts:d.appts,remarcar:d.remarcar,orientacoes:d.orientacoes,treats:tr,recs:rc});
+  }catch(e){return Promise.resolve(false);}
+};
 // V197: exclusao real de paciente no servidor. So remove localmente apos confirmacao (padrao V190/Ponto).
 const delPatServer=async function(id){
   if(id==null)return {ok:false,msg:"ID invalido"};
@@ -19608,8 +19637,9 @@ return out;
 useEffect(function(){
   if(!initialized.current)return;
   lastLocalChangeTs.current=Date.now();
+  if(!dirtyRef.current)dirtySinceRef.current=Date.now(); // V388
   dirtyRef.current=true;
-  draftStateRef.current={appts:appts,remarcar:remarcar,orientacoes:orientacoes}; // V234
+  draftStateRef.current={appts:appts,remarcar:remarcar,orientacoes:orientacoes,treats:treats,recs:recs}; // V234 (V388: + planos e recebimentos)
   var _genEfeito=mergeGenRef.current; // V357: geracao do estado que este save enxerga (muda a cada merge do save)
   if(saveTimer.current)clearTimeout(saveTimer.current);
   setSaveStatus("saving");
@@ -19810,7 +19840,10 @@ useEffect(function(){
   var runSave=async function runSave(){
     if(isSaving.current){ pendingSave.current=true; return; }
     isSaving.current=true;
-    var ok=await doSave();
+    // V388: se o doSave estourar um erro no meio, a trava (isSaving) ficava presa para sempre e nada mais gravava.
+    var ok;
+    try{ok=await doSave();}catch(e){ok=false;try{console.error("[V388] erro no salvamento",e);}catch(_e){}}
+    if(ok===true)lastOkSaveRef.current=Date.now(); // V388
     if(ok==="merged"){
       // V357: o merge so vira estado no PROXIMO render; este doSave ainda enxerga a copia de ANTES dele.
       // O laco antigo chamava este mesmo doSave de novo -> a copia velha ia para o servidor e apagava o que
@@ -19850,6 +19883,31 @@ useEffect(function(){
   runSaveRef.current=runSave; // V210
   saveTimer.current=setTimeout(runSave,AUTOSAVE_MS); // V296: era 800ms fixo
 },[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra,docsEmitidos,notas,bkpLog]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra // V320: docsEmitidos // V353: notas e bkpLog tambem nao disparavam -- nota escrita no celular so salvava de carona em outra mudanca
+
+// V388: VIGIA DO SALVAMENTO. Se ha alteracao esperando e nenhuma gravacao foi confirmada ha mais de 60s, mostra o
+// aviso vermelho (antes o aparelho podia ficar horas em "Salvando..." sem ninguem perceber). Tambem guarda o
+// rascunho anti-perda e, se nao houver save a caminho (ex.: as 3 tentativas falharam e ninguem mexeu mais em nada),
+// tenta de novo sozinho a cada 20s.
+useEffect(function(){
+  var ultRetry=0,ultDraft=0;
+  var iv=setInterval(function(){
+    try{
+      if(!initialized.current)return;
+      if(!dirtyRef.current){dirtySinceRef.current=0;setSaveStuck(function(p){return p?false:p;});return;}
+      if(!dirtySinceRef.current)dirtySinceRef.current=Date.now();
+      var parado=Date.now()-Math.max(dirtySinceRef.current,lastOkSaveRef.current||0);
+      if(parado>15000&&Date.now()-ultDraft>30000){ultDraft=Date.now();writeDraftNow();}
+      if(parado>20000&&!isSaving.current&&!saveTimer.current&&runSaveRef.current&&Date.now()-ultRetry>20000){
+        ultRetry=Date.now();lastSaveFailed.current=false;
+        try{runSaveRef.current();}catch(e){}
+      }
+      var preso=parado>60000;
+      setSaveStuck(function(p){return p===preso?p:preso;});
+    }catch(e){}
+  },5000);
+  return function(){clearInterval(iv);};
+},[]);
+
 
 // ── SALVAR PACIENTES na tabela propria (apenas os que mudaram) ──
 patsRef.current=pats;
@@ -20495,6 +20553,7 @@ return <>
 
 <style>{CSS+RESPONSIVE_CSS}</style>
 
+{saveStuck&&<div role="alert" style={{position:"fixed",left:12,right:12,bottom:130,zIndex:10001,maxWidth:560,margin:"0 auto",borderRadius:14,padding:"12px 16px",fontSize:13,fontWeight:700,lineHeight:1.4,background:"var(--red-soft)",color:"#B71C1C",border:"2px solid #E57373",boxShadow:"0 4px 14px rgba(0,0,0,.2)"}}>⚠️ As últimas alterações deste aparelho AINDA NÃO FORAM SALVAS no servidor. O sistema está tentando de novo sozinho.<div style={{fontWeight:500,marginTop:4}}>Se este aviso não sumir em instantes, clique abaixo: agendamentos, planos e pagamentos lançados ficam guardados e são reenviados.</div><button onClick={function(){var _p=writeDraftNow();Promise.resolve(_p).catch(function(){}).then(function(){setTimeout(function(){try{window.location.reload();}catch(e){}},300);});}} style={{marginTop:8,padding:"8px 14px",borderRadius:10,border:"none",background:"#C62828",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>Recarregar com segurança</button></div>}
 {saveStatus!=="idle"&&<div style={{position:"fixed",bottom:80,right:16,zIndex:9999,borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,boxShadow:"0 2px 8px rgba(0,0,0,.15)",background:saveStatus==="saved"?"var(--green-soft)":saveStatus==="error"?"var(--red-soft)":"var(--amber-soft)",color:saveStatus==="saved"?"#2E7D32":saveStatus==="error"?"#C62828":"#E65100",border:"1.5px solid "+(saveStatus==="saved"?"#A5D6A7":saveStatus==="error"?"#EF9A9A":"#E65100")}}>{saveStatus==="saving"?"💾 Salvando... aguarde":saveStatus==="saved"?"✅ Dados salvos!":"❌ Erro ao salvar"}</div>}
 {patSaveStatus!=="idle"&&<div style={{position:"fixed",bottom:saveStatus!=="idle"?124:80,right:16,zIndex:9999,maxWidth:280,borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,lineHeight:1.35,boxShadow:"0 2px 8px rgba(0,0,0,.15)",background:patSaveStatus==="ok"?"var(--green-soft)":patSaveStatus==="err"?"var(--red-soft)":"var(--amber-soft)",color:patSaveStatus==="ok"?"#2E7D32":patSaveStatus==="err"?"#C62828":"#E65100",border:"1.5px solid "+(patSaveStatus==="ok"?"#A5D6A7":patSaveStatus==="err"?"#EF9A9A":"#E65100")}}>{patSaveStatus==="err"?"\u26a0\ufe0f Ficha do paciente ainda N\u00c3O gravada \u2014 tentando de novo. N\u00e3o feche o app.":patSaveStatus==="pend"?"\ud83d\udcbe Gravando ficha do paciente...":"\u2705 Ficha do paciente gravada"}</div>}
 {/* Overlay for mobile sidebar */}
