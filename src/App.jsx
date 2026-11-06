@@ -7,7 +7,10 @@ const SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 // saia do aparelho (caso real 05/11: PC da recepcao ficou ~4h sem gravar; lancamento do Luiz so existia la).
 // O timer nao e limpo de proposito: assim ele tambem cobre a leitura do corpo (r.json()); abortar depois que
 // terminou nao faz nada.
-function __fetchTO(url,opts,ms){var o=Object.assign({},opts||{});try{if(typeof AbortController!=="undefined"){var ac=new AbortController();o.signal=ac.signal;setTimeout(function(){try{ac.abort();}catch(e){}},ms||25000);}}catch(e){}return fetch(url,o);}
+// V389: guarda o resultado da ultima chamada: "rede" = o navegador nem conseguiu falar com o servidor (sem internet);
+// timeout (AbortError) NAO conta como sem internet -- e servidor/conexao travada, outro aviso.
+var __netSt={ok:0,falhaRede:0};
+function __fetchTO(url,opts,ms){var o=Object.assign({},opts||{});try{if(typeof AbortController!=="undefined"){var ac=new AbortController();o.signal=ac.signal;setTimeout(function(){try{ac.abort();}catch(e){}},ms||25000);}}catch(e){}return fetch(url,o).then(function(r){__netSt.ok=Date.now();return r;},function(e){try{if(!(e&&e.name==="AbortError"))__netSt.falhaRede=Date.now();}catch(_e){}throw e;});}
 // === AUTENTICACAO (Supabase Auth) — protecao de acesso ===
 let __ACCESS=null,__REFRESH=null,__EXP=0,__REFTIMER=null;
 function __authTok(){return __ACCESS||SUPA_KEY;}
@@ -19889,23 +19892,32 @@ useEffect(function(){
 // rascunho anti-perda e, se nao houver save a caminho (ex.: as 3 tentativas falharam e ninguem mexeu mais em nada),
 // tenta de novo sozinho a cada 20s.
 useEffect(function(){
-  var ultRetry=0,ultDraft=0;
+  var ultRetry=0,ultDraft=0,ultTick=Date.now();
+  var tentarJa=function(){try{if(initialized.current&&dirtyRef.current&&!isSaving.current&&!saveTimer.current&&runSaveRef.current){ultRetry=Date.now();lastSaveFailed.current=false;runSaveRef.current();}}catch(e){}};
+  var aoVoltarNet=function(){setTimeout(tentarJa,1500);}; // V389: internet voltou -> tenta gravar na hora
+  try{window.addEventListener("online",aoVoltarNet);}catch(e){}
   var iv=setInterval(function(){
     try{
+      var _agora=Date.now(),_salto=_agora-ultTick;ultTick=_agora;
       if(!initialized.current)return;
       if(!dirtyRef.current){dirtySinceRef.current=0;setSaveStuck(function(p){return p?false:p;});return;}
-      if(!dirtySinceRef.current)dirtySinceRef.current=Date.now();
+      if(!dirtySinceRef.current)dirtySinceRef.current=_agora;
+      // V389: computador acordou do modo de espera (o relogio pulou minutos/horas): da uma janela nova antes de
+      // alarmar -- a rede ainda esta voltando e ele nem tentou gravar. Aba em 2o plano o Chrome "acorda" ~1x/min: nao conta.
+      if(_salto>90000){dirtySinceRef.current=_agora;setSaveStuck(function(p){return p?false:p;});setTimeout(tentarJa,3000);return;}
       var parado=Date.now()-Math.max(dirtySinceRef.current,lastOkSaveRef.current||0);
       if(parado>15000&&Date.now()-ultDraft>30000){ultDraft=Date.now();writeDraftNow();}
       if(parado>20000&&!isSaving.current&&!saveTimer.current&&runSaveRef.current&&Date.now()-ultRetry>20000){
         ultRetry=Date.now();lastSaveFailed.current=false;
         try{runSaveRef.current();}catch(e){}
       }
-      var preso=parado>60000;
+      // V389: "rede" = a ultima tentativa nem chegou ao servidor (sem internet); "srv" = qualquer outro motivo
+      var _semNet=false;try{_semNet=(typeof navigator!=="undefined"&&navigator.onLine===false)||(__netSt.falhaRede>__netSt.ok);}catch(e){}
+      var preso=parado>60000?(_semNet?"rede":"srv"):false;
       setSaveStuck(function(p){return p===preso?p:preso;});
     }catch(e){}
   },5000);
-  return function(){clearInterval(iv);};
+  return function(){clearInterval(iv);try{window.removeEventListener("online",aoVoltarNet);}catch(e){}};
 },[]);
 
 
@@ -20553,7 +20565,8 @@ return <>
 
 <style>{CSS+RESPONSIVE_CSS}</style>
 
-{saveStuck&&<div role="alert" style={{position:"fixed",left:12,right:12,bottom:130,zIndex:10001,maxWidth:560,margin:"0 auto",borderRadius:14,padding:"12px 16px",fontSize:13,fontWeight:700,lineHeight:1.4,background:"var(--red-soft)",color:"#B71C1C",border:"2px solid #E57373",boxShadow:"0 4px 14px rgba(0,0,0,.2)"}}>⚠️ As últimas alterações deste aparelho AINDA NÃO FORAM SALVAS no servidor. O sistema está tentando de novo sozinho.<div style={{fontWeight:500,marginTop:4}}>Se este aviso não sumir em instantes, clique abaixo: agendamentos, planos e pagamentos lançados ficam guardados e são reenviados.</div><button onClick={function(){var _p=writeDraftNow();Promise.resolve(_p).catch(function(){}).then(function(){setTimeout(function(){try{window.location.reload();}catch(e){}},300);});}} style={{marginTop:8,padding:"8px 14px",borderRadius:10,border:"none",background:"#C62828",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>Recarregar com segurança</button></div>}
+{saveStuck==="rede"&&<div role="alert" style={{position:"fixed",left:12,right:12,bottom:130,zIndex:10001,maxWidth:560,margin:"0 auto",borderRadius:14,padding:"12px 16px",fontSize:13,fontWeight:700,lineHeight:1.4,background:"var(--amber-soft)",color:"#8A4B00",border:"2px solid #E6A23C",boxShadow:"0 4px 14px rgba(0,0,0,.2)"}}>📡 Sem internet neste computador. As últimas alterações ainda não foram para o servidor.<div style={{fontWeight:500,marginTop:4}}>O que foi lançado (agendamentos, planos e pagamentos) fica guardado aqui e é enviado sozinho quando a conexão voltar. Não recarregue a página enquanto estiver sem internet.</div></div>}
+{saveStuck==="srv"&&<div role="alert" style={{position:"fixed",left:12,right:12,bottom:130,zIndex:10001,maxWidth:560,margin:"0 auto",borderRadius:14,padding:"12px 16px",fontSize:13,fontWeight:700,lineHeight:1.4,background:"var(--red-soft)",color:"#B71C1C",border:"2px solid #E57373",boxShadow:"0 4px 14px rgba(0,0,0,.2)"}}>⚠️ As últimas alterações deste aparelho AINDA NÃO FORAM SALVAS no servidor. O sistema está tentando de novo sozinho.<div style={{fontWeight:500,marginTop:4}}>Se este aviso não sumir em instantes, clique abaixo: agendamentos, planos e pagamentos lançados ficam guardados e são reenviados.</div><button onClick={function(){var _p=writeDraftNow();Promise.resolve(_p).catch(function(){}).then(function(){setTimeout(function(){try{window.location.reload();}catch(e){}},300);});}} style={{marginTop:8,padding:"8px 14px",borderRadius:10,border:"none",background:"#C62828",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer"}}>Recarregar com segurança</button></div>}
 {saveStatus!=="idle"&&<div style={{position:"fixed",bottom:80,right:16,zIndex:9999,borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,boxShadow:"0 2px 8px rgba(0,0,0,.15)",background:saveStatus==="saved"?"var(--green-soft)":saveStatus==="error"?"var(--red-soft)":"var(--amber-soft)",color:saveStatus==="saved"?"#2E7D32":saveStatus==="error"?"#C62828":"#E65100",border:"1.5px solid "+(saveStatus==="saved"?"#A5D6A7":saveStatus==="error"?"#EF9A9A":"#E65100")}}>{saveStatus==="saving"?"💾 Salvando... aguarde":saveStatus==="saved"?"✅ Dados salvos!":"❌ Erro ao salvar"}</div>}
 {patSaveStatus!=="idle"&&<div style={{position:"fixed",bottom:saveStatus!=="idle"?124:80,right:16,zIndex:9999,maxWidth:280,borderRadius:12,padding:"8px 14px",fontSize:12,fontWeight:700,lineHeight:1.35,boxShadow:"0 2px 8px rgba(0,0,0,.15)",background:patSaveStatus==="ok"?"var(--green-soft)":patSaveStatus==="err"?"var(--red-soft)":"var(--amber-soft)",color:patSaveStatus==="ok"?"#2E7D32":patSaveStatus==="err"?"#C62828":"#E65100",border:"1.5px solid "+(patSaveStatus==="ok"?"#A5D6A7":patSaveStatus==="err"?"#EF9A9A":"#E65100")}}>{patSaveStatus==="err"?"\u26a0\ufe0f Ficha do paciente ainda N\u00c3O gravada \u2014 tentando de novo. N\u00e3o feche o app.":patSaveStatus==="pend"?"\ud83d\udcbe Gravando ficha do paciente...":"\u2705 Ficha do paciente gravada"}</div>}
 {/* Overlay for mobile sidebar */}
