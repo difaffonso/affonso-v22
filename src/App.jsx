@@ -43,6 +43,11 @@ async save(data){try{const r=await __fetchTO(SUPA_URL+"/rest/v1/clinic_data?id=e
 // Antes o save conferia o carimbo e gravava em dois passos: quem gravasse no intervalo era apagado
 // (caso real 06/10: a baixa da Clau feita no celular sumiu 0,06s depois, coberta pela copia do PC da recepcao).
 async saveSe(data,baseTs){if(!baseTs)return {ok:false,semBase:true};try{const r=await __fetchTO(SUPA_URL+"/rest/v1/clinic_data?id=eq.main&updated_at=eq."+encodeURIComponent(baseTs)+"&select=updated_at",{method:"PATCH",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json","Prefer":"return=representation"},body:JSON.stringify({data,updated_at:new Date().toISOString()})},45000);if(!r.ok)return {ok:false,status:r.status};var rows=null;try{rows=await r.json();}catch(e){rows=null;}if(Array.isArray(rows)&&rows.length&&rows[0]&&rows[0].updated_at)return {ok:true,updated_at:rows[0].updated_at};if(Array.isArray(rows)&&!rows.length)return {ok:false,conflito:true};return {ok:false,status:r.status};}catch(e){return {ok:false};}},
+// V392: grava SO as chaves que mudaram (funcao relevo_salvar no banco: data || patch, com a mesma condicao do
+// updated_at). Antes cada save mandava o blob inteiro (~3,9 MB): pela internet da clinica levava 10-25s, e nesse
+// tempo o outro computador gravava -> recusa -> junta -> manda 3,9 MB de novo... (caso real 06/11 15:26-15:30:
+// 8 recusas seguidas no PC da recepcao). Funcao ausente/erro de rota -> semRpc e o chamador usa o saveSe antigo.
+async saveDelta(patch,baseTs){if(!baseTs)return {ok:false,semBase:true};try{const r=await __fetchTO(SUPA_URL+"/rest/v1/rpc/relevo_salvar",{method:"POST",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Content-Type":"application/json"},body:JSON.stringify({p_base:baseTs,p_patch:patch,p_ts:new Date().toISOString()})},45000);if(r.status===404||r.status===400){return {ok:false,semRpc:true,status:r.status};}if(!r.ok)return {ok:false,status:r.status};var rows=null;try{rows=await r.json();}catch(e){rows=null;}if(Array.isArray(rows)&&rows.length&&rows[0]&&rows[0].updated_at)return {ok:true,updated_at:rows[0].updated_at};if(Array.isArray(rows)&&!rows.length)return {ok:false,conflito:true};return {ok:false,status:r.status};}catch(e){return {ok:false};}},
 async loadPatients(){if(!SUPA_URL)return null;try{var all=[];var lastId=0;var step=1000;for(var guard=0;guard<500;guard++){var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=id.asc&limit="+step+"&id=gt."+lastId,{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return all.length?all:null;var rows=await r.json();if(!rows||!rows.length)break;for(var k=0;k<rows.length;k++){all.push(rows[k].data);}lastId=rows[rows.length-1].id;if(rows.length<step)break;}return all;}catch(e){return null;}},
 async loadPatientsSince(ts){if(!SUPA_URL)return null;try{var r=await fetch(SUPA_URL+"/rest/v1/patients?select=id,data,updated_at&order=updated_at.asc&updated_at=gt."+encodeURIComponent(ts)+"&limit=1000",{headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok()}});if(!r.ok)return null;var d=await r.json();return (d||[]).map(function(row){return {id:row.id,data:row.data,ts:row.updated_at};});}catch(e){return null;}},
 async deletePatients(ids){if(!SUPA_URL)return {ok:false,msg:"Sem conexao"};if(!ids||!ids.length)return {ok:true};try{var r=await fetch(SUPA_URL+"/rest/v1/patients?id=in.("+ids.map(function(i){return encodeURIComponent(i);}).join(",")+")",{method:"DELETE",headers:{"apikey":SUPA_KEY,"Authorization":"Bearer "+__authTok(),"Prefer":"return=minimal"}});if(!r.ok){var t="";try{t=await r.text();}catch(e){}return {ok:false,status:r.status,msg:t||("Erro "+r.status)};}return {ok:true};}catch(e){return {ok:false,msg:String((e&&e.message)||e)};}}, // V197
@@ -19806,10 +19811,15 @@ useEffect(function(){
     _mud.forEach(function(k){_novosVers[k]=_vNow;});
     Object.keys(_kj).forEach(function(k){if(!blobVersRef.current[k]&&!_novosVers[k])_novosVers[k]=_vNow;});
     payload._vers=Object.assign({},blobVersRef.current,_novosVers);
+    // V392: pacote so com o que mudou (+ _vers). O blob inteiro so vai se a funcao do banco nao existir.
+    var _patch={};_mud.forEach(function(k){_patch[k]=payload[k];});_patch._vers=payload._vers;
     var ok=false,_falhas=0,_conflitos=0;
     while(!ok&&_falhas<3){
       var res=null;
-      try{res=await supabase.saveSe(payload,lastServerTs.current);}catch(e){res=null;}
+      try{
+        if(!window.__semRpcSalvar){res=await supabase.saveDelta(_patch,lastServerTs.current);if(res&&res.semRpc){window.__semRpcSalvar=true;res=null;}}
+        if(!res)res=await supabase.saveSe(payload,lastServerTs.current);
+      }catch(e){res=null;}
       if(res&&res.ok){
         Object.assign(blobVersRef.current,_novosVers);
         Object.keys(_kj).forEach(function(k){lastSavedKeyJsonRef.current[k]=_kj[k];});
