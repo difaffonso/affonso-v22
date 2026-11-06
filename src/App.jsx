@@ -19896,12 +19896,18 @@ useEffect(function(){
   var tentarJa=function(){try{if(initialized.current&&dirtyRef.current&&!isSaving.current&&!saveTimer.current&&runSaveRef.current){ultRetry=Date.now();lastSaveFailed.current=false;runSaveRef.current();}}catch(e){}};
   var aoVoltarNet=function(){setTimeout(tentarJa,1500);}; // V389: internet voltou -> tenta gravar na hora
   try{window.addEventListener("online",aoVoltarNet);}catch(e){}
+  // V391: com a aba escondida (outra aba/janela na frente, minimizada) o Chrome segura os timers e o salvamento
+  // anda em camera lenta (caso real 06/11 11:02: salvou em ~2 min, mas o aviso vermelho apareceu antes).
+  // Ao voltar a ficar visivel: zera a contagem e tenta gravar logo. So conta tempo com a tela a mostra.
+  var aoVisivel=function(){try{if(document.visibilityState==="visible"){if(dirtyRef.current)dirtySinceRef.current=Date.now();setSaveStuck(function(p){return p==="srv"?false:p;});setTimeout(tentarJa,800);}}catch(e){}};
+  try{document.addEventListener("visibilitychange",aoVisivel);}catch(e){}
   var iv=setInterval(function(){
     try{
       var _agora=Date.now(),_salto=_agora-ultTick;ultTick=_agora;
       if(!initialized.current)return;
       if(!dirtyRef.current){dirtySinceRef.current=0;setSaveStuck(function(p){return p?false:p;});return;}
       if(!dirtySinceRef.current)dirtySinceRef.current=_agora;
+      if(document.hidden){dirtySinceRef.current=_agora;return;} // V391: escondida nao conta (timers do Chrome ficam lentos)
       // V389: computador acordou do modo de espera (o relogio pulou minutos/horas): da uma janela nova antes de
       // alarmar -- a rede ainda esta voltando e ele nem tentou gravar. Aba em 2o plano o Chrome "acorda" ~1x/min: nao conta.
       if(_salto>90000){dirtySinceRef.current=_agora;setSaveStuck(function(p){return p?false:p;});setTimeout(tentarJa,3000);return;}
@@ -19917,7 +19923,7 @@ useEffect(function(){
       setSaveStuck(function(p){return p===preso?p:preso;});
     }catch(e){}
   },5000);
-  return function(){clearInterval(iv);try{window.removeEventListener("online",aoVoltarNet);}catch(e){}};
+  return function(){clearInterval(iv);try{window.removeEventListener("online",aoVoltarNet);document.removeEventListener("visibilitychange",aoVisivel);}catch(e){}};
 },[]);
 
 
