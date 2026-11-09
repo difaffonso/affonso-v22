@@ -10352,7 +10352,11 @@ function nfeParse(txt){
     if(dv||vv)dups.push({venc:dv,val:vv});
   }
   dups.sort(function(a,b){return String(a.venc).localeCompare(String(b.venc));});
-  return {forn:forn,num:num,date:dt,itens:itens,cnpj:tag(emit,"CNPJ"),
+  // V394: dados do emitente para a agenda de Contatos (a NF-e nao traz e-mail do emitente)
+  var _ee=emit&&emit.getElementsByTagName("enderEmit")[0];
+  var _end=[[tag(_ee,"xLgr"),tag(_ee,"nro")].filter(Boolean).join(", "),tag(_ee,"xCpl"),tag(_ee,"xBairro"),[tag(_ee,"xMun"),tag(_ee,"UF")].filter(Boolean).join("/"),tag(_ee,"CEP")?("CEP "+tag(_ee,"CEP")):""].filter(Boolean).join(" - ");
+  var emitInfo={nome:forn,fant:tag(emit,"xFant"),cnpj:tag(emit,"CNPJ")||tag(emit,"CPF"),tel:tag(_ee,"fone"),ender:_end};
+  return {forn:forn,num:num,date:dt,itens:itens,cnpj:tag(emit,"CNPJ"),emitInfo:emitInfo,
           total:(tot0>0?tot0:Math.round(soma*100)/100),somaItens:Math.round(soma*100)/100,dups:dups};
 }
 // V275: casamento de NF-e por faixa de confianca + padronizacao do nome pelo fornecedor.
@@ -10462,7 +10466,7 @@ function notaCasar(grupos,gastos){
   });
   return out;
 }
-function ImportNFe({stock,setStock,addLog,onClose,gastos,setGastos}){
+function ImportNFe({stock,setStock,addLog,onClose,gastos,setGastos,setContatos}){
   const [fin,setFin]=useState(null);// V315: gasto que sera criado junto com as entradas
   const [nf,setNf]=useState(null);
   const [its,setIts]=useState([]);
@@ -10551,7 +10555,15 @@ function ImportNFe({stock,setStock,addLog,onClose,gastos,setGastos}){
         if(addLog)addLog("financeiro","Gasto criado pela importação da NF-e nº "+nf.num+": "+finTxt,"");
       }
     }catch(e){}
-    setDone({tot:nf.itens.length,casados:casados,criados:criados,renom:renom,fin:finTxt});
+    // V394: o fornecedor da nota entra (ou e completado) na agenda de Contatos
+    var ctTxt="";
+    try{
+      if(setContatos&&nf.emitInfo){
+        setContatos(function(prev){return contatoDaNota_V394(prev,nf.emitInfo,nf);});
+        ctTxt=String(nf.emitInfo.fant||nf.emitInfo.nome||nf.forn||"Fornecedor");
+      }
+    }catch(e){}
+    setDone({tot:nf.itens.length,casados:casados,criados:criados,renom:renom,fin:finTxt,ct:ctTxt});
   }
   // ── blocos visuais ──────────────────────────────────────────
   function blocoNome(e,i){
@@ -10628,6 +10640,7 @@ function ImportNFe({stock,setStock,addLog,onClose,gastos,setGastos}){
       <div style={{padding:20,display:"flex",flexDirection:"column",gap:12}}>
         {done&&<>
           <div style={{background:"var(--green-soft)",borderRadius:10,padding:"14px 16px",textAlign:"center"}}><div style={{fontSize:26}}>✅</div><div style={{fontWeight:700,color:G.success}}>{done.tot+" entrada"+(done.tot>1?"s":"")+" registrada"+(done.tot>1?"s":"")+" no estoque!"}</div><div style={{fontSize:12.5,color:G.muted,marginTop:4,lineHeight:1.6}}>{done.casados+" item(ns) atualizado(s) · "+done.criados+" criado(s)"}{done.renom?<br/>:null}{done.renom?(done.renom+" nome(s) padronizado(s) pelo do fornecedor"):""}<br/>{"Códigos aprendidos para as próximas notas."}</div></div>
+          {done.ct?<div style={{background:G.bg,borderRadius:10,padding:"11px 13px",fontSize:12.5,lineHeight:1.6,borderLeft:"4px solid "+G.blue}}><strong style={{color:G.blue}}>{"📇 "+done.ct+" salvo nos Contatos"}</strong><div style={{color:G.muted,fontSize:11.5,marginTop:3}}>{"Com o telefone e o endereço da nota. O nome do vendedor e o WhatsApp dá para completar no menu Contatos."}</div></div>:null}
           {done.fin?<div style={{background:G.bg,borderRadius:10,padding:"11px 13px",fontSize:12.5,lineHeight:1.6,borderLeft:"4px solid "+G.primary}}><strong style={{color:G.primary}}>{"💰 Lançado também no financeiro"}</strong><br/>{done.fin}<div style={{color:G.muted,fontSize:11.5,marginTop:3}}>{"Já entra conferido — não vai aparecer como pendência."}</div></div>
            :<div style={{background:G.bg,borderRadius:10,padding:"11px 13px",fontSize:12,color:G.muted,lineHeight:1.55}}>{"Nada foi lançado no financeiro. Você pode fazer isso depois em Relatório → 🧾 Notas."}</div>}
           <Btn ch="Fechar" onClick={onClose}/>
@@ -10990,7 +11003,7 @@ function cpCalc(s,ini,nMes,usarAj,meses,folga){
   var cf=(man!=null)?["Você definiu",G.primary]:(nOut>=3?["Confiança alta",G.success]:(nOut>=1?["Confiança média",G.gold]:(ajn>0?["Só contagem",G.red]:["Sem dados","#9aa39c"])));
   return {s:s,cons:cons,qtd:qtd,dd:dd,sug:sug,cf:cf,nOut:nOut,ajn:ajn,man:man,sem:(cons<=0)};
 }
-function Estoque({cotExtra,setCotExtra,stock,setStock,implCat,setImplCat,implMov,setImplMov,implFech,setImplFech,pats,dents,addLog,user,gastos,setGastos,auditDismiss,setAuditDismiss}){
+function Estoque({setContatos,cotExtra,setCotExtra,stock,setStock,implCat,setImplCat,implMov,setImplMov,implFech,setImplFech,pats,dents,addLog,user,gastos,setGastos,auditDismiss,setAuditDismiss}){
 const [modal,setModal]=useState(false);const [mv,setMv]=useState(null);const [edit,setEdit]=useState(null);const [stkTab,setStkTab]=useState("material");
 const [matTab,setMatTab]=useState("itens");const [relMes,setRelMes]=useState(today().slice(0,7));// V236 relatorio materiais
 const [relSub,setRelSub]=useState("resumo");// V268 sub-abas do relatorio (resumo/in/out/aj)
@@ -11130,7 +11143,7 @@ return <div style={{background:G.red+"12",border:"1.5px solid "+G.red+"55",borde
 <Btn ch="+ Novo Item" onClick={()=>{setEdit(null);setF(b0);setDz("");setModal(true);}}/>
 </div>
 </div>
-{impNfe&&<ImportNFe stock={stock} setStock={setStock} addLog={addLog} onClose={()=>setImpNfe(false)} gastos={gastos} setGastos={setGastos}/>}
+{impNfe&&<ImportNFe setContatos={setContatos} stock={stock} setStock={setStock} addLog={addLog} onClose={()=>setImpNfe(false)} gastos={gastos} setGastos={setGastos}/>}
 {/* V274: campo de busca inteligente */}
 <div style={{display:"flex",alignItems:"center",gap:9,background:G.card,borderRadius:12,padding:"9px 13px",boxShadow:"inset 3px 3px 7px var(--nm-dark),inset -3px -3px 7px #ffffff"}}>
 <span style={{fontSize:15,opacity:.6,lineHeight:1,flexShrink:0}}>{"\ud83d\udd0d"}</span>
@@ -14489,7 +14502,7 @@ function EspelhoMensal({pontos,pontoCfg,users,afast}){
 
 // ---- catalogo de blocos ----
 // V329: perfil Auxiliar -- roda como nivel 2 porem so enxerga as telas desta lista branca
-const AUX_OK_V329={dash:1,agenda:1,pacs:1,lems:1,rec:1,orient:1,ponto:1,pros:1,stk:1,rel:1};
+const AUX_OK_V329={dash:1,agenda:1,pacs:1,lems:1,rec:1,orient:1,ponto:1,pros:1,stk:1,rel:1,contatos:1};// V394: contatos
 function ehAux_V329(u){return !!(u&&u.aux&&Number(u.level||0)===2);}
 const PNL_CAT=[
   {k:"ponto",      e:"⏱",  t:"Seu ponto de ontem",            cor:"primary", lv:2, tipo:"pontoMe", tela:"ponto", d:"Como fechou o seu dia anterior"},
@@ -14988,7 +15001,7 @@ function PnlLembretes({rems,setRems,users,user,pats,go}){
 
 // ---- V290: qual tela abrir no login ----
 // 1o acesso do dia (por aparelho) -> painel. Demais entradas -> ultima tela usada.
-const PNL_LV={fin:3,desp:3,adm:3,audit:3,conversas:2,remarcar:2,satisf:2,pros:2,impl:2,stk:2,caixa:2,rel:2};
+const PNL_LV={fin:3,desp:3,adm:3,audit:3,conversas:2,remarcar:2,satisf:2,pros:2,impl:2,stk:2,caixa:2,rel:2,contatos:2};// V394
 function pnlAbertura(u){
   if(!u)return "agenda";
   try{
@@ -18410,6 +18423,202 @@ var ORIENT_DEFAULT=[
 {id:"o_poscanal",ic:"🩹",titulo:"Após canal / restauração",texto:"Olá, {nome}! Cuidados após o tratamento de canal/restauração:\n\n• Espere o efeito da anestesia passar antes de comer, para não morder a bochecha ou a língua.\n• Evite mastigar do lado tratado nas primeiras horas.\n• Uma sensibilidade leve ao mastigar nos primeiros dias é normal, principalmente após canal.\n• Mantenha a higiene normal na região.\n• No caso de canal, o dente pode precisar de uma coroa/proteção depois — não deixe de concluir o tratamento, pois o dente fica mais frágil.\n• Se sentir dor forte, inchaço ou a restauração \"alta\" (atrapalhando a mordida), entre em contato para um ajuste.\n\nAffonso Odontologia 🦷"},
 {id:"o_gengiva",ic:"🩸",titulo:"Sangramento gengival / gengivite",texto:"Olá, {nome}! Orientações sobre o sangramento na gengiva:\n\n• Gengiva que sangra ao escovar geralmente é sinal de gengivite — inflamação causada pelo acúmulo de placa e tártaro.\n• Ao contrário do que muitos pensam, NÃO se deve parar de escovar o local que sangra — é justamente a falta de higiene que causa o problema.\n• Escove suavemente e capriche no fio dental diariamente: em poucos dias a gengiva tende a parar de sangrar.\n• A limpeza profissional no consultório remove o tártaro que a escova não tira.\n• Se o sangramento persistir mesmo com boa higiene, agende uma avaliação.\n\nGengiva saudável é rosada e firme, e não sangra. Cuide dela! 😊\n\nAffonso Odontologia 🦷"},
 ];
+// ── V394: CONTATOS ─────────────────────────────────────────────────────────
+// Agenda de contatos da clinica: fornecedores, manutencao, servicos, contabilidade, gerentes...
+// Fica no blob em data.contatos (item-a-item, _ts mais novo vence, exclusao via lapide "contatos:id" em delItems).
+// Fornecedor de NF-e importada no Estoque entra sozinho (contatoDaNota_V394): procura por CNPJ (ou nome) e so
+// COMPLETA campos vazios -- nunca troca o que a recepcao digitou.
+const CT_CATS_V394=[
+  {v:"material",l:"Fornecedor de material",ic:"ph-package"},
+  {v:"manutencao",l:"Manutenção e técnicos",ic:"ph-wrench"},
+  {v:"limpeza",l:"Limpeza",ic:"ph-broom"},
+  {v:"servicos",l:"Serviços",ic:"ph-briefcase"},
+  {v:"contab",l:"Contabilidade e jurídico",ic:"ph-calculator"},
+  {v:"gerentes",l:"Bancos e gerentes",ic:"ph-bank"},
+  {v:"comercio",l:"Comércio e lojas",ic:"ph-storefront"},
+  {v:"outros",l:"Outros",ic:"ph-address-book"}
+];
+function ctCat_V394(v){for(var i=0;i<CT_CATS_V394.length;i++)if(CT_CATS_V394[i].v===v)return CT_CATS_V394[i];return CT_CATS_V394[CT_CATS_V394.length-1];}
+function ctDig_V394(s){return String(s||"").replace(/\D/g,"");}
+function ctTel_V394(s){
+  var d=ctDig_V394(s);
+  if(d.length>=12&&d.indexOf("55")===0)d=d.slice(2);
+  if(d.length===11)return "("+d.slice(0,2)+") "+d.slice(2,7)+"-"+d.slice(7);
+  if(d.length===10)return "("+d.slice(0,2)+") "+d.slice(2,6)+"-"+d.slice(6);
+  return String(s||"").trim();
+}
+function ctCnpj_V394(s){var d=ctDig_V394(s);if(d.length===14)return d.slice(0,2)+"."+d.slice(2,5)+"."+d.slice(5,8)+"/"+d.slice(8,12)+"-"+d.slice(12);return String(s||"").trim();}
+function ctUrl_V394(s){s=String(s||"").trim();if(!s)return "";return /^https?:\/\//i.test(s)?s:("https://"+s);}
+function ctDataBr_V394(iso){var p=String(iso||"").slice(0,10).split("-");return p.length===3?(p[2]+"/"+p[1]+"/"+p[0]):"";}
+// Junta o fornecedor da nota na lista. Devolve a lista nova (ou a mesma, se nao mudou nada).
+function contatoDaNota_V394(prev,info,nf){
+  prev=prev||[];
+  if(!info||!(info.nome||info.fant))return prev;
+  var cn=ctDig_V394(info.cnpj),nN=nfeNorm(info.nome),nF=nfeNorm(info.fant);
+  var ix=-1;
+  for(var i=0;i<prev.length;i++){
+    var c=prev[i];if(!c)continue;
+    if(cn&&ctDig_V394(c.cnpj)===cn){ix=i;break;}
+  }
+  if(ix<0){
+    for(var j=0;j<prev.length;j++){
+      var c2=prev[j];if(!c2||(cn&&ctDig_V394(c2.cnpj)))continue;
+      var a=nfeNorm(c2.nome),b=nfeNorm(c2.razao);
+      if((nN&&(a===nN||b===nN))||(nF&&(a===nF||b===nF))){ix=j;break;}
+    }
+  }
+  var ult=nf?{num:String(nf.num||""),date:String(nf.date||"")}:null;
+  if(ix<0){
+    var agora=Date.now();
+    return prev.concat([{id:nid(),nome:String(info.fant||info.nome).trim(),razao:String(info.nome||"").trim(),cat:"material",
+      pessoa:"",tel:info.tel||"",tel2:"",email:"",site:"",cnpj:info.cnpj||"",ender:info.ender||"",obs:"",
+      origem:"nfe",ultNF:ult,_ts:agora,_cr:agora}]);
+  }
+  var o=Object.assign({},prev[ix]),mud=false;
+  var completa=function(k,v){if(v&&!String(o[k]||"").trim()){o[k]=v;mud=true;}};
+  completa("cnpj",info.cnpj);completa("razao",info.nome);completa("tel",info.tel);completa("ender",info.ender);
+  if(ult&&(!o.ultNF||String(o.ultNF.date||"")<=ult.date)&&JSON.stringify(o.ultNF||null)!==JSON.stringify(ult)){o.ultNF=ult;mud=true;}
+  if(!mud)return prev;
+  o._ts=Date.now();
+  var out=prev.slice();out[ix]=o;return out;
+}
+const CT_VAZIO_V394={nome:"",cat:"material",pessoa:"",tel:"",tel2:"",email:"",site:"",cnpj:"",ender:"",obs:""};
+function Contatos_V394({contatos,setContatos,user,addLog,delItemsRef}){
+  const [busca,setBusca]=useState("");
+  const [cat,setCat]=useState("");
+  const [aberto,setAberto]=useState(null);
+  const [form,setForm]=useState(null);// {id?, ...campos}
+  const lista=(contatos||[]).filter(function(c){return c&&c.id!=null;});
+  const cont={};lista.forEach(function(c){var k=ctCat_V394(c.cat).v;cont[k]=(cont[k]||0)+1;});
+  const q=nfeNorm(busca),qd=ctDig_V394(busca);
+  const vis=lista.filter(function(c){
+    if(cat&&ctCat_V394(c.cat).v!==cat)return false;
+    if(!q)return true;
+    var txt=nfeNorm([c.nome,c.razao,c.pessoa,c.email,c.obs,c.ender,ctCat_V394(c.cat).l].join(" "));
+    if(txt.indexOf(q)>=0)return true;
+    if(qd.length>=3&&(ctDig_V394(c.tel).indexOf(qd)>=0||ctDig_V394(c.tel2).indexOf(qd)>=0||ctDig_V394(c.cnpj).indexOf(qd)>=0))return true;
+    return false;
+  }).sort(function(a,b){return String(a.nome||"").localeCompare(String(b.nome||""),"pt-BR",{sensitivity:"base"});});
+  const up=function(k){return function(v){setForm(function(f){var n=Object.assign({},f);n[k]=v;return n;});};};
+  const novo=function(){setForm(Object.assign({},CT_VAZIO_V394,{cat:cat||"material"}));};
+  const editar=function(c){setForm(Object.assign({},CT_VAZIO_V394,c));};
+  const salvar=function(){
+    var f=form;if(!f)return;
+    var nome=String(f.nome||"").trim();
+    if(!nome){window.alert("Informe o nome do contato ou da empresa.");return;}
+    var td=ctDig_V394(f.tel);
+    var dup=lista.find(function(c){
+      if(f.id!=null&&String(c.id)===String(f.id))return false;
+      if(nfeNorm(c.nome)===nfeNorm(nome))return true;
+      if(td.length>=8&&(ctDig_V394(c.tel)===td||ctDig_V394(c.tel2)===td))return true;
+      return false;
+    });
+    if(dup&&!window.confirm("Já existe um contato parecido: "+dup.nome+(dup.tel?(" · "+ctTel_V394(dup.tel)):"")+".\nSalvar mesmo assim?"))return;
+    var agora=Date.now();
+    var campos={nome:nome,cat:f.cat||"outros",pessoa:String(f.pessoa||"").trim(),tel:String(f.tel||"").trim(),tel2:String(f.tel2||"").trim(),
+      email:String(f.email||"").trim(),site:String(f.site||"").trim(),cnpj:String(f.cnpj||"").trim(),ender:String(f.ender||"").trim(),obs:String(f.obs||"").trim()};
+    if(f.id!=null){
+      setContatos(function(prev){return (prev||[]).map(function(c){return c&&String(c.id)===String(f.id)?Object.assign({},c,campos,{_ts:agora,editPor:(user&&user.name)||""}):c;});});
+      try{if(addLog)addLog("contatos","Contato editado: "+nome,"");}catch(e){}
+    }else{
+      var id=nid();
+      setContatos(function(prev){return (prev||[]).concat([Object.assign({id:id},campos,{origem:"manual",criadoPor:(user&&user.name)||"",_ts:agora,_cr:agora})]);});
+      try{if(addLog)addLog("contatos","Contato cadastrado: "+nome,"");}catch(e){}
+      setAberto(id);
+    }
+    setForm(null);
+  };
+  const excluir=function(c){
+    if(!window.confirm("Excluir o contato "+c.nome+"?"))return;
+    try{var _dn=delItemsRef&&delItemsRef.current?delItemsRef.current:null;if(_dn&&_dn.indexOf("contatos:"+c.id)<0){_dn.push("contatos:"+c.id);delItemsRef.current=_dn.length>5000?_dn.slice(-5000):_dn;}}catch(e){}// lapide na hora (igual notas V330)
+    setContatos(function(prev){return (prev||[]).filter(function(x){return !(x&&String(x.id)===String(c.id));});});
+    try{if(addLog)addLog("contatos","Contato excluído: "+c.nome,"");}catch(e){}
+    setAberto(null);
+  };
+  const chip=function(v,l,n,ic){
+    var on=cat===v;
+    return <button key={v||"todos"} type="button" onClick={function(){setCat(on&&v?"":v);}} style={{border:"1.5px solid "+(on?G.primary:G.border),background:on?G.primary:"var(--surface)",color:on?"#fff":G.text,borderRadius:20,padding:"5px 11px",fontSize:12,fontWeight:700,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5,fontFamily:"inherit",whiteSpace:"nowrap"}}>
+      {ic?<i className={"ph-regular "+ic} style={{fontSize:14}}/>:null}{l}<span style={{opacity:.7,fontWeight:600}}>{n}</span></button>;
+  };
+  const acao=function(ic,lb,href,onClick,cor){
+    var st={display:"inline-flex",alignItems:"center",gap:5,background:"var(--surface)",color:cor||G.primary,border:"none",borderRadius:9,padding:"7px 11px",fontSize:12.5,fontWeight:700,cursor:"pointer",textDecoration:"none",boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)",fontFamily:"inherit"};
+    var ch=[<i key="i" className={"ph-fill "+ic} style={{fontSize:15}}/>,<span key="l">{lb}</span>];
+    if(href)return <a href={href} target={href.indexOf("http")===0?"_blank":undefined} rel="noopener noreferrer" onClick={function(e){e.stopPropagation();}} style={st}>{ch}</a>;
+    return <button type="button" onClick={function(e){e.stopPropagation();onClick();}} style={st}>{ch}</button>;
+  };
+  const linha=function(lb,v){if(!v)return null;return <div style={{display:"flex",gap:8,fontSize:12.5,lineHeight:1.5}}><span style={{color:G.muted,minWidth:92,fontWeight:600}}>{lb}</span><span style={{flex:1,wordBreak:"break-word",whiteSpace:"pre-wrap"}}>{v}</span></div>;};
+  return <div style={{display:"flex",flexDirection:"column",gap:14}} className="fi">
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <h2 style={{fontFamily:"'Cormorant Garamond'",fontSize:26,margin:0}}>{"📇 Contatos"}</h2>
+      <Btn ch="+ Novo contato" sm onClick={novo}/>
+    </div>
+    <div style={{background:G.accent,borderRadius:12,padding:"10px 14px",fontSize:12,color:G.primary,lineHeight:1.5}}>
+      {"Fornecedores, técnicos, limpeza, contador, gerentes… todo contato da clínica num lugar só. Quem vende com nota fiscal entra sozinho quando a nota é importada no Estoque."}
+    </div>
+    <Inp val={busca} set={setBusca} ph="Buscar por nome, pessoa, telefone ou o que fornece…"/>
+    <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:4}}>
+      {chip("","Todos",lista.length)}
+      {CT_CATS_V394.filter(function(c){return cont[c.v];}).map(function(c){return chip(c.v,c.l,cont[c.v],c.ic);})}
+    </div>
+    {vis.length===0&&<div style={{textAlign:"center",color:G.muted,fontSize:13,padding:"26px 10px"}}>
+      {lista.length===0?"Nenhum contato ainda. Toque em “+ Novo contato” para começar.":"Nenhum contato encontrado."}
+    </div>}
+    <div style={{display:"flex",flexDirection:"column",gap:9}}>
+      {vis.map(function(c){
+        var cc=ctCat_V394(c.cat),op=aberto===c.id,td=ctDig_V394(c.tel),td2=ctDig_V394(c.tel2);
+        return <div key={c.id} style={{background:G.card,borderRadius:12,boxShadow:"6px 6px 15px var(--nm-dark),-6px -6px 15px #ffffff",overflow:"hidden",borderLeft:"4px solid "+G.primary}}>
+          <div onClick={function(){setAberto(op?null:c.id);}} style={{display:"flex",alignItems:"flex-start",gap:11,padding:"12px 14px",cursor:"pointer"}}>
+            <i className={"ph-fill "+cc.ic} style={{fontSize:22,color:G.primary,marginTop:2}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:800,fontSize:14,lineHeight:1.3}}>{c.nome}</div>
+              <div style={{fontSize:12,color:G.muted,marginTop:2,lineHeight:1.4}}>
+                {cc.l}{c.pessoa?(" · "+c.pessoa):""}{c.tel?(" · "+ctTel_V394(c.tel)):""}
+              </div>
+              {c.origem==="nfe"&&<span style={{display:"inline-block",marginTop:5,background:"var(--blue-soft)",color:G.blue,borderRadius:20,padding:"2px 8px",fontSize:10.5,fontWeight:700}}>{"🧾 Da nota fiscal"+(c.ultNF&&c.ultNF.date?(" · última "+ctDataBr_V394(c.ultNF.date)):"")}</span>}
+            </div>
+            <i className={"ph-regular "+(op?"ph-caret-up":"ph-caret-down")} style={{fontSize:16,color:G.muted,marginTop:4}}/>
+          </div>
+          {(td||c.email||c.site)&&<div style={{display:"flex",gap:7,flexWrap:"wrap",padding:"0 14px 12px"}}>
+            {td?acao("ph-whatsapp-logo","WhatsApp",null,function(){wa(td,"");},"#1f8f4e"):null}
+            {td?acao("ph-phone","Ligar","tel:"+td):null}
+            {td2?acao("ph-phone","Ligar 2","tel:"+td2):null}
+            {c.email?acao("ph-envelope-simple","E-mail","mailto:"+c.email):null}
+            {c.site?acao("ph-globe","Site",ctUrl_V394(c.site)):null}
+          </div>}
+          {op&&<div style={{borderTop:"1px solid "+G.border,padding:"11px 14px",display:"flex",flexDirection:"column",gap:4,background:"var(--surface)"}}>
+            {linha("Pessoa",c.pessoa)}
+            {linha("Telefone",c.tel?ctTel_V394(c.tel):"")}
+            {linha("Outro tel.",c.tel2?ctTel_V394(c.tel2):"")}
+            {linha("E-mail",c.email)}
+            {linha("Site",c.site)}
+            {linha("CNPJ",c.cnpj?ctCnpj_V394(c.cnpj):"")}
+            {linha("Razão social",c.razao&&nfeNorm(c.razao)!==nfeNorm(c.nome)?c.razao:"")}
+            {linha("Endereço",c.ender)}
+            {linha("Observações",c.obs)}
+            {linha("Última nota",c.ultNF&&c.ultNF.num?("nº "+c.ultNF.num+(c.ultNF.date?(" de "+ctDataBr_V394(c.ultNF.date)):"")):"")}
+            <div style={{fontSize:11,color:G.muted,marginTop:4}}>{c.origem==="nfe"?"Cadastrado automaticamente pela nota fiscal":("Cadastrado"+(c.criadoPor?(" por "+c.criadoPor):"")+(c._cr?(" em "+new Date(c._cr).toLocaleDateString("pt-BR")):""))}</div>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:6}}>
+              <Btn ch="Editar" v="g" sm onClick={function(){editar(c);}}/>
+              <Btn ch="Excluir" v="r" sm onClick={function(){excluir(c);}}/>
+            </div>
+          </div>}
+        </div>;
+      })}
+    </div>
+    <Modal open={!!form} close={function(){setForm(null);}} title={form&&form.id!=null?"Editar contato":"Novo contato"} ch={form?<div style={{display:"flex",flexDirection:"column",gap:11}}>
+      <Inp lb="Nome / empresa *" val={form.nome} set={up("nome")} ph="Ex: Dental Cremer, Limpeza de filtro do João"/>
+      <Sel lb="Categoria" val={form.cat} set={up("cat")} opts={CT_CATS_V394.map(function(c){return {v:c.v,l:c.l};})}/>
+      <Inp lb="Pessoa de contato (vendedor, técnico, gerente)" val={form.pessoa} set={up("pessoa")} ph="Ex: Carla (vendedora)"/>
+      <R2 a={<Inp lb="Telefone / WhatsApp" val={form.tel} set={up("tel")} ph="11999990000"/>} b={<Inp lb="Outro telefone" val={form.tel2} set={up("tel2")} ph="Fixo, 0800…"/>}/>
+      <R2 a={<Inp lb="E-mail" val={form.email} set={up("email")} ph="nome@empresa.com.br"/>} b={<Inp lb="Site ou link da loja" val={form.site} set={up("site")} ph="www.empresa.com.br"/>}/>
+      <Inp lb="CNPJ (opcional)" val={form.cnpj} set={up("cnpj")}/>
+      <Inp lb="Endereço (opcional)" val={form.ender} set={up("ender")}/>
+      <Txt lb="Observações" val={form.obs} set={up("obs")} rows={3}/>
+      <div style={{fontSize:11.5,color:G.muted,marginTop:-4}}>{"Ex.: o que fornece, pedido mínimo, prazo de entrega, horário de atendimento, quando foi a última limpeza."}</div>
+      <SC2 save={salvar} cancel={function(){setForm(null);}}/>
+    </div>:null}/>
+  </div>;
+}
 function Orientacoes({pats,orientacoes,setOrientacoes,user}){
 var [patId,setPatId]=useState("");
 var [openId,setOpenId]=useState(null);
@@ -18932,6 +19141,7 @@ const [calVY,setCalVY]=useState(new Date().getFullYear());// V322
 const [calVM,setCalVM]=useState(new Date().getMonth());// V322
 const [calSel,setCalSel]=useState(today());// V322
 const [notas,setNotas]=useState([]);// V323: notas pessoais do calendario (uid = dono)
+const [contatos,setContatos]=useState([]);// V394: agenda de contatos da clinica (fornecedores, servicos, gerentes...)
 const [bkpLog,setBkpLog]=useState([]);// V327: registro dos backups feitos (data, hora, quem)
 // V323: o texto da nota vive dentro de NotaInputV323, nao aqui (evita re-render do app a cada tecla)
 const [pats,setPats]=useState(PATS0);const [appts,setAppts]=useState(APPTS0);const [remarcar,setRemarcar]=useState([]);const [showRemModal,setShowRemModal]=useState(null);const [espera,setEspera]=useState([]);const [logs,setLogs]=useState([]);
@@ -19177,7 +19387,7 @@ try{ // V199: base para comparacao de carimbos por chave
 }catch(e){lastSavedKeyJsonRef.current={};}
 lastSavedGastosKeys.current=_gKeys(data.gastos);
 delGastosRef.current=data.delGastos||[];
-lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,implFech:data.implFech,impl:data.impl,orientacoes:data.orientacoes,stock:data.stock,notas:data.notas,cotExtra:data.cotExtra,afast:data.afast,hol:data.hol});// V379// V289 stock // V323 notas
+lastSavedItemKeys.current=_itemKeys({recs:data.recs,budgets:data.budgets,treats:data.treats,pros:data.pros,rems:data.rems,implMov:data.implMov,implCat:data.implCat,implFech:data.implFech,impl:data.impl,orientacoes:data.orientacoes,stock:data.stock,notas:data.notas,cotExtra:data.cotExtra,afast:data.afast,hol:data.hol,contatos:data.contatos});// V379// V289 stock // V323 notas
 delItemsRef.current=data.delItems||[];
 if(data.recs?.length)setRecs(data.recs);
 if(data.treats?.length){
@@ -19196,6 +19406,7 @@ setTreats(treatsmig);
 if(data.pros?.length)setPros(data.pros);
 if(data.rems?.length)setRems(data.rems);
 if(data.notas?.length)setNotas(data.notas);// V323
+if(data.contatos?.length)setContatos(data.contatos);// V394
 if(data.bkpLog?.length)setBkpLog(data.bkpLog);// V327
 if(data.budgets?.length)setBudgets(data.budgets);
 if(data.users?.length)setUsers(data.users);
@@ -19690,6 +19901,7 @@ useEffect(function(){
     mergeArr(pros,sd.pros,setPros,"pros");
     mergeArr(rems,sd.rems,setRems,"rems");
     mergeArr(notas,sd.notas,setNotas,"notas");// V323
+    mergeArr(contatos,sd.contatos,setContatos,"contatos");// V394
     mergeArr(bkpLog,sd.bkpLog,setBkpLog,"bkpLog");// V327
     mergeArr(logs,sd.logs,setLogs);
     mergeArr(implMov,sd.implMov,setImplMov,"implMov");
@@ -19756,13 +19968,13 @@ useEffect(function(){
     }
     // detectar exclusoes de planos/registros desde a ultima sincronizacao
     if(lastSavedItemKeys.current){
-      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas,cotExtra:cotExtraRef.current,afast:afastRef.current,hol:holRef.current});// V379// V289 stock // V323 notas
+      var _ik=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas,cotExtra:cotExtraRef.current,afast:afastRef.current,hol:holRef.current,contatos:contatos});// V379// V289 stock // V323 notas
       var _di=delItemsRef.current||[];
       Object.keys(lastSavedItemKeys.current).forEach(function(k){if(!_ik[k]&&_di.indexOf(k)<0)_di.push(k);});
       _di=_di.filter(function(k){return !_ik[k];});
       delItemsRef.current=_di.length>5000?_di.slice(-5000):_di;
     }
-    const payload={appts,recs,treats,pros,rems,notas,bkpLog,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
+    const payload={appts,recs,treats,pros,rems,notas,contatos,bkpLog,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,waAuto:_newerWa(waAuto,waAutoSrvRef.current),waSent,waAutoLog,gastos,delApts:delAptsRef.current,delPats:delPatsRef.current,delGastos:delGastosRef.current,delItems:delItemsRef.current,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast:afastRef.current,ferSaldo:ferSaldoRef.current,hol:holRef.current,ferPer:ferPerRef.current,cotExtra:cotExtraRef.current,docsEmitidos:docsEmitidosRef.current};// V310: via ref // V320
     if(!patTableOk.current)payload.pats=pats;
     // V362: o que, chave por chave, o servidor ainda NAO tem. Referencia: o que este aparelho gravou ou baixou por
     // ultimo. O mesmo conteudo com as chaves em outra ordem (o jsonb do banco reordena) nao conta como mudanca.
@@ -19784,7 +19996,7 @@ useEffect(function(){
       // a foto usada para detectar exclusoes passa a ser esta (como se tivesse gravado).
       {var _ai0={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai0[a.id]=true;});lastSavedApptIds.current=_ai0;}
       lastSavedGastosKeys.current=_gKeys(gastos);
-      lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas,cotExtra:cotExtraRef.current,afast:afastRef.current,hol:holRef.current});// V379// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
+      lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas,cotExtra:cotExtraRef.current,afast:afastRef.current,hol:holRef.current,contatos:contatos});// V379// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
       reenviarRef.current=false;
       if(lastLocalChangeTs.current===_editAtStart)dirtyRef.current=false;
       if(lastLocalChangeTs.current===_editAtStart)orientDirtyRef.current=false;
@@ -19825,7 +20037,7 @@ useEffect(function(){
         Object.keys(_kj).forEach(function(k){lastSavedKeyJsonRef.current[k]=_kj[k];});
         {var _ai2={};(appts||[]).forEach(function(a){if(a&&a.id!=null)_ai2[a.id]=true;});lastSavedApptIds.current=_ai2;}
         lastSavedGastosKeys.current=_gKeys(gastos);
-        lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas,cotExtra:cotExtraRef.current,afast:afastRef.current,hol:holRef.current});// V379// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
+        lastSavedItemKeys.current=_itemKeys({recs:recs,budgets:budgets,treats:treats,pros:pros,rems:rems,implMov:implMov,implCat:implCat,implFech:implFech,impl:impl,orientacoes:orientacoes,stock:stock,notas:notas,cotExtra:cotExtraRef.current,afast:afastRef.current,hol:holRef.current,contatos:contatos});// V379// V289 stock // V330: notas faltava aqui -- a foto pos-save nao guardava as notas, entao a exclusao nunca era detectada e o merge ressuscitava a nota
         lastServerTs.current=res.updated_at; // V362: carimbo da PROPRIA gravacao. Antes lia o carimbo de novo depois de gravar; se outro aparelho tivesse gravado no meio, pegava o dele como se fosse o seu e nunca baixava o que ele mandou.
         try{idb.set("blob_v1",{data:payload,updated_at:res.updated_at});}catch(e){} // V198
         try{if(rtCanalRef.current&&rtCanalRef.current.state==="joined")rtCanalRef.current.send({type:"broadcast",event:"mudou",payload:{k:"blob"}});}catch(e){} // V226: aviso instantaneo aos outros aparelhos
@@ -19895,7 +20107,7 @@ useEffect(function(){
   };
   runSaveRef.current=runSave; // V210
   saveTimer.current=setTimeout(runSave,AUTOSAVE_MS); // V296: era 800ms fixo
-},[pats,appts,recs,treats,pros,rems,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra,docsEmitidos,notas,bkpLog]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra // V320: docsEmitidos // V353: notas e bkpLog tambem nao disparavam -- nota escrita no celular so salvava de carona em outra mudanca
+},[pats,appts,recs,treats,pros,rems,contatos,budgets,users,dents,perms,labs,procs,stock,impl,expenses,logs,remarcar,espera,prosProcs,implCat,implMov,implFech,semTicks,anivTicks,waTemplates,orientacoes,pacsTicks,auditDismiss,gastos,waAuto,waSent,waAutoLog,pontos,caixa,pontoCfg,acessoCfg,orcResp,afast,ferSaldo,hol,ferPer,cotExtra,docsEmitidos,notas,bkpLog]);// V304: afast/ferSaldo/hol/ferPer nao disparavam o autosave -- atestado lancado sumia ao recarregar // V310: cotExtra // V320: docsEmitidos // V353: notas e bkpLog tambem nao disparavam -- nota escrita no celular so salvava de carona em outra mudanca
 
 // V388: VIGIA DO SALVAMENTO. Se ha alteracao esperando e nenhuma gravacao foi confirmada ha mais de 60s, mostra o
 // aviso vermelho (antes o aparelho podia ficar horas em "Salvando..." sem ninguem perceber). Tambem guarda o
@@ -20153,6 +20365,7 @@ useEffect(function(){
       setTreats(function(prev){var _a=mergeTreats(prev,sd.treats,_diSetP);return JSON.stringify(_a)===JSON.stringify(prev)?prev:_a;});
       addArr(sd.pros,setPros,"pros");
       addArr(sd.rems,setRems,"rems");
+      addArr(sd.contatos,setContatos,"contatos");// V394
       addArr(sd.notas,setNotas,"notas");// V330: notas nao entrava no poll -- aparelho aberto ficava com lista velha
       if(sd.bkpLog)addArr(sd.bkpLog,setBkpLog,"bkpLog",true);// V358: bkpLog tambem nao entrava no poll -- o aparelho aberto regravava a lista velha por cima
       addArr(sd.logs,setLogs);
@@ -20546,7 +20759,7 @@ const ALL_NAV=[
 // Rotina
 {id:"dash",l:"Visão Geral",ic:"ph-house",lv:1,grp:"Rotina"},{id:"agenda",l:"Agenda",ic:"ph-calendar-blank",lv:1,grp:"Rotina"},{id:"pacs",l:"Pacientes",ic:"ph-users",lv:1,grp:"Rotina"},
 {id:"lems",l:"Lembretes",ic:"ph-bell",lv:1,b:remBadge,grp:"Rotina"},{id:"conversas",l:"Conversas",ic:"ph-chat-circle",lv:2,b:waUnread,grp:"Rotina"},{id:"remarcar",l:"Remarcar",ic:"ph-arrows-clockwise",lv:2,grp:"Rotina"},
-{id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2,grp:"Rotina"},{id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1,grp:"Rotina"},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1,grp:"Rotina"},{id:"ponto",l:"Ponto",ic:"ph-clock",lv:1,grp:"Rotina"},{id:"holerite",l:"Holerites",ic:"ph-file-text",lv:3,grp:"Gestão"},/* V300 */
+{id:"satisf",l:"Satisfação",ic:"ph-smiley",lv:2,grp:"Rotina"},{id:"rec",l:"Receituário",ic:"ph-clipboard-text",lv:1,grp:"Rotina"},{id:"orient",l:"Orientações",ic:"ph-book-open",lv:1,grp:"Rotina"},{id:"contatos",l:"Contatos",ic:"ph-address-book",lv:2,grp:"Rotina"},{id:"ponto",l:"Ponto",ic:"ph-clock",lv:1,grp:"Rotina"},{id:"holerite",l:"Holerites",ic:"ph-file-text",lv:3,grp:"Gestão"},/* V300 */
 // Clínico
 {id:"pros",l:"Próteses",ic:"ph-first-aid-kit",lv:2,b:prosBadge,grp:"Clínico"},{id:"impl",l:"Implantes",ic:"ph-syringe",lv:2,grp:"Clínico"},{id:"stk",l:"Estoque",ic:"ph-package",lv:2,alerta:stkAlerta,grp:"Clínico"},
 // Financeiro
@@ -20661,13 +20874,14 @@ return <>
       {view==="rel"&&<Relatorios recs={recs} setRecs={setRecs} treats={treats} budgets={budgets} appts={appts} pros={pros} pats={pats} dents={dents} labs={labs} setLabs={setLabs} expenses={expenses} gastos={gastos} user={user} waTemplates={waTemplates} setWaTemplates={setWaTemplates} pacsTicks={pacsTicks} setPacsTicks={setPacsTicks} abrirFicha={abrirFicha} waSent={waSent} orcResp={orcResp} setOrcResp={setOrcResp}/>}
       {view==="desp"&&<Gastos gastos={gastos} setGastos={function(v){gastosEditRef.current=Date.now();setGastos(v);}} user={user}/>}
       {view==="caixa"&&<Caixa caixa={caixa} setCaixa={setCaixa} user={user}/>}
-      {view==="stk"&&<Estoque cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} implFech={implFech} setImplFech={setImplFech} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
+      {view==="stk"&&<Estoque setContatos={setContatos} cotExtra={cotExtra} setCotExtra={setCotExtra} stock={stock} setStock={setStock} implCat={implCat} setImplCat={setImplCat} implMov={implMov} setImplMov={setImplMov} implFech={implFech} setImplFech={setImplFech} pats={pats} dents={dents} addLog={cp.addLog} user={user} gastos={gastos} setGastos={setGastos} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
       {view==="pixdent"&&<PixDentistas recs={recs} setRecs={setRecs} dents={dents} pats={pats} user={user}/>}
       {view==="pdent"&&<PainelDentista pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user} abrirFicha={abrirFicha}/>}
       {view==="pagdent"&&<RelPagDentistas pats={pats} dents={dents} treats={treats} setTreats={setTreats} user={user}/>}
     {view==="rec"&&<Receituario pats={pats} dents={dents} user={user} setDocsEmitidos={setDocsEmitidos}/>}
     {view==="ponto"&&<Ponto pontos={pontos} setPontos={setPontos} pontoCfg={pontoCfg} setPontoCfg={setPontoCfg} user={user} users={users} afast={afast} setAfast={setAfast} ferSaldo={ferSaldo} setFerSaldo={setFerSaldo} ferPer={ferPer} setFerPer={setFerPer}/>}
     {view==="holerite"&&user.level>=3&&<Holerites hol={hol} setHol={setHol} users={users} user={user}/>}{/* V300 */}
+    {view==="contatos"&&user.level>=2&&<Contatos_V394 contatos={contatos} setContatos={setContatos} user={user} addLog={cp.addLog} delItemsRef={delItemsRef}/>}{/* V394 */}
     {view==="orient"&&<Orientacoes pats={pats} orientacoes={orientacoes} setOrientacoes={function(v){orientDirtyRef.current=true;setOrientacoes(v);}} user={user}/>}
     {view==="audit"&&<Auditoria pats={pats} appts={appts} recs={recs} treats={treats} setTreats={setTreats} setRecs={setRecs} pros={pros} espera={espera} stock={stock} implCat={implCat} implMov={implMov} rems={rems} users={users} dents={dents} pacsTicks={pacsTicks} waSent={waSent} remarcar={remarcar} setView={go} user={user} auditDismiss={auditDismiss} setAuditDismiss={setAuditDismiss}/>}
     {view==="adm"&&<Admin users={users} setUsers={setUsers} procs={procs} setProcs={setProcs} dents={dents} setDents={setDents} labs={labs} setLabs={setLabs} perms={perms} setPerms={setPerms} logs={logs} setLogs={setLogs} user={user} pats={pats} setPats={setPats} appts={appts} setAppts={setAppts} recs={recs} setRecs={setRecs} treats={treats} setTreats={setTreats} budgets={budgets} setBudgets={setBudgets} pros={pros} setPros={setPros} rems={rems} setRems={setRems} stock={stock} setStock={setStock} expenses={expenses} setExpenses={setExpenses} impl={impl} setImpl={setImpl} waAuto={waAuto} setWaAuto={setWaAuto} waAutoLog={waAutoLog} acessoCfg={acessoCfg} setAcessoCfg={setAcessoCfg} bkpLog={bkpLog} setBkpLog={setBkpLog}/>}
