@@ -5802,6 +5802,8 @@ return(
 <span style={{fontSize:10,color:G.muted,minWidth:34,fontWeight:600}}>{slot}</span>
 <span style={{fontSize:11,color:(clipA&&!isDent?G.primary:G.border),fontWeight:(clipA&&!isDent)?800:400,flex:1}}>{isDent?"":(clipA?"\ud83d\udccb Colar aqui":"+ agendar")}</span>
 {_antBt(slot)}{/* V374 */}
+{/* V395: horario liberado por desmarcacao tambem pode ser bloqueado (igual a agenda compacta) */}
+{!isDent&&<button onClick={e=>{e.stopPropagation();setBlockModal({date:selDate,time:slot,dentistId:d.id});}} style={{marginLeft:"auto",background:"var(--red-soft)",border:"1px solid #FFCDD2",borderRadius:6,padding:"2px 7px",fontSize:10,color:G.red,cursor:"pointer",fontWeight:700}} title="Bloquear hor\u00e1rio">\ud83d\udd12</button>}
 </div>
 );
 }
