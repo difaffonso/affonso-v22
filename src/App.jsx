@@ -14167,6 +14167,276 @@ function Afastamentos({afast,setAfast,ferSaldo,setFerSaldo,ferPer,setFerPer,user
 }
 
 // ══════════════════════════════════════════════════════════════════
+// V396 ── IMPORTAR PDF DA CONTABILIDADE (holerites de todos juntos) ─
+// A contabilidade (sistema Dominio) manda UM PDF com os recibos de
+// todo mundo. Aqui o PDF e lido no proprio navegador: cada pagina e
+// identificada pelo nome do funcionario, a competencia ("Outubro de
+// 2026") e o valor liquido; as paginas de cada pessoa viram um PDF
+// separado, que vai para o cofre privado na pasta dela.
+// O nome completo do PDF fica gravado (nomePdf) para o sistema ja
+// reconhecer a pessoa automaticamente nos proximos meses.
+// ══════════════════════════════════════════════════════════════════
+function holCarregarScript_V396(urls,teste){
+  return new Promise(function(resolve,reject){
+    if(teste())return resolve();
+    var idx=0;
+    function prox(){
+      if(idx>=urls.length){reject(new Error("Não consegui carregar o leitor de PDF. Verifique a internet e tente de novo."));return;}
+      var s=document.createElement("script");
+      var u=urls[idx++];s.src=u;
+      s.onload=function(){teste()?resolve(u):prox();};
+      s.onerror=function(){prox();};
+      document.head.appendChild(s);
+    }
+    prox();
+  });
+}
+async function holLibs_V396(){
+  var urlPdf=await holCarregarScript_V396([
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+    "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"
+  ],function(){return !!window.pdfjsLib;});
+  if(window.pdfjsLib&&!window.pdfjsLib.GlobalWorkerOptions.workerSrc){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc=urlPdf?urlPdf.replace("pdf.min.js","pdf.worker.min.js"):"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+  await holCarregarScript_V396([
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js",
+    "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"
+  ],function(){return !!window.PDFLib;});
+  return {pdfjs:window.pdfjsLib,PDFLib:window.PDFLib};
+}
+function holSemAc_V396(s){return (s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+// Remonta as linhas da pagina pela posicao (o PDF guarda o texto fora de ordem).
+function holLinhas_V396(items){
+  var ls=[];
+  (items||[]).forEach(function(it){
+    var s=it.str;if(!s||!s.trim())return;
+    var x=it.transform[4],y=it.transform[5];
+    var l=null;for(var i=0;i<ls.length;i++)if(Math.abs(ls[i].y-y)<=2.5){l=ls[i];break;}
+    if(!l){l={y:y,its:[]};ls.push(l);}
+    l.its.push({x:x,s:s,w:it.width||0});
+  });
+  ls.sort(function(a,b){return b.y-a.y;});
+  return ls.map(function(l){
+    l.its.sort(function(a,b){return a.x-b.x;});
+    var out="",fim=null;
+    l.its.forEach(function(t){if(fim!=null)out+=(t.x-fim>2?" ":"");out+=t.s;fim=t.x+t.w;});
+    return out.replace(/\s+/g," ").trim();
+  });
+}
+var HOL_MESES_V396=["janeiro","fevereiro","marco","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+// Le nome, competencia, liquido e tipo de UMA pagina (vale a primeira via).
+function holLerPagina_V396(ls){
+  var r={nome:"",comp:"",liquido:null,tipo:""};
+  var tl=holSemAc_V396(ls.join("\n")).toLowerCase();
+  var m=tl.match(/(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de|\/)?\s*(20\d\d)/);
+  if(m)r.comp=m[2]+"-"+afZ(HOL_MESES_V396.indexOf(m[1])+1);
+  else{var m2=tl.match(/compet[e]ncia:?\s*(\d{2})\/(20\d\d)/);if(m2)r.comp=m2[2]+"-"+m2[1];}
+  if(/13.{0,3}sal/.test(tl))r.tipo="13º salário";
+  else if(/adiantamento/.test(tl))r.tipo="Adiantamento";
+  else if(/recibo de ferias/.test(tl))r.tipo="Férias";
+  else if(/pro.?labore/.test(tl))r.tipo="Pró-labore";
+  else if(/rescis/.test(tl))r.tipo="Rescisão";
+  for(var i=0;i<ls.length;i++){
+    var lt=holSemAc_V396(ls[i]).toLowerCase();
+    if(!r.nome&&/nome do (funcionario|empregado|contribuinte|socio|colaborador|trabalhador)/.test(lt)){
+      for(var j=i+1;j<Math.min(i+4,ls.length);j++){
+        var mm=holSemAc_V396(ls[j]).toUpperCase().match(/[A-Z][A-Z'.]+(?: [A-Z][A-Z'.]*)+/);
+        if(mm&&mm[0].length>=6){r.nome=mm[0].trim();break;}
+      }
+    }
+    if(r.liquido==null&&/liquido/.test(lt)&&!/declaro/.test(lt)){
+      for(var k=i;k<Math.min(i+4,ls.length);k++){
+        var nums=(ls[k].match(/\d{1,3}(?:\.\d{3})*,\d{2}/g)||[]);
+        if(nums.length){r.liquido=Number(nums[nums.length-1].replace(/\./g,"").replace(",","."));break;}
+      }
+    }
+  }
+  return r;
+}
+// Descobre de quem e o recibo: 1) nome ja usado antes; 2) pedacos do nome.
+function holCasarNome_V396(nomePdf,users,hol){
+  var alvo=holSemAc_V396(nomePdf).toUpperCase().trim();
+  if(!alvo)return "";
+  for(var h=(hol||[]).length-1;h>=0;h--){
+    var x=hol[h];
+    if(x&&x.nomePdf&&holSemAc_V396(x.nomePdf).toUpperCase().trim()===alvo&&x.uid)return String(x.uid);
+  }
+  var tk=alvo.split(/\s+/);
+  var ign={DR:1,DRA:1,DE:1,DA:1,DO:1,DOS:1,DAS:1,E:1,ADMIN:1};
+  var melhor="",nota=0,segunda=0;
+  (users||[]).forEach(function(u){
+    if(!u||u.active===false)return;
+    var pts=holSemAc_V396(u.name||"").toUpperCase().replace(/[^A-Z ]/g," ").split(/\s+/).filter(function(p){return p.length>=3&&!ign[p];});
+    var n=0;
+    pts.forEach(function(p){
+      if(tk.indexOf(p)>=0)n+=2;
+      else if(tk.some(function(t){return t.indexOf(p)===0;}))n+=1;
+    });
+    if(n>nota){segunda=nota;nota=n;melhor=String(u.id);}
+    else if(n>segunda)segunda=n;
+  });
+  return (nota>0&&nota>segunda)?melhor:"";
+}
+// Le o PDF inteiro e agrupa paginas seguidas da mesma pessoa.
+async function holLerPdf_V396(file){
+  var libs=await holLibs_V396();
+  var bytes=new Uint8Array(await file.arrayBuffer());
+  var doc=await libs.pdfjs.getDocument({data:bytes.slice()}).promise;
+  var grupos=[];
+  for(var p=1;p<=doc.numPages;p++){
+    var pg=await doc.getPage(p);
+    var tc=await pg.getTextContent();
+    var r=holLerPagina_V396(holLinhas_V396(tc.items));
+    var ult=grupos[grupos.length-1];
+    if(ult&&r.nome&&ult.nome===r.nome&&ult.comp===r.comp&&ult.tipo===r.tipo){ult.paginas.push(p-1);if(ult.liquido==null)ult.liquido=r.liquido;}
+    else if(ult&&!r.nome&&!ult._semNome){ult.paginas.push(p-1);}// pagina de continuacao sem cabecalho
+    else grupos.push({nome:r.nome,comp:r.comp,liquido:r.liquido,tipo:r.tipo,paginas:[p-1],_semNome:!r.nome});
+  }
+  return {bytes:bytes,grupos:grupos,PDFLib:libs.PDFLib,total:doc.numPages};
+}
+// Monta o PDF so com as paginas de uma pessoa.
+async function holRecortar_V396(PDFLib,bytes,paginas,nomeArq){
+  var orig=await PDFLib.PDFDocument.load(bytes);
+  var novo=await PDFLib.PDFDocument.create();
+  var cp=await novo.copyPages(orig,paginas);
+  cp.forEach(function(pg){novo.addPage(pg);});
+  var out=await novo.save();
+  return new File([out],nomeArq,{type:"application/pdf"});
+}
+
+// Tela de conferencia antes de arquivar.
+function HolImportar_V396({hol,setHol,users,user,onFim}){
+  const [fase,setFase]=useState("escolher");// escolher | lendo | conferir | enviando
+  const [itens,setItens]=useState([]);
+  const [erro,setErro]=useState("");
+  const [prog,setProg]=useState("");
+  const [arqNome,setArqNome]=useState("");
+  const dadosRef=useRef(null);
+  const ref=useRef(null);
+  var equipe=(users||[]).filter(function(u){return u&&u.active!==false;});
+  var MES_NOME=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  function nomeDe(uid){for(var i=0;i<(users||[]).length;i++)if(String(users[i].id)===String(uid))return users[i].name||users[i].login||"—";return "—";}
+  function dupDe(it){return (hol||[]).some(function(x){return String(x.uid)===String(it.uid)&&x.comp===it.comp&&(x.obs||"")===(it.tipo||"");});}
+  function moeda(v){return v==null?"—":"R$ "+Number(v).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+  async function ler(f){
+    setFase("lendo");setErro("");setArqNome(f.name||"");
+    try{
+      var d=await holLerPdf_V396(f);
+      dadosRef.current=d;
+      var lista=d.grupos.map(function(g,i){
+        var uid=g.nome?holCasarNome_V396(g.nome,users,hol):"";
+        var it={k:i,nome:g.nome,comp:g.comp||"",liquido:g.liquido,tipo:g.tipo||"",paginas:g.paginas,uid:uid};
+        it.ok=!!uid&&!!it.comp&&!dupDe(it);
+        return it;
+      });
+      if(!lista.length)throw new Error("Não achei nenhum recibo nesse PDF.");
+      setItens(lista);setFase("conferir");
+    }catch(e){setErro(e.message||"Não consegui ler o PDF.");setFase("escolher");}
+  }
+  function mudar(k,campo,val){
+    setItens(function(prev){return prev.map(function(it){
+      if(it.k!==k)return it;
+      var n=Object.assign({},it);n[campo]=val;
+      if(campo==="uid"||campo==="comp")n.ok=!!n.uid&&!!n.comp&&!dupDe(n);
+      return n;
+    });});
+  }
+  async function arquivar(){
+    var sel=itens.filter(function(it){return it.ok;});
+    if(!sel.length){setErro("Marque pelo menos um recibo.");return;}
+    var semPessoa=sel.filter(function(it){return !it.uid||!it.comp;});
+    if(semPessoa.length){setErro("Escolha a pessoa e a competência de todos os recibos marcados.");return;}
+    setFase("enviando");setErro("");
+    var d=dadosRef.current,novos=[],agora=Date.now();
+    try{
+      for(var i=0;i<sel.length;i++){
+        var it=sel[i];
+        setProg("Separando e enviando "+(i+1)+" de "+sel.length+" — "+nomeDe(it.uid)+"...");
+        var nomeArq="Holerite "+it.comp+" "+(nomeDe(it.uid)||"").trim()+(it.tipo?" ("+it.tipo+")":"")+".pdf";
+        var f=await holRecortar_V396(d.PDFLib,d.bytes,it.paginas,nomeArq);
+        var a=await rhSubir(f,"holerite/"+it.uid+"/"+it.comp.slice(0,4));
+        novos.push({id:agora+i,uid:it.uid,comp:it.comp,liquido:it.liquido==null?null:Number(it.liquido),
+          anexo:a,obs:it.tipo||"",nomePdf:it.nome||"",origem:"pdf",
+          _ts:Date.now(),_by:user.name||user.login,_byTs:Date.now()});
+      }
+    }catch(e){
+      // o que ja subiu fica arquivado; avisa o que faltou
+      if(novos.length)setHol(function(prev){return (prev||[]).concat(novos);});
+      setErro((e.message||"Falha no envio.")+(novos.length?" ("+novos.length+" já foram arquivados; os outros não.)":""));
+      setFase("conferir");setProg("");
+      if(novos.length){var feitos={};novos.forEach(function(n){feitos[n.uid+"|"+n.comp+"|"+n.obs]=true;});
+        setItens(function(prev){return prev.map(function(x){return feitos[x.uid+"|"+x.comp+"|"+(x.tipo||"")]?Object.assign({},x,{ok:false,_feito:true}):x;});});}
+      return;
+    }
+    setHol(function(prev){return (prev||[]).concat(novos);});
+    setProg("");
+    onFim(novos.length);
+  }
+
+  const cardSt={background:"var(--surface)",borderRadius:16,padding:16,marginBottom:14,boxShadow:"5px 5px 12px var(--nm-dark),-5px -5px 12px var(--nm-light)"};
+  const btnP={border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.primary,color:"#ead9b6",boxShadow:"4px 4px 11px rgba(34,70,52,.40)"};
+  const btnS={border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:"var(--surface)",color:G.primary,boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)"};
+  var marcados=itens.filter(function(it){return it.ok;}).length;
+
+  return <div style={cardSt}>
+    <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,marginBottom:6}}>Importar PDF da contabilidade</div>
+    <div style={{fontSize:12.5,color:G.muted,marginBottom:13,lineHeight:1.5}}>Mande o PDF inteiro, com os recibos de todo mundo. O sistema separa cada pessoa num arquivo próprio e arquiva na pasta dela.</div>
+
+    <input ref={ref} type="file" accept="application/pdf" style={{display:"none"}} onChange={function(ev){
+      var f=ev.target.files&&ev.target.files[0];
+      try{ev.target.value="";}catch(_e){}
+      if(f)ler(f);
+    }}/>
+
+    {fase==="escolher"&&<div style={{display:"flex",gap:9,flexWrap:"wrap"}}>
+      <button onClick={function(){if(ref.current)ref.current.click();}} style={Object.assign({},btnP,{display:"inline-flex",alignItems:"center",gap:7})}><i className="ph-fill ph-file-pdf"/>Escolher PDF</button>
+      <button onClick={function(){onFim(0);}} style={btnS}>Cancelar</button>
+    </div>}
+
+    {fase==="lendo"&&<div style={{fontSize:13,color:G.primary,fontWeight:700}}><i className="ph-spinner"/> Lendo o PDF...</div>}
+
+    {(fase==="conferir"||fase==="enviando")&&<div>
+      <div style={{fontSize:12,color:G.muted,marginBottom:10}}>{arqNome+" — "+itens.length+(itens.length===1?" recibo encontrado":" recibos encontrados")+". Confira antes de arquivar:"}</div>
+      {itens.map(function(it){
+        var dup=dupDe(it);
+        var mesTxt=it.comp?(MES_NOME[Number(it.comp.slice(5,7))-1]+" de "+it.comp.slice(0,4)):"";
+        return <div key={it.k} style={{borderRadius:12,padding:"11px 12px",marginBottom:9,background:it.ok?"var(--green-soft)":"var(--surface-2)",opacity:it._feito?.55:1}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:10}}>
+            <input type="checkbox" checked={!!it.ok} disabled={fase==="enviando"||it._feito} onChange={function(ev){mudar(it.k,"ok",ev.target.checked);}} style={{marginTop:3,width:18,height:18,flexShrink:0}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:11,color:G.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:".3px"}}>{"No PDF: "+(it.nome||"(nome não identificado)")}</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:7,alignItems:"center"}}>
+                <select value={it.uid} disabled={fase==="enviando"||it._feito} onChange={function(ev){mudar(it.k,"uid",ev.target.value);}} style={{flex:"1 1 150px",padding:"8px 11px",fontSize:13.5}}>
+                  <option value="">— escolha a pessoa —</option>
+                  {equipe.map(function(u){return <option key={u.id} value={String(u.id)}>{(u.name||u.login||"").trim()}</option>;})}
+                </select>
+                <input type="month" value={it.comp} disabled={fase==="enviando"||it._feito} onChange={function(ev){mudar(it.k,"comp",ev.target.value);}} style={{flex:"0 1 150px",padding:"8px 11px",fontSize:13.5}}/>
+              </div>
+              <div style={{fontSize:12,color:G.text,marginTop:7}}>
+                <b>{moeda(it.liquido)}</b>{" líquido"}{it.tipo?(" · "+it.tipo):""}{" · "+it.paginas.length+(it.paginas.length===1?" página":" páginas")}{mesTxt?(" · "+mesTxt):""}
+              </div>
+              {it._feito&&<div style={{fontSize:11.5,color:G.green,fontWeight:700,marginTop:4}}>✅ já arquivado</div>}
+              {!it._feito&&dup&&<div style={{fontSize:11.5,color:G.gold,fontWeight:700,marginTop:4}}>{"⚠️ Já existe holerite de "+nomeDe(it.uid)+" nessa competência — desmarcado para não duplicar."}</div>}
+              {!it._feito&&!it.uid&&<div style={{fontSize:11.5,color:G.red,fontWeight:700,marginTop:4}}>Não reconheci a pessoa — escolha na lista (nos próximos meses ela já vem certa).</div>}
+            </div>
+          </div>
+        </div>;
+      })}
+      {prog&&<div style={{fontSize:13,color:G.primary,fontWeight:700,margin:"6px 0 10px"}}><i className="ph-spinner"/>{" "+prog}</div>}
+      {fase==="conferir"&&<div style={{display:"flex",gap:9,justifyContent:"flex-end",flexWrap:"wrap",marginTop:6}}>
+        <button onClick={function(){setItens([]);setFase("escolher");setErro("");}} style={Object.assign({},btnS,{marginRight:"auto"})}>Outro PDF</button>
+        <button onClick={function(){onFim(itens.some(function(x){return x._feito;})?-1:0);}} style={btnS}>Fechar</button>
+        <button disabled={!marcados} onClick={arquivar} style={Object.assign({},btnP,{opacity:marcados?1:.5,cursor:marcados?"pointer":"default"})}>{"Arquivar "+marcados+(marcados===1?" holerite":" holerites")}</button>
+      </div>}
+    </div>}
+
+    {erro&&<div style={{background:"var(--red-soft)",color:G.red,borderRadius:11,padding:"10px 14px",fontSize:13,fontWeight:700,marginTop:10}}>{erro}</div>}
+  </div>;
+}
+
+// ══════════════════════════════════════════════════════════════════
 // V300 ── HOLERITES (nivel 3, arquivo digital) ─────────────────────
 // Substitui a pasta de papel. O que se guarda aqui e a copia ja
 // assinada pela funcionaria -- por isso vale como comprovante de
@@ -14178,6 +14448,7 @@ function Holerites({hol,setHol,users,user}){
   const [ano,setAno]=useState(String(new Date().getFullYear()));
   const [edit,setEdit]=useState(null);
   const [msg,setMsg]=useState(null);
+  const [importando,setImportando]=useState(false);// V396
 
   var equipe=(users||[]).filter(function(u){return u&&u.active!==false;});
   function nomeDe(uid){for(var i=0;i<(users||[]).length;i++)if(String(users[i].id)===String(uid))return users[i].name||users[i].login||"—";return "—";}
@@ -14250,7 +14521,15 @@ function Holerites({hol,setHol,users,user}){
 
     {msg&&<div style={{background:msg.ok?"var(--green-soft)":"var(--red-soft)",color:msg.ok?G.green:G.red,borderRadius:11,padding:"10px 14px",fontSize:13,fontWeight:700,marginBottom:12}}>{msg.txt}</div>}
 
-    {!edit&&<button onClick={novo} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.primary,color:"#ead9b6",marginBottom:14,boxShadow:"4px 4px 11px rgba(34,70,52,.40)"}}>{"+ Arquivar holerite"}</button>}
+    {!edit&&!importando&&<div style={{display:"flex",gap:9,flexWrap:"wrap",marginBottom:14}}>
+      <button onClick={function(){setImportando(true);setMsg(null);}} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:G.primary,color:"#ead9b6",boxShadow:"4px 4px 11px rgba(34,70,52,.40)",display:"inline-flex",alignItems:"center",gap:7}}><i className="ph-fill ph-file-pdf"/>Importar PDF da contabilidade</button>
+      <button onClick={novo} style={{border:"none",borderRadius:10,padding:"10px 18px",fontWeight:700,fontSize:14,cursor:"pointer",background:"var(--surface)",color:G.primary,boxShadow:"3px 3px 7px var(--nm-dark),-3px -3px 7px var(--nm-light)"}}>{"+ Arquivar um avulso"}</button>
+    </div>}
+    {importando&&<HolImportar_V396 hol={hol} setHol={setHol} users={users} user={user} onFim={function(n){
+      setImportando(false);
+      if(n>0)setMsg({ok:true,txt:"✅ "+n+(n===1?" holerite separado e arquivado.":" holerites separados e arquivados.")});
+      else if(n<0)setMsg({ok:true,txt:"Parte dos holerites foi arquivada. Confira a lista abaixo."});
+    }}/>}
 
     {edit&&<div style={cardSt}>
       <div style={{fontFamily:"'Cormorant Garamond'",fontSize:21,color:G.primary,marginBottom:14}}>{edit._novo?"Arquivar holerite":"Editar holerite"}</div>
@@ -14337,7 +14616,7 @@ function Holerites({hol,setHol,users,user}){
       })}
 
     <div style={{background:"var(--amber-soft)",borderRadius:12,padding:"12px 14px",fontSize:12.5,color:"#6b5410",lineHeight:1.55,marginTop:4}}>
-      <b>Arquive a via já assinada.</b> É ela que vale como comprovante — foto ou PDF do papel que a funcionária assinou. O arquivo fica em cofre privado: só abre para você, por link temporário. A equipe não enxerga esta tela.
+      <b>Todo mês:</b> toque em "Importar PDF da contabilidade" e mande o arquivo que eles enviam, com todo mundo junto — o sistema separa por pessoa. Se tiver a via assinada em papel, dá para arquivar como avulso (foto ou PDF). O arquivo fica em cofre privado: só abre para você, por link temporário. A equipe não enxerga esta tela.
     </div>
   </div>;
 }
